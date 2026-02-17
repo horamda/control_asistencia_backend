@@ -13,4 +13,4 @@ qrcode[pil]==7.4.2
 pytest==8.3.4
 SQLAlchemy==2.0.36
 Werkzeug==3.1.5
-
+gunicorn==21.1.0
