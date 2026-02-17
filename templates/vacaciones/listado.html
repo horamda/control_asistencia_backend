@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Vacaciones{% endblock %}
+{% block content %}
+<h2>Vacaciones</h2>
+
+    <a href="/vacaciones/nuevo">Nueva vacación</a>
+
+    <table>
+      <tr>
+        <th>Empleado</th>
+        <th>Desde</th>
+        <th>Hasta</th>
+        <th>Observaciones</th>
+        <th>Acciones</th>
+      </tr>
+
+      {% for v in vacaciones %}
+      <tr>
+        <td>{{ v.apellido }} {{ v.nombre }}</td>
+        <td>{{ v.fecha_desde }}</td>
+        <td>{{ v.fecha_hasta }}</td>
+        <td>{{ v.observaciones or "-" }}</td>
+        <td>
+          <a href="/vacaciones/editar/{{ v.id }}">Editar</a>
+          |
+          <form method="post" action="/vacaciones/eliminar/{{ v.id }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <br>
+    <a href="/dashboard">Volver</a>
+{% endblock %}

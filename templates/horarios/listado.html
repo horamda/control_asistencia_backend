@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Horarios{% endblock %}
+{% block content %}
+<h2>Horarios (modulo funcional)</h2>
+
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <a href="/horarios/nuevo">Nuevo horario estructurado</a>
+
+    <table>
+      <tr>
+        <th>Empresa</th>
+        <th>Nombre</th>
+        <th>Tolerancia</th>
+        <th>Dias</th>
+        <th>Bloques</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+
+      {% for h in horarios %}
+      <tr>
+        <td>{{ h.empresa_nombre }}</td>
+        <td>{{ h.nombre }}</td>
+        <td>{{ h.tolerancia_min }}</td>
+        <td>{{ h.dias_count }}</td>
+        <td>{{ h.bloques_count }}</td>
+        <td>{{ "Activo" if h.activo else "Inactivo" }}</td>
+        <td>
+          {% if h.activo %}
+            <a href="/horarios/desactivar/{{ h.id }}">Desactivar</a>
+          {% else %}
+            <a href="/horarios/activar/{{ h.id }}">Activar</a>
+          {% endif %}
+          |
+          <a href="/horarios/editar/{{ h.id }}">Editar</a>
+          |
+          <form method="post" action="/horarios/eliminar/{{ h.id }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <br>
+    <a href="/dashboard">Volver</a>
+{% endblock %}

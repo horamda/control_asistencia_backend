@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Localidades{% endblock %}
+{% block content %}
+<h2>Localidades</h2>
+
+    <a href="/localidades/nuevo">Nueva localidad</a>
+
+    <table>
+      <tr>
+        <th>CP</th>
+        <th>Localidad</th>
+        <th>Provincia</th>
+        <th>País</th>
+        <th>Acciones</th>
+      </tr>
+
+      {% for l in localidades %}
+      <tr>
+        <td>{{ l.codigo_postal }}</td>
+        <td>{{ l.localidad }}</td>
+        <td>{{ l.provincia }}</td>
+        <td>{{ l.pais }}</td>
+        <td>
+          <a href="/localidades/editar/{{ l.codigo_postal }}">Editar</a>
+          |
+          <form method="post" action="/localidades/eliminar/{{ l.codigo_postal }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <br>
+    <a href="/dashboard">Volver</a>
+{% endblock %}

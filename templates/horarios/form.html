@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar horario{% else %}Nuevo horario{% endif %}{% endblock %}
+{% block content %}
+<h2>{% if mode == "edit" %}Editar horario{% else %}Nuevo horario{% endif %}</h2>
+
+    {% if errors %}
+      <div class="errors">
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post" id="horario-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" id="dias_payload" name="dias_payload" value="{{ data.dias_payload or '[]' }}">
+
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id" required>
+          <option value="">Seleccione</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if data.empresa_id|string == e.id|string %}selected{% endif %}>
+              {{ e.razon_social }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Nombre</label>
+        <input name="nombre" value="{{ data.nombre or '' }}" required>
+      </div>
+
+      <div class="row">
+        <label>Tolerancia (min)</label>
+        <input name="tolerancia_min" value="{{ data.tolerancia_min if data.tolerancia_min is not none else 5 }}">
+      </div>
+
+      <div class="row">
+        <label>Descripcion</label>
+        <input name="descripcion" value="{{ data.descripcion or '' }}">
+      </div>
+
+      <div class="row">
+        <label>
+          <input type="checkbox" name="activo" value="1" {% if data.activo is not defined or data.activo %}checked{% endif %}>
+          Activo
+        </label>
+      </div>
+
+      <h3>Dias y bloques</h3>
+      <p>Cargue bloques por dia. El backend valida superposiciones.</p>
+      <div id="days-container"></div>
+
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('horarios.listado') }}">Volver</a>
+      </div>
+    </form>
+
+    <script id="dias-seed" type="application/json">{{ data.dias_payload or "[]" }}</script>
+    <script>
+      const dayNames = {
+        1: "Lunes",
+        2: "Martes",
+        3: "Miercoles",
+        4: "Jueves",
+        5: "Viernes",
+        6: "Sabado",
+        7: "Domingo",
+      };
+
+      function createBlockRow(day, entrada = "", salida = "") {
+        const row = document.createElement("div");
+        row.className = "block-row";
+        row.innerHTML = `
+          <input type="time" class="entrada" value="${entrada}">
+          <input type="time" class="salida" value="${salida}">
+          <button type="button" class="remove">Quitar</button>
+        `;
+        row.querySelector(".remove").addEventListener("click", () => row.remove());
+        return row;
+      }
+
+      function buildDay(day, blocks) {
+        const box = document.createElement("div");
+        box.className = "day-box";
+        box.dataset.day = String(day);
+        box.innerHTML = `
+          <strong>${day} - ${dayNames[day]}</strong>
+          <div class="blocks"></div>
+          <button type="button" class="add-block">Agregar bloque</button>
+        `;
+
+        const blocksContainer = box.querySelector(".blocks");
+        const addBtn = box.querySelector(".add-block");
+        addBtn.addEventListener("click", () => {
+          blocksContainer.appendChild(createBlockRow(day));
+        });
+
+        (blocks || []).forEach((b) => {
+          blocksContainer.appendChild(createBlockRow(day, b.entrada || "", b.salida || ""));
+        });
+
+        return box;
+      }
+
+      function collectDiasPayload() {
+        const result = [];
+        document.querySelectorAll(".day-box").forEach((dayBox) => {
+          const dia = Number(dayBox.dataset.day);
+          const bloques = [];
+          dayBox.querySelectorAll(".block-row").forEach((row) => {
+            const entrada = row.querySelector(".entrada").value;
+            const salida = row.querySelector(".salida").value;
+            if (entrada && salida) {
+              bloques.push({ entrada, salida });
+            }
+          });
+          if (bloques.length) {
+            result.push({ dia_semana: dia, bloques });
+          }
+        });
+        return result;
+      }
+
+      function initDays(initialDias) {
+        const byDay = {};
+        (initialDias || []).forEach((d) => {
+          byDay[d.dia_semana] = d.bloques || [];
+        });
+        const container = document.getElementById("days-container");
+        for (let day = 1; day <= 7; day += 1) {
+          container.appendChild(buildDay(day, byDay[day] || []));
+        }
+      }
+
+      let seed = [];
+      try {
+        seed = JSON.parse(document.getElementById("dias-seed").textContent || "[]");
+      } catch (_) {
+        seed = [];
+      }
+      initDays(seed);
+
+      document.getElementById("horario-form").addEventListener("submit", (ev) => {
+        const diasPayload = collectDiasPayload();
+        if (!diasPayload.length) {
+          ev.preventDefault();
+          alert("Debe cargar al menos un dia con bloques.");
+          return;
+        }
+        document.getElementById("dias_payload").value = JSON.stringify(diasPayload);
+      });
+    </script>
+{% endblock %}

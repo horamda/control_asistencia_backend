@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar asistencia{% else %}Nueva asistencia{% endif %}{% endblock %}
+{% block content %}
+<h2>{% if mode == "edit" %}Editar asistencia{% else %}Nueva asistencia{% endif %}</h2>
+<p class="module-intro">
+  Complete la marcacion y datos opcionales. El estado se calcula automaticamente.
+</p>
+
+{% if errors %}
+  <div class="errors">
+    <ul>
+      {% for e in errors %}
+        <li>{{ e }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <h3 class="section-title">Datos principales</h3>
+  <div class="form-grid">
+    <div class="row span-2">
+      <label>Empleado</label>
+      <select name="empleado_id" required>
+        <option value="">Seleccione</option>
+        {% for e in empleados %}
+          <option value="{{ e.id }}" {% if data.empleado_id == e.id %}selected{% endif %}>
+            {{ e.apellido }} {{ e.nombre }} ({{ e.dni }})
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="row">
+      <label>Fecha</label>
+      <input name="fecha" type="date" value="{{ data.fecha or '' }}" required>
+    </div>
+    <div class="row">
+      <label>Hora de entrada</label>
+      <input name="hora_entrada" type="time" value="{{ data.hora_entrada or '' }}">
+    </div>
+    <div class="row">
+      <label>Hora de salida</label>
+      <input name="hora_salida" type="time" value="{{ data.hora_salida or '' }}">
+    </div>
+    <div class="row">
+      <label>Metodo de entrada</label>
+      <select name="metodo_entrada">
+        <option value="">Seleccione</option>
+        {% for m in ["qr", "manual", "facial"] %}
+          <option value="{{ m }}" {% if data.metodo_entrada == m %}selected{% endif %}>{{ m|upper }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="row">
+      <label>Metodo de salida</label>
+      <select name="metodo_salida">
+        <option value="">Seleccione</option>
+        {% for m in ["qr", "manual", "facial"] %}
+          <option value="{{ m }}" {% if data.metodo_salida == m %}selected{% endif %}>{{ m|upper }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="muted-box">
+    El estado final (ok, tarde, ausente, salida_anticipada) se define en backend
+    segun horario esperado, tolerancia y excepciones vigentes.
+  </div>
+
+  <h3 class="section-title">Trazabilidad (opcional)</h3>
+  <div class="form-grid">
+    <div class="row">
+      <label>Latitud entrada</label>
+      <input name="lat_entrada" value="{{ data.lat_entrada or '' }}">
+    </div>
+    <div class="row">
+      <label>Longitud entrada</label>
+      <input name="lon_entrada" value="{{ data.lon_entrada or '' }}">
+    </div>
+    <div class="row">
+      <label>Latitud salida</label>
+      <input name="lat_salida" value="{{ data.lat_salida or '' }}">
+    </div>
+    <div class="row">
+      <label>Longitud salida</label>
+      <input name="lon_salida" value="{{ data.lon_salida or '' }}">
+    </div>
+    <div class="row span-2">
+      <label>Foto entrada (URL)</label>
+      <input name="foto_entrada" value="{{ data.foto_entrada or '' }}">
+    </div>
+    <div class="row span-2">
+      <label>Foto salida (URL)</label>
+      <input name="foto_salida" value="{{ data.foto_salida or '' }}">
+    </div>
+    <div class="row span-3">
+      <label>Observaciones</label>
+      <textarea name="observaciones">{{ data.observaciones or '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="submit">{% if mode == "edit" %}Guardar cambios{% else %}Guardar asistencia{% endif %}</button>
+    <a href="{{ url_for('asistencias.listado') }}">Volver al listado</a>
+  </div>
+</form>
+{% endblock %}

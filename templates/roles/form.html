@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar rol{% else %}Nuevo rol{% endif %}{% endblock %}
+{% block content %}
+<h2>{% if mode == "edit" %}Editar rol{% else %}Nuevo rol{% endif %}</h2>
+
+    {% if errors %}
+      <div class="errors">
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row">
+        <label>Nombre</label>
+        <input name="nombre" value="{{ data.nombre or '' }}" required>
+      </div>
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('roles.listado') }}">Volver</a>
+      </div>
+    </form>
+{% endblock %}

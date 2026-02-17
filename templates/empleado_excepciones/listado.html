@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Excepciones de empleados{% endblock %}
+{% block content %}
+<h2>Excepciones de empleados</h2>
+
+    <form method="get" style="margin-bottom: 12px;">
+      <label>Empleado</label>
+      <select name="empleado_id">
+        <option value="">Todos</option>
+        {% for emp in empleados %}
+          <option value="{{ emp.id }}" {% if empleado_id == emp.id %}selected{% endif %}>
+            {{ emp.apellido }} {{ emp.nombre }}
+          </option>
+        {% endfor %}
+      </select>
+      <label>Tipo</label>
+      <select name="tipo">
+        <option value="">Todos</option>
+        {% for t in tipos %}
+          <option value="{{ t }}" {% if tipo == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+      <label>Anula horario</label>
+      <select name="anula_horario">
+        <option value="" {% if anula_horario == "" %}selected{% endif %}>Todos</option>
+        <option value="1" {% if anula_horario == "1" %}selected{% endif %}>Si</option>
+        <option value="0" {% if anula_horario == "0" %}selected{% endif %}>No</option>
+      </select>
+      <label>Desde</label>
+      <input name="fecha_desde" type="date" value="{{ fecha_desde }}">
+      <label>Hasta</label>
+      <input name="fecha_hasta" type="date" value="{{ fecha_hasta }}">
+      <label>Orden</label>
+      <select name="orden">
+        <option value="fecha_desc" {% if orden == "fecha_desc" %}selected{% endif %}>Fecha (desc)</option>
+        <option value="fecha_asc" {% if orden == "fecha_asc" %}selected{% endif %}>Fecha (asc)</option>
+        <option value="empleado_asc" {% if orden == "empleado_asc" %}selected{% endif %}>Empleado (A-Z)</option>
+        <option value="empleado_desc" {% if orden == "empleado_desc" %}selected{% endif %}>Empleado (Z-A)</option>
+      </select>
+      <button type="submit">Filtrar</button>
+      <a href="/empleado-excepciones/">Limpiar</a>
+    </form>
+
+    <a href="/empleado-excepciones/nuevo">Nueva excepcion</a>
+
+    <table>
+      <tr>
+        <th>Empleado</th>
+        <th>Fecha</th>
+        <th>Tipo</th>
+        <th>Anula</th>
+        <th>Descripcion</th>
+        <th>Acciones</th>
+      </tr>
+
+      {% for e in excepciones %}
+      <tr>
+        <td>{{ e.apellido }} {{ e.nombre }}</td>
+        <td>{{ e.fecha }}</td>
+        <td>{{ e.tipo }}</td>
+        <td>{{ "Si" if e.anula_horario else "No" }}</td>
+        <td>{{ e.descripcion or "-" }}</td>
+        <td>
+          <a href="/empleado-excepciones/editar/{{ e.id }}">Editar</a>
+          |
+          <form method="post" action="/empleado-excepciones/eliminar/{{ e.id }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <br>
+    <a href="/dashboard">Volver</a>
+{% endblock %}

@@ -1,0 +1,737 @@
+openapi: 3.0.3
+info:
+  title: Control Asistencia - Mobile API
+  version: 1.1.0
+  description: API v1 para app Flutter de empleados.
+servers:
+  - url: http://localhost:5000
+    description: Local
+tags:
+  - name: Auth
+  - name: Perfil
+  - name: Asistencias
+paths:
+  /api/v1/mobile/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login de empleado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dni, password]
+              properties:
+                dni:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Login correcto
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  empleado:
+                    $ref: "#/components/schemas/EmpleadoResumen"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/mobile/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renovar JWT
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Token renovado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/mobile/me:
+    get:
+      tags: [Perfil]
+      summary: Perfil del empleado autenticado
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Perfil
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmpleadoPerfil"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/mobile/me/config-asistencia:
+    get:
+      tags: [Asistencias]
+      summary: Configuracion de fichado de la empresa
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Configuracion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  empresa_id:
+                    type: integer
+                  requiere_qr:
+                    type: boolean
+                  requiere_foto:
+                    type: boolean
+                  requiere_geo:
+                    type: boolean
+                  tolerancia_global:
+                    type: integer
+                    nullable: true
+                  metodos_habilitados:
+                    type: array
+                    items:
+                      type: string
+                      enum: [qr, manual, facial]
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/mobile/me/qr:
+    post:
+      tags: [Asistencias]
+      summary: Generar QR firmado de puerta
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QrGenerarRequest"
+      responses:
+        "200":
+          description: QR generado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QrGenerarResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/mobile/me/fichadas/scan:
+    post:
+      tags: [Asistencias]
+      summary: Escanear QR de puerta y registrar ingreso o egreso automatico
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FichadaScanQrRequest"
+      responses:
+        "200":
+          description: Egreso registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FichadaScanQrResponse"
+        "201":
+          description: Ingreso registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FichadaScanQrResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Fuera de geocerca permitida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FichadaScanQrForbiddenResponse"
+        "404":
+          description: No hay entrada para registrar salida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Jornada cerrada o conflicto de marcacion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/mobile/me/horario-esperado:
+    get:
+      tags: [Asistencias]
+      summary: Horario esperado para fecha
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: fecha
+          schema:
+            type: string
+            format: date
+          required: false
+          description: YYYY-MM-DD. Si no se informa, usa la fecha actual.
+      responses:
+        "200":
+          description: Horario esperado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HorarioEsperado"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Sin horario esperado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/mobile/me/asistencias:
+    get:
+      tags: [Asistencias]
+      summary: Listado paginado de asistencias del empleado
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: desde
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: hasta
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          required: false
+        - in: query
+          name: per
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          required: false
+      responses:
+        "200":
+          description: Pagina de asistencias
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AsistenciaItem"
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/mobile/me/fichadas/entrada:
+    post:
+      tags: [Asistencias]
+      summary: Registrar fichada de entrada
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FichadaEntradaRequest"
+      responses:
+        "201":
+          description: Entrada registrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FichadaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/mobile/me/fichadas/salida:
+    post:
+      tags: [Asistencias]
+      summary: Registrar fichada de salida
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FichadaSalidaRequest"
+      responses:
+        "200":
+          description: Salida registrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FichadaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No hay entrada del dia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Salida ya registrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/mobile/me/perfil:
+    put:
+      tags: [Perfil]
+      summary: Actualizar datos editables de perfil
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                telefono:
+                  type: string
+                direccion:
+                  type: string
+                foto:
+                  type: string
+      responses:
+        "200":
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  telefono:
+                    type: string
+                    nullable: true
+                  direccion:
+                    type: string
+                    nullable: true
+                  foto:
+                    type: string
+                    nullable: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/mobile/me/password:
+    put:
+      tags: [Perfil]
+      summary: Cambio de password de empleado
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password_actual, password_nueva]
+              properties:
+                password_actual:
+                  type: string
+                password_nueva:
+                  type: string
+                  minLength: 8
+      responses:
+        "200":
+          description: Password actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Error de validacion
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Token invalido o credenciales incorrectas
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+    EmpleadoResumen:
+      type: object
+      properties:
+        id:
+          type: integer
+        dni:
+          type: string
+        nombre:
+          type: string
+        apellido:
+          type: string
+          nullable: true
+        empresa_id:
+          type: integer
+          nullable: true
+    EmpleadoPerfil:
+      type: object
+      properties:
+        id:
+          type: integer
+        empresa_id:
+          type: integer
+          nullable: true
+        sucursal_id:
+          type: integer
+          nullable: true
+        sector_id:
+          type: integer
+          nullable: true
+        puesto_id:
+          type: integer
+          nullable: true
+        dni:
+          type: string
+        legajo:
+          type: string
+          nullable: true
+        nombre:
+          type: string
+        apellido:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        telefono:
+          type: string
+          nullable: true
+        direccion:
+          type: string
+          nullable: true
+        foto:
+          type: string
+          nullable: true
+        estado:
+          type: string
+          nullable: true
+    HorarioBloque:
+      type: object
+      properties:
+        entrada:
+          type: string
+          example: "08:00"
+        salida:
+          type: string
+          example: "16:00"
+    HorarioEsperado:
+      type: object
+      properties:
+        tiene_excepcion:
+          type: boolean
+        bloques:
+          type: array
+          items:
+            $ref: "#/components/schemas/HorarioBloque"
+        tolerancia:
+          type: integer
+          nullable: true
+    AsistenciaItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        fecha:
+          type: string
+          format: date
+        hora_entrada:
+          type: string
+          nullable: true
+        hora_salida:
+          type: string
+          nullable: true
+        metodo_entrada:
+          type: string
+          nullable: true
+        metodo_salida:
+          type: string
+          nullable: true
+        estado:
+          type: string
+          nullable: true
+        observaciones:
+          type: string
+          nullable: true
+        gps_ok_entrada:
+          type: boolean
+          nullable: true
+        gps_ok_salida:
+          type: boolean
+          nullable: true
+        gps_distancia_entrada_m:
+          type: number
+          format: float
+          nullable: true
+        gps_distancia_salida_m:
+          type: number
+          format: float
+          nullable: true
+        gps_tolerancia_entrada_m:
+          type: number
+          format: float
+          nullable: true
+        gps_tolerancia_salida_m:
+          type: number
+          format: float
+          nullable: true
+    FichadaEntradaRequest:
+      type: object
+      required: [metodo]
+      properties:
+        fecha:
+          type: string
+          format: date
+          description: Por defecto fecha actual del servidor.
+        metodo:
+          type: string
+          enum: [qr, manual, facial]
+        hora_entrada:
+          type: string
+          example: "08:02"
+          description: Por defecto hora actual del servidor.
+        foto:
+          type: string
+          nullable: true
+        qr_token:
+          type: string
+          nullable: true
+          description: Requerido cuando metodo es qr.
+        observaciones:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          format: float
+          nullable: true
+        lon:
+          type: number
+          format: float
+          nullable: true
+    FichadaSalidaRequest:
+      type: object
+      required: [metodo]
+      properties:
+        fecha:
+          type: string
+          format: date
+        metodo:
+          type: string
+          enum: [qr, manual, facial]
+        hora_salida:
+          type: string
+          example: "17:01"
+        hora_entrada:
+          type: string
+          nullable: true
+          description: Solo para mejorar calculo si no existe en contexto.
+        foto:
+          type: string
+          nullable: true
+        qr_token:
+          type: string
+          nullable: true
+          description: Requerido cuando metodo es qr.
+        observaciones:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          format: float
+          nullable: true
+        lon:
+          type: number
+          format: float
+          nullable: true
+    FichadaResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        estado:
+          type: string
+    QrGenerarRequest:
+      type: object
+      properties:
+        accion:
+          type: string
+          enum: [ingreso, egreso, auto]
+          default: auto
+          description: Si no se envia, se usa auto.
+        scope:
+          type: string
+          enum: [empresa, empleado]
+          default: empresa
+          description: empresa para QR general o empleado para QR personal. Si no se envia, usa empresa.
+        vigencia_segundos:
+          type: integer
+          minimum: 30
+          maximum: 315360000
+          default: 120
+    QrGenerarResponse:
+      type: object
+      properties:
+        accion:
+          type: string
+          enum: [ingreso, egreso, auto]
+        scope:
+          type: string
+          enum: [empresa, empleado]
+        empresa_id:
+          type: integer
+        empleado_id:
+          type: integer
+          nullable: true
+        vigencia_segundos:
+          type: integer
+        expira_at:
+          type: string
+          example: "2026-02-16T15:02:00Z"
+        qr_token:
+          type: string
+        qr_png_base64:
+          type: string
+    FichadaScanQrRequest:
+      type: object
+      required: [qr_token, lat, lon]
+      properties:
+        qr_token:
+          type: string
+          description: Token QR escaneado en puerta.
+        fecha:
+          type: string
+          format: date
+          description: Por defecto fecha actual del servidor.
+        hora:
+          type: string
+          example: "08:01"
+          description: Por defecto hora actual del servidor.
+        foto:
+          type: string
+          nullable: true
+        observaciones:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          format: float
+          description: Requerido para validacion de geocerca.
+        lon:
+          type: number
+          format: float
+          description: Requerido para validacion de geocerca.
+    FichadaScanQrResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        accion:
+          type: string
+          enum: [ingreso, egreso]
+        estado:
+          type: string
+        gps_ok:
+          type: boolean
+        distancia_m:
+          type: number
+          format: float
+        tolerancia_m:
+          type: number
+          format: float
+    FichadaScanQrForbiddenResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        gps_ok:
+          type: boolean
+        distancia_m:
+          type: number
+          format: float
+        tolerancia_m:
+          type: number
+          format: float

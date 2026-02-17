@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Empleados{% endblock %}
+{% block content %}
+<h2>Empleados</h2>
+
+    <a href="/empleados/nuevo">Nuevo empleado</a>
+    <form method="get" action="/empleados/" style="margin-top:12px">
+      <label>Empresa</label>
+      <select name="empresa_id">
+        <option value="">Todas</option>
+        {% for e in empresas %}
+          <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>
+            {{ e.razon_social }}
+          </option>
+        {% endfor %}
+      </select>
+      <label>Buscar</label>
+      <input name="q" value="{{ q or '' }}" placeholder="Apellido o nombre">
+      <button type="submit">Filtrar</button>
+    </form>
+
+    <table>
+      <tr>
+        <th>Empresa</th>
+        <th>Sucursal</th>
+        <th>Sector</th>
+        <th>Puesto</th>
+        <th>Localidad</th>
+        <th>Nombre</th>
+        <th>Email</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+
+      {% for e in empleados %}
+      <tr>
+        <td>{{ e.empresa_nombre or e.empresa_id }}</td>
+        <td>{{ e.sucursal_nombre or e.sucursal_id }}</td>
+        <td>{{ e.sector_nombre or e.sector_id }}</td>
+        <td>{{ e.puesto_nombre or e.puesto_id }}</td>
+        <td>{{ e.localidad_nombre or e.codigo_postal }}</td>
+        <td>{{ e.nombre }}</td>
+        <td>{{ e.email }}</td>
+        <td>
+          {% if e.activo %}
+            Activo
+          {% else %}
+            Inactivo
+          {% endif %}
+        </td>
+        <td>
+          {% if e.activo %}
+            <a href="/empleados/desactivar/{{ e.id }}">Desactivar</a>
+          {% else %}
+            <a href="/empleados/activar/{{ e.id }}">Activar</a>
+          {% endif %}
+          |
+          <a href="/empleados/editar/{{ e.id }}">Editar</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <br>
+    <div>
+      {% if page > 1 %}
+        <a href="/empleados/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&q={{ q or '' }}">Anterior</a>
+      {% endif %}
+      {% if page * per_page < total %}
+        <a href="/empleados/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&q={{ q or '' }}">Siguiente</a>
+      {% endif %}
+      <span> Página {{ page }} </span>
+    </div>
+    <br>
+    <a href="/dashboard">Volver</a>
+{% endblock %}

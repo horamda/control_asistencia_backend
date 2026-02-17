@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar franco{% else %}Nuevo franco{% endif %}{% endblock %}
+{% block content %}
+<h2>{% if mode == "edit" %}Editar franco{% else %}Nuevo franco{% endif %}</h2>
+
+    {% if errors %}
+      <div class="errors">
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id" required>
+          <option value="">Seleccione</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if data.empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Fecha</label>
+        <input name="fecha" type="date" value="{{ data.fecha or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Motivo</label>
+        <input name="motivo" value="{{ data.motivo or '' }}">
+      </div>
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('francos.listado') }}">Volver</a>
+      </div>
+    </form>
+{% endblock %}

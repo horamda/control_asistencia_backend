@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar vacaciones{% else %}Nueva vacación{% endif %}{% endblock %}
+{% block content %}
+<h2>{% if mode == "edit" %}Editar vacaciones{% else %}Nueva vacación{% endif %}</h2>
+
+    {% if errors %}
+      <div class="errors">
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id" required>
+          <option value="">Seleccione</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if data.empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Fecha desde</label>
+        <input name="fecha_desde" type="date" value="{{ data.fecha_desde or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Fecha hasta</label>
+        <input name="fecha_hasta" type="date" value="{{ data.fecha_hasta or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Observaciones</label>
+        <input name="observaciones" value="{{ data.observaciones or '' }}">
+      </div>
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('vacaciones.listado') }}">Volver</a>
+      </div>
+    </form>
+{% endblock %}

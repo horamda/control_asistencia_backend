@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>QR Puerta - {{ empresa.razon_social }}</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 24px;
+        color: #111827;
+      }
+      .sheet {
+        max-width: 600px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 20px;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 24px;
+      }
+      p {
+        margin: 6px 0;
+      }
+      .qr {
+        margin-top: 16px;
+      }
+      img {
+        width: 340px;
+        max-width: 100%;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 12px;
+        background: white;
+      }
+      .hint {
+        margin-top: 14px;
+        font-size: 14px;
+        color: #374151;
+      }
+      @media print {
+        .print-hide { display: none; }
+        body { margin: 0; }
+        .sheet { border: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <h1>Control de Asistencia</h1>
+      <p><strong>Empresa:</strong> {{ empresa.razon_social }}</p>
+      <p><strong>Sucursal:</strong> {{ sucursal.nombre }}</p>
+      <p><strong>Uso:</strong> Escanear para fichar ingreso o egreso</p>
+      <p><strong>Tolerancia GPS:</strong> {{ tolerancia_m }} m</p>
+
+      <div class="qr">
+        <img src="{{ qr_png_base64 }}" alt="QR puerta">
+      </div>
+
+      <p class="hint">
+        Abra la app de empleados, inicie sesion y escanee este codigo QR.
+      </p>
+
+      <button class="print-hide" onclick="window.print()">Imprimir</button>
+    </div>
+  </body>
+</html>

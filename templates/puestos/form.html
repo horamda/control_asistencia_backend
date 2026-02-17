@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar puesto{% else %}Nuevo puesto{% endif %}{% endblock %}
+{% block content %}
+<h2>{% if mode == "edit" %}Editar puesto{% else %}Nuevo puesto{% endif %}</h2>
+
+    {% if errors %}
+      <div class="errors">
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id" required>
+          <option value="">Seleccione</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if data.empresa_id == e.id %}selected{% endif %}>
+              {{ e.razon_social }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Nombre</label>
+        <input name="nombre" value="{{ data.nombre or '' }}" required>
+      </div>
+      <div class="row">
+        <label>
+          <input type="checkbox" name="activo" value="1" {% if data.activo is not defined or data.activo %}checked{% endif %}>
+          Activo
+        </label>
+      </div>
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('puestos.listado') }}">Volver</a>
+      </div>
+    </form>
+{% endblock %}
