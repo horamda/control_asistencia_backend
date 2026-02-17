@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Configuración empresa{% endblock %}
+{% block content %}
+<h2>Configuración: {{ empresa.razon_social }}</h2>
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row">
+        <label>
+          <input type="checkbox" name="requiere_qr" value="1" {% if data.requiere_qr %}checked{% endif %}>
+          Requiere QR
+        </label>
+      </div>
+      <div class="row">
+        <label>
+          <input type="checkbox" name="requiere_foto" value="1" {% if data.requiere_foto %}checked{% endif %}>
+          Requiere foto
+        </label>
+      </div>
+      <div class="row">
+        <label>
+          <input type="checkbox" name="requiere_geo" value="1" {% if data.requiere_geo %}checked{% endif %}>
+          Requiere geo
+        </label>
+      </div>
+      <div class="row">
+        <label>Tolerancia global (min)</label>
+        <input name="tolerancia_global" value="{{ data.tolerancia_global or '' }}">
+      </div>
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('configuracion_empresa.listado') }}">Volver</a>
+      </div>
+    </form>
+{% endblock %}

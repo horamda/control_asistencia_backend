@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Asignar roles{% endblock %}
+{% block content %}
+<h2>Asignar roles</h2>
+
+    <form method="get" action="/empleado-roles/" style="margin-top:12px">
+      <label>Empresa</label>
+      <select name="empresa_id">
+        <option value="">Todas</option>
+        {% for e in empresas %}
+          <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>
+            {{ e.razon_social }}
+          </option>
+        {% endfor %}
+      </select>
+      <label>Buscar</label>
+      <input name="q" value="{{ q or '' }}" placeholder="Apellido o nombre">
+      <button type="submit">Filtrar</button>
+    </form>
+
+    <table>
+      <tr>
+        <th>Empleado</th>
+        <th>Acciones</th>
+      </tr>
+
+      {% for e in empleados %}
+      <tr>
+        <td>{{ e.apellido }} {{ e.nombre }}</td>
+        <td>
+          <a href="/empleado-roles/{{ e.id }}">Editar roles</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <br>
+    <div>
+      {% if page > 1 %}
+        <a href="/empleado-roles/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&q={{ q or '' }}">Anterior</a>
+      {% endif %}
+      {% if page * per_page < total %}
+        <a href="/empleado-roles/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&q={{ q or '' }}">Siguiente</a>
+      {% endif %}
+      <span> Página {{ page }} </span>
+    </div>
+    <br>
+    <a href="/dashboard">Volver</a>
+{% endblock %}

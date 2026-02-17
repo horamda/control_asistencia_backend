@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Asignaciones de horarios{% endblock %}
+{% block content %}
+<h2>Asignaciones de horarios por empleado</h2>
+<p class="module-intro">
+  Seleccione un empleado para gestionar su vigencia de horarios y mantener el historial.
+</p>
+
+{% if empleados %}
+  <table>
+    <thead>
+      <tr>
+        <th>Empleado</th>
+        <th>Empresa</th>
+        <th>Estado</th>
+        <th>Accion</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in empleados %}
+      <tr>
+        <td>{{ e.apellido }} {{ e.nombre }}</td>
+        <td>{{ e.empresa_nombre or "-" }}</td>
+        <td>{{ "Activo" if e.activo else "Inactivo" }}</td>
+        <td>
+          <a class="btn" href="/empleado-horarios/{{ e.id }}">Gestionar asignaciones</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <div class="empty-state">No hay empleados disponibles para asignar horarios.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Auditoría{% endblock %}
+{% block content %}
+<h2>Auditoría</h2>
+
+    <table>
+      <tr>
+        <th>Usuario</th>
+        <th>Acción</th>
+        <th>Tabla</th>
+        <th>Registro</th>
+        <th>Fecha</th>
+      </tr>
+
+      {% for a in registros %}
+      <tr>
+        <td>{{ a.usuario_nombre or a.usuario_id }}</td>
+        <td>{{ a.accion }}</td>
+        <td>{{ a.tabla_afectada }}</td>
+        <td>{{ a.registro_id }}</td>
+        <td>{{ a.fecha }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <br>
+    <div>
+      {% if page > 1 %}
+        <a href="/auditoria/?page={{ page - 1 }}&per={{ per_page }}">Anterior</a>
+      {% endif %}
+      {% if page * per_page < total %}
+        <a href="/auditoria/?page={{ page + 1 }}&per={{ per_page }}">Siguiente</a>
+      {% endif %}
+      <span> Página {{ page }} </span>
+    </div>
+    <br>
+    <a href="/dashboard">Volver</a>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar empresa{% else %}Nueva empresa{% endif %}{% endblock %}
+{% block content %}
+<h2>{% if mode == "edit" %}Editar empresa{% else %}Nueva empresa{% endif %}</h2>
+
+    {% if errors %}
+      <div class="errors">
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row">
+        <label>Razón social</label>
+        <input name="razon_social" value="{{ data.razon_social or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Nombre fantasía</label>
+        <input name="nombre_fantasia" value="{{ data.nombre_fantasia or '' }}">
+      </div>
+      <div class="row">
+        <label>CUIT</label>
+        <input name="cuit" value="{{ data.cuit or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Logo (URL)</label>
+        <input name="logo" value="{{ data.logo or '' }}">
+      </div>
+      <div class="row">
+        <label>Email</label>
+        <input name="email" type="email" value="{{ data.email or '' }}">
+      </div>
+      <div class="row">
+        <label>Teléfono</label>
+        <input name="telefono" value="{{ data.telefono or '' }}">
+      </div>
+      <div class="row">
+        <label>Dirección</label>
+        <input name="direccion" value="{{ data.direccion or '' }}">
+      </div>
+      <div class="row">
+        <label>
+          <input type="checkbox" name="activa" value="1" {% if data.activa is not defined or data.activa %}checked{% endif %}>
+          Activa
+        </label>
+      </div>
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('empresas.listado') }}">Volver</a>
+      </div>
+    </form>
+{% endblock %}

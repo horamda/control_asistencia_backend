@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar localidad{% else %}Nueva localidad{% endif %}{% endblock %}
+{% block content %}
+<h2>{% if mode == "edit" %}Editar localidad{% else %}Nueva localidad{% endif %}</h2>
+
+    {% if errors %}
+      <div class="errors">
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row">
+        <label>Código postal</label>
+        <input name="codigo_postal" value="{{ data.codigo_postal or '' }}" {% if mode == "edit" %}readonly{% endif %} required>
+      </div>
+      <div class="row">
+        <label>Localidad</label>
+        <input name="localidad" value="{{ data.localidad or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Provincia</label>
+        <input name="provincia" value="{{ data.provincia or '' }}" required>
+      </div>
+      <div class="row">
+        <label>País</label>
+        <input name="pais" value="{{ data.pais or '' }}" required>
+      </div>
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('localidades.listado') }}">Volver</a>
+      </div>
+    </form>
+{% endblock %}

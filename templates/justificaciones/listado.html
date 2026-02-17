@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Justificaciones{% endblock %}
+{% block content %}
+<h2>Justificaciones</h2>
+
+    <a href="/justificaciones/nuevo">Nueva justificación</a>
+    <form method="get" action="/justificaciones/" style="margin-top:12px">
+      <label>Empleado</label>
+      <select name="empleado_id">
+        <option value="">Todos</option>
+        {% for e in empleados %}
+          <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
+            {{ e.apellido }} {{ e.nombre }}
+          </option>
+        {% endfor %}
+      </select>
+      <label>Desde</label>
+      <input name="fecha_desde" type="date" value="{{ fecha_desde or '' }}">
+      <label>Hasta</label>
+      <input name="fecha_hasta" type="date" value="{{ fecha_hasta or '' }}">
+      <label>Buscar</label>
+      <input name="q" value="{{ q or '' }}" placeholder="Apellido o nombre">
+      <button type="submit">Filtrar</button>
+    </form>
+
+    <table>
+      <tr>
+        <th>Empresa</th>
+        <th>Empleado</th>
+        <th>Asistencia</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
+
+      {% for j in justificaciones %}
+      <tr>
+        <td>{{ j.empresa_nombre or "-" }}</td>
+        <td>{{ j.apellido }} {{ j.nombre }}</td>
+        <td>{{ j.asistencia_fecha or "-" }}</td>
+        <td>{{ j.estado or "-" }}</td>
+        <td>
+          <a href="/justificaciones/editar/{{ j.id }}">Editar</a>
+          |
+          <form method="post" action="/justificaciones/eliminar/{{ j.id }}" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <br>
+    <div>
+      {% if page > 1 %}
+        <a href="/justificaciones/?page={{ page - 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Anterior</a>
+      {% endif %}
+      {% if page * per_page < total %}
+        <a href="/justificaciones/?page={{ page + 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Siguiente</a>
+      {% endif %}
+      <span> Página {{ page }} </span>
+    </div>
+    <br>
+    <a href="/dashboard">Volver</a>
+{% endblock %}

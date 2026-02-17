@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar empleado{% else %}Nuevo empleado{% endif %}{% endblock %}
+{% block content %}
+<h2>
+      {% if mode == "edit" %}Editar empleado{% else %}Nuevo empleado{% endif %}
+    </h2>
+
+    {% if errors %}
+      <div class="errors">
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id" required>
+          <option value="">Seleccione</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if data.empresa_id == e.id %}selected{% endif %}>
+              {{ e.razon_social }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Sucursal</label>
+        <select name="sucursal_id" required>
+          <option value="">Seleccione</option>
+          {% for s in sucursales %}
+            <option value="{{ s.id }}" {% if data.sucursal_id == s.id %}selected{% endif %}>
+              {{ s.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        <select name="sector_id" required>
+          <option value="">Seleccione</option>
+          {% for s in sectores %}
+            <option value="{{ s.id }}" {% if data.sector_id == s.id %}selected{% endif %}>
+              {{ s.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Puesto</label>
+        <select name="puesto_id" required>
+          <option value="">Seleccione</option>
+          {% for p in puestos %}
+            <option value="{{ p.id }}" {% if data.puesto_id == p.id %}selected{% endif %}>
+              {{ p.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Código postal</label>
+        <select name="codigo_postal" required>
+          <option value="">Seleccione</option>
+          {% for l in localidades %}
+            <option value="{{ l.codigo_postal }}" {% if data.codigo_postal == l.codigo_postal %}selected{% endif %}>
+              {{ l.codigo_postal }} - {{ l.localidad }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Legajo</label>
+        <input name="legajo" value="{{ data.legajo or '' }}">
+      </div>
+      <div class="row">
+        <label>DNI</label>
+        <input name="dni" value="{{ data.dni or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Nombre</label>
+        <input name="nombre" value="{{ data.nombre or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Apellido</label>
+        <input name="apellido" value="{{ data.apellido or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Fecha nacimiento</label>
+        <input name="fecha_nacimiento" type="date" value="{{ data.fecha_nacimiento or '' }}">
+      </div>
+      <div class="row">
+        <label>Sexo</label>
+        <select name="sexo">
+          <option value="">Seleccione</option>
+          {% for s in ["masculino", "femenino", "no_binario", "no_informa"] %}
+            <option value="{{ s }}" {% if data.sexo == s %}selected{% endif %}>{{ s|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Email</label>
+        <input name="email" type="email" value="{{ data.email or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Teléfono</label>
+        <input name="telefono" value="{{ data.telefono or '' }}">
+      </div>
+      <div class="row">
+        <label>Dirección</label>
+        <input name="direccion" value="{{ data.direccion or '' }}">
+      </div>
+      <div class="row">
+        <label>Fecha ingreso</label>
+        <input name="fecha_ingreso" type="date" value="{{ data.fecha_ingreso or '' }}">
+      </div>
+      <div class="row">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="activo" {% if (data.estado or 'activo') == 'activo' %}selected{% endif %}>Activo</option>
+          <option value="inactivo" {% if data.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
+          <option value="suspendido" {% if data.estado == 'suspendido' %}selected{% endif %}>Suspendido</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Foto (URL)</label>
+        <input name="foto" value="{{ data.foto or '' }}">
+      </div>
+      <div class="row">
+        <label>Contraseña {% if mode == "edit" %}(dejar vacía para mantener){% endif %}</label>
+        <input name="password" type="password" {% if password_required %}required{% endif %}>
+      </div>
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('empleados.listado') }}">Volver</a>
+      </div>
+    </form>
+{% endblock %}

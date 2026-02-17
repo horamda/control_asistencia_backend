@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Configuración empresa{% endblock %}
+{% block content %}
+<h2>Configuración por empresa</h2>
+
+    <table>
+      <tr>
+        <th>Empresa</th>
+        <th>QR</th>
+        <th>Foto</th>
+        <th>Geo</th>
+        <th>Tolerancia (min)</th>
+        <th>Acciones</th>
+      </tr>
+
+      {% for c in configs %}
+      <tr>
+        <td>{{ c.razon_social }}</td>
+        <td>{{ "Sí" if c.requiere_qr else "No" }}</td>
+        <td>{{ "Sí" if c.requiere_foto else "No" }}</td>
+        <td>{{ "Sí" if c.requiere_geo else "No" }}</td>
+        <td>{{ c.tolerancia_global }}</td>
+        <td>
+          <a href="/configuracion-empresa/editar/{{ c.empresa_id }}">Editar</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <br>
+    <a href="/dashboard">Volver</a>
+{% endblock %}

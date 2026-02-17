@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar justificación{% else %}Nueva justificación{% endif %}{% endblock %}
+{% block content %}
+<h2>{% if mode == "edit" %}Editar justificación{% else %}Nueva justificación{% endif %}</h2>
+
+    {% if errors %}
+      <div class="errors">
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id" required>
+          <option value="">Seleccione</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if data.empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }} ({{ e.dni }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Asistencia</label>
+        <select name="asistencia_id">
+          <option value="">Seleccione</option>
+          {% for a in asistencias %}
+            <option value="{{ a.id }}" {% if data.asistencia_id == a.id %}selected{% endif %}>
+              {{ a.apellido }} {{ a.nombre }} - {{ a.fecha }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Motivo</label>
+        <textarea name="motivo" required>{{ data.motivo or '' }}</textarea>
+      </div>
+      <div class="row">
+        <label>Archivo (URL)</label>
+        <input name="archivo" value="{{ data.archivo or '' }}">
+      </div>
+      <div class="row">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="">Seleccione</option>
+          {% for s in ["pendiente","aprobada","rechazada"] %}
+            <option value="{{ s }}" {% if data.estado == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('justificaciones.listado') }}">Volver</a>
+      </div>
+    </form>
+{% endblock %}

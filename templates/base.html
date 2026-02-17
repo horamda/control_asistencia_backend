@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Panel de control{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body class="{% if request.path == '/login' %}auth-page{% else %}app-page{% endif %}">
+    {% set rendered_content %}
+      {% block content %}{% endblock %}
+    {% endset %}
+
+    {% if request.path == '/login' %}
+      <main class="auth-layout">
+        {{ rendered_content }}
+      </main>
+    {% else %}
+      <div class="app-shell">
+        <aside class="app-sidebar">
+          <div class="brand">
+            <div class="brand-mark">CA</div>
+            <div>
+              <div class="brand-title">Control Asistencia</div>
+              <div class="brand-sub">Panel empresarial</div>
+            </div>
+          </div>
+
+          <nav class="nav-groups">
+            <div class="nav-group">
+              <div class="nav-label">General</div>
+              <a class="nav-link" href="/dashboard">Dashboard</a>
+            </div>
+
+            <div class="nav-group">
+              <div class="nav-label">Organizacion</div>
+              <a class="nav-link" href="/empresas/">Empresas</a>
+              <a class="nav-link" href="/sucursales/">Sucursales</a>
+              <a class="nav-link" href="/sectores/">Sectores</a>
+              <a class="nav-link" href="/puestos/">Puestos</a>
+              <a class="nav-link" href="/localidades/">Localidades</a>
+            </div>
+
+            <div class="nav-group">
+              <div class="nav-label">Personas</div>
+              <a class="nav-link" href="/empleados/">Empleados</a>
+              <a class="nav-link" href="/roles/">Roles</a>
+              <a class="nav-link" href="/empleado-roles/">Asignar roles</a>
+              <a class="nav-link" href="/usuarios/">Usuarios</a>
+            </div>
+
+            <div class="nav-group">
+              <div class="nav-label">Horarios</div>
+              <a class="nav-link" href="/horarios/">Plantillas</a>
+              <a class="nav-link" href="/empleado-horarios/">Asignaciones</a>
+              <a class="nav-link" href="/empleado-excepciones/">Excepciones</a>
+            </div>
+
+            <div class="nav-group">
+              <div class="nav-label">Asistencia</div>
+              <a class="nav-link" href="/asistencias/">Asistencias</a>
+              <a class="nav-link" href="/qr-puerta/">QR puerta</a>
+              <a class="nav-link" href="/justificaciones/">Justificaciones</a>
+              <a class="nav-link" href="/francos/">Francos</a>
+              <a class="nav-link" href="/vacaciones/">Vacaciones</a>
+            </div>
+
+            <div class="nav-group">
+              <div class="nav-label">Sistema</div>
+              <a class="nav-link" href="/configuracion-empresa/">Configuracion</a>
+              <a class="nav-link" href="/auditoria/">Auditoria</a>
+            </div>
+          </nav>
+
+          <a class="logout-link" href="/logout">Cerrar sesion</a>
+        </aside>
+
+        <div class="app-main">
+          <header class="app-topbar">
+            <div>
+              <div class="kicker">Administracion</div>
+              <h1 id="page-title">Panel de control</h1>
+            </div>
+            <div class="session-info">
+              <span>Usuario: {{ session.admin_user or 'Admin' }}</span>
+            </div>
+          </header>
+
+          <main class="page-content">
+            {{ rendered_content }}
+          </main>
+        </div>
+      </div>
+    {% endif %}
+
+    <script src="{{ url_for('static', filename='js/panel.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+  </body>
+</html>

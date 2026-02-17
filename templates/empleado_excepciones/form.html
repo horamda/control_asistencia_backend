@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar excepcion{% else %}Nueva excepcion{% endif %}{% endblock %}
+{% block content %}
+<h2>{% if mode == "edit" %}Editar excepcion{% else %}Nueva excepcion{% endif %}</h2>
+
+    {% if errors %}
+      <div class="errors">
+        <ul>
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id" required>
+          <option value="">Seleccione</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if data.empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Fecha</label>
+        <input name="fecha" type="date" value="{{ data.fecha or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Tipo</label>
+        <select id="tipo" name="tipo" required>
+          <option value="">Seleccione</option>
+          {% for t in tipos %}
+            <option value="{{ t }}" {% if data.tipo == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+        <div class="note">VACACIONES, FRANCO, FERIADO y LICENCIA anulan horario automaticamente.</div>
+      </div>
+      <div class="row">
+        <label>Descripcion</label>
+        <input name="descripcion" value="{{ data.descripcion or '' }}">
+      </div>
+      <div class="row">
+        <label>
+          <input id="anula_horario" type="checkbox" name="anula_horario" value="1" {% if data.anula_horario %}checked{% endif %}>
+          Anula horario
+        </label>
+      </div>
+      <div class="row" id="bloques-row">
+        <label>Bloques para CAMBIO_HORARIO (JSON)</label>
+        <textarea name="bloques_json">{{ data.bloques_json or "[]" }}</textarea>
+        <div class="note">Ejemplo: [{"entrada":"08:00","salida":"12:00"},{"entrada":"13:00","salida":"17:00"}]</div>
+      </div>
+      <div class="actions">
+        <button type="submit">Guardar</button>
+        <a href="{{ url_for('empleado_excepciones.listado') }}">Volver</a>
+      </div>
+    </form>
+
+    <script>
+      const tipoInput = document.getElementById("tipo");
+      const bloquesRow = document.getElementById("bloques-row");
+      const anulaInput = document.getElementById("anula_horario");
+      const tiposAnula = new Set(["VACACIONES", "FRANCO", "FERIADO", "LICENCIA"]);
+      function refresh() {
+        const show = tipoInput.value === "CAMBIO_HORARIO";
+        bloquesRow.style.display = show ? "block" : "none";
+        if (tiposAnula.has(tipoInput.value)) {
+          anulaInput.checked = true;
+        }
+      }
+      tipoInput.addEventListener("change", refresh);
+      refresh();
+    </script>
+{% endblock %}

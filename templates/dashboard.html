@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h2>Dashboard operativo</h2>
+<p>Vista ejecutiva del estado actual de asistencia, horarios y excepciones.</p>
+
+<section class="grid-kpis">
+  <article class="kpi-card">
+    <div class="kpi-label">Empleados activos</div>
+    <div class="kpi-value">{{ stats.empleados_activos }}</div>
+  </article>
+  <article class="kpi-card">
+    <div class="kpi-label">Asistencias hoy</div>
+    <div class="kpi-value">{{ stats.asistencias_hoy }}</div>
+  </article>
+  <article class="kpi-card">
+    <div class="kpi-label">Tardanzas hoy</div>
+    <div class="kpi-value">{{ stats.tardes_hoy }}</div>
+  </article>
+  <article class="kpi-card">
+    <div class="kpi-label">Excepciones hoy</div>
+    <div class="kpi-value">{{ stats.excepciones_hoy }}</div>
+  </article>
+</section>
+
+<section class="panel-grid">
+  <article class="panel">
+    <h3>Accesos rapidos</h3>
+    <div class="quick-links">
+      <a href="/horarios/">Gestionar plantillas de horarios</a>
+      <a href="/empleado-horarios/">Asignaciones vigentes por empleado</a>
+      <a href="/empleado-excepciones/">Registrar excepciones puntuales</a>
+      <a href="/asistencias/">Control diario de asistencias</a>
+      <a href="/auditoria/">Trazabilidad y auditoria</a>
+      <a href="/configuracion-empresa/">Configuracion de empresa</a>
+    </div>
+  </article>
+
+  <article class="panel">
+    <h3>Estado general</h3>
+    <ul class="list-clean">
+      <li>Horarios activos: <strong>{{ stats.horarios_activos }}</strong></li>
+      <li>Asignaciones vigentes: <strong>{{ stats.asignaciones_vigentes }}</strong></li>
+      <li>Ausentes hoy: <strong>{{ stats.ausentes_hoy }}</strong></li>
+      <li>Usuarios habilitados: <strong>{{ stats.usuarios_activos }}</strong></li>
+    </ul>
+  </article>
+</section>
+
+<section class="panel" style="margin-top: 12px;">
+  <h3>Actividad reciente</h3>
+  {% if recent_events %}
+    <ul class="list-clean">
+      {% for ev in recent_events %}
+        <li>
+          <strong>{{ ev.fecha }}</strong>
+          <div>{{ ev.accion }} en {{ ev.tabla_afectada }} (registro {{ ev.registro_id or "-" }})</div>
+          <small>Usuario: {{ ev.usuario_nombre or "sistema" }}</small>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>Sin actividad reciente.</p>
+  {% endif %}
+</section>
+{% endblock %}
