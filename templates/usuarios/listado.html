@@ -1,68 +1,116 @@
 {% extends "base.html" %}
 {% block title %}Usuarios{% endblock %}
 {% block content %}
-<h2>Usuarios</h2>
-
-    <a href="/usuarios/nuevo">Nuevo usuario</a>
-    <form method="get" action="/usuarios/" style="margin-top:12px">
-      <label>Empresa</label>
-      <select name="empresa_id">
-        <option value="">Todas</option>
-        {% for e in empresas %}
-          <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>
-            {{ e.razon_social }}
-          </option>
-        {% endfor %}
-      </select>
-      <label>Estado</label>
-      <select name="activo">
-        <option value="">Todos</option>
-        <option value="1" {% if activo == 1 %}selected{% endif %}>Activo</option>
-        <option value="0" {% if activo == 0 %}selected{% endif %}>Inactivo</option>
-      </select>
-      <label>Buscar</label>
-      <input name="q" value="{{ q or '' }}" placeholder="Usuario">
-      <button type="submit">Filtrar</button>
-    </form>
-
-    <table>
-      <tr>
-        <th>Usuario</th>
-        <th>Empresa</th>
-        <th>Rol</th>
-        <th>Estado</th>
-        <th>Acciones</th>
-      </tr>
-
-      {% for u in usuarios %}
-      <tr>
-        <td>{{ u.usuario }}</td>
-        <td>{{ u.empresa_nombre or u.empresa_id }}</td>
-        <td>{{ u.rol }}</td>
-        <td>{{ "Activo" if u.activo else "Inactivo" }}</td>
-        <td>
-          {% if u.activo %}
-            <a href="/usuarios/desactivar/{{ u.id }}">Desactivar</a>
-          {% else %}
-            <a href="/usuarios/activar/{{ u.id }}">Activar</a>
-          {% endif %}
-          |
-          <a href="/usuarios/editar/{{ u.id }}">Editar</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </table>
-
-    <br>
+<div class="content-stack">
+  <div class="section-head">
     <div>
-      {% if page > 1 %}
-        <a href="/usuarios/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Anterior</a>
-      {% endif %}
-      {% if page * per_page < total %}
-        <a href="/usuarios/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Siguiente</a>
-      {% endif %}
-      <span> Página {{ page }} </span>
+      <div class="section-kicker">Seguridad y Accesos</div>
+      <h2>Usuarios</h2>
+      <p class="module-intro">
+        Gestione cuentas internas por empresa y perfil de rol para operar el panel administrativo.
+      </p>
     </div>
-    <br>
-    <a href="/dashboard">Volver</a>
+    <div class="chip-row">
+      <span class="chip">Autenticacion</span>
+      <span class="chip">Roles</span>
+      <span class="chip">Estado activo</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn" href="/usuarios/nuevo">Nuevo usuario</a>
+  </div>
+
+  <form method="get" action="/usuarios/">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id">
+          <option value="">Todas</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>
+              {{ e.razon_social }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Estado</label>
+        <select name="activo">
+          <option value="">Todos</option>
+          <option value="1" {% if activo == 1 %}selected{% endif %}>Activo</option>
+          <option value="0" {% if activo == 0 %}selected{% endif %}>Inactivo</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Buscar</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Usuario">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="/usuarios/">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <div class="summary">Resultados en pagina: {{ usuarios|length }}</div>
+    <div class="summary">Total general: {{ total }}</div>
+  </div>
+
+  {% if usuarios %}
+    <div class="table-responsive">
+      <table>
+        <tr>
+          <th>Usuario</th>
+          <th>Empresa</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+
+        {% for u in usuarios %}
+        <tr>
+          <td>{{ u.usuario }}</td>
+          <td>{{ u.empresa_nombre or u.empresa_id }}</td>
+          <td>{{ u.rol }}</td>
+          <td>
+            {% if u.activo %}
+              <span class="badge activo">Activo</span>
+            {% else %}
+              <span class="badge inactivo">Inactivo</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="inline-actions">
+              {% if u.activo %}
+                <a class="btn btn-secondary" href="/usuarios/desactivar/{{ u.id }}">Desactivar</a>
+              {% else %}
+                <a class="btn btn-secondary" href="/usuarios/activar/{{ u.id }}">Activar</a>
+              {% endif %}
+              <a href="/usuarios/editar/{{ u.id }}">Editar</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay usuarios para los filtros seleccionados.</div>
+  {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a class="btn btn-secondary" href="/usuarios/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a class="btn btn-secondary" href="/usuarios/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Siguiente</a>
+    {% endif %}
+    <span class="summary">Pagina {{ page }}</span>
+  </div>
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
 {% endblock %}

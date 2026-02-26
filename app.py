@@ -147,12 +147,8 @@ def create_app():
         elapsed = None
         if hasattr(request, "_start_time"):
             elapsed = round((time.time() - request._start_time) * 1000, 2)
-        admin_id = None
-        user_id = None
-        if "admin_id" in session:
-            admin_id = session.get("admin_id")
-        if "user_id" in session:
-            user_id = session.get("user_id")
+        user_id = session.get("user_id")
+        user_role = session.get("user_role")
         app.logger.info(
             "request",
             extra={
@@ -161,8 +157,8 @@ def create_app():
                     "method": request.method,
                     "status": response.status_code,
                     "ms": elapsed,
-                    "admin_id": admin_id,
-                    "user_id": user_id
+                    "user_id": user_id,
+                    "user_role": user_role,
                 }
             }
         )

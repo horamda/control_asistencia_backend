@@ -1,30 +1,42 @@
 {% extends "base.html" %}
 {% block title %}{% if mode == "edit" %}Editar horario{% else %}Nuevo horario{% endif %}{% endblock %}
 {% block content %}
-<h2>{% if mode == "edit" %}Editar horario{% else %}Nuevo horario{% endif %}</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Horarios</div>
+      <h2>{% if mode == "edit" %}Editar horario{% else %}Nuevo horario{% endif %}</h2>
+      <p class="module-intro">
+        Cargue plantilla semanal completa. El backend valida bloques y solapamientos.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Dias 1-7</span>
+      <span class="chip">Bloques multiples</span>
+    </div>
+  </div>
 
-    {% if errors %}
-      <div class="errors">
-        <ul>
-          {% for e in errors %}
-            <li>{{ e }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
-    <form method="post" id="horario-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="hidden" id="dias_payload" name="dias_payload" value="{{ data.dias_payload or '[]' }}">
+  <form method="post" id="horario-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" id="dias_payload" name="dias_payload" value="{{ data.dias_payload or '[]' }}">
 
-      <div class="row">
+    <div class="form-grid">
+      <div class="row span-2">
         <label>Empresa</label>
         <select name="empresa_id" required>
           <option value="">Seleccione</option>
           {% for e in empresas %}
-            <option value="{{ e.id }}" {% if data.empresa_id|string == e.id|string %}selected{% endif %}>
-              {{ e.razon_social }}
-            </option>
+            <option value="{{ e.id }}" {% if data.empresa_id|string == e.id|string %}selected{% endif %}>{{ e.razon_social }}</option>
           {% endfor %}
         </select>
       </div>
@@ -39,121 +51,123 @@
         <input name="tolerancia_min" value="{{ data.tolerancia_min if data.tolerancia_min is not none else 5 }}">
       </div>
 
-      <div class="row">
+      <div class="row span-2">
         <label>Descripcion</label>
         <input name="descripcion" value="{{ data.descripcion or '' }}">
       </div>
 
-      <div class="row">
-        <label>
+      <div class="row span-3">
+        <label class="check-inline">
           <input type="checkbox" name="activo" value="1" {% if data.activo is not defined or data.activo %}checked{% endif %}>
-          Activo
+          Horario activo
         </label>
       </div>
+    </div>
 
-      <h3>Dias y bloques</h3>
-      <p>Cargue bloques por dia. El backend valida superposiciones.</p>
-      <div id="days-container"></div>
+    <h3 class="section-title">Dias y bloques</h3>
+    <div class="helper-text">Cargue al menos un dia con bloques completos de entrada y salida.</div>
+    <div id="days-container" class="days-grid"></div>
 
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('horarios.listado') }}">Volver</a>
-      </div>
-    </form>
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('horarios.listado') }}">Volver</a>
+    </div>
+  </form>
+</div>
 
-    <script id="dias-seed" type="application/json">{{ data.dias_payload or "[]" }}</script>
-    <script>
-      const dayNames = {
-        1: "Lunes",
-        2: "Martes",
-        3: "Miercoles",
-        4: "Jueves",
-        5: "Viernes",
-        6: "Sabado",
-        7: "Domingo",
-      };
+<script id="dias-seed" type="application/json">{{ data.dias_payload or "[]" }}</script>
+<script>
+  const dayNames = {
+    1: "Lunes",
+    2: "Martes",
+    3: "Miercoles",
+    4: "Jueves",
+    5: "Viernes",
+    6: "Sabado",
+    7: "Domingo",
+  };
 
-      function createBlockRow(day, entrada = "", salida = "") {
-        const row = document.createElement("div");
-        row.className = "block-row";
-        row.innerHTML = `
-          <input type="time" class="entrada" value="${entrada}">
-          <input type="time" class="salida" value="${salida}">
-          <button type="button" class="remove">Quitar</button>
-        `;
-        row.querySelector(".remove").addEventListener("click", () => row.remove());
-        return row;
-      }
+  function createBlockRow(entrada = "", salida = "") {
+    const row = document.createElement("div");
+    row.className = "block-row";
+    row.innerHTML = `
+      <input type="time" class="entrada" value="${entrada}">
+      <input type="time" class="salida" value="${salida}">
+      <button type="button" class="remove">Quitar</button>
+    `;
+    row.querySelector(".remove").addEventListener("click", () => row.remove());
+    return row;
+  }
 
-      function buildDay(day, blocks) {
-        const box = document.createElement("div");
-        box.className = "day-box";
-        box.dataset.day = String(day);
-        box.innerHTML = `
-          <strong>${day} - ${dayNames[day]}</strong>
-          <div class="blocks"></div>
-          <button type="button" class="add-block">Agregar bloque</button>
-        `;
+  function buildDay(day, blocks) {
+    const box = document.createElement("div");
+    box.className = "day-box";
+    box.dataset.day = String(day);
+    box.innerHTML = `
+      <div class="day-title"><strong>${day} - ${dayNames[day]}</strong></div>
+      <div class="blocks"></div>
+      <button type="button" class="add-block">Agregar bloque</button>
+    `;
 
-        const blocksContainer = box.querySelector(".blocks");
-        const addBtn = box.querySelector(".add-block");
-        addBtn.addEventListener("click", () => {
-          blocksContainer.appendChild(createBlockRow(day));
-        });
+    const blocksContainer = box.querySelector(".blocks");
+    const addBtn = box.querySelector(".add-block");
+    addBtn.addEventListener("click", () => {
+      blocksContainer.appendChild(createBlockRow());
+    });
 
-        (blocks || []).forEach((b) => {
-          blocksContainer.appendChild(createBlockRow(day, b.entrada || "", b.salida || ""));
-        });
+    (blocks || []).forEach((b) => {
+      blocksContainer.appendChild(createBlockRow(b.entrada || "", b.salida || ""));
+    });
 
-        return box;
-      }
+    return box;
+  }
 
-      function collectDiasPayload() {
-        const result = [];
-        document.querySelectorAll(".day-box").forEach((dayBox) => {
-          const dia = Number(dayBox.dataset.day);
-          const bloques = [];
-          dayBox.querySelectorAll(".block-row").forEach((row) => {
-            const entrada = row.querySelector(".entrada").value;
-            const salida = row.querySelector(".salida").value;
-            if (entrada && salida) {
-              bloques.push({ entrada, salida });
-            }
-          });
-          if (bloques.length) {
-            result.push({ dia_semana: dia, bloques });
-          }
-        });
-        return result;
-      }
-
-      function initDays(initialDias) {
-        const byDay = {};
-        (initialDias || []).forEach((d) => {
-          byDay[d.dia_semana] = d.bloques || [];
-        });
-        const container = document.getElementById("days-container");
-        for (let day = 1; day <= 7; day += 1) {
-          container.appendChild(buildDay(day, byDay[day] || []));
+  function collectDiasPayload() {
+    const result = [];
+    document.querySelectorAll(".day-box").forEach((dayBox) => {
+      const dia = Number(dayBox.dataset.day);
+      const bloques = [];
+      dayBox.querySelectorAll(".block-row").forEach((row) => {
+        const entrada = row.querySelector(".entrada").value;
+        const salida = row.querySelector(".salida").value;
+        if (entrada && salida) {
+          bloques.push({ entrada, salida });
         }
-      }
-
-      let seed = [];
-      try {
-        seed = JSON.parse(document.getElementById("dias-seed").textContent || "[]");
-      } catch (_) {
-        seed = [];
-      }
-      initDays(seed);
-
-      document.getElementById("horario-form").addEventListener("submit", (ev) => {
-        const diasPayload = collectDiasPayload();
-        if (!diasPayload.length) {
-          ev.preventDefault();
-          alert("Debe cargar al menos un dia con bloques.");
-          return;
-        }
-        document.getElementById("dias_payload").value = JSON.stringify(diasPayload);
       });
-    </script>
+      if (bloques.length) {
+        result.push({ dia_semana: dia, bloques });
+      }
+    });
+    return result;
+  }
+
+  function initDays(initialDias) {
+    const byDay = {};
+    (initialDias || []).forEach((d) => {
+      byDay[d.dia_semana] = d.bloques || [];
+    });
+    const container = document.getElementById("days-container");
+    for (let day = 1; day <= 7; day += 1) {
+      container.appendChild(buildDay(day, byDay[day] || []));
+    }
+  }
+
+  let seed = [];
+  try {
+    seed = JSON.parse(document.getElementById("dias-seed").textContent || "[]");
+  } catch (_) {
+    seed = [];
+  }
+  initDays(seed);
+
+  document.getElementById("horario-form").addEventListener("submit", (ev) => {
+    const diasPayload = collectDiasPayload();
+    if (!diasPayload.length) {
+      ev.preventDefault();
+      alert("Debe cargar al menos un dia con bloques.");
+      return;
+    }
+    document.getElementById("dias_payload").value = JSON.stringify(diasPayload);
+  });
+</script>
 {% endblock %}

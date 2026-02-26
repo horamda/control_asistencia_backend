@@ -21,19 +21,6 @@
     });
   }
 
-  function styleStates() {
-    document.querySelectorAll("td").forEach(function (cell) {
-      var text = (cell.textContent || "").trim().toLowerCase();
-      if (text === "activo" || text === "ok") {
-        cell.innerHTML = '<span class="badge ok">' + cell.textContent.trim() + "</span>";
-      } else if (text === "inactivo" || text === "ausente") {
-        cell.innerHTML = '<span class="badge danger">' + cell.textContent.trim() + "</span>";
-      } else if (text === "tarde" || text === "salida_anticipada" || text === "suspendido") {
-        cell.innerHTML = '<span class="badge warning">' + cell.textContent.trim() + "</span>";
-      }
-    });
-  }
-
   function addDeleteConfirm() {
     document.querySelectorAll("form[action*='/eliminar/']").forEach(function (form) {
       if (form.getAttribute("data-confirm-bound") === "1") return;
@@ -49,7 +36,6 @@
   document.addEventListener("DOMContentLoaded", function () {
     normalizeHeading();
     markActiveNav();
-    styleStates();
     addDeleteConfirm();
   });
 })();

@@ -6,15 +6,17 @@
     <title>QR Puerta - {{ empresa.razon_social }}</title>
     <style>
       body {
-        font-family: Arial, sans-serif;
+        font-family: "Segoe UI", Arial, sans-serif;
         margin: 24px;
         color: #111827;
+        background: #f4f7fb;
       }
       .sheet {
         max-width: 600px;
         border: 1px solid #d1d5db;
         border-radius: 10px;
         padding: 20px;
+        background: #fff;
       }
       h1 {
         margin: 0 0 12px;
@@ -39,6 +41,15 @@
         font-size: 14px;
         color: #374151;
       }
+      .chip {
+        display: inline-block;
+        border: 1px solid #bcd0e8;
+        color: #1f5f8f;
+        background: #eaf2fc;
+        border-radius: 999px;
+        font-size: 13px;
+        padding: 4px 10px;
+      }
       @media print {
         .print-hide { display: none; }
         body { margin: 0; }
@@ -52,7 +63,11 @@
       <p><strong>Empresa:</strong> {{ empresa.razon_social }}</p>
       <p><strong>Sucursal:</strong> {{ sucursal.nombre }}</p>
       <p><strong>Uso:</strong> Escanear para fichar ingreso o egreso</p>
+      <p><strong>Tipo de marca:</strong> <span class="chip">{{ tipo_marca or "jornada" }}</span></p>
       <p><strong>Tolerancia GPS:</strong> {{ tolerancia_m }} m</p>
+      {% if historial %}
+      <p><strong>Historial:</strong> #{{ historial.id }} (generado {{ historial.fecha }})</p>
+      {% endif %}
 
       <div class="qr">
         <img src="{{ qr_png_base64 }}" alt="QR puerta">

@@ -11,6 +11,17 @@ from repositories.horario_dia_bloque_repository import get_by_horario_dia as get
 from repositories.horario_dia_repository import get_by_horario as get_dias_by_horario
 
 
+def _parse_iso_date(value: str):
+    return datetime.date.fromisoformat(value)
+
+
+def _daterange(start_date: datetime.date, end_date: datetime.date):
+    current = start_date
+    while current <= end_date:
+        yield current
+        current += datetime.timedelta(days=1)
+
+
 def _to_minutes(value):
     if not value:
         return None
@@ -208,7 +219,7 @@ def validar_asistencia(empleado_id: int | None, fecha_str: str, hora_entrada: st
 
 def generar_ausentes(fecha_str: str):
     try:
-        datetime.date.fromisoformat(fecha_str)
+        _parse_iso_date(fecha_str)
     except ValueError:
         return 0, ["Fecha invalida."]
 
@@ -238,3 +249,23 @@ def generar_ausentes(fecha_str: str):
         ausentes += 1
 
     return ausentes, errors
+
+
+def generar_ausentes_rango(fecha_desde: str, fecha_hasta: str):
+    try:
+        desde = _parse_iso_date(fecha_desde)
+        hasta = _parse_iso_date(fecha_hasta)
+    except ValueError:
+        return 0, ["Rango de fechas invalido."]
+
+    if desde > hasta:
+        return 0, ["fecha_desde no puede ser mayor a fecha_hasta."]
+
+    total = 0
+    errors = []
+    for d in _daterange(desde, hasta):
+        count, day_errors = generar_ausentes(d.isoformat())
+        total += count
+        if day_errors:
+            errors.extend(day_errors)
+    return total, errors

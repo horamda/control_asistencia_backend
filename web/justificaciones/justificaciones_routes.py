@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, abort, session
+﻿from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from web.auth.decorators import role_required
 from repositories.justificacion_repository import get_page, get_by_id, create, update, delete
 from repositories.empleado_repository import get_all as get_empleados
@@ -26,12 +26,12 @@ def _validate(form):
         errors.append("Motivo es requerido.")
     estado = (form.get("estado") or "").strip()
     if estado and estado not in {"pendiente", "aprobada", "rechazada"}:
-        errors.append("Estado inválido.")
+        errors.append("Estado invalido.")
     return errors
 
 
 @justificaciones_bp.route("/")
-@role_required("admin")
+@role_required("admin", "rrhh", "supervisor")
 def listado():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per", 20, type=int)
@@ -56,7 +56,7 @@ def listado():
 
 
 @justificaciones_bp.route("/nuevo", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh", "supervisor")
 def nuevo():
     empleados = get_empleados(include_inactive=True)
     asistencias = get_asistencias()
@@ -86,7 +86,7 @@ def nuevo():
 
 
 @justificaciones_bp.route("/editar/<int:justificacion_id>", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh", "supervisor")
 def editar(justificacion_id):
     justificacion = get_by_id(justificacion_id)
     if not justificacion:
@@ -122,8 +122,9 @@ def editar(justificacion_id):
 
 
 @justificaciones_bp.route("/eliminar/<int:justificacion_id>", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh", "supervisor")
 def eliminar(justificacion_id):
     delete(justificacion_id)
     log_audit(session, "delete", "justificaciones", justificacion_id)
     return redirect(url_for("justificaciones.listado"))
+

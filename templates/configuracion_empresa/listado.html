@@ -1,32 +1,79 @@
 {% extends "base.html" %}
-{% block title %}Configuración empresa{% endblock %}
+{% block title %}Configuracion empresa{% endblock %}
 {% block content %}
-<h2>Configuración por empresa</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Sistema</div>
+      <h2>Configuracion por empresa</h2>
+      <p class="module-intro">
+        Defina requisitos globales de fichada y tolerancia operativa por empresa.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">QR</span>
+      <span class="chip">Foto</span>
+      <span class="chip">Geo</span>
+    </div>
+  </div>
 
-    <table>
-      <tr>
-        <th>Empresa</th>
-        <th>QR</th>
-        <th>Foto</th>
-        <th>Geo</th>
-        <th>Tolerancia (min)</th>
-        <th>Acciones</th>
-      </tr>
+  <div class="results-bar">
+    <div class="summary">Empresas configuradas: {{ configs|length }}</div>
+  </div>
 
-      {% for c in configs %}
-      <tr>
-        <td>{{ c.razon_social }}</td>
-        <td>{{ "Sí" if c.requiere_qr else "No" }}</td>
-        <td>{{ "Sí" if c.requiere_foto else "No" }}</td>
-        <td>{{ "Sí" if c.requiere_geo else "No" }}</td>
-        <td>{{ c.tolerancia_global }}</td>
-        <td>
-          <a href="/configuracion-empresa/editar/{{ c.empresa_id }}">Editar</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </table>
+  {% if configs %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>QR</th>
+            <th>Foto</th>
+            <th>Geo</th>
+            <th>Tolerancia (min)</th>
+            <th>Cooldown QR (seg)</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in configs %}
+          <tr>
+            <td>{{ c.razon_social }}</td>
+            <td>
+              {% if c.requiere_qr %}
+                <span class="badge ok">Si</span>
+              {% else %}
+                <span class="badge inactivo">No</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if c.requiere_foto %}
+                <span class="badge ok">Si</span>
+              {% else %}
+                <span class="badge inactivo">No</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if c.requiere_geo %}
+                <span class="badge ok">Si</span>
+              {% else %}
+                <span class="badge inactivo">No</span>
+              {% endif %}
+            </td>
+            <td>{{ c.tolerancia_global if c.tolerancia_global is not none else "-" }}</td>
+            <td>{{ c.cooldown_scan_segundos if c.cooldown_scan_segundos is not none else 60 }}</td>
+            <td><a href="/configuracion-empresa/editar/{{ c.empresa_id }}">Editar</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay configuraciones disponibles.</div>
+  {% endif %}
 
-    <br>
-    <a href="/dashboard">Volver</a>
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
 {% endblock %}

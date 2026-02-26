@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, abort, session
+﻿from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from web.auth.decorators import role_required
 from repositories.vacacion_repository import get_all, get_by_id, create, update, delete
 from repositories.empleado_repository import get_all as get_empleados
@@ -28,14 +28,14 @@ def _validate(form):
 
 
 @vacaciones_bp.route("/")
-@role_required("admin")
+@role_required("admin", "rrhh")
 def listado():
     vacaciones = get_all()
     return render_template("vacaciones/listado.html", vacaciones=vacaciones)
 
 
 @vacaciones_bp.route("/nuevo", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def nuevo():
     empleados = get_empleados(include_inactive=True)
     if request.method == "POST":
@@ -51,7 +51,7 @@ def nuevo():
 
 
 @vacaciones_bp.route("/editar/<int:vacacion_id>", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def editar(vacacion_id):
     vacacion = get_by_id(vacacion_id)
     if not vacacion:
@@ -73,8 +73,9 @@ def editar(vacacion_id):
 
 
 @vacaciones_bp.route("/eliminar/<int:vacacion_id>", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def eliminar(vacacion_id):
     delete(vacacion_id)
     log_audit(session, "delete", "vacaciones", vacacion_id)
     return redirect(url_for("vacaciones.listado"))
+

@@ -2,23 +2,23 @@
 {% block title %}Login{% endblock %}
 {% block content %}
 <h2>Ingreso al panel</h2>
-<p>Acceso restringido para administracion y RRHH.</p>
+<p>Ingrese con su usuario del panel web. Los empleados fichan desde la app movil con DNI.</p>
 
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="row">
-    <label>Usuario</label>
-    <input name="username" placeholder="Usuario" required>
+    <label>Usuario del panel</label>
+    <input name="username" placeholder="Usuario" autocomplete="username" required>
   </div>
   <div class="row">
     <label>Contrasena</label>
-    <input name="password" type="password" placeholder="Contrasena" required>
+    <input name="password" type="password" placeholder="Contrasena" autocomplete="current-password" required>
   </div>
   <div class="actions">
     <button type="submit">Ingresar</button>
   </div>
   {% if error %}
-    <p class="error" style="margin-top: 10px;">{{ error }}</p>
+    <p class="error error-message">{{ error }}</p>
   {% endif %}
 </form>
 {% endblock %}

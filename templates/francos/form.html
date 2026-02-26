@@ -1,28 +1,36 @@
 {% extends "base.html" %}
 {% block title %}{% if mode == "edit" %}Editar franco{% else %}Nuevo franco{% endif %}{% endblock %}
 {% block content %}
-<h2>{% if mode == "edit" %}Editar franco{% else %}Nuevo franco{% endif %}</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>{% if mode == "edit" %}Editar franco{% else %}Nuevo franco{% endif %}</h2>
+      <p class="module-intro">
+        Declare el dia franco del empleado para excluirlo de ausencias automaticas.
+      </p>
+    </div>
+  </div>
 
-    {% if errors %}
-      <div class="errors">
-        <ul>
-          {% for e in errors %}
-            <li>{{ e }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="row">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row span-2">
         <label>Empleado</label>
         <select name="empleado_id" required>
           <option value="">Seleccione</option>
           {% for e in empleados %}
-            <option value="{{ e.id }}" {% if data.empleado_id == e.id %}selected{% endif %}>
-              {{ e.apellido }} {{ e.nombre }}
-            </option>
+            <option value="{{ e.id }}" {% if data.empleado_id == e.id %}selected{% endif %}>{{ e.apellido }} {{ e.nombre }}</option>
           {% endfor %}
         </select>
       </div>
@@ -30,13 +38,16 @@
         <label>Fecha</label>
         <input name="fecha" type="date" value="{{ data.fecha or '' }}" required>
       </div>
-      <div class="row">
+      <div class="row span-3">
         <label>Motivo</label>
         <input name="motivo" value="{{ data.motivo or '' }}">
       </div>
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('francos.listado') }}">Volver</a>
-      </div>
-    </form>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('francos.listado') }}">Volver</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

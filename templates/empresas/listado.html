@@ -1,38 +1,72 @@
 {% extends "base.html" %}
 {% block title %}Empresas{% endblock %}
 {% block content %}
-<h2>Empresas</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Estructura Base</div>
+      <h2>Empresas</h2>
+      <p class="module-intro">
+        Administre las empresas del sistema multiempresa con su estado operativo y datos de contacto.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Multiempresa</span>
+      <span class="chip">Activa/Inactiva</span>
+    </div>
+  </div>
 
-    <a href="/empresas/nuevo">Nueva empresa</a>
+  <div class="toolbar">
+    <a class="btn" href="/empresas/nuevo">Nueva empresa</a>
+  </div>
 
-    <table>
-      <tr>
-        <th>Razón social</th>
-        <th>CUIT</th>
-        <th>Email</th>
-        <th>Estado</th>
-        <th>Acciones</th>
-      </tr>
+  <div class="results-bar">
+    <div class="summary">Total empresas: {{ empresas|length }}</div>
+  </div>
 
-      {% for e in empresas %}
-      <tr>
-        <td>{{ e.razon_social }}</td>
-        <td>{{ e.cuit }}</td>
-        <td>{{ e.email }}</td>
-        <td>{{ "Activa" if e.activa else "Inactiva" }}</td>
-        <td>
-          {% if e.activa %}
-            <a href="/empresas/desactivar/{{ e.id }}">Desactivar</a>
-          {% else %}
-            <a href="/empresas/activar/{{ e.id }}">Activar</a>
-          {% endif %}
-          |
-          <a href="/empresas/editar/{{ e.id }}">Editar</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </table>
+  {% if empresas %}
+    <div class="table-responsive">
+      <table>
+        <tr>
+          <th>Razon social</th>
+          <th>CUIT</th>
+          <th>Email</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
 
-    <br>
-    <a href="/dashboard">Volver</a>
+        {% for e in empresas %}
+        <tr>
+          <td>{{ e.razon_social }}</td>
+          <td>{{ e.cuit }}</td>
+          <td>{{ e.email }}</td>
+          <td>
+            {% if e.activa %}
+              <span class="badge activo">Activa</span>
+            {% else %}
+              <span class="badge inactivo">Inactiva</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="inline-actions">
+              {% if e.activa %}
+                <a class="btn btn-secondary" href="/empresas/desactivar/{{ e.id }}">Desactivar</a>
+              {% else %}
+                <a class="btn btn-secondary" href="/empresas/activar/{{ e.id }}">Activar</a>
+              {% endif %}
+              <a href="/empresas/editar/{{ e.id }}">Editar</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay empresas registradas.</div>
+  {% endif %}
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
 {% endblock %}

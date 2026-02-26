@@ -1,35 +1,66 @@
 {% extends "base.html" %}
 {% block title %}Francos{% endblock %}
 {% block content %}
-<h2>Francos</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>Francos</h2>
+      <p class="module-intro">
+        Registre francos puntuales para que el calculo de ausencias contemple excepciones validas.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">RRHH</span>
+      <span class="chip">Excepcion diaria</span>
+    </div>
+  </div>
 
-    <a href="/francos/nuevo">Nuevo franco</a>
+  <div class="toolbar">
+    <a class="btn" href="/francos/nuevo">Nuevo franco</a>
+  </div>
 
-    <table>
-      <tr>
-        <th>Empleado</th>
-        <th>Fecha</th>
-        <th>Motivo</th>
-        <th>Acciones</th>
-      </tr>
+  <div class="results-bar">
+    <div class="summary">Total: {{ francos|length }} franco(s)</div>
+  </div>
 
-      {% for f in francos %}
-      <tr>
-        <td>{{ f.apellido }} {{ f.nombre }}</td>
-        <td>{{ f.fecha }}</td>
-        <td>{{ f.motivo or "-" }}</td>
-        <td>
-          <a href="/francos/editar/{{ f.id }}">Editar</a>
-          |
-          <form method="post" action="/francos/eliminar/{{ f.id }}" style="display:inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit">Eliminar</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </table>
+  {% if francos %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Empleado</th>
+            <th>Fecha</th>
+            <th>Motivo</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in francos %}
+          <tr>
+            <td>{{ f.apellido }} {{ f.nombre }}</td>
+            <td>{{ f.fecha }}</td>
+            <td>{{ f.motivo or "-" }}</td>
+            <td>
+              <div class="inline-actions">
+                <a href="/francos/editar/{{ f.id }}">Editar</a>
+                <form method="post" action="/francos/eliminar/{{ f.id }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn-danger" type="submit">Eliminar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay francos cargados.</div>
+  {% endif %}
 
-    <br>
-    <a href="/dashboard">Volver</a>
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
 {% endblock %}

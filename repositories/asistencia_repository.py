@@ -472,6 +472,214 @@ def register_salida(
         db.close()
 
 
+def upsert_resumen_desde_marca(
+    empleado_id: int,
+    fecha: str,
+    hora: str,
+    accion: str,
+    metodo: str,
+    lat: float | None,
+    lon: float | None,
+    foto: str | None,
+    estado: str,
+    observaciones: str | None = None,
+    gps_ok: bool | None = None,
+    gps_distancia_m: float | None = None,
+    gps_tolerancia_m: float | None = None,
+    gps_ref_lat: float | None = None,
+    gps_ref_lon: float | None = None,
+):
+    if accion not in {"ingreso", "egreso"}:
+        raise ValueError("accion invalida")
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        db.start_transaction()
+        cursor.execute(
+            """
+            SELECT *
+            FROM asistencias
+            WHERE empleado_id = %s
+              AND fecha = %s
+            ORDER BY id DESC
+            LIMIT 1
+            FOR UPDATE
+            """,
+            (empleado_id, fecha),
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            if accion != "ingreso":
+                raise ValueError("No hay fichada de entrada para esa fecha.")
+            empresa_id = _get_empresa_id_for_empleado(cursor, empleado_id)
+            if not empresa_id:
+                raise ValueError("Empleado invalido o sin empresa asignada.")
+            cursor.execute(
+                """
+                INSERT INTO asistencias
+                (
+                    empresa_id,
+                    empleado_id,
+                    fecha,
+                    hora_entrada,
+                    lat_entrada,
+                    lon_entrada,
+                    gps_ok_entrada,
+                    gps_distancia_entrada_m,
+                    gps_tolerancia_entrada_m,
+                    gps_ref_lat_entrada,
+                    gps_ref_lon_entrada,
+                    foto_entrada,
+                    metodo_entrada,
+                    estado,
+                    observaciones
+                )
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (
+                    empresa_id,
+                    empleado_id,
+                    fecha,
+                    hora,
+                    lat,
+                    lon,
+                    (1 if gps_ok else 0) if gps_ok is not None else None,
+                    gps_distancia_m,
+                    gps_tolerancia_m,
+                    gps_ref_lat,
+                    gps_ref_lon,
+                    foto,
+                    metodo,
+                    estado,
+                    observaciones,
+                ),
+            )
+            asistencia_id = cursor.lastrowid
+            db.commit()
+            return asistencia_id
+
+        asistencia_id = row["id"]
+        if accion == "ingreso":
+            if row.get("hora_salida") is None and row.get("hora_entrada") is not None:
+                raise ValueError("Ya hay un ingreso abierto para esa fecha.")
+
+            if row.get("hora_entrada") is None:
+                cursor.execute(
+                    """
+                    UPDATE asistencias
+                    SET hora_entrada = %s,
+                        lat_entrada = %s,
+                        lon_entrada = %s,
+                        gps_ok_entrada = %s,
+                        gps_distancia_entrada_m = %s,
+                        gps_tolerancia_entrada_m = %s,
+                        gps_ref_lat_entrada = %s,
+                        gps_ref_lon_entrada = %s,
+                        foto_entrada = %s,
+                        metodo_entrada = %s,
+                        hora_salida = NULL,
+                        lat_salida = NULL,
+                        lon_salida = NULL,
+                        gps_ok_salida = NULL,
+                        gps_distancia_salida_m = NULL,
+                        gps_tolerancia_salida_m = NULL,
+                        gps_ref_lat_salida = NULL,
+                        gps_ref_lon_salida = NULL,
+                        foto_salida = NULL,
+                        metodo_salida = NULL,
+                        estado = %s,
+                        observaciones = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        hora,
+                        lat,
+                        lon,
+                        (1 if gps_ok else 0) if gps_ok is not None else None,
+                        gps_distancia_m,
+                        gps_tolerancia_m,
+                        gps_ref_lat,
+                        gps_ref_lon,
+                        foto,
+                        metodo,
+                        estado,
+                        observaciones if observaciones is not None else row.get("observaciones"),
+                        asistencia_id,
+                    ),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE asistencias
+                    SET hora_salida = NULL,
+                        lat_salida = NULL,
+                        lon_salida = NULL,
+                        gps_ok_salida = NULL,
+                        gps_distancia_salida_m = NULL,
+                        gps_tolerancia_salida_m = NULL,
+                        gps_ref_lat_salida = NULL,
+                        gps_ref_lon_salida = NULL,
+                        foto_salida = NULL,
+                        metodo_salida = NULL,
+                        estado = %s,
+                        observaciones = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        estado,
+                        observaciones if observaciones is not None else row.get("observaciones"),
+                        asistencia_id,
+                    ),
+                )
+        else:
+            if row.get("hora_entrada") is None:
+                raise ValueError("No hay fichada de entrada para esa fecha.")
+            cursor.execute(
+                """
+                UPDATE asistencias
+                SET hora_salida = %s,
+                    lat_salida = %s,
+                    lon_salida = %s,
+                    gps_ok_salida = %s,
+                    gps_distancia_salida_m = %s,
+                    gps_tolerancia_salida_m = %s,
+                    gps_ref_lat_salida = %s,
+                    gps_ref_lon_salida = %s,
+                    foto_salida = %s,
+                    metodo_salida = %s,
+                    estado = %s,
+                    observaciones = %s
+                WHERE id = %s
+                """,
+                (
+                    hora,
+                    lat,
+                    lon,
+                    (1 if gps_ok else 0) if gps_ok is not None else None,
+                    gps_distancia_m,
+                    gps_tolerancia_m,
+                    gps_ref_lat,
+                    gps_ref_lon,
+                    foto,
+                    metodo,
+                    estado,
+                    observaciones if observaciones is not None else row.get("observaciones"),
+                    asistencia_id,
+                ),
+            )
+
+        db.commit()
+        return asistencia_id
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cursor.close()
+        db.close()
+
+
 def update(asistencia_id: int, data: dict):
     db = get_db()
     cursor = db.cursor()

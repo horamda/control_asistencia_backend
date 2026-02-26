@@ -1,20 +1,34 @@
 {% extends "base.html" %}
 {% block title %}{% if mode == "edit" %}Editar usuario{% else %}Nuevo usuario{% endif %}{% endblock %}
 {% block content %}
-<h2>{% if mode == "edit" %}Editar usuario{% else %}Nuevo usuario{% endif %}</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Seguridad y Accesos</div>
+      <h2>{% if mode == "edit" %}Editar usuario{% else %}Nuevo usuario{% endif %}</h2>
+      <p class="module-intro">
+        Defina empresa, credenciales y rol operativo para el acceso al panel.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Cuenta interna</span>
+      <span class="chip">Perfil de permisos</span>
+    </div>
+  </div>
 
-    {% if errors %}
-      <div class="errors">
-        <ul>
-          {% for e in errors %}
-            <li>{{ e }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
       <div class="row">
         <label>Empresa</label>
         <select name="empresa_id" required>
@@ -40,7 +54,7 @@
         </select>
       </div>
       <div class="row">
-        <label>Contraseña {% if mode == "edit" %}(dejar vacía para mantener){% endif %}</label>
+        <label>Contrasena {% if mode == "edit" %}(dejar vacia para mantener){% endif %}</label>
         <input name="password" type="password" {% if password_required %}required{% endif %}>
       </div>
       <div class="row">
@@ -49,9 +63,11 @@
           Activo
         </label>
       </div>
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('usuarios.listado') }}">Volver</a>
-      </div>
-    </form>
+    </div>
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('usuarios.listado') }}">Volver</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

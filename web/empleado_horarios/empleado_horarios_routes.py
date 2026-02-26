@@ -1,4 +1,4 @@
-import datetime
+﻿import datetime
 
 from flask import Blueprint, abort, jsonify, redirect, render_template, request, session, url_for
 
@@ -69,14 +69,14 @@ def _render_form(empleado, horarios, actual, historial, data, errors=None, mode=
 
 
 @empleado_horarios_bp.route("/")
-@role_required("admin")
+@role_required("admin", "rrhh")
 def listado():
     empleados = get_all(include_inactive=True)
     return render_template("empleado_horarios/listado.html", empleados=empleados)
 
 
 @empleado_horarios_bp.route("/<int:empleado_id>", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def asignar(empleado_id):
     empleado = get_by_id(empleado_id)
     if not empleado:
@@ -133,7 +133,7 @@ def asignar(empleado_id):
 
 
 @empleado_horarios_bp.route("/<int:empleado_id>/editar/<int:asignacion_id>", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def editar(empleado_id, asignacion_id):
     empleado = get_by_id(empleado_id)
     if not empleado:
@@ -204,7 +204,7 @@ def editar(empleado_id, asignacion_id):
 
 
 @empleado_horarios_bp.route("/<int:empleado_id>/eliminar/<int:asignacion_id>", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def eliminar(empleado_id, asignacion_id):
     empleado = get_by_id(empleado_id)
     if not empleado:
@@ -216,7 +216,7 @@ def eliminar(empleado_id, asignacion_id):
 
 
 @empleado_horarios_bp.route("/api/<int:empleado_id>", methods=["GET"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_historial(empleado_id):
     empleado = get_by_id(empleado_id)
     if not empleado:
@@ -236,7 +236,7 @@ def api_historial(empleado_id):
 
 
 @empleado_horarios_bp.route("/api", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_asignar():
     payload = request.get_json(silent=True) or {}
     try:
@@ -274,7 +274,7 @@ def api_asignar():
 
 
 @empleado_horarios_bp.route("/api/<int:asignacion_id>", methods=["PUT"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_editar(asignacion_id):
     payload = request.get_json(silent=True) or {}
     original = get_asignacion_by_id(asignacion_id)
@@ -315,7 +315,7 @@ def api_editar(asignacion_id):
 
 
 @empleado_horarios_bp.route("/api/<int:asignacion_id>", methods=["DELETE"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_eliminar(asignacion_id):
     original = get_asignacion_by_id(asignacion_id)
     if not original:
@@ -324,3 +324,4 @@ def api_eliminar(asignacion_id):
         return jsonify({"error": "No se pudo eliminar"}), 400
     log_audit(session, "delete", "empleado_horarios", asignacion_id)
     return jsonify({"ok": True})
+

@@ -15,7 +15,7 @@ def login():
         if user:
             session.clear()
             session["user_id"] = user["id"]
-            session["admin_user"] = user["usuario"]
+            session["web_user"] = user["usuario"]
             session["user_role"] = user.get("rol")
             return redirect(url_for("web.dashboard"))
 

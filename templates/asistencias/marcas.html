@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Historial de marcas{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>Historial de marcas</h2>
+      <p class="module-intro">
+        Trazabilidad completa de fichadas por QR, manual o facial con detalle de GPS y tipo de marca.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Auditable</span>
+      <span class="chip">Por empleado</span>
+      <span class="chip">Exportable CSV</span>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="errors">{{ error }}</div>
+  {% endif %}
+  {% if backfill_ingresos is not none and backfill_egresos is not none %}
+    <div class="muted-box">
+      Backfill ejecutado. Ingresos agregados: <strong>{{ backfill_ingresos }}</strong>,
+      egresos agregados: <strong>{{ backfill_egresos }}</strong>.
+    </div>
+  {% endif %}
+
+  <form method="get" action="/asistencias/marcas">
+    <h3 class="section-title">Filtros</h3>
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id">
+          <option value="">Todas</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id">
+          <option value="">Todos</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>{{ e.apellido }} {{ e.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Buscar (apellido/nombre/dni)</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Ej: Perez o 25905707">
+      </div>
+      <div class="row">
+        <label>Fecha desde</label>
+        <input type="date" name="fecha_desde" value="{{ fecha_desde or '' }}">
+      </div>
+      <div class="row">
+        <label>Fecha hasta</label>
+        <input type="date" name="fecha_hasta" value="{{ fecha_hasta or '' }}">
+      </div>
+      <div class="row">
+        <label>Tipo de marca</label>
+        <select name="tipo_marca">
+          <option value="">Todos</option>
+          {% for tipo in ["jornada", "desayuno", "almuerzo", "merienda", "otro"] %}
+            <option value="{{ tipo }}" {% if tipo_marca == tipo %}selected{% endif %}>{{ tipo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Accion</label>
+        <select name="accion">
+          <option value="">Todas</option>
+          <option value="ingreso" {% if accion == "ingreso" %}selected{% endif %}>ingreso</option>
+          <option value="egreso" {% if accion == "egreso" %}selected{% endif %}>egreso</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Metodo</label>
+        <select name="metodo">
+          <option value="">Todos</option>
+          <option value="qr" {% if metodo == "qr" %}selected{% endif %}>qr</option>
+          <option value="manual" {% if metodo == "manual" %}selected{% endif %}>manual</option>
+          <option value="facial" {% if metodo == "facial" %}selected{% endif %}>facial</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>GPS</label>
+        <select name="gps_ok">
+          <option value="">Todos</option>
+          <option value="1" {% if gps_ok == 1 %}selected{% endif %}>ok</option>
+          <option value="0" {% if gps_ok == 0 %}selected{% endif %}>fuera</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Aplicar filtros</button>
+      <a class="btn btn-secondary" href="/asistencias/marcas">Limpiar</a>
+      <a class="btn btn-secondary" href="{{ url_for('asistencias.marcas_csv', empresa_id=empresa_id or '', empleado_id=empleado_id or '', fecha_desde=fecha_desde or '', fecha_hasta=fecha_hasta or '', tipo_marca=tipo_marca or '', accion=accion or '', metodo=metodo or '', gps_ok=gps_ok if gps_ok in [0,1] else '', q=q or '') }}">Exportar CSV</a>
+    </div>
+  </form>
+
+  {% if (session.user_role or '')|lower == 'admin' %}
+    <form method="post" action="{{ url_for('asistencias.marcas_backfill') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="page" value="{{ page }}">
+      <input type="hidden" name="per" value="{{ per_page }}">
+      <input type="hidden" name="empresa_id" value="{{ empresa_id or '' }}">
+      <input type="hidden" name="empleado_id" value="{{ empleado_id or '' }}">
+      <input type="hidden" name="fecha_desde" value="{{ fecha_desde or '' }}">
+      <input type="hidden" name="fecha_hasta" value="{{ fecha_hasta or '' }}">
+      <input type="hidden" name="tipo_marca" value="{{ tipo_marca or '' }}">
+      <input type="hidden" name="accion" value="{{ accion or '' }}">
+      <input type="hidden" name="metodo" value="{{ metodo or '' }}">
+      <input type="hidden" name="gps_ok" value="{{ gps_ok if gps_ok in [0,1] else '' }}">
+      <input type="hidden" name="q" value="{{ q or '' }}">
+      <div class="actions">
+        <button class="btn btn-secondary" type="submit">Backfill historico desde asistencias</button>
+      </div>
+    </form>
+  {% endif %}
+
+  <div class="results-bar">
+    <div class="summary">Resultados: {{ total }} marca(s)</div>
+    <div class="summary">Pagina {{ page }}</div>
+  </div>
+
+  {% if marcas %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Empresa</th>
+            <th>Empleado</th>
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Accion</th>
+            <th>Tipo</th>
+            <th>Metodo</th>
+            <th>GPS</th>
+            <th>Dist (m)</th>
+            <th>Tol (m)</th>
+            <th>Estado</th>
+            <th>Observaciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in marcas %}
+          <tr>
+            <td>{{ m.id }}</td>
+            <td>{{ m.empresa_nombre }}</td>
+            <td>{{ m.apellido }} {{ m.nombre }}{% if m.dni %}<br><small>DNI {{ m.dni }}</small>{% endif %}</td>
+            <td>{{ m.fecha }}</td>
+            <td>{{ m.hora }}</td>
+            <td>
+              {% if m.accion == "ingreso" %}
+                <span class="badge ok">ingreso</span>
+              {% elif m.accion == "egreso" %}
+                <span class="badge warning">egreso</span>
+              {% else %}
+                <span class="badge">{{ m.accion or "-" }}</span>
+              {% endif %}
+            </td>
+            <td>{{ m.tipo_marca or "jornada" }}</td>
+            <td>{{ m.metodo or "-" }}</td>
+            <td>
+              {% if m.gps_ok is none %}
+                -
+              {% elif m.gps_ok %}
+                <span class="badge ok">ok</span>
+              {% else %}
+                <span class="badge danger">fuera</span>
+              {% endif %}
+            </td>
+            <td>{{ m.gps_distancia_m if m.gps_distancia_m is not none else "-" }}</td>
+            <td>{{ m.gps_tolerancia_m if m.gps_tolerancia_m is not none else "-" }}</td>
+            <td>
+              {% set estado = (m.estado or "")|lower %}
+              {% if estado in ["ok", "aprobada"] %}
+                <span class="badge ok">{{ m.estado }}</span>
+              {% elif estado in ["tarde", "salida_anticipada", "pendiente"] %}
+                <span class="badge warning">{{ m.estado }}</span>
+              {% elif estado in ["ausente", "rechazada", "anulada"] %}
+                <span class="badge danger">{{ m.estado }}</span>
+              {% elif m.estado %}
+                <span class="badge">{{ m.estado }}</span>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td>{{ m.observaciones or "-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay marcas para los filtros seleccionados.</div>
+  {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a class="btn btn-secondary" href="{{ url_for('asistencias.marcas', page=page - 1, per=per_page, empresa_id=empresa_id or '', empleado_id=empleado_id or '', fecha_desde=fecha_desde or '', fecha_hasta=fecha_hasta or '', tipo_marca=tipo_marca or '', accion=accion or '', metodo=metodo or '', gps_ok=gps_ok if gps_ok in [0,1] else '', q=q or '') }}">Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a class="btn btn-secondary" href="{{ url_for('asistencias.marcas', page=page + 1, per=per_page, empresa_id=empresa_id or '', empleado_id=empleado_id or '', fecha_desde=fecha_desde or '', fecha_hasta=fecha_hasta or '', tipo_marca=tipo_marca or '', accion=accion or '', metodo=metodo or '', gps_ok=gps_ok if gps_ok in [0,1] else '', q=q or '') }}">Siguiente</a>
+    {% endif %}
+  </div>
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="/asistencias/">Volver a asistencias</a>
+  </div>
+</div>
+{% endblock %}

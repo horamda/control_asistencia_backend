@@ -1,46 +1,83 @@
 {% extends "base.html" %}
 {% block title %}Roles{% endblock %}
 {% block content %}
-<h2>Roles</h2>
-
-    <a href="/roles/nuevo">Nuevo rol</a>
-    <form method="get" action="/roles/" style="margin-top:12px">
-      <label>Buscar</label>
-      <input name="q" value="{{ q or '' }}" placeholder="Nombre">
-      <button type="submit">Filtrar</button>
-    </form>
-
-    <table>
-      <tr>
-        <th>Nombre</th>
-        <th>Acciones</th>
-      </tr>
-
-      {% for r in roles %}
-      <tr>
-        <td>{{ r.nombre }}</td>
-        <td>
-          <a href="/roles/editar/{{ r.id }}">Editar</a>
-          |
-          <form method="post" action="/roles/eliminar/{{ r.id }}" style="display:inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit">Eliminar</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </table>
-
-    <br>
+<div class="content-stack">
+  <div class="section-head">
     <div>
-      {% if page > 1 %}
-        <a href="/roles/?page={{ page - 1 }}&per={{ per_page }}&q={{ q or '' }}">Anterior</a>
-      {% endif %}
-      {% if page * per_page < total %}
-        <a href="/roles/?page={{ page + 1 }}&per={{ per_page }}&q={{ q or '' }}">Siguiente</a>
-      {% endif %}
-      <span> Página {{ page }} </span>
+      <div class="section-kicker">Seguridad y Accesos</div>
+      <h2>Roles</h2>
+      <p class="module-intro">
+        Mantenga el catalogo de roles para controlar capacidades funcionales en el panel.
+      </p>
     </div>
-    <br>
-    <a href="/dashboard">Volver</a>
+    <div class="chip-row">
+      <span class="chip">Permisos</span>
+      <span class="chip">Gobernanza</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn" href="/roles/nuevo">Nuevo rol</a>
+  </div>
+
+  <form method="get" action="/roles/">
+    <div class="form-grid">
+      <div class="row span-2">
+        <label>Buscar</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Nombre">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="/roles/">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <div class="summary">Resultados en pagina: {{ roles|length }}</div>
+    <div class="summary">Total general: {{ total }}</div>
+  </div>
+
+  {% if roles %}
+    <div class="table-responsive">
+      <table>
+        <tr>
+          <th>Nombre</th>
+          <th>Acciones</th>
+        </tr>
+
+        {% for r in roles %}
+        <tr>
+          <td>{{ r.nombre }}</td>
+          <td>
+            <div class="inline-actions">
+              <a href="/roles/editar/{{ r.id }}">Editar</a>
+              <form method="post" action="/roles/eliminar/{{ r.id }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn-danger" type="submit">Eliminar</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay roles para los filtros seleccionados.</div>
+  {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a class="btn btn-secondary" href="/roles/?page={{ page - 1 }}&per={{ per_page }}&q={{ q or '' }}">Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a class="btn btn-secondary" href="/roles/?page={{ page + 1 }}&per={{ per_page }}&q={{ q or '' }}">Siguiente</a>
+    {% endif %}
+    <span class="summary">Pagina {{ page }}</span>
+  </div>
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
 {% endblock %}
