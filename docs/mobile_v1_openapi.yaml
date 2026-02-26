@@ -1,11 +1,13 @@
 openapi: 3.0.3
 info:
   title: Control Asistencia - Mobile API
-  version: 1.1.0
+  version: 1.6.0
   description: API v1 para app Flutter de empleados.
 servers:
   - url: http://localhost:5000
     description: Local
+  - url: https://control-asistencia-backend-8gle.onrender.com
+    description: Produccion
 tags:
   - name: Auth
   - name: Perfil
@@ -104,6 +106,10 @@ paths:
                   tolerancia_global:
                     type: integer
                     nullable: true
+                  cooldown_scan_segundos:
+                    type: integer
+                    nullable: true
+                    description: Ventana anti doble escaneo en segundos (0 desactiva).
                   metodos_habilitados:
                     type: array
                     items:
@@ -178,11 +184,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Jornada cerrada o conflicto de marcacion
+          description: Jornada cerrada o conflicto de marcacion (incluye cooldown anti doble scan)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/FichadaScanQrConflictResponse"
 
   /api/v1/mobile/me/horario-esperado:
     get:
@@ -273,10 +279,97 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/mobile/me/marcas:
+    get:
+      tags: [Asistencias]
+      summary: Listado paginado de marcas atomicas del empleado
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: desde
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: hasta
+          schema:
+            type: string
+            format: date
+          required: false
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          required: false
+        - in: query
+          name: per
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          required: false
+      responses:
+        "200":
+          description: Pagina de marcas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarcasPageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/mobile/me/eventos-seguridad:
+    get:
+      tags: [Asistencias]
+      summary: Listado paginado de eventos de seguridad del empleado
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          required: false
+        - in: query
+          name: per
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          required: false
+        - in: query
+          name: tipo_evento
+          schema:
+            type: string
+          required: false
+      responses:
+        "200":
+          description: Pagina de eventos de seguridad
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventosSeguridadPageResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   /api/v1/mobile/me/fichadas/entrada:
     post:
       tags: [Asistencias]
-      summary: Registrar fichada de entrada
+      summary: Registrar fichada de entrada (legacy)
+      description: Endpoint legacy. Se recomienda usar /api/v1/mobile/me/fichadas/scan.
+      deprecated: true
       security:
         - bearerAuth: []
       requestBody:
@@ -300,7 +393,9 @@ paths:
   /api/v1/mobile/me/fichadas/salida:
     post:
       tags: [Asistencias]
-      summary: Registrar fichada de salida
+      summary: Registrar fichada de salida (legacy)
+      description: Endpoint legacy. Se recomienda usar /api/v1/mobile/me/fichadas/scan.
+      deprecated: true
       security:
         - bearerAuth: []
       requestBody:
@@ -423,6 +518,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     Unauthorized:
       description: Token invalido o credenciales incorrectas
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalServerError:
+      description: Error interno del servidor
       content:
         application/json:
           schema:
@@ -647,6 +748,11 @@ components:
           enum: [empresa, empleado]
           default: empresa
           description: empresa para QR general o empleado para QR personal. Si no se envia, usa empresa.
+        tipo_marca:
+          type: string
+          enum: [jornada, desayuno, almuerzo, merienda, otro]
+          default: jornada
+          description: Clasificacion funcional de la marca para reportes de pausas.
         vigencia_segundos:
           type: integer
           minimum: 30
@@ -661,6 +767,9 @@ components:
         scope:
           type: string
           enum: [empresa, empleado]
+        tipo_marca:
+          type: string
+          enum: [jornada, desayuno, almuerzo, merienda, otro]
         empresa_id:
           type: integer
         empleado_id:
@@ -696,6 +805,11 @@ components:
         observaciones:
           type: string
           nullable: true
+        tipo_marca:
+          type: string
+          enum: [jornada, desayuno, almuerzo, merienda, otro]
+          nullable: true
+          description: Opcional. Si el QR contiene tipo_marca, prevalece el del QR.
         lat:
           type: number
           format: float
@@ -709,9 +823,14 @@ components:
       properties:
         id:
           type: integer
+        marca_id:
+          type: integer
         accion:
           type: string
           enum: [ingreso, egreso]
+        tipo_marca:
+          type: string
+          enum: [jornada, desayuno, almuerzo, merienda, otro]
         estado:
           type: string
         gps_ok:
@@ -722,6 +841,8 @@ components:
         tolerancia_m:
           type: number
           format: float
+        total_marcas_dia:
+          type: integer
     FichadaScanQrForbiddenResponse:
       type: object
       properties:
@@ -735,3 +856,155 @@ components:
         tolerancia_m:
           type: number
           format: float
+        alerta_fraude:
+          type: boolean
+        evento_id:
+          type: integer
+          nullable: true
+    FichadaScanQrConflictResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          nullable: true
+          example: scan_cooldown
+        cooldown_segundos_restantes:
+          type: integer
+          nullable: true
+    EventoSeguridadItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        tipo_evento:
+          type: string
+        severidad:
+          type: string
+        alerta_fraude:
+          type: boolean
+        fecha:
+          type: string
+          example: "2026-02-18T15:24:10"
+        fecha_operacion:
+          type: string
+          format: date
+          nullable: true
+        hora_operacion:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          format: float
+          nullable: true
+        lon:
+          type: number
+          format: float
+          nullable: true
+        ref_lat:
+          type: number
+          format: float
+          nullable: true
+        ref_lon:
+          type: number
+          format: float
+          nullable: true
+        distancia_m:
+          type: number
+          format: float
+          nullable: true
+        tolerancia_m:
+          type: number
+          format: float
+          nullable: true
+        sucursal_id:
+          type: integer
+          nullable: true
+    MarcaItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        asistencia_id:
+          type: integer
+          nullable: true
+        fecha:
+          type: string
+          format: date
+        hora:
+          type: string
+          nullable: true
+        accion:
+          type: string
+          enum: [ingreso, egreso]
+        metodo:
+          type: string
+          nullable: true
+        tipo_marca:
+          type: string
+          enum: [jornada, desayuno, almuerzo, merienda, otro]
+          nullable: true
+        estado:
+          type: string
+          nullable: true
+        observaciones:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          format: float
+          nullable: true
+        lon:
+          type: number
+          format: float
+          nullable: true
+        gps_ok:
+          type: boolean
+          nullable: true
+        gps_distancia_m:
+          type: number
+          format: float
+          nullable: true
+        gps_tolerancia_m:
+          type: number
+          format: float
+          nullable: true
+        fecha_creacion:
+          type: string
+          nullable: true
+    MarcasPageResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarcaItem"
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+    EventosSeguridadPageResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventoSeguridadItem"
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+
+x-changelog:
+  - version: 1.5.0
+    date: 2026-02-24
+    changes:
+      - "Deprecated endpoints legacy: /api/v1/mobile/me/fichadas/entrada y /api/v1/mobile/me/fichadas/salida."
+      - "Se mantiene /api/v1/mobile/me/fichadas/scan como flujo recomendado."
+      - "Se agrega server de produccion: https://control-asistencia-backend-8gle.onrender.com."
+      - "Sin cambios de payload ni status codes en endpoints activos."

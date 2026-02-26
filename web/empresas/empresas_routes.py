@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, abort, session
+﻿from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from web.auth.decorators import role_required
 from repositories.empresa_repository import (
     get_all,
@@ -28,13 +28,13 @@ def _extract_form_data(form):
 def _validate_form(form):
     errors = []
     if not (form.get("razon_social") or "").strip():
-        errors.append("Razón social es requerida.")
+        errors.append("Razon social es requerida.")
     if not (form.get("cuit") or "").strip():
         errors.append("CUIT es requerido.")
 
     email = (form.get("email") or "").strip()
     if email and "@" not in email:
-        errors.append("Email inválido.")
+        errors.append("Email invalido.")
 
     return errors
 

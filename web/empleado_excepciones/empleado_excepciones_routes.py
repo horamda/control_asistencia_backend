@@ -1,4 +1,4 @@
-import datetime
+﻿import datetime
 import json
 
 from flask import Blueprint, abort, jsonify, redirect, render_template, request, session, url_for
@@ -90,7 +90,7 @@ def _serialize_excepcion_bloques(excepcion_id: int):
 
 
 @empleado_excepciones_bp.route("/")
-@role_required("admin")
+@role_required("admin", "rrhh")
 def listado():
     empleado_id = request.args.get("empleado_id", type=int)
     fecha_desde = (request.args.get("fecha_desde") or "").strip() or None
@@ -129,7 +129,7 @@ def listado():
 
 
 @empleado_excepciones_bp.route("/nuevo", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def nuevo():
     empleados = get_empleados(include_inactive=True)
     if request.method == "POST":
@@ -174,7 +174,7 @@ def nuevo():
 
 
 @empleado_excepciones_bp.route("/editar/<int:excepcion_id>", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def editar(excepcion_id):
     excepcion = get_by_id(excepcion_id)
     if not excepcion:
@@ -227,7 +227,7 @@ def editar(excepcion_id):
 
 
 @empleado_excepciones_bp.route("/eliminar/<int:excepcion_id>", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def eliminar(excepcion_id):
     delete(excepcion_id)
     log_audit(session, "delete", "empleado_excepciones", excepcion_id)
@@ -235,7 +235,7 @@ def eliminar(excepcion_id):
 
 
 @empleado_excepciones_bp.route("/api/<int:excepcion_id>", methods=["GET"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_get(excepcion_id):
     excepcion = get_by_id(excepcion_id)
     if not excepcion:
@@ -247,7 +247,7 @@ def api_get(excepcion_id):
 
 
 @empleado_excepciones_bp.route("/api", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_create():
     payload = request.get_json(silent=True) or {}
     try:
@@ -279,7 +279,7 @@ def api_create():
 
 
 @empleado_excepciones_bp.route("/api/<int:excepcion_id>", methods=["PUT"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_update(excepcion_id):
     original = get_by_id(excepcion_id)
     if not original:
@@ -311,3 +311,4 @@ def api_update(excepcion_id):
 
     log_audit(session, "update", "empleado_excepciones", excepcion_id)
     return jsonify({"ok": True})
+

@@ -1,46 +1,60 @@
 {% extends "base.html" %}
 {% block title %}{% if mode == "edit" %}Editar empresa{% else %}Nueva empresa{% endif %}{% endblock %}
 {% block content %}
-<h2>{% if mode == "edit" %}Editar empresa{% else %}Nueva empresa{% endif %}</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Estructura Base</div>
+      <h2>{% if mode == "edit" %}Editar empresa{% else %}Nueva empresa{% endif %}</h2>
+      <p class="module-intro">
+        Configure datos fiscales y de contacto para habilitar la operacion de modulos por empresa.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Identidad fiscal</span>
+      <span class="chip">Configuracion operativa</span>
+    </div>
+  </div>
 
-    {% if errors %}
-      <div class="errors">
-        <ul>
-          {% for e in errors %}
-            <li>{{ e }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="row">
-        <label>Razón social</label>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row span-2">
+        <label>Razon social</label>
         <input name="razon_social" value="{{ data.razon_social or '' }}" required>
       </div>
-      <div class="row">
-        <label>Nombre fantasía</label>
+      <div class="row span-2">
+        <label>Nombre fantasia</label>
         <input name="nombre_fantasia" value="{{ data.nombre_fantasia or '' }}">
       </div>
       <div class="row">
         <label>CUIT</label>
         <input name="cuit" value="{{ data.cuit or '' }}" required>
       </div>
-      <div class="row">
+      <div class="row span-2">
         <label>Logo (URL)</label>
         <input name="logo" value="{{ data.logo or '' }}">
       </div>
-      <div class="row">
+      <div class="row span-2">
         <label>Email</label>
         <input name="email" type="email" value="{{ data.email or '' }}">
       </div>
       <div class="row">
-        <label>Teléfono</label>
+        <label>Telefono</label>
         <input name="telefono" value="{{ data.telefono or '' }}">
       </div>
-      <div class="row">
-        <label>Dirección</label>
+      <div class="row span-2">
+        <label>Direccion</label>
         <input name="direccion" value="{{ data.direccion or '' }}">
       </div>
       <div class="row">
@@ -49,9 +63,11 @@
           Activa
         </label>
       </div>
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('empresas.listado') }}">Volver</a>
-      </div>
-    </form>
+    </div>
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('empresas.listado') }}">Volver</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

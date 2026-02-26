@@ -2,14 +2,17 @@
   --bg: #eef2f7;
   --surface: #ffffff;
   --surface-soft: #f7f9fc;
+  --surface-strong: #f1f6fd;
   --border: #d6deea;
   --text: #111827;
   --muted: #5f6b7c;
   --primary: #0f4c81;
   --primary-strong: #09365d;
+  --primary-soft: #e7f0fb;
   --success: #1e7a4f;
   --warning: #b26c00;
   --danger: #b32135;
+  --info: #1f5f8f;
   --radius: 12px;
   --shadow: 0 8px 24px rgba(16, 42, 67, 0.08);
 }
@@ -209,7 +212,7 @@ a:hover {
 
 .page-content {
   margin-top: 18px;
-  background: var(--surface);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -292,6 +295,14 @@ input[type="submit"]:hover {
   background: var(--primary-strong);
 }
 
+button:disabled,
+.btn:disabled,
+input[type="submit"]:disabled {
+  background: #93a9c1;
+  border-color: #93a9c1;
+  cursor: not-allowed;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -338,6 +349,29 @@ tbody tr:hover {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.actions .btn-secondary,
+.btn-secondary {
+  background: #fff;
+  color: var(--primary);
+  border-color: #bcd0e8;
+}
+
+.actions .btn-secondary:hover,
+.btn-secondary:hover {
+  background: var(--primary-soft);
+}
+
+.actions .btn-danger,
+.btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.actions .btn-danger:hover,
+.btn-danger:hover {
+  background: #8e1b2b;
 }
 
 .badge {
@@ -406,7 +440,7 @@ tbody tr:hover {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
-  background: #fff;
+  background: linear-gradient(180deg, #ffffff 0%, #fdfefe 100%);
 }
 
 .quick-links {
@@ -437,7 +471,79 @@ tbody tr:hover {
 }
 
 .module-intro {
-  margin-bottom: 12px;
+  margin: 0 0 14px;
+  max-width: 72ch;
+}
+
+.content-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.surface-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+}
+
+.surface-card.soft {
+  background: var(--surface-soft);
+}
+
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.section-head p {
+  margin: 0;
+}
+
+.section-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  color: #73849a;
+}
+
+.helper-text {
+  font-size: 0.82rem;
+  color: #6b7b8f;
+  margin-top: 4px;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #bcd0e8;
+  background: var(--primary-soft);
+  color: var(--info);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.table-responsive table {
+  border: none;
+  margin: 0;
 }
 
 .toolbar {
@@ -471,6 +577,98 @@ tbody tr:hover {
   grid-column: span 3;
 }
 
+.form-grid .row input,
+.form-grid .row select,
+.form-grid .row textarea {
+  width: 100%;
+  max-width: none;
+}
+
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #24364d;
+  margin: 0;
+}
+
+.check-inline input[type="checkbox"] {
+  width: auto;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.checkbox-chip {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px 10px;
+}
+
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.day-box {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px;
+}
+
+.day-title {
+  margin-bottom: 8px;
+  color: #22344a;
+}
+
+.day-box .add-block {
+  margin-top: 8px;
+}
+
+.blocks {
+  display: grid;
+  gap: 8px;
+}
+
+.block-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.block-row .remove {
+  background: #fff;
+  color: var(--danger);
+  border-color: #e6b9c1;
+}
+
+.block-row .remove:hover {
+  background: #fdecef;
+}
+
+.qr-preview {
+  margin-top: 12px;
+}
+
+.qr-preview img {
+  width: min(320px, 100%);
+  border: 1px solid #d6deea;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px;
+}
+
+.error-message {
+  margin-top: 10px;
+}
+
 .section-title {
   margin: 12px 0 8px;
   font-size: 1rem;
@@ -480,8 +678,35 @@ tbody tr:hover {
   border: 1px dashed #bfcbde;
   border-radius: 10px;
   padding: 10px;
-  background: #f8fbff;
+  background: #f7fbff;
   margin: 10px 0;
+}
+
+.key-value-grid {
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.key-value-grid .kv {
+  border: 1px solid #d7e2f1;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.key-value-grid .k {
+  display: block;
+  font-size: 0.75rem;
+  color: #76869a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.key-value-grid .v {
+  color: #12263d;
+  font-family: "Manrope", sans-serif;
+  font-size: 0.95rem;
 }
 
 .inline-actions {
@@ -504,6 +729,41 @@ tbody tr:hover {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.results-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.results-bar .summary {
+  color: #304256;
+  font-weight: 600;
+}
+
+.auto-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.auto-action-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+}
+
+.auto-action-card .section-title {
+  margin-top: 0;
+}
+
+.auto-range-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .empty-state {
@@ -569,6 +829,18 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 
+  .key-value-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auto-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auto-range-grid {
+    grid-template-columns: 1fr;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
   }
@@ -576,6 +848,18 @@ tbody tr:hover {
   .form-grid .row.span-2,
   .form-grid .row.span-3 {
     grid-column: span 1;
+  }
+
+  .checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .days-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .block-row {
+    grid-template-columns: 1fr;
   }
 
   table,
@@ -599,5 +883,9 @@ tbody tr:hover {
   td {
     border: none;
     padding: 6px 0;
+  }
+
+  .results-bar {
+    align-items: flex-start;
   }
 }

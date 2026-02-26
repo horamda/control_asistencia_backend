@@ -1,12 +1,11 @@
 from extensions import get_db
 
 
-def has_role(actor_id, role_name):
+def has_any_role(actor_id, role_names):
     conn = get_db()
     user_cur = conn.cursor(dictionary=True)
-    legacy_cur = None
     try:
-        # Modelo actual: usuarios.rol (admin/rrhh/supervisor).
+        # Acceso web: rol directo en tabla usuarios.
         user_cur.execute("""
             SELECT id, rol, activo
             FROM usuarios
@@ -18,27 +17,22 @@ def has_role(actor_id, role_name):
             if not user.get("activo"):
                 return False
             user_role = (user.get("rol") or "").strip().lower()
-            expected = str(role_name or "").strip().lower()
-            return user_role == expected or user_role == "admin"
-
-        # Fallback legacy: empleado_roles.
-        legacy_cur = conn.cursor()
-        legacy_cur.execute("""
-            SELECT 1
-            FROM empleado_roles er
-            JOIN roles r ON r.id = er.rol_id
-            WHERE er.empleado_id = %s
-              AND LOWER(r.nombre) = %s
-            LIMIT 1
-        """, (actor_id, str(role_name or "").strip().lower()))
-
-        ok = legacy_cur.fetchone() is not None
-        return ok
+            expected_roles = {
+                str(name or "").strip().lower()
+                for name in (role_names or [])
+                if str(name or "").strip()
+            }
+            if not expected_roles:
+                return True
+            return user_role == "admin" or user_role in expected_roles
+        return False
     finally:
         user_cur.close()
-        if legacy_cur is not None:
-            legacy_cur.close()
         conn.close()
+
+
+def has_role(actor_id, role_name):
+    return has_any_role(actor_id, [role_name])
 
 
 def get_roles_by_empleado(empleado_id: int):

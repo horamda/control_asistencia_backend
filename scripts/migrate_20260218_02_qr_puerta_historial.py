@@ -1,0 +1,49 @@
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from extensions import get_db, init_db
+
+
+DDL = """
+CREATE TABLE IF NOT EXISTS qr_puerta_historial (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  empresa_id INT NOT NULL,
+  empresa_nombre VARCHAR(255) NOT NULL,
+  sucursal_id INT NOT NULL,
+  sucursal_nombre VARCHAR(255) NOT NULL,
+  geo_lat DECIMAL(10,7) NOT NULL,
+  geo_lon DECIMAL(10,7) NOT NULL,
+  tolerancia_m INT NOT NULL,
+  vigencia_dias INT NOT NULL,
+  vigencia_segundos INT NOT NULL,
+  expira_at DATETIME NOT NULL,
+  qr_token TEXT NOT NULL,
+  usuario_id INT NULL,
+  fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  INDEX idx_qr_puerta_historial_empresa_fecha (empresa_id, fecha),
+  INDEX idx_qr_puerta_historial_sucursal_fecha (sucursal_id, fecha),
+  INDEX idx_qr_puerta_historial_fecha (fecha)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+"""
+
+
+def migrate():
+    init_db()
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute(DDL)
+        db.commit()
+        print("[done] migration 20260218_02_qr_puerta_historial")
+    finally:
+        cursor.close()
+        db.close()
+
+
+if __name__ == "__main__":
+    migrate()

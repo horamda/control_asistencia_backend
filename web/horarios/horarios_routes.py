@@ -1,4 +1,4 @@
-import json
+﻿import json
 
 from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
 
@@ -51,7 +51,7 @@ def _extract_form_data(form):
 
 
 @horarios_bp.route("/")
-@role_required("admin")
+@role_required("admin", "rrhh")
 def listado():
     horarios = get_horarios_resumen(include_inactive=True)
     error = (request.args.get("error") or "").strip()
@@ -59,7 +59,7 @@ def listado():
 
 
 @horarios_bp.route("/nuevo", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def nuevo():
     empresas = get_empresas()
     if request.method == "POST":
@@ -101,7 +101,7 @@ def nuevo():
 
 
 @horarios_bp.route("/editar/<int:horario_id>", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def editar(horario_id):
     horario = get_horario_estructurado(horario_id)
     if not horario:
@@ -156,7 +156,7 @@ def editar(horario_id):
 
 
 @horarios_bp.route("/activar/<int:horario_id>")
-@role_required("admin")
+@role_required("admin", "rrhh")
 def activar(horario_id):
     row = get_by_id(horario_id)
     if not row:
@@ -167,7 +167,7 @@ def activar(horario_id):
 
 
 @horarios_bp.route("/desactivar/<int:horario_id>")
-@role_required("admin")
+@role_required("admin", "rrhh")
 def desactivar(horario_id):
     row = get_by_id(horario_id)
     if not row:
@@ -178,7 +178,7 @@ def desactivar(horario_id):
 
 
 @horarios_bp.route("/eliminar/<int:horario_id>", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def eliminar(horario_id):
     try:
         delete_horario_estructurado(horario_id)
@@ -191,13 +191,13 @@ def eliminar(horario_id):
 
 
 @horarios_bp.route("/api", methods=["GET"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_list():
     return jsonify(get_horarios_resumen(include_inactive=True))
 
 
 @horarios_bp.route("/api/<int:horario_id>", methods=["GET"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_get(horario_id):
     horario = get_horario_estructurado(horario_id)
     if not horario:
@@ -206,7 +206,7 @@ def api_get(horario_id):
 
 
 @horarios_bp.route("/api", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_create():
     payload = request.get_json(silent=True) or {}
     try:
@@ -218,7 +218,7 @@ def api_create():
 
 
 @horarios_bp.route("/api/<int:horario_id>", methods=["PUT"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_update(horario_id):
     payload = request.get_json(silent=True) or {}
     try:
@@ -230,7 +230,7 @@ def api_update(horario_id):
 
 
 @horarios_bp.route("/api/<int:horario_id>", methods=["DELETE"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def api_delete(horario_id):
     try:
         delete_horario_estructurado(horario_id)
@@ -240,3 +240,4 @@ def api_delete(horario_id):
         return jsonify({"error": str(exc)}), 400
     except Exception:
         return jsonify({"error": "No se pudo eliminar el horario por una relacion vigente."}), 400
+

@@ -1,40 +1,78 @@
 {% extends "base.html" %}
 {% block title %}Sucursales{% endblock %}
 {% block content %}
-<h2>Sucursales</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Organizacion</div>
+      <h2>Sucursales</h2>
+      <p class="module-intro">
+        Defina ubicaciones de operacion por empresa y mantenga parametros de geocerca.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Multiempresa</span>
+      <span class="chip">Georreferencia</span>
+      <span class="chip">Estado operativo</span>
+    </div>
+  </div>
 
-    <a href="/sucursales/nuevo">Nueva sucursal</a>
+  <div class="toolbar">
+    <a class="btn" href="/sucursales/nuevo">Nueva sucursal</a>
+  </div>
 
-    <table>
-      <tr>
-        <th>Empresa</th>
-        <th>Nombre</th>
-        <th>Dirección</th>
-        <th>Radio (m)</th>
-        <th>Estado</th>
-        <th>Acciones</th>
-      </tr>
+  <div class="results-bar">
+    <div class="summary">Total: {{ sucursales|length }} sucursal(es)</div>
+  </div>
 
-      {% for s in sucursales %}
-      <tr>
-        <td>{{ s.empresa_nombre }}</td>
-        <td>{{ s.nombre }}</td>
-        <td>{{ s.direccion }}</td>
-        <td>{{ s.radio_permitido_m }}</td>
-        <td>{{ "Activa" if s.activa else "Inactiva" }}</td>
-        <td>
-          {% if s.activa %}
-            <a href="/sucursales/desactivar/{{ s.id }}">Desactivar</a>
-          {% else %}
-            <a href="/sucursales/activar/{{ s.id }}">Activar</a>
-          {% endif %}
-          |
-          <a href="/sucursales/editar/{{ s.id }}">Editar</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </table>
+  {% if sucursales %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Nombre</th>
+            <th>Direccion</th>
+            <th>Radio (m)</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sucursales %}
+          <tr>
+            <td>{{ s.empresa_nombre }}</td>
+            <td>{{ s.nombre }}</td>
+            <td>{{ s.direccion or "-" }}</td>
+            <td>{{ s.radio_permitido_m or "-" }}</td>
+            <td>
+              {% if s.activa %}
+                <span class="badge activo">Activa</span>
+              {% else %}
+                <span class="badge inactivo">Inactiva</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="inline-actions">
+                {% if s.activa %}
+                  <a class="btn btn-secondary" href="/sucursales/desactivar/{{ s.id }}">Desactivar</a>
+                {% else %}
+                  <a class="btn btn-secondary" href="/sucursales/activar/{{ s.id }}">Activar</a>
+                {% endif %}
+                <a href="/sucursales/editar/{{ s.id }}">Editar</a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay sucursales registradas.</div>
+  {% endif %}
 
-    <br>
-    <a href="/dashboard">Volver</a>
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
 {% endblock %}

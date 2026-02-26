@@ -1,66 +1,113 @@
 {% extends "base.html" %}
 {% block title %}Sectores{% endblock %}
 {% block content %}
-<h2>Sectores</h2>
-
-    <a href="/sectores/nuevo">Nuevo sector</a>
-    <form method="get" action="/sectores/" style="margin-top:12px">
-      <label>Empresa</label>
-      <select name="empresa_id">
-        <option value="">Todas</option>
-        {% for e in empresas %}
-          <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>
-            {{ e.razon_social }}
-          </option>
-        {% endfor %}
-      </select>
-      <label>Estado</label>
-      <select name="activo">
-        <option value="">Todos</option>
-        <option value="1" {% if activo == 1 %}selected{% endif %}>Activo</option>
-        <option value="0" {% if activo == 0 %}selected{% endif %}>Inactivo</option>
-      </select>
-      <label>Buscar</label>
-      <input name="q" value="{{ q or '' }}" placeholder="Nombre">
-      <button type="submit">Filtrar</button>
-    </form>
-
-    <table>
-      <tr>
-        <th>Empresa</th>
-        <th>Nombre</th>
-        <th>Estado</th>
-        <th>Acciones</th>
-      </tr>
-
-      {% for s in sectores %}
-      <tr>
-        <td>{{ s.empresa_nombre or s.empresa_id }}</td>
-        <td>{{ s.nombre }}</td>
-        <td>{{ "Activo" if s.activo else "Inactivo" }}</td>
-        <td>
-          {% if s.activo %}
-            <a href="/sectores/desactivar/{{ s.id }}">Desactivar</a>
-          {% else %}
-            <a href="/sectores/activar/{{ s.id }}">Activar</a>
-          {% endif %}
-          |
-          <a href="/sectores/editar/{{ s.id }}">Editar</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </table>
-
-    <br>
+<div class="content-stack">
+  <div class="section-head">
     <div>
-      {% if page > 1 %}
-        <a href="/sectores/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Anterior</a>
-      {% endif %}
-      {% if page * per_page < total %}
-        <a href="/sectores/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Siguiente</a>
-      {% endif %}
-      <span> Página {{ page }} </span>
+      <div class="section-kicker">Organizacion</div>
+      <h2>Sectores</h2>
+      <p class="module-intro">
+        Gestione sectores por empresa para ordenar estructura operativa y asignaciones.
+      </p>
     </div>
-    <br>
-    <a href="/dashboard">Volver</a>
+    <div class="chip-row">
+      <span class="chip">Filtro por empresa</span>
+      <span class="chip">Estado activo</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn" href="/sectores/nuevo">Nuevo sector</a>
+  </div>
+
+  <form method="get" action="/sectores/">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id">
+          <option value="">Todas</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Estado</label>
+        <select name="activo">
+          <option value="">Todos</option>
+          <option value="1" {% if activo == 1 %}selected{% endif %}>Activo</option>
+          <option value="0" {% if activo == 0 %}selected{% endif %}>Inactivo</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Buscar</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Nombre del sector">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="/sectores/">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <div class="summary">Total: {{ total }}</div>
+    <div class="summary">Pagina {{ page }}</div>
+  </div>
+
+  {% if sectores %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Nombre</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sectores %}
+          <tr>
+            <td>{{ s.empresa_nombre or s.empresa_id }}</td>
+            <td>{{ s.nombre }}</td>
+            <td>
+              {% if s.activo %}
+                <span class="badge activo">Activo</span>
+              {% else %}
+                <span class="badge inactivo">Inactivo</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="inline-actions">
+                {% if s.activo %}
+                  <a class="btn btn-secondary" href="/sectores/desactivar/{{ s.id }}">Desactivar</a>
+                {% else %}
+                  <a class="btn btn-secondary" href="/sectores/activar/{{ s.id }}">Activar</a>
+                {% endif %}
+                <a href="/sectores/editar/{{ s.id }}">Editar</a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay sectores para los filtros seleccionados.</div>
+  {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a class="btn btn-secondary" href="/sectores/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a class="btn btn-secondary" href="/sectores/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Siguiente</a>
+    {% endif %}
+  </div>
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
 {% endblock %}

@@ -1,66 +1,113 @@
 {% extends "base.html" %}
 {% block title %}Puestos{% endblock %}
 {% block content %}
-<h2>Puestos</h2>
-
-    <a href="/puestos/nuevo">Nuevo puesto</a>
-    <form method="get" action="/puestos/" style="margin-top:12px">
-      <label>Empresa</label>
-      <select name="empresa_id">
-        <option value="">Todas</option>
-        {% for e in empresas %}
-          <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>
-            {{ e.razon_social }}
-          </option>
-        {% endfor %}
-      </select>
-      <label>Estado</label>
-      <select name="activo">
-        <option value="">Todos</option>
-        <option value="1" {% if activo == 1 %}selected{% endif %}>Activo</option>
-        <option value="0" {% if activo == 0 %}selected{% endif %}>Inactivo</option>
-      </select>
-      <label>Buscar</label>
-      <input name="q" value="{{ q or '' }}" placeholder="Nombre">
-      <button type="submit">Filtrar</button>
-    </form>
-
-    <table>
-      <tr>
-        <th>Empresa</th>
-        <th>Nombre</th>
-        <th>Estado</th>
-        <th>Acciones</th>
-      </tr>
-
-      {% for p in puestos %}
-      <tr>
-        <td>{{ p.empresa_nombre or p.empresa_id }}</td>
-        <td>{{ p.nombre }}</td>
-        <td>{{ "Activo" if p.activo else "Inactivo" }}</td>
-        <td>
-          {% if p.activo %}
-            <a href="/puestos/desactivar/{{ p.id }}">Desactivar</a>
-          {% else %}
-            <a href="/puestos/activar/{{ p.id }}">Activar</a>
-          {% endif %}
-          |
-          <a href="/puestos/editar/{{ p.id }}">Editar</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </table>
-
-    <br>
+<div class="content-stack">
+  <div class="section-head">
     <div>
-      {% if page > 1 %}
-        <a href="/puestos/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Anterior</a>
-      {% endif %}
-      {% if page * per_page < total %}
-        <a href="/puestos/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Siguiente</a>
-      {% endif %}
-      <span> Página {{ page }} </span>
+      <div class="section-kicker">Organizacion</div>
+      <h2>Puestos</h2>
+      <p class="module-intro">
+        Mantenga catalogo de puestos por empresa para estructura y reportes de dotacion.
+      </p>
     </div>
-    <br>
-    <a href="/dashboard">Volver</a>
+    <div class="chip-row">
+      <span class="chip">Filtro por empresa</span>
+      <span class="chip">Estado activo</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn" href="/puestos/nuevo">Nuevo puesto</a>
+  </div>
+
+  <form method="get" action="/puestos/">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id">
+          <option value="">Todas</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Estado</label>
+        <select name="activo">
+          <option value="">Todos</option>
+          <option value="1" {% if activo == 1 %}selected{% endif %}>Activo</option>
+          <option value="0" {% if activo == 0 %}selected{% endif %}>Inactivo</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Buscar</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Nombre del puesto">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="/puestos/">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <div class="summary">Total: {{ total }}</div>
+    <div class="summary">Pagina {{ page }}</div>
+  </div>
+
+  {% if puestos %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Nombre</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in puestos %}
+          <tr>
+            <td>{{ p.empresa_nombre or p.empresa_id }}</td>
+            <td>{{ p.nombre }}</td>
+            <td>
+              {% if p.activo %}
+                <span class="badge activo">Activo</span>
+              {% else %}
+                <span class="badge inactivo">Inactivo</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="inline-actions">
+                {% if p.activo %}
+                  <a class="btn btn-secondary" href="/puestos/desactivar/{{ p.id }}">Desactivar</a>
+                {% else %}
+                  <a class="btn btn-secondary" href="/puestos/activar/{{ p.id }}">Activar</a>
+                {% endif %}
+                <a href="/puestos/editar/{{ p.id }}">Editar</a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay puestos para los filtros seleccionados.</div>
+  {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a class="btn btn-secondary" href="/puestos/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a class="btn btn-secondary" href="/puestos/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&activo={{ '' if activo is none else activo }}&q={{ q or '' }}">Siguiente</a>
+    {% endif %}
+  </div>
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
 {% endblock %}

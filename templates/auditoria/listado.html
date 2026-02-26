@@ -1,38 +1,65 @@
 {% extends "base.html" %}
-{% block title %}Auditoría{% endblock %}
+{% block title %}Auditoria{% endblock %}
 {% block content %}
-<h2>Auditoría</h2>
-
-    <table>
-      <tr>
-        <th>Usuario</th>
-        <th>Acción</th>
-        <th>Tabla</th>
-        <th>Registro</th>
-        <th>Fecha</th>
-      </tr>
-
-      {% for a in registros %}
-      <tr>
-        <td>{{ a.usuario_nombre or a.usuario_id }}</td>
-        <td>{{ a.accion }}</td>
-        <td>{{ a.tabla_afectada }}</td>
-        <td>{{ a.registro_id }}</td>
-        <td>{{ a.fecha }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-
-    <br>
+<div class="content-stack">
+  <div class="section-head">
     <div>
-      {% if page > 1 %}
-        <a href="/auditoria/?page={{ page - 1 }}&per={{ per_page }}">Anterior</a>
-      {% endif %}
-      {% if page * per_page < total %}
-        <a href="/auditoria/?page={{ page + 1 }}&per={{ per_page }}">Siguiente</a>
-      {% endif %}
-      <span> Página {{ page }} </span>
+      <div class="section-kicker">Administracion</div>
+      <h2>Auditoria</h2>
+      <p class="module-intro">
+        Visualice operaciones criticas del sistema con trazabilidad por usuario, tabla y registro afectado.
+      </p>
     </div>
-    <br>
-    <a href="/dashboard">Volver</a>
+    <div class="chip-row">
+      <span class="chip">Trazabilidad</span>
+      <span class="chip">Historial</span>
+      <span class="chip">Control interno</span>
+    </div>
+  </div>
+
+  <div class="results-bar">
+    <div class="summary">Resultados en pagina: {{ registros|length }}</div>
+    <div class="summary">Total general: {{ total }}</div>
+  </div>
+
+  {% if registros %}
+    <div class="table-responsive">
+      <table>
+        <tr>
+          <th>Usuario</th>
+          <th>Accion</th>
+          <th>Tabla</th>
+          <th>Registro</th>
+          <th>Fecha</th>
+        </tr>
+
+        {% for a in registros %}
+        <tr>
+          <td>{{ a.usuario_nombre or a.usuario_id }}</td>
+          <td>{{ a.accion }}</td>
+          <td>{{ a.tabla_afectada }}</td>
+          <td>{{ a.registro_id }}</td>
+          <td>{{ a.fecha }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay registros de auditoria disponibles.</div>
+  {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a class="btn btn-secondary" href="/auditoria/?page={{ page - 1 }}&per={{ per_page }}">Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a class="btn btn-secondary" href="/auditoria/?page={{ page + 1 }}&per={{ per_page }}">Siguiente</a>
+    {% endif %}
+    <span class="summary">Pagina {{ page }}</span>
+  </div>
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
 {% endblock %}

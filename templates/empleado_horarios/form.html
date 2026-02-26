@@ -1,113 +1,126 @@
 {% extends "base.html" %}
 {% block title %}Horarios de empleado{% endblock %}
 {% block content %}
-<h2>Planificacion de {{ empleado.apellido }} {{ empleado.nombre }}</h2>
-<p class="module-intro">
-  Administre vigencias sin superposiciones. El sistema conserva historial completo.
-</p>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Empleado</div>
+      <h2>Planificacion de {{ empleado.apellido }} {{ empleado.nombre }}</h2>
+      <p class="module-intro">
+        Administre vigencias sin superposiciones. El sistema conserva historial completo.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Empresa {{ empleado.empresa_id or "-" }}</span>
+      <span class="chip">Modulo critico</span>
+    </div>
+  </div>
 
-<div class="panel-grid">
-  <section class="panel">
-    <h3>Resumen actual</h3>
-    {% if actual %}
+  <div class="panel-grid">
+    <section class="panel">
+      <h3>Resumen actual</h3>
+      {% if actual %}
+        <div class="key-value-grid">
+          <div class="kv"><span class="k">Horario vigente</span><span class="v">{{ actual.horario_nombre }}</span></div>
+          <div class="kv"><span class="k">Inicio</span><span class="v">{{ actual.fecha_desde }}</span></div>
+          <div class="kv"><span class="k">Fin</span><span class="v">{{ actual.fecha_hasta or "Abierta" }}</span></div>
+          <div class="kv"><span class="k">Empresa</span><span class="v">{{ actual.empresa_nombre }}</span></div>
+        </div>
+      {% else %}
+        <div class="empty-state">Este empleado no tiene horario vigente.</div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h3>Reglas</h3>
       <ul class="list-clean">
-        <li>Horario vigente: <strong>{{ actual.horario_nombre }}</strong></li>
-        <li>Inicio de vigencia: <strong>{{ actual.fecha_desde }}</strong></li>
-        <li>Fin de vigencia: <strong>{{ actual.fecha_hasta or "Abierta" }}</strong></li>
-        <li>Empresa: <strong>{{ actual.empresa_nombre }}</strong></li>
+        <li>No se permiten rangos superpuestos.</li>
+        <li>El horario debe pertenecer a la misma empresa.</li>
+        <li>Fecha hasta es opcional para vigencia abierta.</li>
       </ul>
-    {% else %}
-      <div class="empty-state">Este empleado no tiene horario vigente.</div>
-    {% endif %}
-  </section>
-
-  <section class="panel">
-    <h3>Reglas</h3>
-    <ul class="list-clean">
-      <li>No se permiten rangos superpuestos.</li>
-      <li>El horario debe pertenecer a la misma empresa.</li>
-      <li>Fecha hasta es opcional para vigencia abierta.</li>
-    </ul>
-  </section>
-</div>
-
-{% if errors %}
-  <div class="errors" style="margin-top: 12px;">
-    <ul>
-      {% for e in errors %}
-        <li>{{ e }}</li>
-      {% endfor %}
-    </ul>
+    </section>
   </div>
-{% endif %}
 
-<form method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <h3 class="section-title">{% if mode == "edit" %}Editar asignacion{% else %}Nueva asignacion{% endif %}</h3>
-
-  <div class="form-grid">
-    <div class="row span-2">
-      <label>Plantilla de horario</label>
-      <select name="horario_id" required>
-        <option value="">Seleccione</option>
-        {% for h in horarios %}
-          <option value="{{ h.id }}" {% if data.horario_id == h.id %}selected{% endif %}>
-            {{ h.nombre }} ({{ h.empresa_nombre or ("Empresa " ~ h.empresa_id) }})
-          </option>
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
         {% endfor %}
-      </select>
+      </ul>
     </div>
-    <div class="row">
-      <label>Fecha desde</label>
-      <input name="fecha_desde" type="date" value="{{ data.fecha_desde or '' }}" required>
-    </div>
-    <div class="row">
-      <label>Fecha hasta (opcional)</label>
-      <input name="fecha_hasta" type="date" value="{{ data.fecha_hasta or '' }}">
-    </div>
-  </div>
+  {% endif %}
 
-  <div class="actions">
-    <button type="submit">{% if mode == "edit" %}Guardar cambios{% else %}Asignar horario{% endif %}</button>
-    {% if mode == "edit" %}
-      <a href="{{ url_for('empleado_horarios.asignar', empleado_id=empleado.id) }}">Cancelar edicion</a>
-    {% else %}
-      <a href="{{ url_for('empleado_horarios.listado') }}">Volver al listado</a>
-    {% endif %}
-  </div>
-</form>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3 class="section-title">{% if mode == "edit" %}Editar asignacion{% else %}Nueva asignacion{% endif %}</h3>
 
-<h3 class="section-title">Historial de asignaciones</h3>
-{% if historial %}
-  <table>
-    <thead>
-      <tr>
-        <th>Horario</th>
-        <th>Desde</th>
-        <th>Hasta</th>
-        <th>Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for h in historial %}
-      <tr>
-        <td>{{ h.horario_nombre }}</td>
-        <td>{{ h.fecha_desde }}</td>
-        <td>{{ h.fecha_hasta or "Abierta" }}</td>
-        <td>
-          <div class="inline-actions">
-            <a href="{{ url_for('empleado_horarios.editar', empleado_id=empleado.id, asignacion_id=h.id) }}">Editar</a>
-            <form method="post" action="{{ url_for('empleado_horarios.eliminar', empleado_id=empleado.id, asignacion_id=h.id) }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit">Eliminar</button>
-            </form>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-{% else %}
-  <div class="empty-state">Todavia no hay registros historicos para este empleado.</div>
-{% endif %}
+    <div class="form-grid">
+      <div class="row span-2">
+        <label>Plantilla de horario</label>
+        <select name="horario_id" required>
+          <option value="">Seleccione</option>
+          {% for h in horarios %}
+            <option value="{{ h.id }}" {% if data.horario_id == h.id %}selected{% endif %}>
+              {{ h.nombre }} ({{ h.empresa_nombre or ("Empresa " ~ h.empresa_id) }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Fecha desde</label>
+        <input name="fecha_desde" type="date" value="{{ data.fecha_desde or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Fecha hasta (opcional)</label>
+        <input name="fecha_hasta" type="date" value="{{ data.fecha_hasta or '' }}">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit">{% if mode == "edit" %}Guardar cambios{% else %}Asignar horario{% endif %}</button>
+      {% if mode == "edit" %}
+        <a class="btn btn-secondary" href="{{ url_for('empleado_horarios.asignar', empleado_id=empleado.id) }}">Cancelar edicion</a>
+      {% else %}
+        <a class="btn btn-secondary" href="{{ url_for('empleado_horarios.listado') }}">Volver al listado</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <h3 class="section-title">Historial de asignaciones</h3>
+  {% if historial %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Horario</th>
+            <th>Desde</th>
+            <th>Hasta</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in historial %}
+          <tr>
+            <td>{{ h.horario_nombre }}</td>
+            <td>{{ h.fecha_desde }}</td>
+            <td>{{ h.fecha_hasta or "Abierta" }}</td>
+            <td>
+              <div class="inline-actions">
+                <a href="{{ url_for('empleado_horarios.editar', empleado_id=empleado.id, asignacion_id=h.id) }}">Editar</a>
+                <form method="post" action="{{ url_for('empleado_horarios.eliminar', empleado_id=empleado.id, asignacion_id=h.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn-danger" type="submit">Eliminar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">Todavia no hay registros historicos para este empleado.</div>
+  {% endif %}
+</div>
 {% endblock %}

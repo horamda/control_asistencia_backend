@@ -1,112 +1,190 @@
 {% extends "base.html" %}
 {% block title %}Asistencias{% endblock %}
 {% block content %}
-<h2>Control de asistencias</h2>
-<p class="module-intro">
-  Registro operativo diario. El estado se calcula en backend segun horario esperado,
-  tolerancia y excepciones.
-</p>
-
-<div class="toolbar">
-  <a class="btn" href="/asistencias/nuevo">Registrar asistencia manual</a>
-</div>
-
-<form method="post" action="/asistencias/generar-ausentes">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <h3 class="section-title">Accion automatica</h3>
-  <div class="form-grid">
-    <div class="row">
-      <label>Generar ausentes para fecha</label>
-      <input name="fecha" type="date" value="{{ today }}">
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Operacion Diaria</div>
+      <h2>Control de asistencias</h2>
+      <p class="module-intro">
+        Registro operativo diario. El estado se calcula en backend segun horario esperado,
+        tolerancia y excepciones.
+      </p>
     </div>
-    <div class="row">
-      <label>&nbsp;</label>
-      <button type="submit">Generar ausentes del dia</button>
+    <div class="chip-row">
+      <span class="chip">Estado automatico</span>
+      <span class="chip">Rango de fechas</span>
+      <span class="chip">Auditable</span>
     </div>
   </div>
-</form>
 
-<form method="get" action="/asistencias/">
-  <h3 class="section-title">Filtros de consulta</h3>
-  <div class="form-grid">
-    <div class="row">
-      <label>Empleado</label>
-      <select name="empleado_id">
-        <option value="">Todos</option>
-        {% for e in empleados %}
-          <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
-            {{ e.apellido }} {{ e.nombre }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="row">
-      <label>Fecha desde</label>
-      <input name="fecha_desde" type="date" value="{{ fecha_desde or '' }}">
-    </div>
-    <div class="row">
-      <label>Fecha hasta</label>
-      <input name="fecha_hasta" type="date" value="{{ fecha_hasta or '' }}">
-    </div>
-    <div class="row span-2">
-      <label>Busqueda por nombre/apellido</label>
-      <input name="q" value="{{ q or '' }}" placeholder="Ej: Perez">
-    </div>
-    <div class="row">
-      <label>&nbsp;</label>
-      <button type="submit">Aplicar filtros</button>
-    </div>
+  <div class="toolbar">
+    <a class="btn" href="/asistencias/nuevo">Registrar asistencia manual</a>
+    <a class="btn btn-secondary" href="/asistencias/marcas">Ver historial de marcas</a>
   </div>
-</form>
 
-{% if asistencias %}
-  <table>
-    <thead>
-      <tr>
-        <th>Empresa</th>
-        <th>Empleado</th>
-        <th>Fecha</th>
-        <th>Entrada</th>
-        <th>Salida</th>
-        <th>Estado</th>
-        <th>Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for a in asistencias %}
-      <tr>
-        <td>{{ a.empresa_nombre or "-" }}</td>
-        <td>{{ a.apellido }} {{ a.nombre }}</td>
-        <td>{{ a.fecha }}</td>
-        <td>{{ a.hora_entrada or "-" }}</td>
-        <td>{{ a.hora_salida or "-" }}</td>
-        <td>{{ a.estado or "-" }}</td>
-        <td>
-          <div class="inline-actions">
-            <a href="/asistencias/editar/{{ a.id }}">Editar</a>
-            <form method="post" action="/asistencias/eliminar/{{ a.id }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit">Eliminar</button>
-            </form>
+  <form method="post" action="/asistencias/generar-ausentes">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3 class="section-title">Accion automatica</h3>
+    <div class="auto-actions-grid">
+      <section class="auto-action-card">
+        <h4 class="section-title">Generar por dia</h4>
+        <div class="row">
+          <label>Fecha base</label>
+          <input name="fecha" type="date" value="{{ today }}">
+        </div>
+        <div class="actions">
+          <button type="submit" name="modo" value="dia">Generar ausentes del dia</button>
+        </div>
+      </section>
+
+      <section class="auto-action-card">
+        <h4 class="section-title">Generar por rango</h4>
+        <div class="form-grid auto-range-grid">
+          <div class="row">
+            <label>Rango desde</label>
+            <input id="ausentes-rango-desde" name="fecha_desde" type="date" value="">
           </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-{% else %}
-  <div class="empty-state">
-    No hay asistencias para los filtros seleccionados.
-  </div>
-{% endif %}
+          <div class="row">
+            <label>Rango hasta</label>
+            <input id="ausentes-rango-hasta" name="fecha_hasta" type="date" value="">
+          </div>
+        </div>
+        <div class="actions">
+          <button id="ausentes-rango-btn" type="submit" name="modo" value="rango" disabled>Generar ausentes por rango</button>
+        </div>
+        <div id="ausentes-rango-help" class="helper-text">Complete desde y hasta para habilitar la generacion por rango.</div>
+      </section>
+    </div>
+  </form>
 
-<div class="pager">
-  {% if page > 1 %}
-    <a class="btn" href="/asistencias/?page={{ page - 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Anterior</a>
+  <form method="get" action="/asistencias/">
+    <h3 class="section-title">Filtros de consulta</h3>
+    <div class="form-grid">
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id">
+          <option value="">Todos</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Fecha desde</label>
+        <input name="fecha_desde" type="date" value="{{ fecha_desde or '' }}">
+      </div>
+      <div class="row">
+        <label>Fecha hasta</label>
+        <input name="fecha_hasta" type="date" value="{{ fecha_hasta or '' }}">
+      </div>
+      <div class="row span-2">
+        <label>Busqueda por nombre/apellido</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Ej: Perez">
+      </div>
+      <div class="row">
+        <label>&nbsp;</label>
+        <button type="submit">Aplicar filtros</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <div class="summary">Resultados: {{ total }} registro(s)</div>
+  </div>
+
+  {% if asistencias %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Empleado</th>
+            <th>Fecha</th>
+            <th>Entrada</th>
+            <th>Salida</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in asistencias %}
+          <tr>
+            <td>{{ a.empresa_nombre or "-" }}</td>
+            <td>{{ a.apellido }} {{ a.nombre }}</td>
+            <td>{{ a.fecha }}</td>
+            <td>{{ a.hora_entrada or "-" }}</td>
+            <td>{{ a.hora_salida or "-" }}</td>
+            <td>
+              {% set estado = (a.estado or "")|lower %}
+              {% if estado == "ok" %}
+                <span class="badge ok">{{ a.estado }}</span>
+              {% elif estado in ["tarde", "salida_anticipada"] %}
+                <span class="badge warning">{{ a.estado }}</span>
+              {% elif estado == "ausente" %}
+                <span class="badge danger">{{ a.estado }}</span>
+              {% elif a.estado %}
+                <span class="badge">{{ a.estado }}</span>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td>
+              <div class="inline-actions">
+                <a href="/asistencias/editar/{{ a.id }}">Editar</a>
+                <form method="post" action="/asistencias/eliminar/{{ a.id }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit">Eliminar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      No hay asistencias para los filtros seleccionados.
+    </div>
   {% endif %}
-  {% if page * per_page < total %}
-    <a class="btn" href="/asistencias/?page={{ page + 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Siguiente</a>
-  {% endif %}
-  <span>Pagina {{ page }} de {{ ((total + per_page - 1) // per_page) if per_page else 1 }}</span>
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a class="btn btn-secondary" href="/asistencias/?page={{ page - 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a class="btn btn-secondary" href="/asistencias/?page={{ page + 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Siguiente</a>
+    {% endif %}
+    <span>Pagina {{ page }} de {{ ((total + per_page - 1) // per_page) if per_page else 1 }}</span>
+  </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  (function () {
+    const fromInput = document.getElementById("ausentes-rango-desde");
+    const toInput = document.getElementById("ausentes-rango-hasta");
+    const rangeBtn = document.getElementById("ausentes-rango-btn");
+    const help = document.getElementById("ausentes-rango-help");
+    if (!fromInput || !toInput || !rangeBtn || !help) return;
+
+    function refreshRangeState() {
+      const hasFrom = !!fromInput.value;
+      const hasTo = !!toInput.value;
+      const hasBoth = hasFrom && hasTo;
+      rangeBtn.disabled = !hasBoth;
+      help.textContent = hasBoth
+        ? "El sistema evaluara horario asignado y excepciones dia por dia."
+        : "Complete desde y hasta para habilitar la generacion por rango.";
+    }
+
+    fromInput.addEventListener("input", refreshRangeState);
+    toInput.addEventListener("input", refreshRangeState);
+    refreshRangeState();
+  })();
+</script>
 {% endblock %}

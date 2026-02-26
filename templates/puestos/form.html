@@ -1,28 +1,36 @@
 {% extends "base.html" %}
 {% block title %}{% if mode == "edit" %}Editar puesto{% else %}Nuevo puesto{% endif %}{% endblock %}
 {% block content %}
-<h2>{% if mode == "edit" %}Editar puesto{% else %}Nuevo puesto{% endif %}</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Organizacion</div>
+      <h2>{% if mode == "edit" %}Editar puesto{% else %}Nuevo puesto{% endif %}</h2>
+      <p class="module-intro">
+        Administre posiciones laborales para estandarizar estructura y perfiles.
+      </p>
+    </div>
+  </div>
 
-    {% if errors %}
-      <div class="errors">
-        <ul>
-          {% for e in errors %}
-            <li>{{ e }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="row">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row span-2">
         <label>Empresa</label>
         <select name="empresa_id" required>
           <option value="">Seleccione</option>
           {% for e in empresas %}
-            <option value="{{ e.id }}" {% if data.empresa_id == e.id %}selected{% endif %}>
-              {{ e.razon_social }}
-            </option>
+            <option value="{{ e.id }}" {% if data.empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
           {% endfor %}
         </select>
       </div>
@@ -30,15 +38,18 @@
         <label>Nombre</label>
         <input name="nombre" value="{{ data.nombre or '' }}" required>
       </div>
-      <div class="row">
-        <label>
+      <div class="row span-3">
+        <label class="check-inline">
           <input type="checkbox" name="activo" value="1" {% if data.activo is not defined or data.activo %}checked{% endif %}>
-          Activo
+          Puesto activo
         </label>
       </div>
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('puestos.listado') }}">Volver</a>
-      </div>
-    </form>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('puestos.listado') }}">Volver</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

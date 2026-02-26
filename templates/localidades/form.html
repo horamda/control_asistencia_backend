@@ -1,22 +1,32 @@
 {% extends "base.html" %}
 {% block title %}{% if mode == "edit" %}Editar localidad{% else %}Nueva localidad{% endif %}{% endblock %}
 {% block content %}
-<h2>{% if mode == "edit" %}Editar localidad{% else %}Nueva localidad{% endif %}</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Maestros</div>
+      <h2>{% if mode == "edit" %}Editar localidad{% else %}Nueva localidad{% endif %}</h2>
+      <p class="module-intro">
+        Mantenga estandar de codigo postal, provincia y pais para toda la plataforma.
+      </p>
+    </div>
+  </div>
 
-    {% if errors %}
-      <div class="errors">
-        <ul>
-          {% for e in errors %}
-            <li>{{ e }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
       <div class="row">
-        <label>Código postal</label>
+        <label>Codigo postal</label>
         <input name="codigo_postal" value="{{ data.codigo_postal or '' }}" {% if mode == "edit" %}readonly{% endif %} required>
       </div>
       <div class="row">
@@ -27,13 +37,16 @@
         <label>Provincia</label>
         <input name="provincia" value="{{ data.provincia or '' }}" required>
       </div>
-      <div class="row">
-        <label>País</label>
+      <div class="row span-2">
+        <label>Pais</label>
         <input name="pais" value="{{ data.pais or '' }}" required>
       </div>
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('localidades.listado') }}">Volver</a>
-      </div>
-    </form>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('localidades.listado') }}">Volver</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

@@ -1,35 +1,58 @@
 {% extends "base.html" %}
 {% block title %}Asignaciones de horarios{% endblock %}
 {% block content %}
-<h2>Asignaciones de horarios por empleado</h2>
-<p class="module-intro">
-  Seleccione un empleado para gestionar su vigencia de horarios y mantener el historial.
-</p>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Planificacion</div>
+      <h2>Asignaciones de horarios por empleado</h2>
+      <p class="module-intro">
+        Seleccione un empleado para gestionar su vigencia de horarios y mantener el historial.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Sin superposicion</span>
+      <span class="chip">Historico completo</span>
+    </div>
+  </div>
 
-{% if empleados %}
-  <table>
-    <thead>
-      <tr>
-        <th>Empleado</th>
-        <th>Empresa</th>
-        <th>Estado</th>
-        <th>Accion</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for e in empleados %}
-      <tr>
-        <td>{{ e.apellido }} {{ e.nombre }}</td>
-        <td>{{ e.empresa_nombre or "-" }}</td>
-        <td>{{ "Activo" if e.activo else "Inactivo" }}</td>
-        <td>
-          <a class="btn" href="/empleado-horarios/{{ e.id }}">Gestionar asignaciones</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-{% else %}
-  <div class="empty-state">No hay empleados disponibles para asignar horarios.</div>
-{% endif %}
+  <div class="results-bar">
+    <div class="summary">Empleados disponibles: {{ empleados|length }}</div>
+  </div>
+
+  {% if empleados %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Empleado</th>
+            <th>Empresa</th>
+            <th>Estado</th>
+            <th>Accion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in empleados %}
+          <tr>
+            <td>{{ e.apellido }} {{ e.nombre }}</td>
+            <td>{{ e.empresa_nombre or "-" }}</td>
+            <td>
+              {% if e.activo %}
+                <span class="badge activo">Activo</span>
+              {% else %}
+                <span class="badge inactivo">Inactivo</span>
+              {% endif %}
+            </td>
+            <td>
+              <a class="btn btn-secondary" href="/empleado-horarios/{{ e.id }}">Gestionar asignaciones</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay empleados disponibles para asignar horarios.</div>
+  {% endif %}
+</div>
 {% endblock %}

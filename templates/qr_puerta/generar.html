@@ -1,91 +1,156 @@
 {% extends "base.html" %}
 {% block title %}QR Puerta{% endblock %}
 {% block content %}
-<h2>QR de puerta</h2>
-<p class="module-intro">
-  Genere un unico QR para la puerta de ingreso. La app movil identifica el empleado por login
-  y el backend decide automaticamente si corresponde ingreso o egreso.
-</p>
-
-{% if errors %}
-  <div class="errors">
-    <ul>
-      {% for e in errors %}
-        <li>{{ e }}</li>
-      {% endfor %}
-    </ul>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Acceso Movil</div>
+      <h2>QR de puerta</h2>
+      <p class="module-intro">
+        Genere un unico QR para la puerta de ingreso. La app movil identifica el empleado por login
+        y el backend decide automaticamente si corresponde ingreso o egreso. Puede clasificar la marca
+        por motivo (jornada, desayuno, almuerzo, merienda u otro).
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">QR unico</span>
+      <span class="chip">Geocerca</span>
+      <span class="chip">Historial</span>
+    </div>
   </div>
-{% endif %}
 
-<form method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <h3 class="section-title">Configuracion QR</h3>
-  <div class="form-grid">
-    <div class="row span-2">
-      <label>Empresa</label>
-      <select name="empresa_id" required>
-        <option value="">Seleccione</option>
-        {% for e in empresas %}
-          <option value="{{ e.id }}" {% if data.empresa_id == e.id %}selected{% endif %}>
-            {{ e.razon_social }}
-          </option>
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
         {% endfor %}
-      </select>
+      </ul>
     </div>
-    <div class="row span-2">
-      <label>Sucursal (ubicacion de puerta)</label>
-      <select name="sucursal_id" required>
-        <option value="">Seleccione</option>
-        {% for s in sucursales %}
-          <option value="{{ s.id }}" {% if data.sucursal_id == s.id %}selected{% endif %}>
-            {{ s.empresa_nombre }} - {{ s.nombre }}
-          </option>
-        {% endfor %}
-      </select>
+  {% endif %}
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3 class="section-title">Configuracion QR</h3>
+    <div class="form-grid">
+      <div class="row span-2">
+        <label>Empresa</label>
+        <select name="empresa_id" required>
+          <option value="">Seleccione</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if data.empresa_id == e.id %}selected{% endif %}>
+              {{ e.razon_social }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row span-2">
+        <label>Sucursal (ubicacion de puerta)</label>
+        <select name="sucursal_id" required>
+          <option value="">Seleccione</option>
+          {% for s in sucursales %}
+            <option value="{{ s.id }}" {% if data.sucursal_id == s.id %}selected{% endif %}>
+              {{ s.empresa_nombre }} - {{ s.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Tolerancia GPS (m)</label>
+        <input type="number" name="tolerancia_m" min="1" max="2000" value="{{ data.tolerancia_m or '' }}">
+        <div class="helper-text">Si se deja vacio, usa el radio de la sucursal.</div>
+      </div>
+      <div class="row">
+        <label>Vigencia (dias)</label>
+        <input type="number" name="vigencia_dias" min="1" max="3650" value="{{ data.vigencia_dias or 30 }}">
+      </div>
+      <div class="row">
+        <label>Tipo de marca</label>
+        <select name="tipo_marca" required>
+          {% for code, label in tipo_marca_options %}
+            <option value="{{ code }}" {% if data.tipo_marca == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
     </div>
+
+    <div class="muted-box">
+      Tipo de QR: <strong>AUTO + EMPRESA</strong>. El mismo QR sirve para todos los empleados de la empresa.
+    </div>
+
+    <div class="actions">
+      <button type="submit">Generar QR</button>
+      <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver</a>
+    </div>
+  </form>
+
+  {% if result %}
+    <h3 class="section-title">QR generado</h3>
+    <div class="key-value-grid">
+      <div class="kv"><span class="k">Empresa</span><span class="v">{{ result.empresa_nombre }}</span></div>
+      <div class="kv"><span class="k">Sucursal</span><span class="v">{{ result.sucursal_nombre }}</span></div>
+      <div class="kv"><span class="k">Tipo de marca</span><span class="v">{{ result.tipo_marca }}</span></div>
+      <div class="kv"><span class="k">Geocerca</span><span class="v">{{ result.geo_lat }}, {{ result.geo_lon }}</span></div>
+      <div class="kv"><span class="k">Tolerancia GPS</span><span class="v">{{ result.tolerancia_m }} m</span></div>
+      <div class="kv"><span class="k">Vigencia</span><span class="v">{{ result.vigencia_dias }} dias</span></div>
+      <div class="kv"><span class="k">Expira</span><span class="v">{{ result.expira_at }}</span></div>
+    </div>
+
+    <div class="row qr-preview">
+      <img src="{{ result.qr_png_base64 }}" alt="QR puerta">
+    </div>
+
     <div class="row">
-      <label>Tolerancia GPS (m)</label>
-      <input type="number" name="tolerancia_m" min="1" max="2000" value="{{ data.tolerancia_m or '' }}">
-      <small>Si se deja vacio, usa el radio de la sucursal.</small>
+      <label>Token QR</label>
+      <textarea readonly rows="4">{{ result.qr_token }}</textarea>
     </div>
-    <div class="row">
-      <label>Vigencia (dias)</label>
-      <input type="number" name="vigencia_dias" min="1" max="3650" value="{{ data.vigencia_dias or 30 }}">
+
+    <div class="actions">
+      <a class="btn btn-secondary" href="{{ url_for('qr_puerta.imprimir', empresa_id=result.empresa_id, sucursal_id=result.sucursal_id, tolerancia_m=result.tolerancia_m, tipo_marca=result.tipo_marca) }}" target="_blank" rel="noopener">Abrir version para imprimir</a>
+      {% if result.historial_id %}
+        <a class="btn btn-secondary" href="{{ url_for('qr_puerta.reimprimir', historial_id=result.historial_id) }}" target="_blank" rel="noopener">Reimprimir desde historial</a>
+      {% endif %}
     </div>
-  </div>
+  {% endif %}
 
-  <div class="muted-box">
-    Tipo de QR: <strong>AUTO + EMPRESA</strong>. El mismo QR sirve para todos los empleados de la empresa.
-  </div>
-
-  <div class="actions">
-    <button type="submit">Generar QR</button>
-    <a href="{{ url_for('web.dashboard') }}">Volver</a>
-  </div>
-</form>
-
-{% if result %}
-  <h3 class="section-title">QR generado</h3>
-  <div class="muted-box">
-    Empresa: <strong>{{ result.empresa_nombre }}</strong><br>
-    Sucursal: <strong>{{ result.sucursal_nombre }}</strong><br>
-    Geocerca: <strong>{{ result.geo_lat }}, {{ result.geo_lon }}</strong><br>
-    Tolerancia GPS: <strong>{{ result.tolerancia_m }} m</strong><br>
-    Expira: <strong>{{ result.expira_at }}</strong><br>
-    Vigencia: <strong>{{ result.vigencia_dias }} dias</strong>
-  </div>
-
-  <div class="row" style="margin-top: 12px;">
-    <img src="{{ result.qr_png_base64 }}" alt="QR puerta" style="width: min(320px, 100%); border: 1px solid #d6deea; border-radius: 10px; background: #fff; padding: 10px;">
-  </div>
-
-  <div class="row">
-    <label>Token QR</label>
-    <textarea readonly rows="4">{{ result.qr_token }}</textarea>
-  </div>
-
-  <div class="actions">
-    <a href="{{ url_for('qr_puerta.imprimir', empresa_id=result.empresa_id, sucursal_id=result.sucursal_id, tolerancia_m=result.tolerancia_m) }}" target="_blank" rel="noopener">Abrir version para imprimir</a>
-  </div>
-{% endif %}
+  <h3 class="section-title">Historial de QRs generados</h3>
+  {% if historial %}
+    <div class="table-responsive">
+      <table class="table-list">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Empresa</th>
+            <th>Sucursal</th>
+            <th>Tipo</th>
+            <th>Tolerancia (m)</th>
+            <th>Vigencia (dias)</th>
+            <th>Expira</th>
+            <th>Generado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in historial %}
+            <tr>
+              <td>{{ h.id }}</td>
+              <td>{{ h.empresa_nombre }}</td>
+              <td>{{ h.sucursal_nombre }}</td>
+              <td>{{ h.tipo_marca or 'jornada' }}</td>
+              <td>{{ h.tolerancia_m }}</td>
+              <td>{{ h.vigencia_dias }}</td>
+              <td>{{ h.expira_at }}</td>
+              <td>{{ h.fecha }}</td>
+              <td>
+                <a href="{{ url_for('qr_puerta.reimprimir', historial_id=h.id) }}" target="_blank" rel="noopener">Reimprimir</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted-box">Aun no hay QRs generados.</div>
+  {% endif %}
+</div>
 {% endblock %}

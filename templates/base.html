@@ -20,6 +20,7 @@
         {{ rendered_content }}
       </main>
     {% else %}
+      {% set current_role = (session.user_role or '')|lower %}
       <div class="app-shell">
         <aside class="app-sidebar">
           <div class="brand">
@@ -36,44 +37,61 @@
               <a class="nav-link" href="/dashboard">Dashboard</a>
             </div>
 
-            <div class="nav-group">
-              <div class="nav-label">Organizacion</div>
-              <a class="nav-link" href="/empresas/">Empresas</a>
-              <a class="nav-link" href="/sucursales/">Sucursales</a>
-              <a class="nav-link" href="/sectores/">Sectores</a>
-              <a class="nav-link" href="/puestos/">Puestos</a>
-              <a class="nav-link" href="/localidades/">Localidades</a>
-            </div>
+            {% if current_role == "admin" %}
+              <div class="nav-group">
+                <div class="nav-label">Organizacion</div>
+                <a class="nav-link" href="/empresas/">Empresas</a>
+                <a class="nav-link" href="/sucursales/">Sucursales</a>
+                <a class="nav-link" href="/sectores/">Sectores</a>
+                <a class="nav-link" href="/puestos/">Puestos</a>
+                <a class="nav-link" href="/localidades/">Localidades</a>
+              </div>
+            {% endif %}
 
-            <div class="nav-group">
-              <div class="nav-label">Personas</div>
-              <a class="nav-link" href="/empleados/">Empleados</a>
-              <a class="nav-link" href="/roles/">Roles</a>
-              <a class="nav-link" href="/empleado-roles/">Asignar roles</a>
-              <a class="nav-link" href="/usuarios/">Usuarios</a>
-            </div>
+            {% if current_role in ["admin", "rrhh"] %}
+              <div class="nav-group">
+                <div class="nav-label">Personas</div>
+                <a class="nav-link" href="/empleados/">Empleados</a>
+                {% if current_role == "admin" %}
+                  <a class="nav-link" href="/roles/">Roles empleados</a>
+                  <a class="nav-link" href="/empleado-roles/">Asignar roles empleados</a>
+                  <a class="nav-link" href="/usuarios/">Usuarios panel</a>
+                {% endif %}
+              </div>
+            {% endif %}
 
-            <div class="nav-group">
-              <div class="nav-label">Horarios</div>
-              <a class="nav-link" href="/horarios/">Plantillas</a>
-              <a class="nav-link" href="/empleado-horarios/">Asignaciones</a>
-              <a class="nav-link" href="/empleado-excepciones/">Excepciones</a>
-            </div>
+            {% if current_role in ["admin", "rrhh"] %}
+              <div class="nav-group">
+                <div class="nav-label">Horarios</div>
+                <a class="nav-link" href="/horarios/">Plantillas</a>
+                <a class="nav-link" href="/empleado-horarios/">Asignaciones</a>
+                <a class="nav-link" href="/empleado-excepciones/">Excepciones</a>
+              </div>
+            {% endif %}
 
             <div class="nav-group">
               <div class="nav-label">Asistencia</div>
               <a class="nav-link" href="/asistencias/">Asistencias</a>
-              <a class="nav-link" href="/qr-puerta/">QR puerta</a>
+              {% if current_role in ["admin", "rrhh", "supervisor"] %}
+                <a class="nav-link" href="/asistencias/marcas">Historial marcas</a>
+              {% endif %}
+              {% if current_role in ["admin", "rrhh"] %}
+                <a class="nav-link" href="/qr-puerta/">QR puerta</a>
+              {% endif %}
               <a class="nav-link" href="/justificaciones/">Justificaciones</a>
-              <a class="nav-link" href="/francos/">Francos</a>
-              <a class="nav-link" href="/vacaciones/">Vacaciones</a>
+              {% if current_role in ["admin", "rrhh"] %}
+                <a class="nav-link" href="/francos/">Francos</a>
+                <a class="nav-link" href="/vacaciones/">Vacaciones</a>
+              {% endif %}
             </div>
 
-            <div class="nav-group">
-              <div class="nav-label">Sistema</div>
-              <a class="nav-link" href="/configuracion-empresa/">Configuracion</a>
-              <a class="nav-link" href="/auditoria/">Auditoria</a>
-            </div>
+            {% if current_role == "admin" %}
+              <div class="nav-group">
+                <div class="nav-label">Sistema</div>
+                <a class="nav-link" href="/configuracion-empresa/">Configuracion</a>
+                <a class="nav-link" href="/auditoria/">Auditoria</a>
+              </div>
+            {% endif %}
           </nav>
 
           <a class="logout-link" href="/logout">Cerrar sesion</a>
@@ -86,7 +104,7 @@
               <h1 id="page-title">Panel de control</h1>
             </div>
             <div class="session-info">
-              <span>Usuario: {{ session.admin_user or 'Admin' }}</span>
+              <span>Usuario: {{ session.web_user or session.admin_user or 'Admin' }} | Rol: {{ current_role or "-" }}</span>
             </div>
           </header>
 

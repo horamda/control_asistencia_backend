@@ -1,21 +1,35 @@
 {% extends "base.html" %}
-{% block title %}{% if mode == "edit" %}Editar justificación{% else %}Nueva justificación{% endif %}{% endblock %}
+{% block title %}{% if mode == "edit" %}Editar justificacion{% else %}Nueva justificacion{% endif %}{% endblock %}
 {% block content %}
-<h2>{% if mode == "edit" %}Editar justificación{% else %}Nueva justificación{% endif %}</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Gestion Documental</div>
+      <h2>{% if mode == "edit" %}Editar justificacion{% else %}Nueva justificacion{% endif %}</h2>
+      <p class="module-intro">
+        Registre motivo y evidencia para evaluar la aprobacion de una asistencia observada.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Estado controlado</span>
+      <span class="chip">Trazabilidad</span>
+    </div>
+  </div>
 
-    {% if errors %}
-      <div class="errors">
-        <ul>
-          {% for e in errors %}
-            <li>{{ e }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="row">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row span-2">
         <label>Empleado</label>
         <select name="empleado_id" required>
           <option value="">Seleccione</option>
@@ -26,7 +40,7 @@
           {% endfor %}
         </select>
       </div>
-      <div class="row">
+      <div class="row span-2">
         <label>Asistencia</label>
         <select name="asistencia_id">
           <option value="">Seleccione</option>
@@ -36,12 +50,13 @@
             </option>
           {% endfor %}
         </select>
+        <div class="helper-text">Puede dejarlo vacio si la justificacion no referencia una asistencia puntual.</div>
       </div>
-      <div class="row">
+      <div class="row span-3">
         <label>Motivo</label>
         <textarea name="motivo" required>{{ data.motivo or '' }}</textarea>
       </div>
-      <div class="row">
+      <div class="row span-2">
         <label>Archivo (URL)</label>
         <input name="archivo" value="{{ data.archivo or '' }}">
       </div>
@@ -54,9 +69,11 @@
           {% endfor %}
         </select>
       </div>
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('justificaciones.listado') }}">Volver</a>
-      </div>
-    </form>
+    </div>
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('justificaciones.listado') }}">Volver</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

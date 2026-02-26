@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, abort, session
+﻿from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from web.auth.decorators import role_required
 from repositories.franco_repository import get_all, get_by_id, create, update, delete
 from repositories.empleado_repository import get_all as get_empleados
@@ -25,14 +25,14 @@ def _validate(form):
 
 
 @francos_bp.route("/")
-@role_required("admin")
+@role_required("admin", "rrhh")
 def listado():
     francos = get_all()
     return render_template("francos/listado.html", francos=francos)
 
 
 @francos_bp.route("/nuevo", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def nuevo():
     empleados = get_empleados(include_inactive=True)
     if request.method == "POST":
@@ -48,7 +48,7 @@ def nuevo():
 
 
 @francos_bp.route("/editar/<int:franco_id>", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def editar(franco_id):
     franco = get_by_id(franco_id)
     if not franco:
@@ -70,8 +70,9 @@ def editar(franco_id):
 
 
 @francos_bp.route("/eliminar/<int:franco_id>", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def eliminar(franco_id):
     delete(franco_id)
     log_audit(session, "delete", "francos", franco_id)
     return redirect(url_for("francos.listado"))
+

@@ -1,20 +1,33 @@
 import datetime
 import math
+import re
 
 from flask import Blueprint, current_app, g, jsonify, request
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from repositories.auditoria_repository import create as create_audit
 from repositories.asistencia_repository import (
     get_by_empleado_fecha,
-    get_page_by_empleado,
+    get_page_by_empleado as get_asistencias_page_by_empleado,
     register_entrada,
     register_salida,
+    upsert_resumen_desde_marca,
+)
+from repositories.asistencia_marca_repository import (
+    count_by_empleado_fecha as count_marcas_by_empleado_fecha,
+    create as create_asistencia_marca,
+    get_last_by_empleado_fecha as get_last_marca_by_empleado_fecha,
+    get_page_by_empleado as get_marcas_page_by_empleado,
 )
 from repositories.configuracion_empresa_repository import get_by_empresa_id
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.empleado_repository import (
     update_mobile_profile,
     update_password as update_empleado_password,
+)
+from repositories.security_event_repository import (
+    create_geo_qr_rechazo,
+    get_page_by_empleado as get_security_events_page,
 )
 from repositories.sucursal_repository import get_by_id as get_sucursal_by_id
 from services.auth_service import authenticate_user
@@ -24,6 +37,7 @@ from utils.jwt_guard import mobile_auth_required
 from utils.qr import build_qr_png_base64
 
 mobile_v1_bp = Blueprint("mobile_v1", __name__, url_prefix="/api/v1/mobile")
+TIPO_MARCA_VALUES = {"jornada", "desayuno", "almuerzo", "merienda", "otro"}
 
 
 def _today_iso():
@@ -83,6 +97,15 @@ def _parse_int(value, label: str, default=None):
         raise ValueError(f"{label} invalido.") from exc
 
 
+def _parse_tipo_marca(value, *, default=None):
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return default
+    if raw not in TIPO_MARCA_VALUES:
+        raise ValueError("tipo_marca invalido. Use jornada, desayuno, almuerzo, merienda u otro.")
+    return raw
+
+
 def _to_hhmm(value):
     if value is None:
         return None
@@ -116,14 +139,62 @@ def _mobile_user():
 def _check_config_metodo(empresa_id: int, metodo: str, lat, lon, foto):
     config = get_by_empresa_id(empresa_id)
     if not config:
-        return
+        if metodo == "qr" and (lat is None or lon is None):
+            raise ValueError("La posicion GPS es obligatoria para fichar por QR.")
+        return {}
 
     if config.get("requiere_qr") and metodo != "qr":
         raise ValueError("La empresa requiere metodo QR.")
+    if metodo == "qr" and (lat is None or lon is None):
+        raise ValueError("La posicion GPS es obligatoria para fichar por QR.")
     if config.get("requiere_foto") and not foto:
         raise ValueError("La empresa requiere foto para fichar.")
     if config.get("requiere_geo") and (lat is None or lon is None):
         raise ValueError("La empresa requiere geolocalizacion para fichar.")
+    return config
+
+
+def _get_scan_cooldown_segundos(config: dict | None):
+    if not config:
+        return 60
+    raw = config.get("cooldown_scan_segundos")
+    if raw is None:
+        return 60
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return 60
+
+
+def _parse_db_datetime(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
+def _validar_cooldown_scan(ultima_marca: dict | None, cooldown_segundos: int):
+    if not ultima_marca or cooldown_segundos <= 0:
+        return
+
+    last_dt = _parse_db_datetime(ultima_marca.get("fecha_creacion"))
+    if last_dt is None:
+        return
+
+    now = datetime.datetime.now()
+    elapsed = (now - last_dt).total_seconds()
+    if elapsed < 0:
+        return
+    if elapsed < cooldown_segundos:
+        restante = int(math.ceil(cooldown_segundos - elapsed))
+        raise ValueError(f"Escaneo duplicado detectado. Espere {restante} segundos para volver a fichar.")
 
 
 def _haversine_m(lat1, lon1, lat2, lon2):
@@ -215,6 +286,114 @@ def _validar_qr_fichada(empleado, qr_token: str | None, accion: str | None):
     if token_empleado is not None and int(token_empleado) != int(empleado["id"]):
         raise ValueError("QR no corresponde al empleado autenticado.")
     return payload
+
+
+def _safe_int(value):
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _registrar_intento_fraude_geo(
+    *,
+    empleado: dict,
+    qr_payload: dict,
+    geo: dict,
+    fecha: str,
+    hora: str | None,
+    lat: float | None,
+    lon: float | None,
+):
+    payload = {
+        "empleado_id": empleado.get("id"),
+        "empresa_id": empleado.get("empresa_id"),
+        "fecha": fecha,
+        "hora": hora,
+        "lat": lat,
+        "lon": lon,
+        "ref_lat": geo.get("ref_lat"),
+        "ref_lon": geo.get("ref_lon"),
+        "distancia_m": geo.get("distancia_m"),
+        "tolerancia_m": geo.get("tolerancia_m"),
+        "sucursal_id": geo.get("sucursal_id"),
+        "qr_accion": qr_payload.get("accion"),
+        "qr_scope": qr_payload.get("scope"),
+        "qr_empresa_id": qr_payload.get("empresa_id"),
+    }
+    try:
+        evento_id = create_geo_qr_rechazo(
+            empleado_id=int(empleado["id"]),
+            empresa_id=int(empleado["empresa_id"]),
+            fecha_operacion=fecha,
+            hora_operacion=hora,
+            lat=lat,
+            lon=lon,
+            ref_lat=geo.get("ref_lat"),
+            ref_lon=geo.get("ref_lon"),
+            distancia_m=geo.get("distancia_m"),
+            tolerancia_m=geo.get("tolerancia_m"),
+            sucursal_id=_safe_int(geo.get("sucursal_id")),
+            qr_accion=str(qr_payload.get("accion") or "").strip().lower() or None,
+            qr_scope=str(qr_payload.get("scope") or "").strip().lower() or None,
+            qr_empresa_id=_safe_int(qr_payload.get("empresa_id")),
+            payload=payload,
+        )
+    except Exception:
+        current_app.logger.exception(
+            "scan_qr_geo_rechazado_evento_error",
+            extra={"extra": payload},
+        )
+        return None
+
+    try:
+        create_audit(None, "fraude_geo_qr_rechazado", "eventos_seguridad", evento_id)
+    except Exception:
+        current_app.logger.exception(
+            "scan_qr_geo_rechazado_auditoria_error",
+            extra={"extra": {"evento_id": evento_id}},
+        )
+    return evento_id
+
+
+def _decidir_accion_scan(accion_qr: str, resumen: dict | None, ultima_marca: dict | None):
+    if accion_qr in {"ingreso", "egreso"}:
+        accion = accion_qr
+    elif ultima_marca:
+        accion = "egreso" if str(ultima_marca.get("accion")) == "ingreso" else "ingreso"
+    elif not resumen or resumen.get("hora_entrada") is None:
+        accion = "ingreso"
+    elif resumen.get("hora_salida") is None:
+        accion = "egreso"
+    else:
+        raise ValueError("Ya existe entrada y salida registradas para esa fecha.")
+
+    if ultima_marca:
+        ultima_accion = str(ultima_marca.get("accion") or "").strip().lower()
+        if ultima_accion == accion:
+            raise ValueError(f"Secuencia invalida de marcas. Ultima accion: {ultima_accion}.")
+        if accion == "egreso" and ultima_accion != "ingreso":
+            raise ValueError("No hay fichada de entrada para esa fecha.")
+        return accion
+
+    if accion == "egreso" and (not resumen or resumen.get("hora_entrada") is None):
+        raise ValueError("No hay fichada de entrada para esa fecha.")
+    if (
+        accion == "ingreso"
+        and resumen
+        and resumen.get("hora_entrada") is not None
+        and resumen.get("hora_salida") is None
+    ):
+        raise ValueError("Ya hay un ingreso abierto para esa fecha.")
+    return accion
+
+
+def _hora_entrada_para_egreso(resumen: dict | None, ultima_marca: dict | None):
+    if ultima_marca and str(ultima_marca.get("accion")) == "ingreso":
+        return _to_hhmm(ultima_marca.get("hora"))
+    if resumen:
+        return _to_hhmm(resumen.get("hora_entrada"))
+    return None
 
 
 @mobile_v1_bp.route("/auth/login", methods=["POST"])
@@ -311,6 +490,7 @@ def me_config_asistencia():
             "requiere_foto": bool(config.get("requiere_foto")),
             "requiere_geo": bool(config.get("requiere_geo")),
             "tolerancia_global": config.get("tolerancia_global"),
+            "cooldown_scan_segundos": _get_scan_cooldown_segundos(config),
             "metodos_habilitados": ["qr", "manual", "facial"],
         }
     )
@@ -336,11 +516,13 @@ def me_generar_qr():
         vigencia_segundos = _parse_int(payload.get("vigencia_segundos"), "vigencia_segundos", 120)
         if vigencia_segundos < 30 or vigencia_segundos > 315360000:
             return jsonify({"error": "vigencia_segundos fuera de rango (30-315360000)."}), 400
+        tipo_marca = _parse_tipo_marca(payload.get("tipo_marca"), default="jornada")
 
         qr_payload = {
             "accion": accion,
             "empresa_id": empleado["empresa_id"],
             "scope": scope,
+            "tipo_marca": tipo_marca,
         }
         if scope == "empleado":
             qr_payload["empleado_id"] = empleado["id"]
@@ -356,6 +538,7 @@ def me_generar_qr():
                 "scope": scope,
                 "empresa_id": empleado["empresa_id"],
                 "empleado_id": empleado["id"] if scope == "empleado" else None,
+                "tipo_marca": tipo_marca,
                 "vigencia_segundos": vigencia_segundos,
                 "expira_at": expira_at,
                 "qr_token": qr_token,
@@ -379,6 +562,7 @@ def fichar_scan_qr():
     foto = str(payload.get("foto") or "").strip() or None
     qr_token = str(payload.get("qr_token") or "").strip() or None
     observaciones = str(payload.get("observaciones") or "").strip() or None
+    tipo_marca_raw = payload.get("tipo_marca")
     lat = _parse_float(payload.get("lat"), "Latitud")
     lon = _parse_float(payload.get("lon"), "Longitud")
     _validate_geo(lat, lon)
@@ -386,10 +570,22 @@ def fichar_scan_qr():
     try:
         _parse_date(fecha)
         hora = _parse_hhmm(hora)
-        _check_config_metodo(empleado["empresa_id"], "qr", lat, lon, foto)
+        tipo_marca_input = _parse_tipo_marca(tipo_marca_raw, default=None)
+        config_empresa = _check_config_metodo(empleado["empresa_id"], "qr", lat, lon, foto)
         qr_payload = _validar_qr_fichada(empleado, qr_token, None)
+        tipo_marca_qr = _parse_tipo_marca(qr_payload.get("tipo_marca"), default=None)
+        tipo_marca = tipo_marca_qr or tipo_marca_input or "jornada"
         geo = _validar_geo_scan_qr(empleado, qr_payload, lat, lon)
         if not geo["gps_ok"]:
+            evento_id = _registrar_intento_fraude_geo(
+                empleado=empleado,
+                qr_payload=qr_payload,
+                geo=geo,
+                fecha=fecha,
+                hora=hora,
+                lat=lat,
+                lon=lon,
+            )
             current_app.logger.info(
                 "scan_qr_geo_rechazado",
                 extra={
@@ -405,6 +601,7 @@ def fichar_scan_qr():
                         "sucursal_id": geo.get("sucursal_id"),
                         "fecha": fecha,
                         "hora": hora,
+                        "evento_id": evento_id,
                     }
                 },
             )
@@ -415,6 +612,8 @@ def fichar_scan_qr():
                         "gps_ok": False,
                         "distancia_m": geo["distancia_m"],
                         "tolerancia_m": geo["tolerancia_m"],
+                        "alerta_fraude": True,
+                        "evento_id": evento_id,
                     }
                 ),
                 403,
@@ -427,84 +626,183 @@ def fichar_scan_qr():
         observaciones = f"{observaciones} | {gps_note}" if observaciones else gps_note
 
         accion_qr = str(qr_payload.get("accion") or "auto").strip().lower()
-        row = get_by_empleado_fecha(empleado["id"], fecha)
-        if accion_qr in {"ingreso", "egreso"}:
-            accion = accion_qr
-        elif not row or row.get("hora_entrada") is None:
-            accion = "ingreso"
-        elif row.get("hora_salida") is None:
-            accion = "egreso"
-        else:
-            return jsonify({"error": "Ya existe entrada y salida registradas para esa fecha."}), 409
+        resumen = get_by_empleado_fecha(empleado["id"], fecha)
+        ultima_marca = get_last_marca_by_empleado_fecha(empleado["id"], fecha)
+        cooldown_scan = _get_scan_cooldown_segundos(config_empresa)
+        _validar_cooldown_scan(ultima_marca, cooldown_scan)
+        accion = _decidir_accion_scan(accion_qr, resumen, ultima_marca)
 
         if accion == "ingreso":
             _, estado_calc = validar_asistencia(empleado["id"], fecha, hora, None)
             estado = estado_calc or "ok"
-            asistencia_id = register_entrada(
+            asistencia_id = upsert_resumen_desde_marca(
                 empleado_id=empleado["id"],
                 fecha=fecha,
-                hora_entrada=hora,
-                metodo_entrada="qr",
-                lat_entrada=lat,
-                lon_entrada=lon,
-                foto_entrada=foto,
+                hora=hora,
+                accion="ingreso",
+                metodo="qr",
+                lat=lat,
+                lon=lon,
+                foto=foto,
                 estado=estado,
                 observaciones=observaciones,
-                gps_ok_entrada=True,
-                gps_distancia_entrada_m=geo["distancia_m"],
-                gps_tolerancia_entrada_m=geo["tolerancia_m"],
-                gps_ref_lat_entrada=geo["ref_lat"],
-                gps_ref_lon_entrada=geo["ref_lon"],
+                gps_ok=True,
+                gps_distancia_m=geo["distancia_m"],
+                gps_tolerancia_m=geo["tolerancia_m"],
+                gps_ref_lat=geo["ref_lat"],
+                gps_ref_lon=geo["ref_lon"],
             )
-            return (
-                jsonify(
-                    {
-                        "id": asistencia_id,
-                        "accion": "ingreso",
-                        "estado": estado,
-                        "gps_ok": True,
-                        "distancia_m": geo["distancia_m"],
-                        "tolerancia_m": geo["tolerancia_m"],
-                    }
-                ),
-                201,
+        else:
+            hora_entrada = _hora_entrada_para_egreso(resumen, ultima_marca)
+            _, estado_calc = validar_asistencia(empleado["id"], fecha, hora_entrada, hora)
+            estado = estado_calc or "ok"
+            asistencia_id = upsert_resumen_desde_marca(
+                empleado_id=empleado["id"],
+                fecha=fecha,
+                hora=hora,
+                accion="egreso",
+                metodo="qr",
+                lat=lat,
+                lon=lon,
+                foto=foto,
+                estado=estado,
+                observaciones=observaciones,
+                gps_ok=True,
+                gps_distancia_m=geo["distancia_m"],
+                gps_tolerancia_m=geo["tolerancia_m"],
+                gps_ref_lat=geo["ref_lat"],
+                gps_ref_lon=geo["ref_lon"],
             )
 
-        hora_entrada = _to_hhmm(row.get("hora_entrada")) if row else None
-        _, estado_calc = validar_asistencia(empleado["id"], fecha, hora_entrada, hora)
-        estado = estado_calc or "ok"
-        asistencia_id = register_salida(
+        marca_id = create_asistencia_marca(
+            empresa_id=int(empleado["empresa_id"]),
             empleado_id=empleado["id"],
+            asistencia_id=asistencia_id,
             fecha=fecha,
-            hora_salida=hora,
-            metodo_salida="qr",
-            lat_salida=lat,
-            lon_salida=lon,
-            foto_salida=foto,
+            hora=hora,
+            accion=accion,
+            metodo="qr",
+            tipo_marca=tipo_marca,
+            lat=lat,
+            lon=lon,
+            foto=foto,
+            gps_ok=True,
+            gps_distancia_m=geo["distancia_m"],
+            gps_tolerancia_m=geo["tolerancia_m"],
+            gps_ref_lat=geo["ref_lat"],
+            gps_ref_lon=geo["ref_lon"],
             estado=estado,
             observaciones=observaciones,
-            gps_ok_salida=True,
-            gps_distancia_salida_m=geo["distancia_m"],
-            gps_tolerancia_salida_m=geo["tolerancia_m"],
-            gps_ref_lat_salida=geo["ref_lat"],
-            gps_ref_lon_salida=geo["ref_lon"],
         )
-        return jsonify(
-            {
-                "id": asistencia_id,
-                "accion": "egreso",
-                "estado": estado,
-                "gps_ok": True,
-                "distancia_m": geo["distancia_m"],
-                "tolerancia_m": geo["tolerancia_m"],
-            }
+        total_marcas = count_marcas_by_empleado_fecha(empleado["id"], fecha)
+        body = {
+            "id": asistencia_id,
+            "marca_id": marca_id,
+            "accion": accion,
+            "tipo_marca": tipo_marca,
+            "estado": estado,
+            "gps_ok": True,
+            "distancia_m": geo["distancia_m"],
+            "tolerancia_m": geo["tolerancia_m"],
+            "total_marcas_dia": total_marcas,
+        }
+        status = 201 if accion == "ingreso" else 200
+        return (
+            jsonify(body),
+            status,
         )
     except ValueError as exc:
         message = str(exc)
-        code = 409 if "ya registrada" in message else 400
-        if "No hay fichada de entrada" in message:
+        lowered = message.lower()
+        if "escaneo duplicado detectado" in lowered:
+            remaining = None
+            match = re.search(r"(\d+)", message)
+            if match:
+                try:
+                    remaining = int(match.group(1))
+                except ValueError:
+                    remaining = None
+            return (
+                jsonify(
+                    {
+                        "error": message,
+                        "code": "scan_cooldown",
+                        "cooldown_segundos_restantes": remaining,
+                    }
+                ),
+                409,
+            )
+        code = 400
+        if (
+            "secuencia invalida" in lowered
+            or "ya registrada" in lowered
+            or "ya hay un ingreso abierto" in lowered
+            or "ya existe entrada y salida" in lowered
+            or "duplicado" in lowered
+        ):
+            code = 409
+        if "no hay fichada de entrada" in lowered:
             code = 404
         return jsonify({"error": message}), code
+
+
+@mobile_v1_bp.route("/me/marcas", methods=["GET"])
+@mobile_auth_required
+def me_marcas():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    page = request.args.get("page", 1, type=int) or 1
+    page = max(1, page)
+    per_page = request.args.get("per", 20, type=int) or 20
+    per_page = max(1, min(per_page, 100))
+    fecha_desde = (request.args.get("desde") or "").strip() or None
+    fecha_hasta = (request.args.get("hasta") or "").strip() or None
+    try:
+        if fecha_desde:
+            _parse_date(fecha_desde)
+        if fecha_hasta:
+            _parse_date(fecha_hasta)
+    except ValueError:
+        return jsonify({"error": "Rango de fechas invalido"}), 400
+
+    rows, total = get_marcas_page_by_empleado(
+        empleado_id=empleado["id"],
+        page=page,
+        per_page=per_page,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+    )
+    items = []
+    for row in rows:
+        items.append(
+            {
+                "id": row["id"],
+                "asistencia_id": row.get("asistencia_id"),
+                "fecha": _to_date_str(row.get("fecha")),
+                "hora": _to_hhmm(row.get("hora")),
+                "accion": row.get("accion"),
+                "metodo": row.get("metodo"),
+                "tipo_marca": row.get("tipo_marca") or "jornada",
+                "estado": row.get("estado"),
+                "observaciones": row.get("observaciones"),
+                "lat": row.get("lat"),
+                "lon": row.get("lon"),
+                "gps_ok": bool(row.get("gps_ok")) if row.get("gps_ok") is not None else None,
+                "gps_distancia_m": row.get("gps_distancia_m"),
+                "gps_tolerancia_m": row.get("gps_tolerancia_m"),
+                "fecha_creacion": _to_date_str(row.get("fecha_creacion")) if row.get("fecha_creacion") else None,
+            }
+        )
+    return jsonify(
+        {
+            "items": items,
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+        }
+    )
 
 
 @mobile_v1_bp.route("/me/horario-esperado", methods=["GET"])
@@ -534,6 +832,7 @@ def me_asistencias():
         return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
 
     page = request.args.get("page", 1, type=int) or 1
+    page = max(1, page)
     per_page = request.args.get("per", 20, type=int) or 20
     per_page = max(1, min(per_page, 100))
     fecha_desde = (request.args.get("desde") or "").strip() or None
@@ -546,7 +845,7 @@ def me_asistencias():
     except ValueError:
         return jsonify({"error": "Rango de fechas invalido"}), 400
 
-    rows, total = get_page_by_empleado(
+    rows, total = get_asistencias_page_by_empleado(
         empleado_id=empleado["id"],
         page=page,
         per_page=per_page,
@@ -577,6 +876,70 @@ def me_asistencias():
     return jsonify(
         {
             "items": serialized,
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+        }
+    )
+
+
+@mobile_v1_bp.route("/me/eventos-seguridad", methods=["GET"])
+@mobile_auth_required
+def me_eventos_seguridad():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    page = request.args.get("page", 1, type=int) or 1
+    page = max(1, page)
+    per_page = request.args.get("per", 20, type=int) or 20
+    per_page = max(1, min(per_page, 100))
+    tipo_evento = (request.args.get("tipo_evento") or "").strip() or None
+
+    try:
+        rows, total = get_security_events_page(
+            empleado_id=int(empleado["id"]),
+            page=page,
+            per_page=per_page,
+            tipo_evento=tipo_evento,
+        )
+    except Exception:
+        current_app.logger.exception(
+            "mobile_eventos_seguridad_error",
+            extra={
+                "extra": {
+                    "empleado_id": empleado.get("id"),
+                    "empresa_id": empleado.get("empresa_id"),
+                    "page": page,
+                    "per_page": per_page,
+                    "tipo_evento": tipo_evento,
+                }
+            },
+        )
+        return jsonify({"error": "No se pudo obtener eventos de seguridad."}), 500
+    items = []
+    for row in rows:
+        items.append(
+            {
+                "id": row["id"],
+                "tipo_evento": row.get("tipo_evento"),
+                "severidad": row.get("severidad"),
+                "alerta_fraude": bool(row.get("alerta_fraude")),
+                "fecha": _to_date_str(row.get("fecha")),
+                "fecha_operacion": _to_date_str(row.get("fecha_operacion")) if row.get("fecha_operacion") else None,
+                "hora_operacion": _to_hhmm(row.get("hora_operacion")),
+                "lat": row.get("lat"),
+                "lon": row.get("lon"),
+                "ref_lat": row.get("ref_lat"),
+                "ref_lon": row.get("ref_lon"),
+                "distancia_m": row.get("distancia_m"),
+                "tolerancia_m": row.get("tolerancia_m"),
+                "sucursal_id": row.get("sucursal_id"),
+            }
+        )
+    return jsonify(
+        {
+            "items": items,
             "page": page,
             "per_page": per_page,
             "total": total,

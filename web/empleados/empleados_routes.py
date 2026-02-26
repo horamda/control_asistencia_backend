@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, request, abort, session
+﻿from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from werkzeug.security import generate_password_hash
 from web.auth.decorators import role_required
 from repositories.empleado_repository import (
@@ -56,7 +56,7 @@ def _extract_form_data(form):
 
 
 @empleados_bp.route("/")
-@role_required("admin")
+@role_required("admin", "rrhh")
 def listado():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per", 20, type=int)
@@ -77,7 +77,7 @@ def listado():
 
 
 @empleados_bp.route("/nuevo", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def nuevo():
     empresas = get_empresas()
     sucursales = get_sucursales(include_inactive=True)
@@ -124,7 +124,7 @@ def nuevo():
 
 
 @empleados_bp.route("/editar/<int:emp_id>", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh")
 def editar(emp_id):
     emp = get_by_id(emp_id)
     if not emp:
@@ -181,7 +181,7 @@ def editar(emp_id):
 
 
 @empleados_bp.route("/activar/<int:emp_id>")
-@role_required("admin")
+@role_required("admin", "rrhh")
 def activar(emp_id):
     set_activo(emp_id, 1)
     log_audit(session, "activate", "empleados", emp_id)
@@ -189,8 +189,9 @@ def activar(emp_id):
 
 
 @empleados_bp.route("/desactivar/<int:emp_id>")
-@role_required("admin")
+@role_required("admin", "rrhh")
 def desactivar(emp_id):
     set_activo(emp_id, 0)
     log_audit(session, "deactivate", "empleados", emp_id)
     return redirect(url_for("empleados.listado"))
+

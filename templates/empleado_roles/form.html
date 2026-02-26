@@ -1,22 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Roles de empleado{% endblock %}
 {% block content %}
-<h2>Roles de {{ empleado.apellido }} {{ empleado.nombre }}</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Personas</div>
+      <h2>Roles de {{ empleado.apellido }} {{ empleado.nombre }}</h2>
+      <p class="module-intro">
+        Active uno o mas roles para definir que modulos podra usar en el panel web.
+      </p>
+    </div>
+  </div>
 
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="row">
-        {% for r in roles %}
-          <label>
-            <input type="checkbox" name="roles" value="{{ r.id }}"
-              {% if r.id in current_ids %}checked{% endif %}>
-            {{ r.nombre }}
-          </label><br>
-        {% endfor %}
-      </div>
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('empleado_roles.listado') }}">Volver</a>
-      </div>
-    </form>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="checkbox-grid">
+      {% for r in roles %}
+        <label class="checkbox-chip check-inline">
+          <input type="checkbox" name="roles" value="{{ r.id }}" {% if r.id in current_ids %}checked{% endif %}>
+          {{ r.nombre }}
+        </label>
+      {% endfor %}
+    </div>
+
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('empleado_roles.listado') }}">Volver</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

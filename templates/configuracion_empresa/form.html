@@ -1,35 +1,53 @@
 {% extends "base.html" %}
-{% block title %}Configuración empresa{% endblock %}
+{% block title %}Configuracion empresa{% endblock %}
 {% block content %}
-<h2>Configuración: {{ empresa.razon_social }}</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Sistema</div>
+      <h2>Configuracion: {{ empresa.razon_social }}</h2>
+      <p class="module-intro">
+        Ajuste reglas globales que impactan fichadas moviles de esta empresa.
+      </p>
+    </div>
+  </div>
 
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
       <div class="row">
-        <label>
+        <label class="check-inline">
           <input type="checkbox" name="requiere_qr" value="1" {% if data.requiere_qr %}checked{% endif %}>
           Requiere QR
         </label>
       </div>
       <div class="row">
-        <label>
+        <label class="check-inline">
           <input type="checkbox" name="requiere_foto" value="1" {% if data.requiere_foto %}checked{% endif %}>
           Requiere foto
         </label>
       </div>
       <div class="row">
-        <label>
+        <label class="check-inline">
           <input type="checkbox" name="requiere_geo" value="1" {% if data.requiere_geo %}checked{% endif %}>
-          Requiere geo
+          Requiere GPS
         </label>
       </div>
       <div class="row">
         <label>Tolerancia global (min)</label>
         <input name="tolerancia_global" value="{{ data.tolerancia_global or '' }}">
       </div>
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('configuracion_empresa.listado') }}">Volver</a>
+      <div class="row">
+        <label>Cooldown scan QR (seg)</label>
+        <input name="cooldown_scan_segundos" value="{{ data.cooldown_scan_segundos if data.cooldown_scan_segundos is not none else 60 }}">
+        <div class="helper-text">Evita doble escaneo accidental. Use 0 para desactivar.</div>
       </div>
-    </form>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('configuracion_empresa.listado') }}">Volver</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

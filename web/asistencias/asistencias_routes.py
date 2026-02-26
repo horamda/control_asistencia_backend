@@ -1,10 +1,16 @@
+﻿import csv
 import datetime
+import io
 
-from flask import Blueprint, abort, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, Response, abort, jsonify, redirect, render_template, request, session, url_for
 
+from repositories.asistencia_marca_repository import get_for_export_admin as get_marcas_admin_export
+from repositories.asistencia_marca_repository import get_page_admin as get_marcas_admin_page
+from repositories.asistencia_marca_repository import backfill_from_asistencias as backfill_marcas
 from repositories.asistencia_repository import create, delete, get_by_id, get_page, update
 from repositories.empleado_repository import get_all as get_empleados
-from utils.asistencia import generar_ausentes, get_horario_esperado, validar_asistencia
+from repositories.empresa_repository import get_all as get_empresas
+from utils.asistencia import generar_ausentes, generar_ausentes_rango, get_horario_esperado, validar_asistencia
 from utils.audit import log_audit
 from web.auth.decorators import role_required
 
@@ -19,6 +25,23 @@ def _parse_float(value):
         return float(value)
     except ValueError:
         return None
+
+
+def _parse_date_iso(raw: str | None):
+    value = (raw or "").strip()
+    if not value:
+        return None
+    datetime.date.fromisoformat(value)
+    return value
+
+
+def _parse_int(raw: str | None):
+    value = (raw or "").strip()
+    if not value:
+        return None
+    if value.isdigit():
+        return int(value)
+    return None
 
 
 def _extract_form_data(form):
@@ -80,7 +103,7 @@ def _validate(form):
 
 
 @asistencias_bp.route("/")
-@role_required("admin")
+@role_required("admin", "rrhh", "supervisor")
 def listado():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per", 20, type=int)
@@ -105,8 +128,183 @@ def listado():
     )
 
 
-@asistencias_bp.route("/nuevo", methods=["GET", "POST"])
+@asistencias_bp.route("/marcas")
+@role_required("admin", "rrhh", "supervisor")
+def marcas():
+    page = request.args.get("page", 1, type=int) or 1
+    page = max(1, page)
+    per_page = request.args.get("per", 20, type=int) or 20
+    per_page = max(1, min(per_page, 100))
+
+    empresa_id = request.args.get("empresa_id", type=int)
+    empleado_id = request.args.get("empleado_id", type=int)
+    q = (request.args.get("q") or "").strip()
+    tipo_marca = (request.args.get("tipo_marca") or "").strip() or None
+    accion = (request.args.get("accion") or "").strip() or None
+    metodo = (request.args.get("metodo") or "").strip() or None
+    gps_ok = request.args.get("gps_ok", type=int)
+    backfill_ingresos = request.args.get("backfill_ingresos", type=int)
+    backfill_egresos = request.args.get("backfill_egresos", type=int)
+
+    error = None
+    try:
+        fecha_desde = _parse_date_iso(request.args.get("fecha_desde"))
+        fecha_hasta = _parse_date_iso(request.args.get("fecha_hasta"))
+    except ValueError:
+        fecha_desde = None
+        fecha_hasta = None
+        error = "Rango de fechas invalido. Use formato YYYY-MM-DD."
+
+    rows, total = get_marcas_admin_page(
+        page=page,
+        per_page=per_page,
+        empresa_id=empresa_id,
+        empleado_id=empleado_id,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        tipo_marca=tipo_marca,
+        accion=accion,
+        metodo=metodo,
+        search=q or None,
+        gps_ok=gps_ok if gps_ok in (0, 1) else None,
+    )
+
+    return render_template(
+        "asistencias/marcas.html",
+        marcas=rows,
+        total=total,
+        page=page,
+        per_page=per_page,
+        empresas=get_empresas(include_inactive=True),
+        empleados=get_empleados(include_inactive=True),
+        empresa_id=empresa_id,
+        empleado_id=empleado_id,
+        fecha_desde=fecha_desde or "",
+        fecha_hasta=fecha_hasta or "",
+        tipo_marca=tipo_marca or "",
+        accion=accion or "",
+        metodo=metodo or "",
+        gps_ok=gps_ok if gps_ok in (0, 1) else "",
+        q=q,
+        error=error,
+        backfill_ingresos=backfill_ingresos,
+        backfill_egresos=backfill_egresos,
+    )
+
+
+@asistencias_bp.route("/marcas.csv")
+@role_required("admin", "rrhh", "supervisor")
+def marcas_csv():
+    empresa_id = request.args.get("empresa_id", type=int)
+    empleado_id = request.args.get("empleado_id", type=int)
+    q = (request.args.get("q") or "").strip()
+    tipo_marca = (request.args.get("tipo_marca") or "").strip() or None
+    accion = (request.args.get("accion") or "").strip() or None
+    metodo = (request.args.get("metodo") or "").strip() or None
+    gps_ok = request.args.get("gps_ok", type=int)
+
+    try:
+        fecha_desde = _parse_date_iso(request.args.get("fecha_desde"))
+        fecha_hasta = _parse_date_iso(request.args.get("fecha_hasta"))
+    except ValueError:
+        return redirect(url_for("asistencias.marcas"))
+
+    rows = get_marcas_admin_export(
+        empresa_id=empresa_id,
+        empleado_id=empleado_id,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        tipo_marca=tipo_marca,
+        accion=accion,
+        metodo=metodo,
+        search=q or None,
+        gps_ok=gps_ok if gps_ok in (0, 1) else None,
+        limit=10000,
+    )
+
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(
+        [
+            "id",
+            "empresa",
+            "empleado",
+            "dni",
+            "fecha",
+            "hora",
+            "accion",
+            "tipo_marca",
+            "metodo",
+            "gps_ok",
+            "gps_distancia_m",
+            "gps_tolerancia_m",
+            "lat",
+            "lon",
+            "estado",
+            "observaciones",
+            "fecha_creacion",
+        ]
+    )
+
+    for r in rows:
+        writer.writerow(
+            [
+                r.get("id"),
+                r.get("empresa_nombre"),
+                f"{r.get('apellido') or ''} {r.get('nombre') or ''}".strip(),
+                r.get("dni"),
+                r.get("fecha"),
+                r.get("hora"),
+                r.get("accion"),
+                r.get("tipo_marca"),
+                r.get("metodo"),
+                r.get("gps_ok"),
+                r.get("gps_distancia_m"),
+                r.get("gps_tolerancia_m"),
+                r.get("lat"),
+                r.get("lon"),
+                r.get("estado"),
+                r.get("observaciones"),
+                r.get("fecha_creacion"),
+            ]
+        )
+
+    csv_content = "\ufeff" + out.getvalue()
+    filename = f"historial_marcas_{datetime.date.today().isoformat()}.csv"
+    return Response(
+        csv_content,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@asistencias_bp.route("/marcas/backfill", methods=["POST"])
 @role_required("admin")
+def marcas_backfill():
+    inserted_ingresos, inserted_egresos = backfill_marcas()
+
+    return redirect(
+        url_for(
+            "asistencias.marcas",
+            page=_parse_int(request.form.get("page")) or 1,
+            per=_parse_int(request.form.get("per")) or 20,
+            empresa_id=request.form.get("empresa_id") or "",
+            empleado_id=request.form.get("empleado_id") or "",
+            fecha_desde=request.form.get("fecha_desde") or "",
+            fecha_hasta=request.form.get("fecha_hasta") or "",
+            tipo_marca=request.form.get("tipo_marca") or "",
+            accion=request.form.get("accion") or "",
+            metodo=request.form.get("metodo") or "",
+            gps_ok=request.form.get("gps_ok") or "",
+            q=request.form.get("q") or "",
+            backfill_ingresos=inserted_ingresos,
+            backfill_egresos=inserted_egresos,
+        )
+    )
+
+
+@asistencias_bp.route("/nuevo", methods=["GET", "POST"])
+@role_required("admin", "rrhh", "supervisor")
 def nuevo():
     empleados = get_empleados(include_inactive=True)
     if request.method == "POST":
@@ -131,9 +329,28 @@ def nuevo():
 
 
 @asistencias_bp.route("/generar-ausentes", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh", "supervisor")
 def generar_ausentes_post():
+    modo = (request.form.get("modo") or "").strip().lower()
     fecha = (request.form.get("fecha") or "").strip()
+    fecha_desde = (request.form.get("fecha_desde") or "").strip()
+    fecha_hasta = (request.form.get("fecha_hasta") or "").strip()
+
+    if modo == "rango":
+        if not (fecha_desde and fecha_hasta):
+            return redirect(url_for("asistencias.listado"))
+        generar_ausentes_rango(fecha_desde, fecha_hasta)
+        return redirect(
+            url_for(
+                "asistencias.listado",
+                fecha_desde=fecha_desde,
+                fecha_hasta=fecha_hasta,
+            )
+        )
+
+    if modo and modo != "dia":
+        return redirect(url_for("asistencias.listado"))
+
     if not fecha:
         return redirect(url_for("asistencias.listado"))
     generar_ausentes(fecha)
@@ -141,7 +358,7 @@ def generar_ausentes_post():
 
 
 @asistencias_bp.route("/editar/<int:asistencia_id>", methods=["GET", "POST"])
-@role_required("admin")
+@role_required("admin", "rrhh", "supervisor")
 def editar(asistencia_id):
     asistencia = get_by_id(asistencia_id)
     if not asistencia:
@@ -172,7 +389,7 @@ def editar(asistencia_id):
 
 
 @asistencias_bp.route("/eliminar/<int:asistencia_id>", methods=["POST"])
-@role_required("admin")
+@role_required("admin", "rrhh", "supervisor")
 def eliminar(asistencia_id):
     delete(asistencia_id)
     log_audit(session, "delete", "asistencias", asistencia_id)
@@ -180,7 +397,7 @@ def eliminar(asistencia_id):
 
 
 @asistencias_bp.route("/horario-esperado")
-@role_required("admin")
+@role_required("admin", "rrhh", "supervisor")
 def horario_esperado():
     empleado_id = request.args.get("empleado_id", type=int)
     fecha = (request.args.get("fecha") or "").strip()

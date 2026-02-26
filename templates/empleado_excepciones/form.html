@@ -1,21 +1,35 @@
 {% extends "base.html" %}
 {% block title %}{% if mode == "edit" %}Editar excepcion{% else %}Nueva excepcion{% endif %}{% endblock %}
 {% block content %}
-<h2>{% if mode == "edit" %}Editar excepcion{% else %}Nueva excepcion{% endif %}</h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Calendario Operativo</div>
+      <h2>{% if mode == "edit" %}Editar excepcion{% else %}Nueva excepcion{% endif %}</h2>
+      <p class="module-intro">
+        Registre eventos puntuales por empleado. Para <strong>CAMBIO_HORARIO</strong>, cargue bloques del dia en JSON.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Fecha puntual</span>
+      <span class="chip">Con validacion</span>
+    </div>
+  </div>
 
-    {% if errors %}
-      <div class="errors">
-        <ul>
-          {% for e in errors %}
-            <li>{{ e }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="row">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row span-2">
         <label>Empleado</label>
         <select name="empleado_id" required>
           <option value="">Seleccione</option>
@@ -38,10 +52,10 @@
             <option value="{{ t }}" {% if data.tipo == t %}selected{% endif %}>{{ t }}</option>
           {% endfor %}
         </select>
-        <div class="note">VACACIONES, FRANCO, FERIADO y LICENCIA anulan horario automaticamente.</div>
+        <div class="helper-text">VACACIONES, FRANCO, FERIADO y LICENCIA anulan horario automaticamente.</div>
       </div>
-      <div class="row">
-        <label>Descripcion</label>
+      <div class="row span-2">
+        <label>Descripci&oacute;n</label>
         <input name="descripcion" value="{{ data.descripcion or '' }}">
       </div>
       <div class="row">
@@ -50,30 +64,32 @@
           Anula horario
         </label>
       </div>
-      <div class="row" id="bloques-row">
+      <div class="row span-3" id="bloques-row">
         <label>Bloques para CAMBIO_HORARIO (JSON)</label>
         <textarea name="bloques_json">{{ data.bloques_json or "[]" }}</textarea>
-        <div class="note">Ejemplo: [{"entrada":"08:00","salida":"12:00"},{"entrada":"13:00","salida":"17:00"}]</div>
+        <div class="helper-text">Ejemplo: [{"entrada":"08:00","salida":"12:00"},{"entrada":"13:00","salida":"17:00"}]</div>
       </div>
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('empleado_excepciones.listado') }}">Volver</a>
-      </div>
-    </form>
+    </div>
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('empleado_excepciones.listado') }}">Volver</a>
+    </div>
+  </form>
 
-    <script>
-      const tipoInput = document.getElementById("tipo");
-      const bloquesRow = document.getElementById("bloques-row");
-      const anulaInput = document.getElementById("anula_horario");
-      const tiposAnula = new Set(["VACACIONES", "FRANCO", "FERIADO", "LICENCIA"]);
-      function refresh() {
-        const show = tipoInput.value === "CAMBIO_HORARIO";
-        bloquesRow.style.display = show ? "block" : "none";
-        if (tiposAnula.has(tipoInput.value)) {
-          anulaInput.checked = true;
-        }
+  <script>
+    const tipoInput = document.getElementById("tipo");
+    const bloquesRow = document.getElementById("bloques-row");
+    const anulaInput = document.getElementById("anula_horario");
+    const tiposAnula = new Set(["VACACIONES", "FRANCO", "FERIADO", "LICENCIA"]);
+    function refresh() {
+      const show = tipoInput.value === "CAMBIO_HORARIO";
+      bloquesRow.style.display = show ? "block" : "none";
+      if (tiposAnula.has(tipoInput.value)) {
+        anulaInput.checked = true;
       }
-      tipoInput.addEventListener("change", refresh);
-      refresh();
-    </script>
+    }
+    tipoInput.addEventListener("change", refresh);
+    refresh();
+  </script>
+</div>
 {% endblock %}

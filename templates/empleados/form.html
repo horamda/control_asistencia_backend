@@ -1,22 +1,37 @@
 {% extends "base.html" %}
 {% block title %}{% if mode == "edit" %}Editar empleado{% else %}Nuevo empleado{% endif %}{% endblock %}
 {% block content %}
-<h2>
-      {% if mode == "edit" %}Editar empleado{% else %}Nuevo empleado{% endif %}
-    </h2>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Capital Humano</div>
+      <h2>{% if mode == "edit" %}Editar empleado{% else %}Nuevo empleado{% endif %}</h2>
+      <p class="module-intro">
+        Complete datos personales y asignacion organizacional para habilitar modulos de horarios, excepciones y asistencia.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Identidad</span>
+      <span class="chip">Estructura</span>
+      <span class="chip">Acceso app</span>
+    </div>
+  </div>
 
-    {% if errors %}
-      <div class="errors">
-        <ul>
-          {% for e in errors %}
-            <li>{{ e }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% endif %}
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
-    <form method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <h3 class="section-title">Estructura organizacional</h3>
+    <div class="form-grid">
       <div class="row">
         <label>Empresa</label>
         <select name="empresa_id" required>
@@ -62,7 +77,7 @@
         </select>
       </div>
       <div class="row">
-        <label>Código postal</label>
+        <label>Codigo postal</label>
         <select name="codigo_postal" required>
           <option value="">Seleccione</option>
           {% for l in localidades %}
@@ -72,6 +87,18 @@
           {% endfor %}
         </select>
       </div>
+      <div class="row">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="activo" {% if (data.estado or 'activo') == 'activo' %}selected{% endif %}>Activo</option>
+          <option value="inactivo" {% if data.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
+          <option value="suspendido" {% if data.estado == 'suspendido' %}selected{% endif %}>Suspendido</option>
+        </select>
+      </div>
+    </div>
+
+    <h3 class="section-title">Datos personales</h3>
+    <div class="form-grid">
       <div class="row">
         <label>Legajo</label>
         <input name="legajo" value="{{ data.legajo or '' }}">
@@ -101,41 +128,36 @@
           {% endfor %}
         </select>
       </div>
-      <div class="row">
+      <div class="row span-2">
         <label>Email</label>
         <input name="email" type="email" value="{{ data.email or '' }}" required>
       </div>
       <div class="row">
-        <label>Teléfono</label>
+        <label>Telefono</label>
         <input name="telefono" value="{{ data.telefono or '' }}">
       </div>
-      <div class="row">
-        <label>Dirección</label>
+      <div class="row span-2">
+        <label>Direccion</label>
         <input name="direccion" value="{{ data.direccion or '' }}">
       </div>
       <div class="row">
         <label>Fecha ingreso</label>
         <input name="fecha_ingreso" type="date" value="{{ data.fecha_ingreso or '' }}">
       </div>
-      <div class="row">
-        <label>Estado</label>
-        <select name="estado">
-          <option value="activo" {% if (data.estado or 'activo') == 'activo' %}selected{% endif %}>Activo</option>
-          <option value="inactivo" {% if data.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
-          <option value="suspendido" {% if data.estado == 'suspendido' %}selected{% endif %}>Suspendido</option>
-        </select>
-      </div>
-      <div class="row">
+      <div class="row span-2">
         <label>Foto (URL)</label>
         <input name="foto" value="{{ data.foto or '' }}">
       </div>
       <div class="row">
-        <label>Contraseña {% if mode == "edit" %}(dejar vacía para mantener){% endif %}</label>
+        <label>Contrasena {% if mode == "edit" %}(dejar vacia para mantener){% endif %}</label>
         <input name="password" type="password" {% if password_required %}required{% endif %}>
       </div>
-      <div class="actions">
-        <button type="submit">Guardar</button>
-        <a href="{{ url_for('empleados.listado') }}">Volver</a>
-      </div>
-    </form>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('empleados.listado') }}">Volver</a>
+    </div>
+  </form>
+</div>
 {% endblock %}
