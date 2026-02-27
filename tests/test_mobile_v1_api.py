@@ -426,6 +426,80 @@ def test_mobile_fichada_scan_qr_auto_ingreso_despues_de_egreso(monkeypatch):
     assert body["tipo_marca"] == "jornada"
 
 
+def test_mobile_fichada_scan_qr_auto_reingreso_sin_marcas_previas(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 6})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 1,
+            "dni": "6",
+            "nombre": "Emp",
+            "apellido": "Six",
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empresa_id",
+        lambda empresa_id: {
+            "requiere_qr": 1,
+            "requiere_foto": 0,
+            "requiere_geo": 0,
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "verificar_token_qr",
+        lambda token, accion_esperada=None: {
+            "type": "asistencia_qr",
+            "accion": "auto",
+            "empresa_id": 1,
+            "scope": "empresa",
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empleado_fecha",
+        lambda empleado_id, fecha: {
+            "id": 10,
+            "hora_entrada": "07:00",
+            "hora_salida": "13:00",
+        },
+    )
+    # Caso real reportado: no hay marcas atomicas pero el resumen del dia ya se cerro.
+    monkeypatch.setattr(mobile_routes, "get_last_marca_by_empleado_fecha", lambda empleado_id, fecha: None)
+    monkeypatch.setattr(
+        mobile_routes,
+        "_validar_geo_scan_qr",
+        lambda empleado, qr_payload, lat, lon: {
+            "gps_ok": True,
+            "distancia_m": 12.1,
+            "tolerancia_m": 80.0,
+            "ref_lat": -34.0,
+            "ref_lon": -58.0,
+            "sucursal_id": 1,
+        },
+    )
+    monkeypatch.setattr(mobile_routes, "validar_asistencia", lambda *args: ({}, "ok"))
+    monkeypatch.setattr(mobile_routes, "upsert_resumen_desde_marca", lambda **kwargs: 81)
+    monkeypatch.setattr(mobile_routes, "create_asistencia_marca", lambda **kwargs: 801)
+    monkeypatch.setattr(mobile_routes, "count_marcas_by_empleado_fecha", lambda empleado_id, fecha: 1)
+
+    resp = client.post(
+        "/api/v1/mobile/me/fichadas/scan",
+        headers={"Authorization": "Bearer abc"},
+        json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816},
+    )
+    body = resp.get_json()
+    assert resp.status_code == 201
+    assert body["accion"] == "ingreso"
+    assert body["id"] == 81
+    assert body["marca_id"] == 801
+
+
 def test_mobile_fichada_scan_qr_tipo_marca_del_qr_prevalece(monkeypatch):
     client = _build_client(monkeypatch)
     monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 6})
@@ -802,3 +876,94 @@ def test_mobile_eventos_seguridad_error_controlado(monkeypatch):
     body = resp.get_json()
     assert resp.status_code == 500
     assert "No se pudo obtener eventos de seguridad" in body["error"]
+
+
+def test_mobile_me_estadisticas_ok(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 6})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 1,
+            "dni": "6",
+            "nombre": "Emp",
+            "apellido": "Six",
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_mobile_stats_by_empleado",
+        lambda empleado_id, fecha_desde, fecha_hasta: {
+            "totales": {
+                "registros": 20,
+                "ok": 14,
+                "tarde": 3,
+                "ausente": 2,
+                "salida_anticipada": 1,
+                "sin_estado": 0,
+            },
+            "kpis": {
+                "puntualidad_pct": 70.0,
+                "ausentismo_pct": 10.0,
+                "cumplimiento_jornada_pct": 88.9,
+                "no_show_pct": 50.0,
+                "tasa_salida_anticipada_pct": 5.0,
+            },
+            "jornadas": {
+                "completas": 16,
+                "con_marca": 18,
+                "incompletas": 2,
+            },
+            "justificaciones": {
+                "total": 4,
+                "pendientes": 1,
+                "aprobadas": 2,
+                "rechazadas": 1,
+                "tasa_aprobacion_pct": 50.0,
+            },
+            "vacaciones": {"eventos": 1, "dias": 5},
+            "ausencias": {"total": 2, "sin_justificacion": 1},
+            "series": {"diaria": [{"fecha": "2026-02-01", "registros": 1, "ok": 1, "tarde": 0, "ausente": 0, "salida_anticipada": 0, "puntualidad_pct": 100.0, "ausentismo_pct": 0.0}]},
+        },
+    )
+
+    resp = client.get(
+        "/api/v1/mobile/me/estadisticas?desde=2026-02-01&hasta=2026-02-27",
+        headers={"Authorization": "Bearer abc"},
+    )
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["periodo"]["desde"] == "2026-02-01"
+    assert body["periodo"]["hasta"] == "2026-02-27"
+    assert body["totales"]["registros"] == 20
+    assert body["kpis"]["puntualidad_pct"] == 70.0
+    assert body["justificaciones"]["total"] == 4
+    assert body["vacaciones"]["dias"] == 5
+
+
+def test_mobile_me_estadisticas_fecha_futura_bloqueada(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 6})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 1,
+            "dni": "6",
+            "nombre": "Emp",
+            "apellido": "Six",
+        },
+    )
+
+    resp = client.get(
+        "/api/v1/mobile/me/estadisticas?desde=2026-02-01&hasta=2099-01-01",
+        headers={"Authorization": "Bearer abc"},
+    )
+    body = resp.get_json()
+    assert resp.status_code == 400
+    assert "No se permiten fechas futuras" in body["error"]

@@ -25,6 +25,7 @@ from repositories.empleado_repository import (
     update_mobile_profile,
     update_password as update_empleado_password,
 )
+from repositories.mobile_stats_repository import get_by_empleado as get_mobile_stats_by_empleado
 from repositories.security_event_repository import (
     create_geo_qr_rechazo,
     get_page_by_empleado as get_security_events_page,
@@ -366,7 +367,8 @@ def _decidir_accion_scan(accion_qr: str, resumen: dict | None, ultima_marca: dic
     elif resumen.get("hora_salida") is None:
         accion = "egreso"
     else:
-        raise ValueError("Ya existe entrada y salida registradas para esa fecha.")
+        # Si no hay marcas atomicas y el resumen del dia esta cerrado, asumimos nuevo ciclo.
+        accion = "ingreso"
 
     if ultima_marca:
         ultima_accion = str(ultima_marca.get("accion") or "").strip().lower()
@@ -879,6 +881,65 @@ def me_asistencias():
             "page": page,
             "per_page": per_page,
             "total": total,
+        }
+    )
+
+
+@mobile_v1_bp.route("/me/estadisticas", methods=["GET"])
+@mobile_auth_required
+def me_estadisticas():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    today_dt = datetime.date.today()
+    today_iso = today_dt.isoformat()
+    fecha_desde = (request.args.get("desde") or "").strip() or (today_dt - datetime.timedelta(days=29)).isoformat()
+    fecha_hasta = (request.args.get("hasta") or "").strip() or today_iso
+
+    try:
+        _parse_date(fecha_desde)
+        _parse_date(fecha_hasta)
+        desde_dt = datetime.date.fromisoformat(fecha_desde)
+        hasta_dt = datetime.date.fromisoformat(fecha_hasta)
+    except ValueError:
+        return jsonify({"error": "Rango de fechas invalido"}), 400
+
+    if desde_dt > hasta_dt:
+        return jsonify({"error": "El rango de fechas es invalido (desde > hasta)."}), 400
+    if desde_dt > today_dt or hasta_dt > today_dt:
+        return jsonify({"error": "No se permiten fechas futuras en estadisticas."}), 400
+    if (hasta_dt - desde_dt).days > 366:
+        return jsonify({"error": "El rango maximo permitido es 366 dias."}), 400
+
+    try:
+        data = get_mobile_stats_by_empleado(
+            empleado_id=int(empleado["id"]),
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+        )
+    except Exception:
+        current_app.logger.exception(
+            "mobile_estadisticas_error",
+            extra={
+                "extra": {
+                    "empleado_id": empleado.get("id"),
+                    "empresa_id": empleado.get("empresa_id"),
+                    "desde": fecha_desde,
+                    "hasta": fecha_hasta,
+                }
+            },
+        )
+        return jsonify({"error": "No se pudieron obtener estadisticas."}), 500
+
+    return jsonify(
+        {
+            "periodo": {
+                "desde": fecha_desde,
+                "hasta": fecha_hasta,
+                "dias": (hasta_dt - desde_dt).days + 1,
+            },
+            **(data or {}),
         }
     )
 

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Control Asistencia - Mobile API
-  version: 1.6.0
+  version: 1.7.0
   description: API v1 para app Flutter de empleados.
 servers:
   - url: http://localhost:5000
@@ -278,6 +278,41 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/mobile/me/estadisticas:
+    get:
+      tags: [Asistencias]
+      summary: KPIs agregados del empleado para rango de fechas
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: desde
+          schema:
+            type: string
+            format: date
+          required: false
+          description: Default hoy - 29 dias.
+        - in: query
+          name: hasta
+          schema:
+            type: string
+            format: date
+          required: false
+          description: Default hoy.
+      responses:
+        "200":
+          description: KPIs de asistencia del empleado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EstadisticasEmpleadoResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
 
   /api/v1/mobile/me/marcas:
     get:
@@ -660,6 +695,119 @@ components:
           type: number
           format: float
           nullable: true
+    EstadisticaDiariaItem:
+      type: object
+      properties:
+        fecha:
+          type: string
+          format: date
+        registros:
+          type: integer
+        ok:
+          type: integer
+        tarde:
+          type: integer
+        ausente:
+          type: integer
+        salida_anticipada:
+          type: integer
+        puntualidad_pct:
+          type: number
+          format: float
+        ausentismo_pct:
+          type: number
+          format: float
+    EstadisticasEmpleadoResponse:
+      type: object
+      properties:
+        periodo:
+          type: object
+          properties:
+            desde:
+              type: string
+              format: date
+            hasta:
+              type: string
+              format: date
+            dias:
+              type: integer
+        totales:
+          type: object
+          properties:
+            registros:
+              type: integer
+            ok:
+              type: integer
+            tarde:
+              type: integer
+            ausente:
+              type: integer
+            salida_anticipada:
+              type: integer
+            sin_estado:
+              type: integer
+        kpis:
+          type: object
+          properties:
+            puntualidad_pct:
+              type: number
+              format: float
+            ausentismo_pct:
+              type: number
+              format: float
+            cumplimiento_jornada_pct:
+              type: number
+              format: float
+            no_show_pct:
+              type: number
+              format: float
+            tasa_salida_anticipada_pct:
+              type: number
+              format: float
+        jornadas:
+          type: object
+          properties:
+            completas:
+              type: integer
+            con_marca:
+              type: integer
+            incompletas:
+              type: integer
+        justificaciones:
+          type: object
+          properties:
+            total:
+              type: integer
+            pendientes:
+              type: integer
+            aprobadas:
+              type: integer
+            rechazadas:
+              type: integer
+            tasa_aprobacion_pct:
+              type: number
+              format: float
+        vacaciones:
+          type: object
+          properties:
+            eventos:
+              type: integer
+            dias:
+              type: integer
+        ausencias:
+          type: object
+          properties:
+            total:
+              type: integer
+            sin_justificacion:
+              type: integer
+        series:
+          type: object
+          properties:
+            diaria:
+              type: array
+              items:
+                $ref: "#/components/schemas/EstadisticaDiariaItem"
     FichadaEntradaRequest:
       type: object
       required: [metodo]
@@ -1001,6 +1149,17 @@ components:
           type: integer
 
 x-changelog:
+  - version: 1.7.0
+    date: 2026-02-27
+    changes:
+      - "Nuevo endpoint: GET /api/v1/mobile/me/estadisticas para KPIs agregados del empleado."
+      - "Valida rango de fechas sin futuros y limite maximo de 366 dias."
+      - "Incluye series diarias, estados, justificaciones y vacaciones del periodo."
+  - version: 1.6.0
+    date: 2026-02-25
+    changes:
+      - "GET /api/v1/mobile/me/config-asistencia agrega cooldown_scan_segundos."
+      - "POST /api/v1/mobile/me/fichadas/scan agrega code=scan_cooldown y cooldown_segundos_restantes en 409."
   - version: 1.5.0
     date: 2026-02-24
     changes:

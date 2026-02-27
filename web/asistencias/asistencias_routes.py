@@ -111,6 +111,7 @@ def listado():
     search = request.args.get("q")
     fecha_desde = request.args.get("fecha_desde")
     fecha_hasta = request.args.get("fecha_hasta")
+    error = (request.args.get("error") or "").strip() or None
     asistencias, total = get_page(page, per_page, empleado_id, fecha_desde, fecha_hasta, search)
     empleados = get_empleados(include_inactive=True)
     return render_template(
@@ -121,6 +122,7 @@ def listado():
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         q=search,
+        error=error,
         page=page,
         per_page=per_page,
         total=total,
@@ -335,11 +337,33 @@ def generar_ausentes_post():
     fecha = (request.form.get("fecha") or "").strip()
     fecha_desde = (request.form.get("fecha_desde") or "").strip()
     fecha_hasta = (request.form.get("fecha_hasta") or "").strip()
+    hoy = datetime.date.today()
+    hoy_iso = hoy.isoformat()
 
     if modo == "rango":
         if not (fecha_desde and fecha_hasta):
             return redirect(url_for("asistencias.listado"))
-        generar_ausentes_rango(fecha_desde, fecha_hasta)
+        try:
+            desde_dt = datetime.date.fromisoformat(fecha_desde)
+            hasta_dt = datetime.date.fromisoformat(fecha_hasta)
+        except ValueError:
+            return redirect(url_for("asistencias.listado", error="Rango de fechas invalido. Use formato YYYY-MM-DD."))
+
+        if desde_dt > hoy:
+            return redirect(url_for("asistencias.listado", error=f"fecha_desde no puede ser mayor a hoy ({hoy_iso})."))
+        if hasta_dt > hoy:
+            return redirect(url_for("asistencias.listado", error=f"fecha_hasta no puede ser mayor a hoy ({hoy_iso})."))
+
+        _, errors = generar_ausentes_rango(fecha_desde, fecha_hasta)
+        if errors:
+            return redirect(
+                url_for(
+                    "asistencias.listado",
+                    error=errors[0],
+                    fecha_desde=fecha_desde,
+                    fecha_hasta=fecha_hasta,
+                )
+            )
         return redirect(
             url_for(
                 "asistencias.listado",
@@ -353,7 +377,17 @@ def generar_ausentes_post():
 
     if not fecha:
         return redirect(url_for("asistencias.listado"))
-    generar_ausentes(fecha)
+    try:
+        fecha_dt = datetime.date.fromisoformat(fecha)
+    except ValueError:
+        return redirect(url_for("asistencias.listado", error="Fecha invalida."))
+
+    if fecha_dt > hoy:
+        return redirect(url_for("asistencias.listado", error=f"fecha no puede ser mayor a hoy ({hoy_iso})."))
+
+    _, errors = generar_ausentes(fecha)
+    if errors:
+        return redirect(url_for("asistencias.listado", error=errors[0], fecha_desde=fecha, fecha_hasta=fecha))
     return redirect(url_for("asistencias.listado", fecha_desde=fecha, fecha_hasta=fecha))
 
 
