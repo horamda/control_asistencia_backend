@@ -4,14 +4,14 @@
 <div class="content-stack">
   <div class="section-head">
     <div>
-      <div class="section-kicker">Vision General</div>
-      <h2>Dashboard operativo</h2>
-      <p class="module-intro">Vista ejecutiva del estado actual de asistencia, horarios y excepciones.</p>
+      <div class="section-kicker">Analitica RRHH</div>
+      <h2>Dashboard de asistencia</h2>
+      <p class="module-intro">KPIs ejecutivos de puntualidad, ausentismo, cumplimiento y regularizacion.</p>
     </div>
     <div class="chip-row">
-      <span class="chip">Multiempresa</span>
-      <span class="chip">Control diario</span>
-      <span class="chip">Trazabilidad</span>
+      <span class="chip">Mes en curso</span>
+      <span class="chip">Acumulado anual</span>
+      <span class="chip">Riesgo RRHH</span>
     </div>
   </div>
 
@@ -21,16 +21,564 @@
       <div class="kpi-value">{{ stats.empleados_activos }}</div>
     </article>
     <article class="kpi-card">
-      <div class="kpi-label">Asistencias hoy</div>
-      <div class="kpi-value">{{ stats.asistencias_hoy }}</div>
+      <div class="kpi-label">Presentismo hoy</div>
+      <div class="kpi-value">{{ "%.1f"|format(stats.presentismo_hoy_pct) }}%</div>
     </article>
     <article class="kpi-card">
-      <div class="kpi-label">Tardanzas hoy</div>
-      <div class="kpi-value">{{ stats.tardes_hoy }}</div>
+      <div class="kpi-label">Puntualidad mes</div>
+      <div class="kpi-value">{{ "%.1f"|format(stats.puntualidad_mes_pct) }}%</div>
     </article>
     <article class="kpi-card">
-      <div class="kpi-label">Excepciones hoy</div>
-      <div class="kpi-value">{{ stats.excepciones_hoy }}</div>
+      <div class="kpi-label">% ausentismo mes</div>
+      <div class="kpi-value">{{ "%.1f"|format(stats.ausentismo_mes_pct) }}%</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">% ausentismo anual</div>
+      <div class="kpi-value">{{ "%.1f"|format(stats.ausentismo_anual_pct) }}%</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Indice no-show mes</div>
+      <div class="kpi-value">{{ "%.1f"|format(stats.no_show_mes_pct) }}%</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Justificaciones mes</div>
+      <div class="kpi-value">{{ stats.justificaciones_mes_total }}</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Aprobacion justif. mes</div>
+      <div class="kpi-value">{{ "%.1f"|format(stats.tasa_aprobacion_justificaciones_mes_pct) }}%</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Justif. pendientes</div>
+      <div class="kpi-value">{{ stats.justificaciones_pendientes_total }}</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Vacaciones en curso</div>
+      <div class="kpi-value">{{ stats.vacaciones_en_curso_hoy }}</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Vacaciones proximas 30d</div>
+      <div class="kpi-value">{{ stats.vacaciones_proximas_30d }}</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Cumplimiento jornada mes</div>
+      <div class="kpi-value">{{ "%.1f"|format(stats.cumplimiento_jornada_mes_pct) }}%</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Tasa salida anticipada mes</div>
+      <div class="kpi-value">{{ "%.1f"|format(stats.tasa_salida_anticipada_mes_pct) }}%</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Frecuencia ausencias mes</div>
+      <div class="kpi-value">{{ "%.2f"|format(stats.frecuencia_ausencias_mes) }}</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Frecuencia ausencias trimestre</div>
+      <div class="kpi-value">{{ "%.2f"|format(stats.frecuencia_ausencias_trimestre) }}</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Lead time regularizacion (h)</div>
+      <div class="kpi-value">{{ "%.1f"|format(stats.lead_time_regularizacion_horas_mes) }}</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Desvio horas mes</div>
+      <div class="kpi-value">{{ "%.1f"|format(stats.desvio_horas_mes) }}h</div>
+    </article>
+  </section>
+
+  <section class="panel">
+    <h3>Semaforo de riesgo (mes)</h3>
+    <div class="risk-grid">
+      <div class="risk-item">
+        <div class="risk-head">
+          <strong>No-show</strong>
+          <span>{{ "%.1f"|format(stats.no_show_mes_pct) }}%</span>
+        </div>
+        <div class="risk-track"><span class="risk-fill danger" style="width: {{ stats.no_show_mes_pct }}%"></span></div>
+      </div>
+      <div class="risk-item">
+        <div class="risk-head">
+          <strong>Salida anticipada</strong>
+          <span>{{ "%.1f"|format(stats.tasa_salida_anticipada_mes_pct) }}%</span>
+        </div>
+        <div class="risk-track"><span class="risk-fill warning" style="width: {{ stats.tasa_salida_anticipada_mes_pct }}%"></span></div>
+      </div>
+      <div class="risk-item">
+        <div class="risk-head">
+          <strong>Ausentismo</strong>
+          <span>{{ "%.1f"|format(stats.ausentismo_mes_pct) }}%</span>
+        </div>
+        <div class="risk-track"><span class="risk-fill danger" style="width: {{ stats.ausentismo_mes_pct }}%"></span></div>
+      </div>
+      <div class="risk-item">
+        <div class="risk-head">
+          <strong>Puntualidad</strong>
+          <span>{{ "%.1f"|format(stats.puntualidad_mes_pct) }}%</span>
+        </div>
+        <div class="risk-track"><span class="risk-fill ok" style="width: {{ stats.puntualidad_mes_pct }}%"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel-grid">
+    <article class="panel">
+      <h3>Justificaciones del mes</h3>
+      {% if charts.justificaciones_estado_mes %}
+        <div class="status-stack">
+          {% for s in charts.justificaciones_estado_mes %}
+            <div class="status-row">
+              <span class="status-label">{{ s.label }}</span>
+              <div class="status-track">
+                <span class="status-fill {{ s.tone }}" style="width: {{ s.pct }}%"></span>
+              </div>
+              <strong>{{ s.total }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>Sin justificaciones en el mes.</p>
+      {% endif %}
+      <ul class="list-clean">
+        <li>Total mes: <strong>{{ stats.justificaciones_mes_total }}</strong></li>
+        <li>Aprobadas: <strong>{{ stats.justificaciones_mes_aprobadas }}</strong></li>
+        <li>Rechazadas: <strong>{{ stats.justificaciones_mes_rechazadas }}</strong></li>
+        <li>Pendientes mes: <strong>{{ stats.justificaciones_mes_pendientes }}</strong></li>
+      </ul>
+    </article>
+    <article class="panel">
+      <h3>Vacaciones (mes y anual)</h3>
+      <ul class="list-clean">
+        <li>En curso hoy: <strong>{{ stats.vacaciones_en_curso_hoy }}</strong></li>
+        <li>Proximas 30 dias: <strong>{{ stats.vacaciones_proximas_30d }}</strong></li>
+        <li>Dias de vacaciones (mes): <strong>{{ stats.vacaciones_dias_mes }}</strong></li>
+        <li>Dias de vacaciones (anio): <strong>{{ stats.vacaciones_dias_anio }}</strong></li>
+      </ul>
+      {% if charts.vacaciones_top_dias_anio %}
+        <h4 class="section-title">Top dias de vacaciones (anio)</h4>
+        <div class="mini-bars">
+          {% for p in charts.vacaciones_top_dias_anio[:6] %}
+            <div class="mini-row">
+              <div class="mini-label">{{ p.apellido }} {{ p.nombre }}</div>
+              <div class="mini-track">
+                <span class="mini-fill warning" style="width: {{ p.dias_pct }}%"></span>
+              </div>
+              <strong>{{ p.dias }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel">
+    <h3>Vacaciones proximas (30 dias)</h3>
+    {% if charts.vacaciones_proximas_detalle %}
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>Empresa</th>
+              <th>Desde</th>
+              <th>Hasta</th>
+              <th>Dias</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in charts.vacaciones_proximas_detalle %}
+              <tr>
+                <td>{{ v.apellido }} {{ v.nombre }}</td>
+                <td>{{ v.empresa }}</td>
+                <td>{{ v.fecha_desde }}</td>
+                <td>{{ v.fecha_hasta }}</td>
+                <td>{{ v.dias }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>Sin vacaciones proximas en los siguientes 30 dias.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel-grid">
+    <article class="panel">
+      <h3>Tendencia diaria (ultimos 7 dias)</h3>
+      {% if charts.daily_7d %}
+        <div class="rrhh-legend">
+          <span><i class="legend-dot total"></i>Asistencias</span>
+          <span><i class="legend-dot warning"></i>Tardes</span>
+          <span><i class="legend-dot danger"></i>Ausentes</span>
+        </div>
+        <div class="trend-chart">
+          {% for d in charts.daily_7d %}
+            <div class="trend-day">
+              <div class="trend-bars">
+                <span class="trend-bar total" style="height: {{ ((d.asistencias * 100) / charts.max_daily) | round(1) }}%"></span>
+                <span class="trend-bar warning" style="height: {{ ((d.tardes * 100) / charts.max_daily) | round(1) }}%"></span>
+                <span class="trend-bar danger" style="height: {{ ((d.ausentes * 100) / charts.max_daily) | round(1) }}%"></span>
+              </div>
+              <div class="trend-label">{{ d.dia }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>Sin datos para mostrar tendencia.</p>
+      {% endif %}
+    </article>
+
+    <article class="panel">
+      <h3>Distribucion de estados (30 dias)</h3>
+      {% if charts.status_30d %}
+        {% set pie = namespace(ok=0.0, tarde=0.0, ausente=0.0, salida=0.0, otros=0.0) %}
+        {% for s in charts.status_30d %}
+          {% if s.key == "ok" %}{% set pie.ok = s.pct %}{% endif %}
+          {% if s.key == "tarde" %}{% set pie.tarde = s.pct %}{% endif %}
+          {% if s.key == "ausente" %}{% set pie.ausente = s.pct %}{% endif %}
+          {% if s.key == "salida_anticipada" %}{% set pie.salida = s.pct %}{% endif %}
+          {% if s.key == "otros" %}{% set pie.otros = s.pct %}{% endif %}
+        {% endfor %}
+        {% set cut1 = pie.ok %}
+        {% set cut2 = pie.ok + pie.tarde %}
+        {% set cut3 = cut2 + pie.ausente %}
+        {% set cut4 = cut3 + pie.salida %}
+        <h4 class="section-title">Torta de estados (30 dias)</h4>
+        <div class="pie-layout">
+          <div class="pie-chart" style="background: conic-gradient(#2f8f5b 0% {{ cut1 }}%, #d58d00 {{ cut1 }}% {{ cut2 }}%, #c53a4d {{ cut2 }}% {{ cut3 }}%, #667a92 {{ cut3 }}% {{ cut4 }}%, #9aa8b8 {{ cut4 }}% 100%);">
+            <div class="pie-hole">
+              <strong>{{ stats.asistencias_30d }}</strong>
+              <small>registros</small>
+            </div>
+          </div>
+          <ul class="pie-legend">
+            {% for s in charts.status_30d %}
+              <li>
+                <span>{{ s.label }}</span>
+                <strong>{{ "%.1f"|format(s.pct) }}%</strong>
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="status-stack">
+          {% for s in charts.status_30d %}
+            <div class="status-row">
+              <span class="status-label">{{ s.label }}</span>
+              <div class="status-track">
+                <span class="status-fill {{ s.tone }}" style="width: {{ s.pct }}%"></span>
+              </div>
+              <strong>{{ s.total }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>Sin datos de estados para los ultimos 30 dias.</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel">
+    <h3>Top empresas con mas ausencias/tardanzas (30 dias)</h3>
+    {% if charts.empresa_top_30d %}
+      <div class="company-chart">
+        {% for e in charts.empresa_top_30d %}
+          <div class="company-row">
+            <div class="company-name">{{ e.empresa }}</div>
+            <div class="company-bars">
+              <div class="company-track">
+                <span class="company-fill danger" style="width: {{ e.ausentes_pct }}%"></span>
+              </div>
+              <small>Ausentes: {{ e.ausentes }}</small>
+              <div class="company-track">
+                <span class="company-fill warning" style="width: {{ e.tardes_pct }}%"></span>
+              </div>
+              <small>Tardes: {{ e.tardes }}</small>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>Sin datos por empresa para el periodo.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel-grid">
+    <article class="panel">
+      <h3>Top reincidencia (incidentes del mes)</h3>
+      <p class="helper-text">Umbral actual: {{ stats.reincidencia_umbral }} o mas incidentes (ausente/tarde/salida anticipada).</p>
+      {% if charts.top_reincidencia_mes %}
+        {% set max_incidentes = charts.top_reincidencia_mes | map(attribute='incidentes') | max %}
+        <div class="mini-bars">
+          {% for p in charts.top_reincidencia_mes[:6] %}
+            <div class="mini-row">
+              <div class="mini-label">{{ p.apellido }} {{ p.nombre }}</div>
+              <div class="mini-track">
+                <span class="mini-fill danger" style="width: {{ ((p.incidentes * 100) / max_incidentes) | round(1) }}%"></span>
+              </div>
+              <strong>{{ p.incidentes }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Empleado</th>
+                <th>Empresa</th>
+                <th>Incidentes</th>
+                <th>Ausencias</th>
+                <th>Tardanzas</th>
+                <th>Salidas ant.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in charts.top_reincidencia_mes %}
+                <tr>
+                  <td>{{ p.apellido }} {{ p.nombre }}</td>
+                  <td>{{ p.empresa }}</td>
+                  <td><strong>{{ p.incidentes }}</strong></td>
+                  <td>{{ p.ausencias }}</td>
+                  <td>{{ p.tardanzas }}</td>
+                  <td>{{ p.salidas_anticipadas }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p>Sin reincidencias relevantes en el mes.</p>
+      {% endif %}
+    </article>
+
+    <article class="panel">
+      <h3>Rachas de asistencia perfecta</h3>
+      {% if charts.streak_top_empleados %}
+        {% set max_streak = charts.streak_top_empleados | map(attribute='streak') | max %}
+        <div class="mini-bars">
+          {% for p in charts.streak_top_empleados[:6] %}
+            <div class="mini-row">
+              <div class="mini-label">{{ p.apellido }} {{ p.nombre }}</div>
+              <div class="mini-track">
+                <span class="mini-fill ok" style="width: {{ ((p.streak * 100) / max_streak) | round(1) }}%"></span>
+              </div>
+              <strong>{{ p.streak }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+        <ul class="list-clean">
+          {% for p in charts.streak_top_empleados[:8] %}
+            <li>
+              <strong>{{ p.apellido }} {{ p.nombre }}</strong>
+              <div>{{ p.empresa }}</div>
+              <small>Racha actual: {{ p.streak }} dia(s)</small>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Sin rachas activas para mostrar.</p>
+      {% endif %}
+      {% if charts.streak_top_equipos %}
+        {% set max_team = charts.streak_top_equipos | map(attribute='promedio_racha') | max %}
+        <h4 class="section-title">Racha promedio por equipo</h4>
+        <div class="mini-bars">
+          {% for t in charts.streak_top_equipos %}
+            <div class="mini-row">
+              <div class="mini-label">{{ t.equipo }}</div>
+              <div class="mini-track">
+                <span class="mini-fill total" style="width: {{ ((t.promedio_racha * 100) / max_team) | round(1) }}%"></span>
+              </div>
+              <strong>{{ "%.1f"|format(t.promedio_racha) }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel">
+    <h3>Personas con mas ausencias (acumulado anual)</h3>
+    {% if charts.persona_top_ausencias_anio %}
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>Empresa</th>
+              <th>DNI</th>
+              <th>Ausencias</th>
+              <th>Tardanzas</th>
+              <th>Total registros</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in charts.persona_top_ausencias_anio %}
+              <tr>
+                <td>{{ p.apellido }} {{ p.nombre }}</td>
+                <td>{{ p.empresa }}</td>
+                <td>{{ p.dni or "-" }}</td>
+                <td><span class="badge danger">{{ p.ausencias }}</span></td>
+                <td><span class="badge warning">{{ p.tardanzas }}</span></td>
+                <td>{{ p.total }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>Sin ausencias registradas en el acumulado anual.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel-grid">
+    <article class="panel">
+      <h3>Ausentismo normalizado por empresa</h3>
+      {% if charts.ausentismo_rank_empresa %}
+        {% set max_emp_idx = charts.ausentismo_rank_empresa | map(attribute='indice_ausencias_por_empleado') | max %}
+        <div class="mini-bars">
+          {% for r in charts.ausentismo_rank_empresa %}
+            <div class="mini-row">
+              <div class="mini-label">{{ r.nombre }}</div>
+              <div class="mini-track">
+                <span class="mini-fill danger" style="width: {{ ((r.indice_ausencias_por_empleado * 100) / max_emp_idx) | round(1) }}%"></span>
+              </div>
+              <strong>{{ "%.2f"|format(r.indice_ausencias_por_empleado) }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+        <ul class="list-clean">
+          {% for r in charts.ausentismo_rank_empresa %}
+            <li>
+              <strong>{{ r.nombre }}</strong>
+              <div>Ausencias: {{ r.ausentes }} | Dotacion: {{ r.dotacion }}</div>
+              <small>Indice: {{ "%.2f"|format(r.indice_ausencias_por_empleado) }} | Tasa dia: {{ "%.2f"|format(r.tasa_pct) }}%</small>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Sin datos por empresa.</p>
+      {% endif %}
+    </article>
+    <article class="panel">
+      <h3>Ausentismo normalizado por sector</h3>
+      {% if charts.ausentismo_rank_sector %}
+        {% set max_sec_idx = charts.ausentismo_rank_sector | map(attribute='indice_ausencias_por_empleado') | max %}
+        <div class="mini-bars">
+          {% for r in charts.ausentismo_rank_sector %}
+            <div class="mini-row">
+              <div class="mini-label">{{ r.nombre }}</div>
+              <div class="mini-track">
+                <span class="mini-fill warning" style="width: {{ ((r.indice_ausencias_por_empleado * 100) / max_sec_idx) | round(1) }}%"></span>
+              </div>
+              <strong>{{ "%.2f"|format(r.indice_ausencias_por_empleado) }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+        <ul class="list-clean">
+          {% for r in charts.ausentismo_rank_sector %}
+            <li>
+              <strong>{{ r.nombre }}</strong>
+              <div>Ausencias: {{ r.ausentes }} | Dotacion: {{ r.dotacion }}</div>
+              <small>Indice: {{ "%.2f"|format(r.indice_ausencias_por_empleado) }} | Tasa dia: {{ "%.2f"|format(r.tasa_pct) }}%</small>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Sin datos por sector.</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="panel">
+    <h3>Ausentismo normalizado por sucursal</h3>
+    {% if charts.ausentismo_rank_sucursal %}
+      {% set max_suc_idx = charts.ausentismo_rank_sucursal | map(attribute='indice_ausencias_por_empleado') | max %}
+      <div class="mini-bars">
+        {% for r in charts.ausentismo_rank_sucursal %}
+          <div class="mini-row">
+            <div class="mini-label">{{ r.nombre }}</div>
+            <div class="mini-track">
+              <span class="mini-fill neutral" style="width: {{ ((r.indice_ausencias_por_empleado * 100) / max_suc_idx) | round(1) }}%"></span>
+            </div>
+            <strong>{{ "%.2f"|format(r.indice_ausencias_por_empleado) }}</strong>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Sucursal</th>
+              <th>Ausencias mes</th>
+              <th>Dotacion</th>
+              <th>Indice ausencias/empleado</th>
+              <th>Tasa diaria (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in charts.ausentismo_rank_sucursal %}
+              <tr>
+                <td>{{ r.nombre }}</td>
+                <td>{{ r.ausentes }}</td>
+                <td>{{ r.dotacion }}</td>
+                <td>{{ "%.2f"|format(r.indice_ausencias_por_empleado) }}</td>
+                <td>{{ "%.2f"|format(r.tasa_pct) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p>Sin datos por sucursal.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel-grid">
+    <article class="panel">
+      <h3>Horas esperadas vs registradas (mes)</h3>
+      {% set max_horas = [stats.horas_registradas_mes, stats.horas_esperadas_mes, 1] | max %}
+      <div class="mini-bars">
+        <div class="mini-row">
+          <div class="mini-label">Registradas</div>
+          <div class="mini-track">
+            <span class="mini-fill total" style="width: {{ ((stats.horas_registradas_mes * 100) / max_horas) | round(1) }}%"></span>
+          </div>
+          <strong>{{ "%.1f"|format(stats.horas_registradas_mes) }}h</strong>
+        </div>
+        <div class="mini-row">
+          <div class="mini-label">Esperadas</div>
+          <div class="mini-track">
+            <span class="mini-fill ok" style="width: {{ ((stats.horas_esperadas_mes * 100) / max_horas) | round(1) }}%"></span>
+          </div>
+          <strong>{{ "%.1f"|format(stats.horas_esperadas_mes) }}h</strong>
+        </div>
+      </div>
+      <ul class="list-clean">
+        <li>Horas registradas: <strong>{{ "%.1f"|format(stats.horas_registradas_mes) }}</strong></li>
+        <li>Horas esperadas: <strong>{{ "%.1f"|format(stats.horas_esperadas_mes) }}</strong></li>
+        <li>Desvio: <strong>{{ "%.1f"|format(stats.desvio_horas_mes) }} h</strong></li>
+        <li>Cumplimiento horas: <strong>{{ "%.1f"|format(stats.cumplimiento_horas_mes_pct) }}%</strong></li>
+      </ul>
+      <div class="helper-text">Calculo estimado sobre horario asignado y bloques del dia; no incluye aprobacion manual de excepciones.</div>
+    </article>
+    <article class="panel">
+      <h3>Lead time de regularizacion (mes)</h3>
+      {% set total_inc = stats.incidentes_regularizados_mes + stats.incidentes_sin_regularizar_mes %}
+      {% set pct_reg = ((stats.incidentes_regularizados_mes * 100) / total_inc) if total_inc > 0 else 0 %}
+      {% set pct_pen = ((stats.incidentes_sin_regularizar_mes * 100) / total_inc) if total_inc > 0 else 0 %}
+      <div class="split-track">
+        <span class="split-fill ok" style="width: {{ pct_reg | round(1) }}%"></span>
+        <span class="split-fill danger" style="width: {{ pct_pen | round(1) }}%"></span>
+      </div>
+      <div class="split-legend">
+        <span><i class="legend-dot total"></i>Regularizados {{ stats.incidentes_regularizados_mes }}</span>
+        <span><i class="legend-dot danger"></i>Pendientes {{ stats.incidentes_sin_regularizar_mes }}</span>
+      </div>
+      <ul class="list-clean">
+        <li>Incidentes regularizados: <strong>{{ stats.incidentes_regularizados_mes }}</strong></li>
+        <li>Incidentes sin regularizar: <strong>{{ stats.incidentes_sin_regularizar_mes }}</strong></li>
+        <li>Promedio incidente -> justificacion: <strong>{{ "%.1f"|format(stats.lead_time_regularizacion_horas_mes) }} h</strong></li>
+      </ul>
+      <div class="helper-text">Se mide hasta la primera carga de justificacion asociada. No hay timestamp de aprobacion para medir ese tramo.</div>
     </article>
   </section>
 
@@ -42,18 +590,26 @@
         <a href="/empleado-horarios/">Asignaciones vigentes por empleado</a>
         <a href="/empleado-excepciones/">Registrar excepciones puntuales</a>
         <a href="/asistencias/">Control diario de asistencias</a>
+        <a href="/justificaciones/">Gestion de justificaciones</a>
+        <a href="/vacaciones/">Gestion de vacaciones</a>
         <a href="/auditoria/">Trazabilidad y auditoria</a>
-        <a href="/configuracion-empresa/">Configuracion de empresa</a>
       </div>
     </article>
-
     <article class="panel">
       <h3>Estado general</h3>
       <ul class="list-clean">
+        <li>Asistencias hoy: <strong>{{ stats.asistencias_hoy }}</strong></li>
+        <li>Tardanzas hoy: <strong>{{ stats.tardes_hoy }}</strong></li>
+        <li>Ausencias hoy: <strong>{{ stats.ausentes_hoy }}</strong></li>
+        <li>Asistencias mes: <strong>{{ stats.asistencias_mes }}</strong></li>
+        <li>Ausencias mes: <strong>{{ stats.ausentes_mes }}</strong></li>
+        <li>Ausentes sin justificacion mes: <strong>{{ stats.ausentes_sin_justificacion_mes }}</strong></li>
+        <li>Justificaciones pendientes: <strong>{{ stats.justificaciones_pendientes_total }}</strong></li>
+        <li>Vacaciones en curso: <strong>{{ stats.vacaciones_en_curso_hoy }}</strong></li>
+        <li>Asistencias anio: <strong>{{ stats.asistencias_anio }}</strong></li>
+        <li>Ausencias anio: <strong>{{ stats.ausentes_anio }}</strong></li>
         <li>Horarios activos: <strong>{{ stats.horarios_activos }}</strong></li>
         <li>Asignaciones vigentes: <strong>{{ stats.asignaciones_vigentes }}</strong></li>
-        <li>Ausentes hoy: <strong>{{ stats.ausentes_hoy }}</strong></li>
-        <li>Usuarios habilitados: <strong>{{ stats.usuarios_activos }}</strong></li>
       </ul>
     </article>
   </section>

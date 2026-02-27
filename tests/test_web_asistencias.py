@@ -1,3 +1,5 @@
+import datetime
+
 import app as app_module
 import web.auth.decorators as auth_decorators
 import web.asistencias.asistencias_routes as asistencias_routes
@@ -28,6 +30,18 @@ def test_asistencias_get_ok(monkeypatch):
     assert b"Generar ausentes por rango" in resp.data
 
 
+def test_asistencias_get_muestra_error(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(asistencias_routes, "get_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(asistencias_routes, "get_empleados", lambda include_inactive=True: [])
+
+    resp = client.get("/asistencias/?error=Fecha+invalida")
+    assert resp.status_code == 200
+    assert b"Fecha invalida" in resp.data
+
+
 def test_generar_ausentes_dia(monkeypatch):
     client = _build_client(monkeypatch)
     _login_session(client)
@@ -41,14 +55,15 @@ def test_generar_ausentes_dia(monkeypatch):
     monkeypatch.setattr(asistencias_routes, "generar_ausentes", _fake_generar_ausentes)
     monkeypatch.setattr(asistencias_routes, "generar_ausentes_rango", lambda *args, **kwargs: (0, []))
 
+    fecha = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
     resp = client.post(
         "/asistencias/generar-ausentes",
-        data={"modo": "dia", "fecha": "2026-02-20"},
+        data={"modo": "dia", "fecha": fecha},
         follow_redirects=False,
     )
     assert resp.status_code == 302
-    assert "fecha_desde=2026-02-20" in resp.headers["Location"]
-    assert captured["fecha"] == "2026-02-20"
+    assert f"fecha_desde={fecha}" in resp.headers["Location"]
+    assert captured["fecha"] == fecha
 
 
 def test_generar_ausentes_rango(monkeypatch):
@@ -65,16 +80,66 @@ def test_generar_ausentes_rango(monkeypatch):
     monkeypatch.setattr(asistencias_routes, "generar_ausentes", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(asistencias_routes, "generar_ausentes_rango", _fake_generar_ausentes_rango)
 
+    fecha_hasta = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    fecha_desde = (datetime.date.today() - datetime.timedelta(days=10)).isoformat()
     resp = client.post(
         "/asistencias/generar-ausentes",
-        data={"modo": "rango", "fecha_desde": "2026-02-01", "fecha_hasta": "2026-02-10"},
+        data={"modo": "rango", "fecha_desde": fecha_desde, "fecha_hasta": fecha_hasta},
         follow_redirects=False,
     )
     assert resp.status_code == 302
-    assert "fecha_desde=2026-02-01" in resp.headers["Location"]
-    assert "fecha_hasta=2026-02-10" in resp.headers["Location"]
-    assert captured["desde"] == "2026-02-01"
-    assert captured["hasta"] == "2026-02-10"
+    assert f"fecha_desde={fecha_desde}" in resp.headers["Location"]
+    assert f"fecha_hasta={fecha_hasta}" in resp.headers["Location"]
+    assert captured["desde"] == fecha_desde
+    assert captured["hasta"] == fecha_hasta
+
+
+def test_generar_ausentes_rango_propagates_errors(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(asistencias_routes, "generar_ausentes", lambda *args, **kwargs: (0, []))
+    monkeypatch.setattr(
+        asistencias_routes,
+        "generar_ausentes_rango",
+        lambda fecha_desde, fecha_hasta: (0, ["fecha_desde no puede ser mayor a fecha_hasta."]),
+    )
+
+    fecha_hasta = (datetime.date.today() - datetime.timedelta(days=5)).isoformat()
+    fecha_desde = (datetime.date.today() - datetime.timedelta(days=2)).isoformat()
+    resp = client.post(
+        "/asistencias/generar-ausentes",
+        data={"modo": "rango", "fecha_desde": fecha_desde, "fecha_hasta": fecha_hasta},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    assert "error=fecha_desde+no+puede+ser+mayor+a+fecha_hasta." in resp.headers["Location"]
+
+
+def test_generar_ausentes_rango_fecha_hasta_futura(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    called = {"rango": False}
+
+    def _fake_generar_ausentes_rango(fecha_desde, fecha_hasta):
+        called["rango"] = True
+        return 0, []
+
+    monkeypatch.setattr(asistencias_routes, "generar_ausentes", lambda *args, **kwargs: (0, []))
+    monkeypatch.setattr(asistencias_routes, "generar_ausentes_rango", _fake_generar_ausentes_rango)
+
+    fecha_desde = (datetime.date.today() - datetime.timedelta(days=2)).isoformat()
+    fecha_hasta = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+    resp = client.post(
+        "/asistencias/generar-ausentes",
+        data={"modo": "rango", "fecha_desde": fecha_desde, "fecha_hasta": fecha_hasta},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    assert "error=" in resp.headers["Location"]
+    assert "fecha_hasta+no+puede+ser+mayor+a+hoy" in resp.headers["Location"]
+    assert called["rango"] is False
 
 
 def test_historial_marcas_get_ok(monkeypatch):

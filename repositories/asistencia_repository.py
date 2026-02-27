@@ -496,6 +496,10 @@ def upsert_resumen_desde_marca(
     cursor = db.cursor(dictionary=True)
     try:
         db.start_transaction()
+        empresa_id = _get_empresa_id_for_empleado(cursor, empleado_id)
+        if not empresa_id:
+            raise ValueError("Empleado invalido o sin empresa asignada.")
+
         cursor.execute(
             """
             SELECT *
@@ -513,9 +517,6 @@ def upsert_resumen_desde_marca(
         if not row:
             if accion != "ingreso":
                 raise ValueError("No hay fichada de entrada para esa fecha.")
-            empresa_id = _get_empresa_id_for_empleado(cursor, empleado_id)
-            if not empresa_id:
-                raise ValueError("Empleado invalido o sin empresa asignada.")
             cursor.execute(
                 """
                 INSERT INTO asistencias
@@ -610,32 +611,70 @@ def upsert_resumen_desde_marca(
                     ),
                 )
             else:
+                # El registro mas reciente ya esta cerrado; para soportar mas de un ciclo
+                # en el mismo dia creamos una nueva asistencia.
                 cursor.execute(
                     """
-                    UPDATE asistencias
-                    SET hora_salida = NULL,
-                        lat_salida = NULL,
-                        lon_salida = NULL,
-                        gps_ok_salida = NULL,
-                        gps_distancia_salida_m = NULL,
-                        gps_tolerancia_salida_m = NULL,
-                        gps_ref_lat_salida = NULL,
-                        gps_ref_lon_salida = NULL,
-                        foto_salida = NULL,
-                        metodo_salida = NULL,
-                        estado = %s,
-                        observaciones = %s
-                    WHERE id = %s
+                    INSERT INTO asistencias
+                    (
+                        empresa_id,
+                        empleado_id,
+                        fecha,
+                        hora_entrada,
+                        lat_entrada,
+                        lon_entrada,
+                        gps_ok_entrada,
+                        gps_distancia_entrada_m,
+                        gps_tolerancia_entrada_m,
+                        gps_ref_lat_entrada,
+                        gps_ref_lon_entrada,
+                        foto_entrada,
+                        metodo_entrada,
+                        estado,
+                        observaciones
+                    )
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """,
                     (
+                        empresa_id,
+                        empleado_id,
+                        fecha,
+                        hora,
+                        lat,
+                        lon,
+                        (1 if gps_ok else 0) if gps_ok is not None else None,
+                        gps_distancia_m,
+                        gps_tolerancia_m,
+                        gps_ref_lat,
+                        gps_ref_lon,
+                        foto,
+                        metodo,
                         estado,
-                        observaciones if observaciones is not None else row.get("observaciones"),
-                        asistencia_id,
+                        observaciones,
                     ),
                 )
+                asistencia_id = cursor.lastrowid
         else:
-            if row.get("hora_entrada") is None:
-                raise ValueError("No hay fichada de entrada para esa fecha.")
+            if row.get("hora_entrada") is None or row.get("hora_salida") is not None:
+                cursor.execute(
+                    """
+                    SELECT *
+                    FROM asistencias
+                    WHERE empleado_id = %s
+                      AND fecha = %s
+                      AND hora_entrada IS NOT NULL
+                      AND hora_salida IS NULL
+                    ORDER BY id DESC
+                    LIMIT 1
+                    FOR UPDATE
+                    """,
+                    (empleado_id, fecha),
+                )
+                row_abierta = cursor.fetchone()
+                if not row_abierta:
+                    raise ValueError("No hay fichada de entrada para esa fecha.")
+                row = row_abierta
+                asistencia_id = row["id"]
             cursor.execute(
                 """
                 UPDATE asistencias

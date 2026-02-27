@@ -443,6 +443,371 @@ tbody tr:hover {
   background: linear-gradient(180deg, #ffffff 0%, #fdfefe 100%);
 }
 
+.rrhh-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 0.84rem;
+}
+
+.rrhh-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.legend-dot.total {
+  background: #2d70c8;
+}
+
+.legend-dot.warning {
+  background: #d58d00;
+}
+
+.legend-dot.danger {
+  background: #c53a4d;
+}
+
+.trend-chart {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+  min-height: 180px;
+}
+
+.trend-day {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.trend-bars {
+  width: 100%;
+  height: 150px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: end;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid #dfe7f0;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.trend-bar {
+  border-radius: 5px 5px 0 0;
+  min-height: 2px;
+}
+
+.trend-bar.total {
+  background: linear-gradient(180deg, #5a9bf0 0%, #2d70c8 100%);
+}
+
+.trend-bar.warning {
+  background: linear-gradient(180deg, #efc46d 0%, #d58d00 100%);
+}
+
+.trend-bar.danger {
+  background: linear-gradient(180deg, #e58494 0%, #c53a4d 100%);
+}
+
+.trend-label {
+  font-size: 0.78rem;
+  color: #5a6a7c;
+}
+
+.status-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.status-row {
+  display: grid;
+  grid-template-columns: 95px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-label {
+  font-size: 0.84rem;
+  color: #3b4c61;
+}
+
+.status-track {
+  height: 12px;
+  border: 1px solid #d6e0ea;
+  border-radius: 999px;
+  background: #eef3f8;
+  overflow: hidden;
+}
+
+.status-fill {
+  display: block;
+  height: 100%;
+}
+
+.status-fill.ok {
+  background: #2f8f5b;
+}
+
+.status-fill.warning {
+  background: #d58d00;
+}
+
+.status-fill.danger {
+  background: #c53a4d;
+}
+
+.status-fill.neutral {
+  background: #667a92;
+}
+
+.pie-layout {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.pie-chart {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d6e0ea;
+}
+
+.pie-hole {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid #dce5f0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.pie-hole strong {
+  color: #1f3044;
+  font-family: "Manrope", sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.1;
+}
+
+.pie-hole small {
+  font-size: 0.65rem;
+  color: #607287;
+}
+
+.pie-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.pie-legend li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid #e2e9f2;
+  padding-bottom: 4px;
+  color: #33475f;
+  font-size: 0.82rem;
+}
+
+.company-chart {
+  display: grid;
+  gap: 10px;
+}
+
+.company-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 260px) 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.company-name {
+  font-size: 0.86rem;
+  color: #314257;
+}
+
+.company-bars {
+  display: grid;
+  gap: 4px;
+}
+
+.company-track {
+  height: 10px;
+  border: 1px solid #d6e0ea;
+  border-radius: 999px;
+  background: #eef3f8;
+  overflow: hidden;
+}
+
+.company-fill {
+  display: block;
+  height: 100%;
+}
+
+.company-fill.warning {
+  background: linear-gradient(180deg, #efc46d 0%, #d58d00 100%);
+}
+
+.company-fill.danger {
+  background: linear-gradient(180deg, #e58494 0%, #c53a4d 100%);
+}
+
+.company-bars small {
+  font-size: 0.76rem;
+  color: #6c7e93;
+}
+
+.risk-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.risk-item {
+  border: 1px solid #d9e2ed;
+  border-radius: 10px;
+  padding: 8px;
+  background: #f9fcff;
+}
+
+.risk-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+}
+
+.risk-track {
+  height: 10px;
+  border: 1px solid #d6e0ea;
+  border-radius: 999px;
+  background: #eef3f8;
+  overflow: hidden;
+}
+
+.risk-fill {
+  display: block;
+  height: 100%;
+}
+
+.risk-fill.ok {
+  background: #2f8f5b;
+}
+
+.risk-fill.warning {
+  background: #d58d00;
+}
+
+.risk-fill.danger {
+  background: #c53a4d;
+}
+
+.mini-bars {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.mini-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 210px) 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-label {
+  font-size: 0.82rem;
+  color: #3a4a5f;
+}
+
+.mini-track {
+  height: 10px;
+  border: 1px solid #d6e0ea;
+  border-radius: 999px;
+  background: #eef3f8;
+  overflow: hidden;
+}
+
+.mini-fill {
+  display: block;
+  height: 100%;
+}
+
+.mini-fill.ok {
+  background: #2f8f5b;
+}
+
+.mini-fill.warning {
+  background: #d58d00;
+}
+
+.mini-fill.danger {
+  background: #c53a4d;
+}
+
+.mini-fill.total {
+  background: #2d70c8;
+}
+
+.mini-fill.neutral {
+  background: #667a92;
+}
+
+.split-track {
+  display: flex;
+  width: 100%;
+  height: 12px;
+  border: 1px solid #d6e0ea;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #eef3f8;
+  margin-bottom: 8px;
+}
+
+.split-fill {
+  display: block;
+  height: 100%;
+}
+
+.split-fill.ok {
+  background: #2f8f5b;
+}
+
+.split-fill.danger {
+  background: #c53a4d;
+}
+
+.split-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+
 .quick-links {
   display: grid;
   gap: 7px;
@@ -827,6 +1192,37 @@ tbody tr:hover {
 
   .panel-grid {
     grid-template-columns: 1fr;
+  }
+
+  .trend-chart {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    min-height: auto;
+  }
+
+  .trend-bars {
+    height: 120px;
+  }
+
+  .company-row {
+    grid-template-columns: 1fr;
+  }
+
+  .status-row {
+    grid-template-columns: 78px 1fr auto;
+  }
+
+  .pie-layout {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .risk-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mini-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .key-value-grid {

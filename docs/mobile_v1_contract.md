@@ -1,7 +1,7 @@
 # Contrato API Mobile v1 (Congelado)
 
-Version de contrato: 1.6.0  
-Fecha de corte: 2026-02-25  
+Version de contrato: 1.7.0  
+Fecha de corte: 2026-02-27  
 Base URL local: `http://localhost:5000`  
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`  
 Prefijo: `/api/v1/mobile`
@@ -171,7 +171,38 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-9. `GET /api/v1/mobile/me/eventos-seguridad?page=&per=&tipo_evento=`
+9. `GET /api/v1/mobile/me/estadisticas?desde=&hasta=`
+- Devuelve KPIs agregados del empleado autenticado para un rango.
+- Defaults:
+  - `hasta`: hoy
+  - `desde`: hoy - 29 dias
+- Restricciones:
+  - No acepta fechas futuras.
+  - `desde` no puede ser mayor a `hasta`.
+  - Rango maximo: 366 dias.
+- Response 200:
+```json
+{
+  "periodo":{"desde":"2026-02-01","hasta":"2026-02-27","dias":27},
+  "totales":{"registros":20,"ok":14,"tarde":3,"ausente":2,"salida_anticipada":1,"sin_estado":0},
+  "kpis":{"puntualidad_pct":70.0,"ausentismo_pct":10.0,"cumplimiento_jornada_pct":88.9,"no_show_pct":50.0,"tasa_salida_anticipada_pct":5.0},
+  "jornadas":{"completas":16,"con_marca":18,"incompletas":2},
+  "justificaciones":{"total":4,"pendientes":1,"aprobadas":2,"rechazadas":1,"tasa_aprobacion_pct":50.0},
+  "vacaciones":{"eventos":1,"dias":5},
+  "ausencias":{"total":2,"sin_justificacion":1},
+  "series":{"diaria":[{"fecha":"2026-02-01","registros":1,"ok":1,"tarde":0,"ausente":0,"salida_anticipada":0,"puntualidad_pct":100.0,"ausentismo_pct":0.0}]}
+}
+```
+- Response 400:
+```json
+{"error":"No se permiten fechas futuras en estadisticas."}
+```
+- Response 500:
+```json
+{"error":"No se pudieron obtener estadisticas."}
+```
+
+10. `GET /api/v1/mobile/me/eventos-seguridad?page=&per=&tipo_evento=`
 - Lista intentos/eventos de seguridad del empleado autenticado (por ejemplo, QR fuera de geocerca).
 - Response 200:
 ```json
@@ -204,7 +235,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 {"error":"No se pudo obtener eventos de seguridad."}
 ```
 
-10. `GET /api/v1/mobile/me/marcas?desde=&hasta=&page=&per=`
+11. `GET /api/v1/mobile/me/marcas?desde=&hasta=&page=&per=`
 - Lista paginada de marcas atomicas del empleado autenticado (ingreso/egreso).
 - Response 200:
 ```json
@@ -234,7 +265,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-11. `POST /api/v1/mobile/me/fichadas/entrada` (deprecated)
+12. `POST /api/v1/mobile/me/fichadas/entrada` (deprecated)
 - Mantener solo por compatibilidad retroactiva.
 - Para nuevas integraciones usar `POST /api/v1/mobile/me/fichadas/scan`.
 - Request:
@@ -255,7 +286,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 {"id": 15, "estado":"ok"}
 ```
 
-12. `POST /api/v1/mobile/me/fichadas/salida` (deprecated)
+13. `POST /api/v1/mobile/me/fichadas/salida` (deprecated)
 - Mantener solo por compatibilidad retroactiva.
 - Para nuevas integraciones usar `POST /api/v1/mobile/me/fichadas/scan`.
 - Request:
@@ -274,7 +305,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 {"id": 15, "estado":"ok"}
 ```
 
-13. `PUT /api/v1/mobile/me/perfil`
+14. `PUT /api/v1/mobile/me/perfil`
 - Request:
 ```json
 {"telefono":"1133344455","direccion":"Calle 123","foto":"https://.../foto.jpg"}
@@ -284,7 +315,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 {"id":12,"telefono":"1133344455","direccion":"Calle 123","foto":"https://.../foto.jpg"}
 ```
 
-14. `PUT /api/v1/mobile/me/password`
+15. `PUT /api/v1/mobile/me/password`
 - Request:
 ```json
 {"password_actual":"secreta123","password_nueva":"nueva1234"}
@@ -318,6 +349,18 @@ Desde esta fecha, Flutter debe integrarse solo con este contrato.
 Si cambia una clave o status code, subir version (`v2`) o registrar change log explicito.
 
 ## Change log
+
+### 1.7.0 (2026-02-27)
+- Nuevo endpoint mobile para KPIs por empleado:
+  - `GET /api/v1/mobile/me/estadisticas?desde=&hasta=`
+- Incluye:
+  - Totales por estado (`ok`, `tarde`, `ausente`, `salida_anticipada`)
+  - KPIs (`puntualidad_pct`, `ausentismo_pct`, `cumplimiento_jornada_pct`, `no_show_pct`, `tasa_salida_anticipada_pct`)
+  - Justificaciones y vacaciones en el periodo
+  - Serie diaria para graficos
+- Validaciones:
+  - Bloqueo de fechas futuras
+  - Rango maximo de 366 dias
 
 ### 1.6.0 (2026-02-25)
 - `GET /api/v1/mobile/me/config-asistencia` agrega:

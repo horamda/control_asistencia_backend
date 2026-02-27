@@ -22,6 +22,9 @@
     <a class="btn" href="/asistencias/nuevo">Registrar asistencia manual</a>
     <a class="btn btn-secondary" href="/asistencias/marcas">Ver historial de marcas</a>
   </div>
+  {% if error %}
+    <div class="errors">{{ error }}</div>
+  {% endif %}
 
   <form method="post" action="/asistencias/generar-ausentes">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -31,7 +34,7 @@
         <h4 class="section-title">Generar por dia</h4>
         <div class="row">
           <label>Fecha base</label>
-          <input name="fecha" type="date" value="{{ today }}">
+          <input name="fecha" type="date" value="{{ today }}" max="{{ today }}">
         </div>
         <div class="actions">
           <button type="submit" name="modo" value="dia">Generar ausentes del dia</button>
@@ -43,11 +46,11 @@
         <div class="form-grid auto-range-grid">
           <div class="row">
             <label>Rango desde</label>
-            <input id="ausentes-rango-desde" name="fecha_desde" type="date" value="">
+            <input id="ausentes-rango-desde" name="fecha_desde" type="date" value="" max="{{ today }}">
           </div>
           <div class="row">
             <label>Rango hasta</label>
-            <input id="ausentes-rango-hasta" name="fecha_hasta" type="date" value="">
+            <input id="ausentes-rango-hasta" name="fecha_hasta" type="date" value="" max="{{ today }}">
           </div>
         </div>
         <div class="actions">
@@ -176,10 +179,30 @@
       const hasFrom = !!fromInput.value;
       const hasTo = !!toInput.value;
       const hasBoth = hasFrom && hasTo;
-      rangeBtn.disabled = !hasBoth;
-      help.textContent = hasBoth
-        ? "El sistema evaluara horario asignado y excepciones dia por dia."
-        : "Complete desde y hasta para habilitar la generacion por rango.";
+      const fromDate = fromInput.value;
+      const toDate = toInput.value;
+      const today = toInput.max || fromInput.max || "";
+
+      if (!hasBoth) {
+        rangeBtn.disabled = true;
+        help.textContent = "Complete desde y hasta para habilitar la generacion por rango.";
+        return;
+      }
+
+      if (fromDate > toDate) {
+        rangeBtn.disabled = true;
+        help.textContent = "El rango es invalido: desde no puede ser mayor a hasta.";
+        return;
+      }
+
+      if ((today && fromDate > today) || (today && toDate > today)) {
+        rangeBtn.disabled = true;
+        help.textContent = "No se permite generar asistencia para fechas futuras.";
+        return;
+      }
+
+      rangeBtn.disabled = false;
+      help.textContent = "El sistema evaluara horario asignado y excepciones dia por dia.";
     }
 
     fromInput.addEventListener("input", refreshRangeState);
