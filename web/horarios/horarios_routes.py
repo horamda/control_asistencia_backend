@@ -50,6 +50,13 @@ def _extract_form_data(form):
     }
 
 
+def _safe_seed_from_payload(raw_payload: str):
+    try:
+        return _parse_dias_payload(raw_payload)
+    except Exception:
+        return []
+
+
 @horarios_bp.route("/")
 @role_required("admin", "rrhh")
 def listado():
@@ -88,6 +95,7 @@ def nuevo():
                     "activo": request.form.get("activo") == "1",
                     "dias_payload": request.form.get("dias_payload") or "[]",
                 },
+                dias_seed=_safe_seed_from_payload(request.form.get("dias_payload") or "[]"),
                 errors=[str(exc)],
                 empresas=empresas,
             )
@@ -96,6 +104,7 @@ def nuevo():
         "horarios/form.html",
         mode="new",
         data={"activo": True, "dias_payload": "[]"},
+        dias_seed=[],
         empresas=empresas,
     )
 
@@ -135,6 +144,7 @@ def editar(horario_id):
                     "activo": request.form.get("activo") == "1",
                     "dias_payload": request.form.get("dias_payload") or "[]",
                 },
+                dias_seed=_safe_seed_from_payload(request.form.get("dias_payload") or "[]"),
                 errors=[str(exc)],
                 empresas=empresas,
             )
@@ -151,6 +161,7 @@ def editar(horario_id):
             "activo": bool(horario["activo"]),
             "dias_payload": json.dumps(horario["dias"], ensure_ascii=False),
         },
+        dias_seed=horario["dias"],
         empresas=empresas,
     )
 

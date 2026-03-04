@@ -11,6 +11,7 @@ from werkzeug.exceptions import HTTPException
 from extensions import init_db
 from routes.auth_routes import auth_bp          # API
 from routes.mobile_v1_routes import mobile_v1_bp
+from routes.media_routes import media_bp
 from web.auth.web_auth_routes import web_auth_bp  # WEB
 from web.web_routes import web_bp
 from web.empleados.empleados_routes import empleados_bp
@@ -69,6 +70,7 @@ def create_app():
     app.logger.handlers = []
     app.logger.addHandler(handler)
     app.logger.setLevel(logging.INFO)
+    logging.getLogger("werkzeug").setLevel(logging.INFO)
 
     # Security
     csrf = CSRFProtect(app)
@@ -78,6 +80,7 @@ def create_app():
     # API
     app.register_blueprint(auth_bp)
     app.register_blueprint(mobile_v1_bp)
+    app.register_blueprint(media_bp)
 
     # PANEL WEB
     app.register_blueprint(web_auth_bp)
@@ -113,6 +116,10 @@ def create_app():
 
     @app.errorhandler(Exception)
     def handle_exception(err):
+        if app.debug:
+            # En desarrollo dejamos que Flask muestre traceback/debugger.
+            raise err
+
         app.logger.exception(
             "Unhandled exception",
             extra={
@@ -144,6 +151,9 @@ def create_app():
 
     @app.after_request
     def _log_request(response):
+        if request.path.startswith("/static/") and response.status_code < 400:
+            return response
+
         elapsed = None
         if hasattr(request, "_start_time"):
             elapsed = round((time.time() - request._start_time) * 1000, 2)
@@ -181,4 +191,4 @@ app = create_app()
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=True)

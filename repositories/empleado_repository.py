@@ -47,7 +47,14 @@ def get_all(include_inactive: bool = False):
         db.close()
 
 
-def get_page(page: int, per_page: int, include_inactive: bool = True, search: str | None = None, empresa_id: int | None = None):
+def get_page(
+    page: int,
+    per_page: int,
+    include_inactive: bool = True,
+    search: str | None = None,
+    empresa_id: int | None = None,
+    activo: int | None = None,
+):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -63,6 +70,9 @@ def get_page(page: int, per_page: int, include_inactive: bool = True, search: st
         if empresa_id:
             where.append("e.empresa_id = %s")
             params.append(empresa_id)
+        if activo in (0, 1):
+            where.append("e.activo = %s")
+            params.append(activo)
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         cursor.execute(f"""
             SELECT e.*, emp.razon_social AS empresa_nombre, s.nombre AS sucursal_nombre,

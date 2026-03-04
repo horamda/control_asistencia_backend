@@ -1,6 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Empleados{% endblock %}
 {% block content %}
+{% set from_idx = ((page - 1) * per_page) + 1 if total > 0 else 0 %}
+{% set to_idx = (page * per_page) if (page * per_page) < total else total %}
+{% set ns = namespace(activos=0, inactivos=0, con_foto=0) %}
+{% for e in empleados %}
+  {% if e.activo %}
+    {% set ns.activos = ns.activos + 1 %}
+  {% else %}
+    {% set ns.inactivos = ns.inactivos + 1 %}
+  {% endif %}
+  {% if e.foto %}
+    {% set ns.con_foto = ns.con_foto + 1 %}
+  {% endif %}
+{% endfor %}
 <div class="content-stack">
   <div class="section-head">
     <div>
@@ -18,10 +31,10 @@
   </div>
 
   <div class="toolbar">
-    <a class="btn" href="/empleados/nuevo">Nuevo empleado</a>
+    <a class="btn" href="{{ url_for('empleados.nuevo') }}">Nuevo empleado</a>
   </div>
 
-  <form method="get" action="/empleados/">
+  <form id="empleados-filter-form" method="get" action="{{ url_for('empleados.listado') }}">
     <div class="form-grid">
       <div class="row">
         <label>Empresa</label>
@@ -34,44 +47,89 @@
           {% endfor %}
         </select>
       </div>
+      <div class="row">
+        <label>Estado</label>
+        <select name="activo">
+          <option value="all" {% if activo == 'all' %}selected{% endif %}>Todos</option>
+          <option value="1" {% if activo == '1' %}selected{% endif %}>Solo activos</option>
+          <option value="0" {% if activo == '0' %}selected{% endif %}>Solo inactivos</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Registros por pagina</label>
+        <select name="per" id="per-page">
+          {% for p in [10, 20, 50, 100] %}
+            <option value="{{ p }}" {% if per_page == p %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="row span-2">
         <label>Buscar</label>
-        <input name="q" value="{{ q or '' }}" placeholder="Apellido, nombre o email">
+        <input name="q" value="{{ q or '' }}" placeholder="Apellido, nombre o email" autocomplete="off">
       </div>
     </div>
     <div class="actions">
       <button type="submit">Filtrar</button>
-      <a class="btn btn-secondary" href="/empleados/">Limpiar</a>
+      <a class="btn btn-secondary" href="{{ url_for('empleados.listado') }}">Limpiar</a>
     </div>
   </form>
 
   <div class="results-bar">
-    <div class="summary">Resultados en pagina: {{ empleados|length }}</div>
-    <div class="summary">Total general: {{ total }}</div>
+    <div class="summary">Mostrando {{ from_idx }}-{{ to_idx }} de {{ total }}</div>
+    <div class="chip-row">
+      <span class="chip">Activos en pagina: {{ ns.activos }}</span>
+      <span class="chip">Inactivos en pagina: {{ ns.inactivos }}</span>
+      <span class="chip">Con foto: {{ ns.con_foto }}</span>
+    </div>
   </div>
 
   {% if empleados %}
     <div class="table-responsive">
       <table>
         <tr>
+          <th>Foto</th>
           <th>Empresa</th>
           <th>Sucursal</th>
           <th>Sector</th>
           <th>Puesto</th>
           <th>Localidad</th>
           <th>Empleado</th>
+          <th>Legajo / DNI</th>
           <th>Email</th>
           <th>Estado</th>
           <th>Acciones</th>
         </tr>
         {% for e in empleados %}
         <tr>
+          <td>
+            {% if e.foto %}
+              {% set foto_url = e.foto ~ ('&v=' if '?' in e.foto else '?v=') ~ (photo_cache_buster|string) %}
+              <a href="{{ e.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
+                <img
+                  src="{{ foto_url }}"
+                  alt="Foto {{ e.apellido }} {{ e.nombre }}"
+                  style="width:40px;height:40px;border-radius:999px;object-fit:cover;border:1px solid #d7e3ee;"
+                  loading="lazy"
+                  onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"
+                >
+                <span style="display:none;">Sin foto</span>
+              </a>
+            {% else %}
+              <span class="helper-text">Sin foto</span>
+            {% endif %}
+          </td>
           <td>{{ e.empresa_nombre or e.empresa_id }}</td>
           <td>{{ e.sucursal_nombre or e.sucursal_id }}</td>
           <td>{{ e.sector_nombre or e.sector_id }}</td>
           <td>{{ e.puesto_nombre or e.puesto_id }}</td>
           <td>{{ e.localidad_nombre or e.codigo_postal }}</td>
-          <td>{{ e.apellido }} {{ e.nombre }}</td>
+          <td>
+            <strong>{{ e.apellido }} {{ e.nombre }}</strong>
+          </td>
+          <td>
+            <div>Legajo: {{ e.legajo or "-" }}</div>
+            <div class="helper-text">DNI: {{ e.dni or "-" }}</div>
+          </td>
           <td>{{ e.email }}</td>
           <td>
             {% if e.activo %}
@@ -82,12 +140,20 @@
           </td>
           <td>
             <div class="inline-actions">
+              <a href="{{ url_for('empleados.editar', emp_id=e.id, next=return_to) }}">Editar</a>
               {% if e.activo %}
-                <a class="btn btn-secondary" href="/empleados/desactivar/{{ e.id }}">Desactivar</a>
+                <a
+                  class="btn btn-secondary"
+                  href="{{ url_for('empleados.desactivar', emp_id=e.id, next=return_to) }}"
+                  data-confirm="Confirma desactivar este empleado?"
+                >Desactivar</a>
               {% else %}
-                <a class="btn btn-secondary" href="/empleados/activar/{{ e.id }}">Activar</a>
+                <a
+                  class="btn btn-secondary"
+                  href="{{ url_for('empleados.activar', emp_id=e.id, next=return_to) }}"
+                  data-confirm="Confirma activar este empleado?"
+                >Activar</a>
               {% endif %}
-              <a href="/empleados/editar/{{ e.id }}">Editar</a>
             </div>
           </td>
         </tr>
@@ -95,21 +161,44 @@
       </table>
     </div>
   {% else %}
-    <div class="empty-state">No hay empleados para los filtros seleccionados.</div>
+    <div class="empty-state">
+      No hay empleados para los filtros seleccionados.
+      <div class="actions">
+        <a class="btn btn-secondary" href="{{ url_for('empleados.listado') }}">Quitar filtros</a>
+        <a class="btn" href="{{ url_for('empleados.nuevo') }}">Crear empleado</a>
+      </div>
+    </div>
   {% endif %}
 
   <div class="pager">
     {% if page > 1 %}
-      <a class="btn btn-secondary" href="/empleados/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&q={{ q or '' }}">Anterior</a>
+      <a
+        class="btn btn-secondary"
+        href="{{ url_for('empleados.listado', page=page - 1, per=per_page, empresa_id=empresa_id, q=q or None, activo=(activo if activo != 'all' else None)) }}"
+      >Anterior</a>
     {% endif %}
     {% if page * per_page < total %}
-      <a class="btn btn-secondary" href="/empleados/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&q={{ q or '' }}">Siguiente</a>
+      <a
+        class="btn btn-secondary"
+        href="{{ url_for('empleados.listado', page=page + 1, per=per_page, empresa_id=empresa_id, q=q or None, activo=(activo if activo != 'all' else None)) }}"
+      >Siguiente</a>
     {% endif %}
-    <span class="summary">Pagina {{ page }}</span>
+    <span class="summary">Pagina {{ page }} | {{ from_idx }}-{{ to_idx }} de {{ total }}</span>
   </div>
 
   <div class="actions">
-    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+    <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver</a>
   </div>
 </div>
+<script>
+  (function () {
+    var perPage = document.getElementById("per-page");
+    var filterForm = document.getElementById("empleados-filter-form");
+    if (!perPage || !filterForm) return;
+
+    perPage.addEventListener("change", function () {
+      filterForm.submit();
+    });
+  })();
+</script>
 {% endblock %}

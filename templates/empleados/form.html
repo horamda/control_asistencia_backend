@@ -27,8 +27,11 @@
     </div>
   {% endif %}
 
-  <form method="post">
+  <form id="empleado-form" method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if mode == "edit" and next_url %}
+      <input type="hidden" name="next" value="{{ next_url }}">
+    {% endif %}
 
     <h3 class="section-title">Estructura organizacional</h3>
     <div class="form-grid">
@@ -101,19 +104,29 @@
     <div class="form-grid">
       <div class="row">
         <label>Legajo</label>
-        <input name="legajo" value="{{ data.legajo or '' }}">
+        <input name="legajo" value="{{ data.legajo or '' }}" maxlength="32" autocomplete="off">
       </div>
       <div class="row">
         <label>DNI</label>
-        <input name="dni" value="{{ data.dni or '' }}" required>
+        <input
+          name="dni"
+          value="{{ data.dni or '' }}"
+          required
+          inputmode="numeric"
+          pattern="[0-9]{7,10}"
+          maxlength="10"
+          autocomplete="off"
+          placeholder="Solo numeros"
+        >
+        <div class="helper-text">Ingrese entre 7 y 10 digitos sin puntos.</div>
       </div>
       <div class="row">
         <label>Nombre</label>
-        <input name="nombre" value="{{ data.nombre or '' }}" required>
+        <input name="nombre" value="{{ data.nombre or '' }}" required autocomplete="given-name">
       </div>
       <div class="row">
         <label>Apellido</label>
-        <input name="apellido" value="{{ data.apellido or '' }}" required>
+        <input name="apellido" value="{{ data.apellido or '' }}" required autocomplete="family-name">
       </div>
       <div class="row">
         <label>Fecha nacimiento</label>
@@ -130,15 +143,15 @@
       </div>
       <div class="row span-2">
         <label>Email</label>
-        <input name="email" type="email" value="{{ data.email or '' }}" required>
+        <input name="email" type="email" value="{{ data.email or '' }}" required autocomplete="email">
       </div>
       <div class="row">
         <label>Telefono</label>
-        <input name="telefono" value="{{ data.telefono or '' }}">
+        <input name="telefono" value="{{ data.telefono or '' }}" inputmode="tel" autocomplete="tel">
       </div>
       <div class="row span-2">
         <label>Direccion</label>
-        <input name="direccion" value="{{ data.direccion or '' }}">
+        <input name="direccion" value="{{ data.direccion or '' }}" autocomplete="street-address">
       </div>
       <div class="row">
         <label>Fecha ingreso</label>
@@ -147,17 +160,124 @@
       <div class="row span-2">
         <label>Foto (URL)</label>
         <input name="foto" value="{{ data.foto or '' }}">
+        <div class="helper-text" style="margin-top:6px;">
+          Puede pegar URL o subir archivo. Si sube archivo, se prioriza sobre la URL.
+        </div>
+        <div style="margin-top:10px;">
+          <label style="margin-bottom:6px;">Subir foto (JPG/PNG/WEBP)</label>
+          <input name="foto_file" type="file" accept="image/jpeg,image/png,image/webp">
+          <div id="foto-file-name" class="helper-text"></div>
+        </div>
+        {% if mode == "edit" %}
+          <label style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+            <input type="checkbox" name="eliminar_foto" value="1">
+            Eliminar foto actual
+          </label>
+        {% endif %}
+        {% if data.foto %}
+          {% set foto_url = data.foto ~ ('&v=' if '?' in data.foto else '?v=') ~ (photo_cache_buster|string) %}
+          <div class="helper-text" style="margin-top:6px;">
+            <a href="{{ data.foto }}" target="_blank" rel="noopener noreferrer">Abrir foto actual</a>
+          </div>
+          <img
+            src="{{ foto_url }}"
+            alt="Foto actual"
+            style="margin-top:8px;width:84px;height:84px;border-radius:999px;object-fit:cover;border:1px solid #d7e3ee;"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+          >
+          <div class="helper-text" style="display:none;margin-top:8px;">No se pudo cargar la foto actual.</div>
+        {% endif %}
       </div>
+      {% if mode == "edit" %}
+        <div class="row span-2">
+          <label style="display:flex;align-items:center;gap:8px;">
+            <input id="cambiar_password" type="checkbox" name="cambiar_password" value="1" {% if password_change_requested %}checked{% endif %}>
+            Cambiar contrasena manualmente
+          </label>
+          <div class="helper-text" style="margin-top:6px;">
+            Solo se actualiza si marca esta opcion.
+          </div>
+        </div>
+      {% endif %}
       <div class="row">
-        <label>Contrasena {% if mode == "edit" %}(dejar vacia para mantener){% endif %}</label>
-        <input name="password" type="password" {% if password_required %}required{% endif %}>
+        <label>Contrasena {% if mode == "edit" %}(solo si marca cambiar){% endif %}</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="new-password"
+          {% if password_required %}required{% endif %}
+          {% if mode == "edit" and not password_change_requested %}disabled{% endif %}
+        >
+        {% if mode != "edit" %}
+          <div class="helper-text">Defina una contrasena segura para acceso en la app.</div>
+        {% endif %}
       </div>
     </div>
 
     <div class="actions">
-      <button type="submit">Guardar</button>
-      <a class="btn btn-secondary" href="{{ url_for('empleados.listado') }}">Volver</a>
+      <button id="submit-btn" type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ next_url or url_for('empleados.listado') }}">Volver</a>
     </div>
   </form>
 </div>
+<script>
+  (function () {
+    var form = document.getElementById("empleado-form");
+    if (!form) return;
+
+    var submitBtn = document.getElementById("submit-btn");
+    var passwordToggle = document.getElementById("cambiar_password");
+    var passwordInput = document.getElementById("password");
+    var fileInput = form.querySelector('input[name="foto_file"]');
+    var fileNameNode = document.getElementById("foto-file-name");
+    var dirty = false;
+
+    function syncPasswordField() {
+      if (!passwordToggle || !passwordInput) return;
+      var enabled = passwordToggle.checked === true;
+      passwordInput.disabled = !enabled;
+      passwordInput.required = enabled;
+      if (!enabled) {
+        passwordInput.value = "";
+      }
+    }
+
+    function setDirty() {
+      dirty = true;
+    }
+
+    if (passwordToggle) {
+      passwordToggle.addEventListener("change", function () {
+        syncPasswordField();
+        setDirty();
+      });
+      syncPasswordField();
+    }
+
+    form.addEventListener("input", setDirty);
+    form.addEventListener("change", setDirty);
+
+    if (fileInput && fileNameNode) {
+      fileInput.addEventListener("change", function () {
+        var file = fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
+        fileNameNode.textContent = file ? ("Archivo seleccionado: " + file.name) : "";
+      });
+    }
+
+    window.addEventListener("beforeunload", function (event) {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
+
+    form.addEventListener("submit", function () {
+      dirty = false;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Guardando...";
+      }
+    });
+  })();
+</script>
 {% endblock %}

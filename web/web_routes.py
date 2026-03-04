@@ -1,6 +1,6 @@
 import datetime
 
-from flask import Blueprint, render_template
+from flask import Blueprint, current_app, render_template
 
 from extensions import get_db
 from web.auth.decorators import login_required
@@ -49,6 +49,191 @@ def _to_date(value):
         return datetime.date.fromisoformat(text[:10])
     except ValueError:
         return None
+
+
+def _daterange(start_date: datetime.date, end_date: datetime.date):
+    current = start_date
+    while current <= end_date:
+        yield current
+        current += datetime.timedelta(days=1)
+
+
+def _calc_expected_minutes_from_planillas(db, start_date: datetime.date, end_date: datetime.date):
+    if start_date > end_date:
+        return 0, set()
+
+    dict_cursor = db.cursor(dictionary=True)
+    try:
+        plan_rows = _safe_fetchall(
+            dict_cursor,
+            """
+            SELECT
+                eh.empleado_id,
+                eh.fecha_desde,
+                eh.fecha_hasta,
+                hd.dia_semana,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN hdb.hora_entrada IS NULL OR hdb.hora_salida IS NULL THEN 0
+                            WHEN TIME_TO_SEC(hdb.hora_salida) >= TIME_TO_SEC(hdb.hora_entrada)
+                                THEN (TIME_TO_SEC(hdb.hora_salida) - TIME_TO_SEC(hdb.hora_entrada)) / 60
+                            ELSE ((TIME_TO_SEC(hdb.hora_salida) + 86400) - TIME_TO_SEC(hdb.hora_entrada)) / 60
+                        END
+                    ),
+                    0
+                ) AS minutos_planilla
+            FROM empleado_horarios eh
+            JOIN horario_dias hd ON hd.horario_id = eh.horario_id
+            LEFT JOIN horario_dia_bloques hdb ON hdb.horario_dia_id = hd.id
+            WHERE eh.fecha_desde <= %s
+              AND (eh.fecha_hasta IS NULL OR eh.fecha_hasta >= %s)
+            GROUP BY eh.empleado_id, eh.fecha_desde, eh.fecha_hasta, hd.dia_semana
+            """,
+            (end_date.isoformat(), start_date.isoformat()),
+        )
+
+        expected_by_employee_day = {}
+        planned_employee_ids = set()
+        raw_days = {_to_int(row.get("dia_semana")) for row in plan_rows}
+        use_zero_based_weekday = (
+            bool(raw_days)
+            and 0 in raw_days
+            and 7 not in raw_days
+            and all(0 <= d <= 6 for d in raw_days)
+        )
+        for row in plan_rows:
+            empleado_id = _to_int(row.get("empleado_id"))
+            raw_dia_semana = _to_int(row.get("dia_semana"))
+            dia_semana = raw_dia_semana
+            # Compatibilidad de datos legacy con weekday 0..6 (lunes..domingo).
+            if use_zero_based_weekday and 0 <= raw_dia_semana <= 6:
+                dia_semana = raw_dia_semana + 1
+            minutos_planilla = _to_int(row.get("minutos_planilla"))
+            if empleado_id <= 0 or dia_semana < 1 or dia_semana > 7 or minutos_planilla <= 0:
+                continue
+            planned_employee_ids.add(empleado_id)
+
+            fecha_desde = _to_date(row.get("fecha_desde")) or start_date
+            fecha_hasta = _to_date(row.get("fecha_hasta")) or end_date
+            rango_desde = max(start_date, fecha_desde)
+            rango_hasta = min(end_date, fecha_hasta)
+            if rango_desde > rango_hasta:
+                continue
+
+            offset = (dia_semana - rango_desde.isoweekday()) % 7
+            cursor_date = rango_desde + datetime.timedelta(days=offset)
+            while cursor_date <= rango_hasta:
+                key = (empleado_id, cursor_date.isoformat())
+                # Si hay solapamientos de asignaciones por dato sucio, tomamos el mayor esperado diario.
+                expected_by_employee_day[key] = max(expected_by_employee_day.get(key, 0), minutos_planilla)
+                cursor_date += datetime.timedelta(days=7)
+
+        if not planned_employee_ids:
+            return 0, set()
+
+        employee_ids = sorted(planned_employee_ids)
+        placeholders = ",".join(["%s"] * len(employee_ids))
+
+        vacation_rows = _safe_fetchall(
+            dict_cursor,
+            f"""
+            SELECT empleado_id, fecha_desde, fecha_hasta
+            FROM vacaciones
+            WHERE empleado_id IN ({placeholders})
+              AND fecha_desde <= %s
+              AND fecha_hasta >= %s
+            """,
+            (*employee_ids, end_date.isoformat(), start_date.isoformat()),
+        )
+        for row in vacation_rows:
+            empleado_id = _to_int(row.get("empleado_id"))
+            fecha_desde = _to_date(row.get("fecha_desde"))
+            fecha_hasta = _to_date(row.get("fecha_hasta"))
+            if empleado_id <= 0 or fecha_desde is None or fecha_hasta is None:
+                continue
+            for fecha in _daterange(max(start_date, fecha_desde), min(end_date, fecha_hasta)):
+                expected_by_employee_day[(empleado_id, fecha.isoformat())] = 0
+
+        franco_rows = _safe_fetchall(
+            dict_cursor,
+            f"""
+            SELECT empleado_id, fecha
+            FROM francos
+            WHERE empleado_id IN ({placeholders})
+              AND fecha BETWEEN %s AND %s
+            """,
+            (*employee_ids, start_date.isoformat(), end_date.isoformat()),
+        )
+        for row in franco_rows:
+            empleado_id = _to_int(row.get("empleado_id"))
+            fecha = _to_date(row.get("fecha"))
+            if empleado_id <= 0 or fecha is None:
+                continue
+            expected_by_employee_day[(empleado_id, fecha.isoformat())] = 0
+
+        exception_rows = _safe_fetchall(
+            dict_cursor,
+            f"""
+            SELECT
+                ex.id,
+                ex.empleado_id,
+                ex.fecha,
+                ex.tipo,
+                ex.anula_horario,
+                COALESCE(SUM(TIMESTAMPDIFF(MINUTE, eb.hora_entrada, eb.hora_salida)), 0) AS minutos_cambio
+            FROM empleado_excepciones ex
+            LEFT JOIN excepcion_bloques eb ON eb.excepcion_id = ex.id
+            WHERE ex.empleado_id IN ({placeholders})
+              AND ex.fecha BETWEEN %s AND %s
+            GROUP BY ex.id, ex.empleado_id, ex.fecha, ex.tipo, ex.anula_horario
+            ORDER BY ex.fecha ASC, ex.id ASC
+            """,
+            (*employee_ids, start_date.isoformat(), end_date.isoformat()),
+        )
+
+        tipos_anula = {"FRANCO", "VACACIONES", "FERIADO", "LICENCIA"}
+        blocked_days = set()
+        for row in exception_rows:
+            empleado_id = _to_int(row.get("empleado_id"))
+            fecha = _to_date(row.get("fecha"))
+            if empleado_id <= 0 or fecha is None:
+                continue
+
+            key = (empleado_id, fecha.isoformat())
+            tipo = str(row.get("tipo") or "").strip().upper()
+            anula_horario = _to_int(row.get("anula_horario")) == 1 or tipo in tipos_anula
+
+            if anula_horario:
+                expected_by_employee_day[key] = 0
+                blocked_days.add(key)
+                continue
+
+            if tipo == "CAMBIO_HORARIO" and key not in blocked_days:
+                expected_by_employee_day[key] = max(0, _to_int(row.get("minutos_cambio")))
+
+        return int(sum(expected_by_employee_day.values())), planned_employee_ids
+    finally:
+        dict_cursor.close()
+
+
+def _calc_registered_minutes_for_employees(cursor, start_iso: str, end_iso: str, employee_ids: set[int]):
+    if not employee_ids:
+        return 0
+    ordered_ids = sorted(employee_ids)
+    placeholders = ",".join(["%s"] * len(ordered_ids))
+    return _safe_count(
+        cursor,
+        f"""
+        SELECT COALESCE(SUM(GREATEST(TIMESTAMPDIFF(MINUTE, hora_entrada, hora_salida), 0)), 0)
+        FROM asistencias
+        WHERE fecha BETWEEN %s AND %s
+          AND hora_entrada IS NOT NULL
+          AND hora_salida IS NOT NULL
+          AND empleado_id IN ({placeholders})
+        """,
+        (start_iso, end_iso, *ordered_ids),
+    )
 
 
 def _dashboard_metrics():
@@ -107,6 +292,8 @@ def _dashboard_metrics():
         "horas_esperadas_mes": 0.0,
         "desvio_horas_mes": 0.0,
         "cumplimiento_horas_mes_pct": 0.0,
+        "empleados_con_planilla_mes": 0,
+        "asignaciones_con_planilla_mes": 0,
         "incidentes_regularizados_mes": 0,
         "incidentes_sin_regularizar_mes": 0,
         "lead_time_regularizacion_horas_mes": 0.0,
@@ -375,49 +562,70 @@ def _dashboard_metrics():
                 1,
             )
 
-        minutos_registrados_mes = _safe_count(
-            cursor,
-            """
-            SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, hora_entrada, hora_salida)), 0)
-            FROM asistencias
-            WHERE fecha BETWEEN %s AND %s
-              AND hora_entrada IS NOT NULL
-              AND hora_salida IS NOT NULL
-            """,
-            (month_start, today),
+        minutos_esperados_mes, planned_employee_ids = _calc_expected_minutes_from_planillas(
+            db, today_dt.replace(day=1), today_dt
         )
-        minutos_esperados_mes = _safe_count(
+        stats["empleados_con_planilla_mes"] = len(planned_employee_ids)
+        stats["asignaciones_con_planilla_mes"] = _safe_count(
             cursor,
             """
-            SELECT COALESCE(
-                SUM(
-                    COALESCE(
-                        (
-                            SELECT SUM(TIMESTAMPDIFF(MINUTE, hdb.hora_entrada, hdb.hora_salida))
-                            FROM empleado_horarios eh
-                            JOIN horario_dias hd ON hd.horario_id = eh.horario_id
-                            JOIN horario_dia_bloques hdb ON hdb.horario_dia_id = hd.id
-                            WHERE eh.empleado_id = a.empleado_id
-                              AND eh.fecha_desde <= a.fecha
-                              AND (eh.fecha_hasta IS NULL OR eh.fecha_hasta >= a.fecha)
-                              AND hd.dia_semana = (((DAYOFWEEK(a.fecha) + 5) %% 7) + 1)
-                        ),
-                        0
-                    )
-                ),
-                0
+            SELECT COUNT(*)
+            FROM empleado_horarios
+            WHERE fecha_desde <= %s
+              AND (fecha_hasta IS NULL OR fecha_hasta >= %s)
+            """,
+            (today, month_start),
+        )
+        if planned_employee_ids:
+            minutos_registrados_mes = _calc_registered_minutes_for_employees(
+                cursor, month_start, today, planned_employee_ids
             )
-            FROM asistencias a
-            WHERE a.fecha BETWEEN %s AND %s
-              AND (a.hora_entrada IS NOT NULL OR a.hora_salida IS NOT NULL)
-            """,
-            (month_start, today),
-        )
+        else:
+            minutos_registrados_mes = _safe_count(
+                cursor,
+                """
+                SELECT COALESCE(SUM(GREATEST(TIMESTAMPDIFF(MINUTE, hora_entrada, hora_salida), 0)), 0)
+                FROM asistencias
+                WHERE fecha BETWEEN %s AND %s
+                  AND hora_entrada IS NOT NULL
+                  AND hora_salida IS NOT NULL
+                """,
+                (month_start, today),
+            )
         stats["horas_registradas_mes"] = round(minutos_registrados_mes / 60.0, 1)
         stats["horas_esperadas_mes"] = round(minutos_esperados_mes / 60.0, 1)
         stats["desvio_horas_mes"] = round(stats["horas_registradas_mes"] - stats["horas_esperadas_mes"], 1)
         if minutos_esperados_mes > 0:
             stats["cumplimiento_horas_mes_pct"] = round((minutos_registrados_mes * 100.0) / minutos_esperados_mes, 1)
+        else:
+            current_app.logger.warning(
+                "dashboard_expected_hours_zero",
+                extra={
+                    "extra": {
+                        "month_start": month_start,
+                        "today": today,
+                        "asignaciones_vigentes_mes": stats["asignaciones_con_planilla_mes"],
+                        "empleados_con_planilla_mes": stats["empleados_con_planilla_mes"],
+                    }
+                },
+            )
+        current_app.logger.info(
+            "dashboard_hours_metrics",
+            extra={
+                "extra": {
+                    "month_start": month_start,
+                    "today": today,
+                    "minutos_registrados_mes": int(minutos_registrados_mes or 0),
+                    "minutos_esperados_mes": int(minutos_esperados_mes or 0),
+                    "horas_registradas_mes": stats["horas_registradas_mes"],
+                    "horas_esperadas_mes": stats["horas_esperadas_mes"],
+                    "desvio_horas_mes": stats["desvio_horas_mes"],
+                    "cumplimiento_horas_mes_pct": stats["cumplimiento_horas_mes_pct"],
+                    "empleados_con_planilla_mes": stats["empleados_con_planilla_mes"],
+                    "asignaciones_vigentes_mes": stats["asignaciones_con_planilla_mes"],
+                }
+            },
+        )
         stats["vacaciones_en_curso_hoy"] = _safe_count(
             cursor,
             """
@@ -1046,7 +1254,10 @@ def _dashboard_metrics():
             """,
         )
     except Exception:
-        pass
+        try:
+            current_app.logger.exception("Error calculando metricas del dashboard")
+        except Exception:
+            pass
     finally:
         cursor.close()
         if dict_cursor is not None:

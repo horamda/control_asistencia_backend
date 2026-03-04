@@ -49,6 +49,23 @@ def _to_minutes(value):
     return parsed.hour * 60 + parsed.minute
 
 
+def _format_hhmm(value):
+    if isinstance(value, datetime.timedelta):
+        total_minutes = int(value.total_seconds() // 60)
+        hours = (total_minutes // 60) % 24
+        minutes = total_minutes % 60
+        return f"{hours:02d}:{minutes:02d}"
+    if hasattr(value, "strftime"):
+        return value.strftime("%H:%M")
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    parts = text.split(":")
+    if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+        return f"{int(parts[0]):02d}:{int(parts[1]):02d}"
+    return text[:5]
+
+
 def _normalize_bloques(raw_bloques, dia_semana: int):
     if not isinstance(raw_bloques, list):
         raise ValueError(f"Bloques invalidos para dia {dia_semana}.")
@@ -208,8 +225,8 @@ def get_horario_estructurado(horario_id: int):
             bloques_rows = cursor.fetchall()
             bloques = []
             for b in bloques_rows:
-                entrada = b["hora_entrada"].strftime("%H:%M") if hasattr(b["hora_entrada"], "strftime") else str(b["hora_entrada"])[:5]
-                salida = b["hora_salida"].strftime("%H:%M") if hasattr(b["hora_salida"], "strftime") else str(b["hora_salida"])[:5]
+                entrada = _format_hhmm(b.get("hora_entrada"))
+                salida = _format_hhmm(b.get("hora_salida"))
                 bloques.append({
                     "entrada": entrada,
                     "salida": salida,

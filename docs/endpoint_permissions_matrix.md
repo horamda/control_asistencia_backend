@@ -116,6 +116,7 @@ Documento generado automaticamente desde rutas activas del backend.
 | `POST` | `/api/v1/mobile/auth/refresh` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:auth_refresh` |
 | `GET` | `/api/v1/mobile/me` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me` |
 | `GET` | `/api/v1/mobile/me/asistencias` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_asistencias` |
+| `GET` | `/api/v1/mobile/me/estadisticas` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_estadisticas` |
 | `GET` | `/api/v1/mobile/me/config-asistencia` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_config_asistencia` |
 | `GET` | `/api/v1/mobile/me/eventos-seguridad` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_eventos_seguridad` |
 | `POST` | `/api/v1/mobile/me/fichadas/entrada` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:fichar_entrada` |
@@ -125,5 +126,6 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/api/v1/mobile/me/marcas` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_marcas` |
 | `PUT` | `/api/v1/mobile/me/password` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_update_password` |
 | `PUT` | `/api/v1/mobile/me/perfil` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_update_profile` |
+| `DELETE` | `/api/v1/mobile/me/perfil/foto` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_delete_profile_photo` |
 | `POST` | `/api/v1/mobile/me/qr` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_generar_qr` |
 | `POST` | `/auth/login` | publico | - | `routes/auth_routes.py:login` |
