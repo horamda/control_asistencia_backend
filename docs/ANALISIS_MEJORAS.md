@@ -1,50 +1,74 @@
-# Análisis y Mejoras del Proyecto Backend - Sistema de Asistencias
+﻿# Analisis y Mejoras del Proyecto Backend - Sistema de Asistencias
 
-## 📋 Resumen Ejecutivo
+## Estado Operativo (Actualizado: 2026-02-28)
 
-Este es un **sistema de gestión de asistencias y recursos humanos** construido con Flask, que incluye gestión de empleados, horarios, asistencias, justificaciones, vacaciones y más. El proyecto tiene una arquitectura modular bien organizada con separación de responsabilidades.
+Resumen rapido del estado real del backend frente a los cambios recientes:
 
-**Tecnologías identificadas:**
+- API mobile v1 vigente: `1.9.0`.
+- Contrato y OpenAPI ya incluyen:
+  - `GET /api/v1/mobile/me/estadisticas` con validaciones de fechas y rango.
+  - `PUT /api/v1/mobile/me/perfil` con soporte `multipart/form-data` para `foto_file`.
+  - `DELETE /api/v1/mobile/me/perfil/foto` para baja explicita de foto.
+- Foto de perfil mobile:
+  - Validacion de tipo/tamano en backend.
+  - Renombrado por DNI y subida FTP.
+  - Reemplazo elimina variantes previas (`.jpg/.png/.webp`) para evitar basura remota.
+- Cobertura de tests mobile actualizada para:
+  - Fechas futuras/rangos invalidos en estadisticas.
+  - Errores controlados.
+  - Alta/reemplazo/baja de foto de perfil.
+
+Pendientes estructurales de este documento que siguen vigentes (no resueltos en este ciclo):
+
+- Unificacion completa de capa de datos (`extensions.py` vs `db.py`).
+- Estrategia de migraciones de esquema (Alembic/Flask-Migrate).
+- Endurecimiento adicional de seguridad transversal (rate limiting, etc.).
+
+## ðŸ“‹ Resumen Ejecutivo
+
+Este es un **sistema de gestiÃ³n de asistencias y recursos humanos** construido con Flask, que incluye gestiÃ³n de empleados, horarios, asistencias, justificaciones, vacaciones y mÃ¡s. El proyecto tiene una arquitectura modular bien organizada con separaciÃ³n de responsabilidades.
+
+**TecnologÃ­as identificadas:**
 - **Backend**: Flask (Python)
 - **Base de datos**: MySQL con mysql-connector-python + SQLAlchemy
-- **Autenticación**: JWT + Sessions
+- **AutenticaciÃ³n**: JWT + Sessions
 - **Frontend**: Templates HTML (Jinja2)
 - **Testing**: pytest
 
 ---
 
-## ✅ Aspectos Positivos del Proyecto
+## âœ… Aspectos Positivos del Proyecto
 
 1. **Arquitectura modular y bien organizada**
-   - Separación clara entre repositories, services, routes
+   - SeparaciÃ³n clara entre repositories, services, routes
    - Blueprints bien estructurados por dominio
-   - Código DRY (Don't Repeat Yourself) en general
+   - CÃ³digo DRY (Don't Repeat Yourself) en general
 
 2. **Seguridad implementada**
    - CSRF Protection
    - JWT para API
    - Password hashing con Werkzeug
-   - Decoradores de autorización por roles
+   - Decoradores de autorizaciÃ³n por roles
 
 3. **Logging estructurado**
    - Formato JSON para logs
-   - Tracking de requests con métricas (tiempo de respuesta)
-   - Información de usuario en cada request
+   - Tracking de requests con mÃ©tricas (tiempo de respuesta)
+   - InformaciÃ³n de usuario en cada request
 
-4. **Testing básico**
+4. **Testing bÃ¡sico**
    - Tests de validaciones implementados
    - Uso de pytest con monkeypatching
 
 ---
 
-## 🚨 Problemas Críticos Identificados
+## ðŸš¨ Problemas CrÃ­ticos Identificados
 
-### 1. **Doble Implementación de Acceso a Base de Datos** ⚠️⚠️⚠️
+### 1. **Doble ImplementaciÃ³n de Acceso a Base de Datos** âš ï¸âš ï¸âš ï¸
 
-**PROBLEMA MUY GRAVE**: El proyecto tiene DOS sistemas de acceso a base de datos que no se comunican entre sí:
+**PROBLEMA MUY GRAVE**: El proyecto tiene DOS sistemas de acceso a base de datos que no se comunican entre sÃ­:
 
-- **Sistema 1**: `extensions.py` → Connection pooling con mysql-connector-python (usado en repositories)
-- **Sistema 2**: `db.py` → SQLAlchemy ORM (declarado pero aparentemente sin usar)
+- **Sistema 1**: `extensions.py` â†’ Connection pooling con mysql-connector-python (usado en repositories)
+- **Sistema 2**: `db.py` â†’ SQLAlchemy ORM (declarado pero aparentemente sin usar)
 
 ```python
 # extensions.py - Sistema 1 (en uso)
@@ -56,61 +80,61 @@ SessionLocal = sessionmaker(bind=engine)
 ```
 
 **Consecuencias:**
-- Confusión sobre qué sistema usar
-- Duplicación de configuración
+- ConfusiÃ³n sobre quÃ© sistema usar
+- DuplicaciÃ³n de configuraciÃ³n
 - Posibles problemas de conexiones abiertas
 - Mantenimiento complejo
 
-**Solución recomendada**: Elegir UNO y eliminar el otro completamente.
+**SoluciÃ³n recomendada**: Elegir UNO y eliminar el otro completamente.
 
 ---
 
-### 2. **SQL Injection Vulnerabilities** ⚠️⚠️
+### 2. **SQL Injection Vulnerabilities** âš ï¸âš ï¸
 
-Hay construcción dinámica de queries SQL que puede ser vulnerable:
+Hay construcciÃ³n dinÃ¡mica de queries SQL que puede ser vulnerable:
 
 ```python
-# repositories/empleado_repository.py línea 67-79
+# repositories/empleado_repository.py lÃ­nea 67-79
 cursor.execute(f"""
     SELECT ... FROM empleados e
-    {where_sql}  # ← Construcción dinámica peligrosa
+    {where_sql}  # â† ConstrucciÃ³n dinÃ¡mica peligrosa
     ORDER BY e.apellido, e.nombre
     LIMIT %s OFFSET %s
 """, (*params, per_page, offset))
 ```
 
-Aunque se usan parámetros, la construcción de `where_sql` podría mejorarse.
+Aunque se usan parÃ¡metros, la construcciÃ³n de `where_sql` podrÃ­a mejorarse.
 
 ---
 
-### 3. **Gestión de Conexiones Deficiente**
+### 3. **GestiÃ³n de Conexiones Deficiente**
 
-Cada función de repository abre y cierra conexiones individualmente:
+Cada funciÃ³n de repository abre y cierra conexiones individualmente:
 
 ```python
 def get_all():
-    db = get_db()  # Nueva conexión
+    db = get_db()  # Nueva conexiÃ³n
     cursor = db.cursor()
     try:
-        # ... operación
+        # ... operaciÃ³n
     finally:
         cursor.close()
-        db.close()  # Cierra conexión
+        db.close()  # Cierra conexiÃ³n
 ```
 
 **Problemas:**
-- No hay manejo de transacciones entre múltiples operaciones
+- No hay manejo de transacciones entre mÃºltiples operaciones
 - Posibles race conditions
 - Desperdicio de conexiones en operaciones complejas
 
 ---
 
-### 4. **Falta de Validación de Entrada Consistente**
+### 4. **Falta de ValidaciÃ³n de Entrada Consistente**
 
-Las validaciones están dispersas y no son consistentes:
+Las validaciones estÃ¡n dispersas y no son consistentes:
 - Algunas validaciones en routes
 - Validaciones parciales en repositories
-- No hay un sistema centralizado de validación
+- No hay un sistema centralizado de validaciÃ³n
 - Regex/validaciones de formato inconsistentes
 
 ---
@@ -131,7 +155,7 @@ def create(data: dict):
 ```
 
 **Problemas:**
-- No hay rollback explícito en caso de error
+- No hay rollback explÃ­cito en caso de error
 - Los errores de BD se propagan sin contexto
 - No hay logging de errores en repositories
 
@@ -141,62 +165,62 @@ def create(data: dict):
 
 No hay sistema de migraciones (Alembic, Flask-Migrate):
 - Dificulta el versionado de esquemas
-- Complicado mantener consistencia en múltiples entornos
+- Complicado mantener consistencia en mÃºltiples entornos
 - No hay historial de cambios de BD
 
 ---
 
 ### 7. **Testing Insuficiente**
 
-Solo hay 1 archivo de tests con ~100 líneas:
-- No hay tests de integración
+Solo hay 1 archivo de tests con ~100 lÃ­neas:
+- No hay tests de integraciÃ³n
 - No hay tests de repositories
-- No hay tests de autenticación
+- No hay tests de autenticaciÃ³n
 - Coverage muy bajo
 
 ---
 
-### 8. **Configuración y Seguridad**
+### 8. **ConfiguraciÃ³n y Seguridad**
 
 ```python
-# app.py línea 46
+# app.py lÃ­nea 46
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev_secret")
 ```
 
 **Problemas:**
-- Usa un default inseguro en producción
-- No hay separación clara de configs por entorno
-- Falta validación de variables de entorno críticas
+- Usa un default inseguro en producciÃ³n
+- No hay separaciÃ³n clara de configs por entorno
+- Falta validaciÃ³n de variables de entorno crÃ­ticas
 
 ---
 
 ### 9. **Uso de `datetime.utcnow()` Deprecado**
 
 ```python
-# utils/jwt.py línea 15
+# utils/jwt.py lÃ­nea 15
 token_payload["exp"] = datetime.utcnow() + timedelta(...)
 ```
 
-`datetime.utcnow()` está deprecado desde Python 3.12. Debe usarse `datetime.now(timezone.utc)`.
+`datetime.utcnow()` estÃ¡ deprecado desde Python 3.12. Debe usarse `datetime.now(timezone.utc)`.
 
 ---
 
 ### 10. **Ausencia de Rate Limiting**
 
-No hay protección contra:
+No hay protecciÃ³n contra:
 - Brute force en login
 - Spam de requests
-- DoS básico
+- DoS bÃ¡sico
 
 ---
 
-## 🎯 Mejoras Recomendadas por Prioridad
+## ðŸŽ¯ Mejoras Recomendadas por Prioridad
 
-### 🔴 PRIORIDAD CRÍTICA (Implementar YA)
+### ðŸ”´ PRIORIDAD CRÃTICA (Implementar YA)
 
 #### 1. **Unificar Sistema de Base de Datos**
 
-**Opción A - Mantener SQLAlchemy (RECOMENDADO):**
+**OpciÃ³n A - Mantener SQLAlchemy (RECOMENDADO):**
 
 ```python
 # db.py - Mejorado
@@ -245,11 +269,11 @@ def get_db_session():
 **Beneficios:**
 - ORM robusto y mantenible
 - Migraciones con Alembic
-- Relaciones automáticas
+- Relaciones automÃ¡ticas
 - Query builders seguros
 - Type hints con modelos
 
-**Opción B - Mantener mysql-connector (Solo si SQLAlchemy no es viable):**
+**OpciÃ³n B - Mantener mysql-connector (Solo si SQLAlchemy no es viable):**
 
 ```python
 # extensions.py - Mejorado
@@ -272,11 +296,11 @@ def get_db_connection():
             conn.close()
 ```
 
-**Acción**: ELIMINAR uno de los dos sistemas completamente.
+**AcciÃ³n**: ELIMINAR uno de los dos sistemas completamente.
 
 ---
 
-#### 2. **Implementar Sistema de Validación Centralizado**
+#### 2. **Implementar Sistema de ValidaciÃ³n Centralizado**
 
 ```python
 # utils/validators.py
@@ -303,22 +327,22 @@ class Validator:
         return True
     
     def email(self, value: str, field: str) -> bool:
-        """Validación de email"""
+        """ValidaciÃ³n de email"""
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if value and not re.match(pattern, value):
-            self.errors.append(ValidationError(field, "Email inválido"))
+            self.errors.append(ValidationError(field, "Email invÃ¡lido"))
             return False
         return True
     
     def dni(self, value: str, field: str) -> bool:
-        """Validación de DNI argentino"""
+        """ValidaciÃ³n de DNI argentino"""
         if value and not (value.isdigit() and 7 <= len(value) <= 8):
-            self.errors.append(ValidationError(field, "DNI inválido (7-8 dígitos)"))
+            self.errors.append(ValidationError(field, "DNI invÃ¡lido (7-8 dÃ­gitos)"))
             return False
         return True
     
     def unique(self, exists_func, value: str, field: str, exclude_id: Optional[int] = None) -> bool:
-        """Validación de unicidad"""
+        """ValidaciÃ³n de unicidad"""
         if value and exists_func(field, value, exclude_id):
             self.errors.append(ValidationError(field, f"{field.upper()} ya existe"))
             return False
@@ -333,7 +357,7 @@ class Validator:
         return [e.message for e in self.errors]
 
 class EmpleadoValidator(Validator):
-    """Validador específico para empleados"""
+    """Validador especÃ­fico para empleados"""
     
     def validate_create(self, data: Dict, exists_unique_func) -> bool:
         self.require(data.get('nombre'), 'nombre', 'Nombre')
@@ -370,12 +394,12 @@ def create_empleado():
             data=data
         )
     
-    # Continuar con creación...
+    # Continuar con creaciÃ³n...
 ```
 
 ---
 
-#### 3. **Mejorar Seguridad de Configuración**
+#### 3. **Mejorar Seguridad de ConfiguraciÃ³n**
 
 ```python
 # config.py - Mejorado
@@ -386,7 +410,7 @@ from typing import Optional
 load_dotenv()
 
 class Config:
-    """Configuración base"""
+    """ConfiguraciÃ³n base"""
     
     # Seguridad
     SECRET_KEY: str = _require_env("SECRET_KEY")
@@ -400,7 +424,7 @@ class Config:
     DB_PASSWORD: str = _require_env("DB_PASSWORD")
     DB_NAME: str = _require_env("DB_NAME")
     
-    # Aplicación
+    # AplicaciÃ³n
     UPLOAD_FOLDER: str = os.getenv("UPLOAD_FOLDER", "uploads/fotos")
     MAX_CONTENT_LENGTH: int = 16 * 1024 * 1024  # 16MB
     
@@ -408,21 +432,21 @@ class Config:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
 class DevelopmentConfig(Config):
-    """Configuración de desarrollo"""
+    """ConfiguraciÃ³n de desarrollo"""
     DEBUG = True
     TESTING = False
 
 class ProductionConfig(Config):
-    """Configuración de producción"""
+    """ConfiguraciÃ³n de producciÃ³n"""
     DEBUG = False
     TESTING = False
     
-    # Pool de conexiones más grande
+    # Pool de conexiones mÃ¡s grande
     DB_POOL_SIZE = 20
     DB_MAX_OVERFLOW = 40
 
 class TestingConfig(Config):
-    """Configuración de testing"""
+    """ConfiguraciÃ³n de testing"""
     TESTING = True
     DB_NAME = _require_env("TEST_DB_NAME")
 
@@ -434,7 +458,7 @@ def _require_env(key: str) -> str:
     return value
 
 def get_config() -> Config:
-    """Obtiene configuración según entorno"""
+    """Obtiene configuraciÃ³n segÃºn entorno"""
     env = os.getenv("FLASK_ENV", "development")
     configs = {
         "development": DevelopmentConfig,
@@ -443,7 +467,7 @@ def get_config() -> Config:
     }
     return configs.get(env, DevelopmentConfig)()
 
-# Configuración actual
+# ConfiguraciÃ³n actual
 config = get_config()
 ```
 
@@ -460,7 +484,7 @@ def create_app():
 
 ---
 
-### 🟡 PRIORIDAD ALTA (Implementar pronto)
+### ðŸŸ¡ PRIORIDAD ALTA (Implementar pronto)
 
 #### 4. **Implementar Migraciones con Alembic**
 
@@ -478,11 +502,11 @@ import models  # Importar todos los modelos
 config = context.config
 target_metadata = Base.metadata
 
-# ... configuración de alembic
+# ... configuraciÃ³n de alembic
 ```
 
 ```bash
-# Crear primera migración
+# Crear primera migraciÃ³n
 alembic revision --autogenerate -m "Initial schema"
 alembic upgrade head
 ```
@@ -503,14 +527,14 @@ def create(data: dict) -> int:
             session.add(empleado)
             session.flush()  # Para obtener el ID
             
-            # Log de auditoría
+            # Log de auditorÃ­a
             log_audit(session, "empleado_created", empleado.id)
             
             return empleado.id
             
         except IntegrityError as e:
             logger.error(f"Error de integridad al crear empleado: {e}")
-            raise ValueError("Datos duplicados o inválidos")
+            raise ValueError("Datos duplicados o invÃ¡lidos")
         except Exception as e:
             logger.error(f"Error al crear empleado: {e}")
             raise
@@ -538,7 +562,7 @@ def create_app():
         app=app,
         key_func=get_remote_address,
         default_limits=["200 per day", "50 per hour"],
-        storage_uri="memory://"  # Usar Redis en producción
+        storage_uri="memory://"  # Usar Redis en producciÃ³n
     )
     
     # ...
@@ -583,7 +607,7 @@ def before_request():
     })
 
 def after_request(response):
-    """Ejecutar después de cada request"""
+    """Ejecutar despuÃ©s de cada request"""
     if hasattr(g, 'start_time'):
         elapsed = round((time.time() - g.start_time) * 1000, 2)
         
@@ -604,7 +628,7 @@ def after_request(response):
 
 ---
 
-### 🟢 PRIORIDAD MEDIA (Mejoras incrementales)
+### ðŸŸ¢ PRIORIDAD MEDIA (Mejoras incrementales)
 
 #### 8. **Implementar Cache**
 
@@ -656,13 +680,13 @@ def get_page(
     empresa_id: Optional[int] = None
 ) -> Tuple[List[Dict], int]:
     """
-    Obtiene página de empleados.
+    Obtiene pÃ¡gina de empleados.
     
     Args:
-        page: Número de página (1-indexed)
-        per_page: Items por página
+        page: NÃºmero de pÃ¡gina (1-indexed)
+        per_page: Items por pÃ¡gina
         include_inactive: Incluir empleados inactivos
-        search: Término de búsqueda (nombre/apellido)
+        search: TÃ©rmino de bÃºsqueda (nombre/apellido)
         empresa_id: Filtrar por empresa
         
     Returns:
@@ -707,7 +731,7 @@ def health_check():
 @health_bp.route("/health/ready", methods=["GET"])
 def readiness_check():
     """Readiness check para Kubernetes"""
-    # Verificar que todos los servicios estén listos
+    # Verificar que todos los servicios estÃ©n listos
     return jsonify({"status": "ready"}), 200
 ```
 
@@ -723,14 +747,14 @@ from db import Base, engine, SessionLocal
 
 @pytest.fixture(scope="session")
 def app():
-    """Crea aplicación de test"""
+    """Crea aplicaciÃ³n de test"""
     app = create_app()
     app.config['TESTING'] = True
     return app
 
 @pytest.fixture(scope="session")
 def db_session():
-    """Crea sesión de BD para tests"""
+    """Crea sesiÃ³n de BD para tests"""
     Base.metadata.create_all(bind=engine)
     session = SessionLocal()
     yield session
@@ -744,7 +768,7 @@ def client(app):
 
 @pytest.fixture
 def auth_headers(client):
-    """Headers con autenticación"""
+    """Headers con autenticaciÃ³n"""
     # Crear usuario de test y hacer login
     response = client.post('/api/auth/login', json={
         'email': 'test@test.com',
@@ -772,7 +796,7 @@ class TestEmpleadosAPI:
     def test_create_empleado_valido(self, client, auth_headers, db_session):
         data = {
             'nombre': 'Juan',
-            'apellido': 'Pérez',
+            'apellido': 'PÃ©rez',
             'dni': '12345678',
             'email': 'juan@example.com',
             'empresa_id': 1,
@@ -795,7 +819,7 @@ class TestEmpleadosAPI:
 
 ---
 
-#### 12. **Documentación de API con Swagger**
+#### 12. **DocumentaciÃ³n de API con Swagger**
 
 ```python
 # requirements.txt
@@ -862,73 +886,73 @@ def get_empleado(id):
 
 ---
 
-## 📊 Estructura de Proyecto Recomendada
+## ðŸ“Š Estructura de Proyecto Recomendada
 
 ```
 proyecto/
-├── app.py                    # Aplicación Flask
-├── config.py                 # Configuraciones
-├── requirements.txt
-├── .env.example
-├── .gitignore
-│
-├── alembic/                  # Migraciones
-│   ├── versions/
-│   └── env.py
-│
-├── models/                   # Modelos SQLAlchemy
-│   ├── __init__.py
-│   ├── base.py
-│   ├── empleado.py
-│   ├── empresa.py
-│   └── ...
-│
-├── repositories/             # Capa de datos
-│   ├── __init__.py
-│   ├── base_repository.py   # Repo genérico
-│   ├── empleado_repository.py
-│   └── ...
-│
-├── services/                 # Lógica de negocio
-│   ├── __init__.py
-│   ├── empleado_service.py
-│   ├── auth_service.py
-│   └── ...
-│
-├── routes/                   # API REST
-│   ├── __init__.py
-│   ├── api/
-│   │   ├── empleados.py
-│   │   └── auth.py
-│   └── web/                 # Panel web
-│       └── ...
-│
-├── utils/                    # Utilidades
-│   ├── __init__.py
-│   ├── validators.py
-│   ├── decorators.py
-│   ├── middleware.py
-│   └── exceptions.py
-│
-├── tests/                    # Tests
-│   ├── __init__.py
-│   ├── conftest.py
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-│
-├── static/                   # Archivos estáticos
-├── templates/                # Templates Jinja2
-│
-└── docs/                     # Documentación
-    ├── API.md
-    ├── DATABASE.md
-    └── SETUP.md
+â”œâ”€â”€ app.py                    # AplicaciÃ³n Flask
+â”œâ”€â”€ config.py                 # Configuraciones
+â”œâ”€â”€ requirements.txt
+â”œâ”€â”€ .env.example
+â”œâ”€â”€ .gitignore
+â”‚
+â”œâ”€â”€ alembic/                  # Migraciones
+â”‚   â”œâ”€â”€ versions/
+â”‚   â””â”€â”€ env.py
+â”‚
+â”œâ”€â”€ models/                   # Modelos SQLAlchemy
+â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”œâ”€â”€ base.py
+â”‚   â”œâ”€â”€ empleado.py
+â”‚   â”œâ”€â”€ empresa.py
+â”‚   â””â”€â”€ ...
+â”‚
+â”œâ”€â”€ repositories/             # Capa de datos
+â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”œâ”€â”€ base_repository.py   # Repo genÃ©rico
+â”‚   â”œâ”€â”€ empleado_repository.py
+â”‚   â””â”€â”€ ...
+â”‚
+â”œâ”€â”€ services/                 # LÃ³gica de negocio
+â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”œâ”€â”€ empleado_service.py
+â”‚   â”œâ”€â”€ auth_service.py
+â”‚   â””â”€â”€ ...
+â”‚
+â”œâ”€â”€ routes/                   # API REST
+â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”œâ”€â”€ api/
+â”‚   â”‚   â”œâ”€â”€ empleados.py
+â”‚   â”‚   â””â”€â”€ auth.py
+â”‚   â””â”€â”€ web/                 # Panel web
+â”‚       â””â”€â”€ ...
+â”‚
+â”œâ”€â”€ utils/                    # Utilidades
+â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”œâ”€â”€ validators.py
+â”‚   â”œâ”€â”€ decorators.py
+â”‚   â”œâ”€â”€ middleware.py
+â”‚   â””â”€â”€ exceptions.py
+â”‚
+â”œâ”€â”€ tests/                    # Tests
+â”‚   â”œâ”€â”€ __init__.py
+â”‚   â”œâ”€â”€ conftest.py
+â”‚   â”œâ”€â”€ unit/
+â”‚   â”œâ”€â”€ integration/
+â”‚   â””â”€â”€ e2e/
+â”‚
+â”œâ”€â”€ static/                   # Archivos estÃ¡ticos
+â”œâ”€â”€ templates/                # Templates Jinja2
+â”‚
+â””â”€â”€ docs/                     # DocumentaciÃ³n
+    â”œâ”€â”€ API.md
+    â”œâ”€â”€ DATABASE.md
+    â””â”€â”€ SETUP.md
 ```
 
 ---
 
-## 🔧 Dependencias Adicionales Recomendadas
+## ðŸ”§ Dependencias Adicionales Recomendadas
 
 ```txt
 # requirements.txt - Actualizado
@@ -946,15 +970,15 @@ pymysql==1.1.0  # Mejor que mysql-connector-python
 PyJWT==2.10.1
 Flask-WTF==1.2.2
 Flask-Limiter==3.5.0
-python-jose[cryptography]==3.3.0  # JWT más robusto
+python-jose[cryptography]==3.3.0  # JWT mÃ¡s robusto
 
 # Performance
 Flask-Caching==2.1.0
 redis==5.0.1
 
 # Validation
-pydantic==2.5.0  # Para validación robusta
-marshmallow==3.20.1  # Alternativa para serialización
+pydantic==2.5.0  # Para validaciÃ³n robusta
+marshmallow==3.20.1  # Alternativa para serializaciÃ³n
 
 # Monitoring & Logging
 sentry-sdk[flask]==1.39.1  # Error tracking
@@ -982,38 +1006,38 @@ gevent==23.9.1
 
 ---
 
-## 📝 Checklist de Implementación
+## ðŸ“ Checklist de ImplementaciÃ³n
 
-### Fase 1 - Crítico (1-2 semanas)
+### Fase 1 - CrÃ­tico (1-2 semanas)
 - [ ] Decidir y unificar sistema de BD (SQLAlchemy vs mysql-connector)
-- [ ] Implementar sistema de validación centralizado
+- [ ] Implementar sistema de validaciÃ³n centralizado
 - [ ] Mejorar manejo de errores y transacciones
-- [ ] Configuración por entornos
+- [ ] ConfiguraciÃ³n por entornos
 - [ ] Actualizar datetime.utcnow() a datetime.now(timezone.utc)
 
 ### Fase 2 - Alta prioridad (2-3 semanas)
 - [ ] Implementar migraciones con Alembic
-- [ ] Rate limiting en endpoints críticos
+- [ ] Rate limiting en endpoints crÃ­ticos
 - [ ] Logging estructurado mejorado
-- [ ] Tests de integración básicos
+- [ ] Tests de integraciÃ³n bÃ¡sicos
 - [ ] Health checks
 
 ### Fase 3 - Mejoras (1-2 meses)
 - [ ] Cache con Redis
 - [ ] Type hints completos
-- [ ] Documentación Swagger
+- [ ] DocumentaciÃ³n Swagger
 - [ ] Tests end-to-end
 - [ ] Monitoring con Sentry
 
-### Fase 4 - Optimización (continuo)
+### Fase 4 - OptimizaciÃ³n (continuo)
 - [ ] Performance profiling
 - [ ] Refactoring incremental
-- [ ] Documentación de código
+- [ ] DocumentaciÃ³n de cÃ³digo
 - [ ] CI/CD pipeline
 
 ---
 
-## 💡 Mejores Prácticas Adicionales
+## ðŸ’¡ Mejores PrÃ¡cticas Adicionales
 
 ### 1. **Environment Variables**
 
@@ -1128,25 +1152,26 @@ volumes:
 
 ---
 
-## 🎓 Conclusión
+## ðŸŽ“ ConclusiÃ³n
 
-Este proyecto tiene una **base sólida** con buena arquitectura modular, pero necesita mejoras críticas en:
+Este proyecto tiene una **base sÃ³lida** con buena arquitectura modular, pero necesita mejoras crÃ­ticas en:
 
-1. **Unificación de acceso a BD** (problema más grave)
-2. **Seguridad** (validaciones, rate limiting, configuración)
+1. **UnificaciÃ³n de acceso a BD** (problema mÃ¡s grave)
+2. **Seguridad** (validaciones, rate limiting, configuraciÃ³n)
 3. **Manejo de errores y transacciones**
 4. **Testing** (coverage muy bajo)
 5. **Migraciones de BD**
 
-**Recomendación final**: 
-- Implementar las mejoras de **Prioridad Crítica** inmediatamente
+**RecomendaciÃ³n final**: 
+- Implementar las mejoras de **Prioridad CrÃ­tica** inmediatamente
 - Planificar Fase 2 en siguiente sprint
 - Las mejoras de Fase 3-4 implementarlas incrementalmente
 
-Con estas mejoras, el proyecto estará listo para producción con alta calidad, seguridad y mantenibilidad.
+Con estas mejoras, el proyecto estarÃ¡ listo para producciÃ³n con alta calidad, seguridad y mantenibilidad.
 
 ---
 
-**Estimación de esfuerzo total**: 6-8 semanas de desarrollo (1-2 desarrolladores)
+**EstimaciÃ³n de esfuerzo total**: 6-8 semanas de desarrollo (1-2 desarrolladores)
 
-¿Te gustaría que profundice en alguna de estas mejoras o que genere código de ejemplo para alguna implementación específica?
+Â¿Te gustarÃ­a que profundice en alguna de estas mejoras o que genere cÃ³digo de ejemplo para alguna implementaciÃ³n especÃ­fica?
+

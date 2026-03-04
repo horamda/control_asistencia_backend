@@ -75,7 +75,7 @@
   </form>
 </div>
 
-<script id="dias-seed" type="application/json">{{ data.dias_payload or "[]" }}</script>
+<script id="dias-seed" type="application/json">{{ (dias_seed or []) | tojson }}</script>
 <script>
   const dayNames = {
     1: "Lunes",
@@ -87,12 +87,62 @@
     7: "Domingo",
   };
 
+  function normalizeHHMM(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    const parts = text.split(":");
+    if (parts.length < 2) return "";
+    const hh = Number(parts[0]);
+    const mm = Number(parts[1]);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return "";
+    if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return "";
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  }
+
+  function parseSeedPayload() {
+    const seedNode = document.getElementById("dias-seed");
+    let parsed = [];
+    if (seedNode) {
+      try {
+        parsed = JSON.parse(seedNode.textContent || "[]");
+      } catch (_) {
+        parsed = [];
+      }
+    }
+
+    if (!Array.isArray(parsed) || !parsed.length) {
+      try {
+        parsed = JSON.parse(document.getElementById("dias_payload").value || "[]");
+      } catch (_) {
+        parsed = [];
+      }
+    }
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((d) => ({
+        dia_semana: Number(d?.dia_semana),
+        bloques: Array.isArray(d?.bloques)
+          ? d.bloques
+              .map((b) => ({
+                entrada: normalizeHHMM(b?.entrada || b?.hora_entrada),
+                salida: normalizeHHMM(b?.salida || b?.hora_salida),
+              }))
+              .filter((b) => b.entrada && b.salida)
+          : [],
+      }))
+      .filter((d) => d.dia_semana >= 1 && d.dia_semana <= 7);
+  }
+
   function createBlockRow(entrada = "", salida = "") {
     const row = document.createElement("div");
     row.className = "block-row";
     row.innerHTML = `
-      <input type="time" class="entrada" value="${entrada}">
-      <input type="time" class="salida" value="${salida}">
+      <input type="time" class="entrada" value="${normalizeHHMM(entrada)}">
+      <input type="time" class="salida" value="${normalizeHHMM(salida)}">
       <button type="button" class="remove">Quitar</button>
     `;
     row.querySelector(".remove").addEventListener("click", () => row.remove());
@@ -144,7 +194,7 @@
   function initDays(initialDias) {
     const byDay = {};
     (initialDias || []).forEach((d) => {
-      byDay[d.dia_semana] = d.bloques || [];
+      byDay[Number(d.dia_semana)] = Array.isArray(d.bloques) ? d.bloques : [];
     });
     const container = document.getElementById("days-container");
     for (let day = 1; day <= 7; day += 1) {
@@ -152,13 +202,7 @@
     }
   }
 
-  let seed = [];
-  try {
-    seed = JSON.parse(document.getElementById("dias-seed").textContent || "[]");
-  } catch (_) {
-    seed = [];
-  }
-  initDays(seed);
+  initDays(parseSeedPayload());
 
   document.getElementById("horario-form").addEventListener("submit", (ev) => {
     const diasPayload = collectDiasPayload();

@@ -62,7 +62,7 @@
             </td>
             <td>{{ c.tolerancia_global if c.tolerancia_global is not none else "-" }}</td>
             <td>{{ c.cooldown_scan_segundos if c.cooldown_scan_segundos is not none else 60 }}</td>
-            <td><a href="/configuracion-empresa/editar/{{ c.empresa_id }}">Editar</a></td>
+            <td><a class="btn" href="/configuracion-empresa/editar/{{ c.empresa_id }}">Editar</a></td>
           </tr>
           {% endfor %}
         </tbody>

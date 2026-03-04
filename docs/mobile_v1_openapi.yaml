@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Control Asistencia - Mobile API
-  version: 1.7.0
+  version: 1.9.0
   description: API v1 para app Flutter de empleados.
 servers:
   - url: http://localhost:5000
@@ -482,6 +482,28 @@ paths:
                   type: string
                 foto:
                   type: string
+                  nullable: true
+                eliminar_foto:
+                  type: boolean
+                  description: Si es true elimina la foto actual.
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                telefono:
+                  type: string
+                direccion:
+                  type: string
+                foto:
+                  type: string
+                  nullable: true
+                eliminar_foto:
+                  type: boolean
+                  description: Si es true elimina la foto actual.
+                foto_file:
+                  type: string
+                  format: binary
+                  description: Archivo de imagen de perfil (JPG/PNG/WEBP).
       responses:
         "200":
           description: Perfil actualizado
@@ -498,6 +520,32 @@ paths:
                   direccion:
                     type: string
                     nullable: true
+                  foto:
+                    type: string
+                    nullable: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /api/v1/mobile/me/perfil/foto:
+    delete:
+      tags: [Perfil]
+      summary: Eliminar foto de perfil del empleado
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Foto eliminada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
                   foto:
                     type: string
                     nullable: true
@@ -583,6 +631,10 @@ components:
           nullable: true
         empresa_id:
           type: integer
+          nullable: true
+        foto:
+          type: string
+          format: uri
           nullable: true
     EmpleadoPerfil:
       type: object
@@ -1149,6 +1201,17 @@ components:
           type: integer
 
 x-changelog:
+  - version: 1.9.0
+    date: 2026-02-28
+    changes:
+      - "PUT /api/v1/mobile/me/perfil agrega eliminar_foto para baja explicita."
+      - "Nuevo endpoint DELETE /api/v1/mobile/me/perfil/foto."
+      - "Reemplazo de foto limpia variantes previas por DNI en FTP."
+  - version: 1.8.0
+    date: 2026-02-28
+    changes:
+      - "PUT /api/v1/mobile/me/perfil soporta multipart/form-data con foto_file."
+      - "Valida tipo y tamano de imagen, renombra por DNI y sube a FTP."
   - version: 1.7.0
     date: 2026-02-27
     changes:

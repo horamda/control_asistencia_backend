@@ -81,7 +81,15 @@
       <div class="kpi-value">{{ "%.1f"|format(stats.lead_time_regularizacion_horas_mes) }}</div>
     </article>
     <article class="kpi-card">
-      <div class="kpi-label">Desvio horas mes</div>
+      <div class="kpi-label kpi-label-inline">
+        Desvio horas mes
+        <span
+          class="kpi-help"
+          tabindex="0"
+          aria-label="Formula de desvio horas mes"
+          data-tooltip="Formula: Desvio horas mes = Horas registradas mes - Horas teoricas mes. Horas registradas = suma de minutos entre hora_entrada y hora_salida (solo asistencias cerradas) / 60. Horas teoricas = suma de bloques del horario asignado por empleado y dia, ajustada por excepciones (FRANCO/VACACIONES/FERIADO/LICENCIA=0 y CAMBIO_HORARIO=bloques de excepcion)."
+        >?</span>
+      </div>
       <div class="kpi-value">{{ "%.1f"|format(stats.desvio_horas_mes) }}h</div>
     </article>
   </section>
@@ -313,7 +321,7 @@
             <div class="mini-row">
               <div class="mini-label">{{ p.apellido }} {{ p.nombre }}</div>
               <div class="mini-track">
-                <span class="mini-fill danger" style="width: {{ ((p.incidentes * 100) / max_incidentes) | round(1) }}%"></span>
+                <span class="mini-fill danger" style="width: {{ ((p.incidentes * 100) / (max_incidentes if max_incidentes > 0 else 1)) | round(1) }}%"></span>
               </div>
               <strong>{{ p.incidentes }}</strong>
             </div>
@@ -359,7 +367,7 @@
             <div class="mini-row">
               <div class="mini-label">{{ p.apellido }} {{ p.nombre }}</div>
               <div class="mini-track">
-                <span class="mini-fill ok" style="width: {{ ((p.streak * 100) / max_streak) | round(1) }}%"></span>
+                <span class="mini-fill ok" style="width: {{ ((p.streak * 100) / (max_streak if max_streak > 0 else 1)) | round(1) }}%"></span>
               </div>
               <strong>{{ p.streak }}</strong>
             </div>
@@ -385,7 +393,7 @@
             <div class="mini-row">
               <div class="mini-label">{{ t.equipo }}</div>
               <div class="mini-track">
-                <span class="mini-fill total" style="width: {{ ((t.promedio_racha * 100) / max_team) | round(1) }}%"></span>
+                <span class="mini-fill total" style="width: {{ ((t.promedio_racha * 100) / (max_team if max_team > 0 else 1)) | round(1) }}%"></span>
               </div>
               <strong>{{ "%.1f"|format(t.promedio_racha) }}</strong>
             </div>
@@ -439,7 +447,7 @@
             <div class="mini-row">
               <div class="mini-label">{{ r.nombre }}</div>
               <div class="mini-track">
-                <span class="mini-fill danger" style="width: {{ ((r.indice_ausencias_por_empleado * 100) / max_emp_idx) | round(1) }}%"></span>
+                <span class="mini-fill danger" style="width: {{ ((r.indice_ausencias_por_empleado * 100) / (max_emp_idx if max_emp_idx > 0 else 1)) | round(1) }}%"></span>
               </div>
               <strong>{{ "%.2f"|format(r.indice_ausencias_por_empleado) }}</strong>
             </div>
@@ -467,7 +475,7 @@
             <div class="mini-row">
               <div class="mini-label">{{ r.nombre }}</div>
               <div class="mini-track">
-                <span class="mini-fill warning" style="width: {{ ((r.indice_ausencias_por_empleado * 100) / max_sec_idx) | round(1) }}%"></span>
+                <span class="mini-fill warning" style="width: {{ ((r.indice_ausencias_por_empleado * 100) / (max_sec_idx if max_sec_idx > 0 else 1)) | round(1) }}%"></span>
               </div>
               <strong>{{ "%.2f"|format(r.indice_ausencias_por_empleado) }}</strong>
             </div>
@@ -497,7 +505,7 @@
           <div class="mini-row">
             <div class="mini-label">{{ r.nombre }}</div>
             <div class="mini-track">
-              <span class="mini-fill neutral" style="width: {{ ((r.indice_ausencias_por_empleado * 100) / max_suc_idx) | round(1) }}%"></span>
+              <span class="mini-fill neutral" style="width: {{ ((r.indice_ausencias_por_empleado * 100) / (max_suc_idx if max_suc_idx > 0 else 1)) | round(1) }}%"></span>
             </div>
             <strong>{{ "%.2f"|format(r.indice_ausencias_por_empleado) }}</strong>
           </div>
@@ -555,6 +563,7 @@
       <ul class="list-clean">
         <li>Horas registradas: <strong>{{ "%.1f"|format(stats.horas_registradas_mes) }}</strong></li>
         <li>Horas esperadas: <strong>{{ "%.1f"|format(stats.horas_esperadas_mes) }}</strong></li>
+        <li>Empleados con planilla: <strong>{{ stats.empleados_con_planilla_mes }}</strong></li>
         <li>Desvio: <strong>{{ "%.1f"|format(stats.desvio_horas_mes) }} h</strong></li>
         <li>Cumplimiento horas: <strong>{{ "%.1f"|format(stats.cumplimiento_horas_mes_pct) }}%</strong></li>
       </ul>

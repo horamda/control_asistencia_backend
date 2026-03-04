@@ -1,4 +1,64 @@
 (function () {
+  var THEME_KEY = "ca_theme";
+
+  function getStoredTheme() {
+    try {
+      var value = localStorage.getItem(THEME_KEY);
+      return value === "dark" || value === "light" ? value : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function getSystemTheme() {
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  }
+
+  function getCurrentTheme() {
+    var attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "dark" || attr === "light") return attr;
+    return getStoredTheme() || getSystemTheme();
+  }
+
+  function updateThemeToggleLabel(theme) {
+    var button = document.getElementById("theme-toggle");
+    if (!button) return;
+    var textNode = button.querySelector(".theme-toggle-text");
+    var isDark = theme === "dark";
+    button.setAttribute("aria-pressed", isDark ? "true" : "false");
+    button.setAttribute("title", isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro");
+    if (textNode) {
+      textNode.textContent = isDark ? "Modo claro" : "Modo oscuro";
+    }
+  }
+
+  function applyTheme(theme, persist) {
+    var next = theme === "dark" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", next);
+    updateThemeToggleLabel(next);
+    if (persist) {
+      try {
+        localStorage.setItem(THEME_KEY, next);
+      } catch (_) {}
+    }
+  }
+
+  function initThemeToggle() {
+    var button = document.getElementById("theme-toggle");
+    if (!button) return;
+
+    var initialTheme = getStoredTheme() || getCurrentTheme();
+    applyTheme(initialTheme, false);
+
+    button.addEventListener("click", function () {
+      var current = getCurrentTheme();
+      var next = current === "dark" ? "light" : "dark";
+      applyTheme(next, true);
+    });
+  }
+
   function normalizeHeading() {
     var content = document.querySelector(".page-content");
     var titleNode = document.getElementById("page-title");
@@ -33,9 +93,33 @@
     });
   }
 
+  function addDataConfirm() {
+    document.querySelectorAll("[data-confirm]").forEach(function (node) {
+      if (node.getAttribute("data-confirm-bound") === "1") return;
+      node.setAttribute("data-confirm-bound", "1");
+      var message = node.getAttribute("data-confirm") || "Confirma esta accion?";
+      var tag = (node.tagName || "").toLowerCase();
+      if (tag === "form") {
+        node.addEventListener("submit", function (event) {
+          if (!window.confirm(message)) {
+            event.preventDefault();
+          }
+        });
+        return;
+      }
+      node.addEventListener("click", function (event) {
+        if (!window.confirm(message)) {
+          event.preventDefault();
+        }
+      });
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
+    initThemeToggle();
     normalizeHeading();
     markActiveNav();
     addDeleteConfirm();
+    addDataConfirm();
   });
 })();

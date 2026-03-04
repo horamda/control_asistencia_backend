@@ -9,8 +9,6 @@ from repositories.auditoria_repository import create as create_audit
 from repositories.asistencia_repository import (
     get_by_empleado_fecha,
     get_page_by_empleado as get_asistencias_page_by_empleado,
-    register_entrada,
-    register_salida,
     upsert_resumen_desde_marca,
 )
 from repositories.asistencia_marca_repository import (
@@ -32,6 +30,7 @@ from repositories.security_event_repository import (
 )
 from repositories.sucursal_repository import get_by_id as get_sucursal_by_id
 from services.auth_service import authenticate_user
+from services.profile_photo_service import delete_profile_photo_for_dni, upload_profile_photo
 from utils.asistencia import get_horario_esperado, validar_asistencia
 from utils.jwt import generar_token, generar_token_qr, verificar_token_qr
 from utils.jwt_guard import mobile_auth_required
@@ -96,6 +95,19 @@ def _parse_int(value, label: str, default=None):
         return int(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{label} invalido.") from exc
+
+
+def _parse_bool(value, label: str, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    raw = str(value).strip().lower()
+    if raw in {"1", "true", "t", "yes", "y", "si", "sí", "on"}:
+        return True
+    if raw in {"0", "false", "f", "no", "off", ""}:
+        return False
+    raise ValueError(f"{label} invalido. Use true/false.")
 
 
 def _parse_tipo_marca(value, *, default=None):
@@ -427,6 +439,7 @@ def auth_login():
                 "nombre": user.get("nombre"),
                 "apellido": user.get("apellido"),
                 "empresa_id": user.get("empresa_id"),
+                "foto": user.get("foto"),
             },
         }
     )
@@ -1022,6 +1035,7 @@ def fichar_entrada():
     foto = str(payload.get("foto") or "").strip() or None
     qr_token = str(payload.get("qr_token") or "").strip() or None
     observaciones = str(payload.get("observaciones") or "").strip() or None
+    tipo_marca_raw = payload.get("tipo_marca")
     lat = _parse_float(payload.get("lat"), "Latitud")
     lon = _parse_float(payload.get("lon"), "Longitud")
     _validate_geo(lat, lon)
@@ -1032,25 +1046,67 @@ def fichar_entrada():
     try:
         _parse_date(fecha)
         hora_entrada = _parse_hhmm(hora_entrada)
+        tipo_marca = _parse_tipo_marca(tipo_marca_raw, default="jornada")
         _check_config_metodo(empleado["empresa_id"], metodo, lat, lon, foto)
         if metodo == "qr":
             _validar_qr_fichada(empleado, qr_token, "ingreso")
+        resumen = get_by_empleado_fecha(empleado["id"], fecha)
+        ultima_marca = get_last_marca_by_empleado_fecha(empleado["id"], fecha)
+        _decidir_accion_scan("ingreso", resumen, ultima_marca)
         _, estado_calc = validar_asistencia(empleado["id"], fecha, hora_entrada, None)
         estado = estado_calc or "ok"
-        asistencia_id = register_entrada(
+        asistencia_id = upsert_resumen_desde_marca(
             empleado_id=empleado["id"],
             fecha=fecha,
-            hora_entrada=hora_entrada,
-            metodo_entrada=metodo,
-            lat_entrada=lat,
-            lon_entrada=lon,
-            foto_entrada=foto,
+            hora=hora_entrada,
+            accion="ingreso",
+            metodo=metodo,
+            lat=lat,
+            lon=lon,
+            foto=foto,
+            estado=estado,
+            observaciones=observaciones,
+            gps_ok=None,
+            gps_distancia_m=None,
+            gps_tolerancia_m=None,
+            gps_ref_lat=None,
+            gps_ref_lon=None,
+        )
+        marca_id = create_asistencia_marca(
+            empresa_id=int(empleado["empresa_id"]),
+            empleado_id=empleado["id"],
+            asistencia_id=asistencia_id,
+            fecha=fecha,
+            hora=hora_entrada,
+            accion="ingreso",
+            metodo=metodo,
+            tipo_marca=tipo_marca,
+            lat=lat,
+            lon=lon,
+            foto=foto,
+            gps_ok=None,
+            gps_distancia_m=None,
+            gps_tolerancia_m=None,
+            gps_ref_lat=None,
+            gps_ref_lon=None,
             estado=estado,
             observaciones=observaciones,
         )
-        return jsonify({"id": asistencia_id, "estado": estado}), 201
+        return jsonify({"id": asistencia_id, "marca_id": marca_id, "estado": estado}), 201
     except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
+        message = str(exc)
+        lowered = message.lower()
+        code = 400
+        if (
+            "secuencia invalida" in lowered
+            or "ya registrada" in lowered
+            or "ya hay un ingreso abierto" in lowered
+            or "duplicado" in lowered
+        ):
+            code = 409
+        if "no hay fichada de entrada" in lowered:
+            code = 404
+        return jsonify({"error": message}), code
 
 
 @mobile_v1_bp.route("/me/fichadas/salida", methods=["POST"])
@@ -1068,6 +1124,7 @@ def fichar_salida():
     foto = str(payload.get("foto") or "").strip() or None
     qr_token = str(payload.get("qr_token") or "").strip() or None
     observaciones = str(payload.get("observaciones") or "").strip() or None
+    tipo_marca_raw = payload.get("tipo_marca")
     lat = _parse_float(payload.get("lat"), "Latitud")
     lon = _parse_float(payload.get("lon"), "Longitud")
     _validate_geo(lat, lon)
@@ -1078,25 +1135,58 @@ def fichar_salida():
     try:
         _parse_date(fecha)
         hora_salida = _parse_hhmm(hora_salida)
+        tipo_marca = _parse_tipo_marca(tipo_marca_raw, default="jornada")
         if hora_entrada:
             hora_entrada = _parse_hhmm(hora_entrada)
         _check_config_metodo(empleado["empresa_id"], metodo, lat, lon, foto)
         if metodo == "qr":
             _validar_qr_fichada(empleado, qr_token, "egreso")
-        _, estado_calc = validar_asistencia(empleado["id"], fecha, hora_entrada, hora_salida)
+        resumen = get_by_empleado_fecha(empleado["id"], fecha)
+        ultima_marca = get_last_marca_by_empleado_fecha(empleado["id"], fecha)
+        _decidir_accion_scan("egreso", resumen, ultima_marca)
+        hora_entrada_base = hora_entrada or _hora_entrada_para_egreso(resumen, ultima_marca)
+        if not hora_entrada_base and resumen:
+            hora_entrada_base = _to_hhmm(resumen.get("hora_entrada"))
+        _, estado_calc = validar_asistencia(empleado["id"], fecha, hora_entrada_base, hora_salida)
         estado = estado_calc or "ok"
-        asistencia_id = register_salida(
+        asistencia_id = upsert_resumen_desde_marca(
             empleado_id=empleado["id"],
             fecha=fecha,
-            hora_salida=hora_salida,
-            metodo_salida=metodo,
-            lat_salida=lat,
-            lon_salida=lon,
-            foto_salida=foto,
+            hora=hora_salida,
+            accion="egreso",
+            metodo=metodo,
+            lat=lat,
+            lon=lon,
+            foto=foto,
+            estado=estado,
+            observaciones=observaciones,
+            gps_ok=None,
+            gps_distancia_m=None,
+            gps_tolerancia_m=None,
+            gps_ref_lat=None,
+            gps_ref_lon=None,
+        )
+        marca_id = create_asistencia_marca(
+            empresa_id=int(empleado["empresa_id"]),
+            empleado_id=empleado["id"],
+            asistencia_id=asistencia_id,
+            fecha=fecha,
+            hora=hora_salida,
+            accion="egreso",
+            metodo=metodo,
+            tipo_marca=tipo_marca,
+            lat=lat,
+            lon=lon,
+            foto=foto,
+            gps_ok=None,
+            gps_distancia_m=None,
+            gps_tolerancia_m=None,
+            gps_ref_lat=None,
+            gps_ref_lon=None,
             estado=estado,
             observaciones=observaciones,
         )
-        return jsonify({"id": asistencia_id, "estado": estado})
+        return jsonify({"id": asistencia_id, "marca_id": marca_id, "estado": estado})
     except ValueError as exc:
         message = str(exc)
         code = 409 if "ya registrada" in message else 400
@@ -1113,9 +1203,71 @@ def me_update_profile():
         return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
 
     payload = request.get_json(silent=True) or {}
-    telefono = str(payload.get("telefono") or empleado.get("telefono") or "").strip() or None
-    direccion = str(payload.get("direccion") or empleado.get("direccion") or "").strip() or None
-    foto = str(payload.get("foto") or empleado.get("foto") or "").strip() or None
+    form_data = request.form or {}
+
+    has_telefono = "telefono" in payload or "telefono" in form_data
+    has_direccion = "direccion" in payload or "direccion" in form_data
+    has_foto = "foto" in payload or "foto" in form_data
+
+    telefono_raw = payload["telefono"] if "telefono" in payload else form_data.get("telefono")
+    direccion_raw = payload["direccion"] if "direccion" in payload else form_data.get("direccion")
+    foto_raw = payload["foto"] if "foto" in payload else form_data.get("foto")
+    eliminar_foto_raw = (
+        payload["eliminar_foto"] if "eliminar_foto" in payload else form_data.get("eliminar_foto")
+    )
+    try:
+        eliminar_foto = _parse_bool(eliminar_foto_raw, "eliminar_foto", default=False)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    telefono_base = telefono_raw if has_telefono else empleado.get("telefono")
+    direccion_base = direccion_raw if has_direccion else empleado.get("direccion")
+    foto_base = foto_raw if has_foto else empleado.get("foto")
+
+    telefono = str(telefono_base or "").strip() or None
+    direccion = str(direccion_base or "").strip() or None
+    foto = str(foto_base or "").strip() or None
+
+    foto_file = request.files.get("foto_file") or request.files.get("foto")
+    if foto_file and str(foto_file.filename or "").strip() and eliminar_foto:
+        return jsonify({"error": "No puede enviar foto_file junto con eliminar_foto=true."}), 400
+
+    if foto_file and str(foto_file.filename or "").strip():
+        try:
+            foto = upload_profile_photo(foto_file, empleado.get("dni"))
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        except RuntimeError:
+            current_app.logger.exception(
+                "mobile_profile_photo_upload_error",
+                extra={
+                    "extra": {
+                        "empleado_id": empleado.get("id"),
+                        "empresa_id": empleado.get("empresa_id"),
+                        "dni": empleado.get("dni"),
+                    }
+                },
+            )
+            return jsonify({"error": "No se pudo subir la foto de perfil."}), 500
+    elif eliminar_foto or (has_foto and foto is None):
+        foto = None
+        try:
+            delete_profile_photo_for_dni(empleado.get("dni"))
+        except ValueError:
+            # Sin config FTP: limpiamos foto en DB igual para no bloquear al empleado.
+            pass
+        except RuntimeError:
+            current_app.logger.warning(
+                "mobile_profile_photo_delete_ftp_error",
+                extra={
+                    "extra": {
+                        "empleado_id": empleado.get("id"),
+                        "empresa_id": empleado.get("empresa_id"),
+                        "dni": empleado.get("dni"),
+                    }
+                },
+            )
+
     update_mobile_profile(empleado["id"], telefono=telefono, direccion=direccion, foto=foto)
     refreshed = get_empleado_by_id(empleado["id"])
     return jsonify(
@@ -1126,6 +1278,39 @@ def me_update_profile():
             "foto": refreshed.get("foto"),
         }
     )
+
+
+@mobile_v1_bp.route("/me/perfil/foto", methods=["DELETE"])
+@mobile_auth_required
+def me_delete_profile_photo():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    try:
+        delete_profile_photo_for_dni(empleado.get("dni"))
+    except ValueError:
+        # Sin configuracion FTP: permitimos baja logica de foto en DB.
+        pass
+    except RuntimeError:
+        current_app.logger.warning(
+            "mobile_profile_photo_delete_ftp_error",
+            extra={
+                "extra": {
+                    "empleado_id": empleado.get("id"),
+                    "empresa_id": empleado.get("empresa_id"),
+                    "dni": empleado.get("dni"),
+                }
+            },
+        )
+
+    update_mobile_profile(
+        empleado["id"],
+        telefono=str(empleado.get("telefono") or "").strip() or None,
+        direccion=str(empleado.get("direccion") or "").strip() or None,
+        foto=None,
+    )
+    return jsonify({"ok": True, "foto": None})
 
 
 @mobile_v1_bp.route("/me/password", methods=["PUT"])

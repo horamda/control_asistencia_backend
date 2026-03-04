@@ -3,6 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("ca_theme");
+          var theme = (stored === "dark" || stored === "light")
+            ? stored
+            : ((window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light");
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (_) {}
+      })();
+    </script>
     <title>{% block title %}Panel de control{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -103,8 +114,14 @@
               <div class="kicker">Administracion</div>
               <h1 id="page-title">Panel de control</h1>
             </div>
-            <div class="session-info">
-              <span>Usuario: {{ session.web_user or session.admin_user or 'Admin' }} | Rol: {{ current_role or "-" }}</span>
+            <div class="topbar-actions">
+              <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" title="Cambiar tema">
+                <span class="theme-toggle-icon" aria-hidden="true"></span>
+                <span class="theme-toggle-text">Modo oscuro</span>
+              </button>
+              <div class="session-info">
+                <span>Usuario: {{ session.web_user or session.admin_user or 'Admin' }} | Rol: {{ current_role or "-" }}</span>
+              </div>
             </div>
           </header>
 

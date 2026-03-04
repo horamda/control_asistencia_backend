@@ -1,7 +1,7 @@
 # Contrato API Mobile v1 (Congelado)
 
-Version de contrato: 1.7.0  
-Fecha de corte: 2026-02-27  
+Version de contrato: 1.9.0  
+Fecha de corte: 2026-02-28  
 Base URL local: `http://localhost:5000`  
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`  
 Prefijo: `/api/v1/mobile`
@@ -27,7 +27,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```json
 {
   "token":"<jwt>",
-  "empleado":{"id":12,"dni":"30111222","nombre":"Ana","apellido":"Lopez","empresa_id":1}
+  "empleado":{"id":12,"dni":"30111222","nombre":"Ana","apellido":"Lopez","empresa_id":1,"foto":"https://.../30111222.jpg"}
 }
 ```
 
@@ -306,16 +306,56 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```
 
 14. `PUT /api/v1/mobile/me/perfil`
-- Request:
+- Request JSON (compatible):
 ```json
 {"telefono":"1133344455","direccion":"Calle 123","foto":"https://.../foto.jpg"}
 ```
+- Para quitar foto via JSON tambien puede enviarse:
+```json
+{"foto":null}
+```
+- Request multipart/form-data (recomendado para subir imagen):
+  - `telefono` (opcional)
+  - `direccion` (opcional)
+  - `foto` (opcional, URL manual)
+  - `foto_file` (opcional, binario JPG/PNG/WEBP)
+    - Compatibilidad: tambien se acepta archivo en campo `foto`.
+  - `eliminar_foto` (opcional, `true/false`; si es `true` elimina foto actual)
+- Restricciones:
+  - No se permite enviar `foto_file` junto con `eliminar_foto=true`.
+- Reglas de `foto_file`:
+  - Tipo permitido: JPG, PNG, WEBP
+  - Tamano maximo: `FOTO_MAX_BYTES` (default `5242880`, 5 MB)
+  - `FOTO_STORAGE_BACKEND=ftp`:
+    - Nombre remoto: `<dni>.<ext>`
+    - `FOTO_FTP_HOST`, `FOTO_FTP_PORT`, `FOTO_FTP_USER`, `FOTO_FTP_PASSWORD`
+    - `FOTO_FTP_DIR` (default `/htdocs/`)
+  - `FOTO_STORAGE_BACKEND=db`:
+    - Guarda binario en tabla `empleado_fotos` (clave por DNI).
+    - `empleados.foto` guarda URL servida por backend: `/media/empleados/foto/<dni>`.
+  - URL publica base para app: `FOTO_PUBLIC_BASE_URL` (+ opcional `FOTO_PUBLIC_PREFIX`)
 - Response 200:
 ```json
 {"id":12,"telefono":"1133344455","direccion":"Calle 123","foto":"https://.../foto.jpg"}
 ```
+- Response 400:
+```json
+{"error":"Tipo de imagen no permitido. Use JPG, PNG o WEBP."}
+```
+- Response 500:
+```json
+{"error":"No se pudo subir la foto de perfil."}
+```
 
-15. `PUT /api/v1/mobile/me/password`
+15. `DELETE /api/v1/mobile/me/perfil/foto`
+- Elimina la foto de perfil actual del empleado.
+- Limpia `empleados.foto` en base aunque el FTP no este disponible.
+- Response 200:
+```json
+{"ok":true,"foto":null}
+```
+
+16. `PUT /api/v1/mobile/me/password`
 - Request:
 ```json
 {"password_actual":"secreta123","password_nueva":"nueva1234"}
@@ -349,6 +389,16 @@ Desde esta fecha, Flutter debe integrarse solo con este contrato.
 Si cambia una clave o status code, subir version (`v2`) o registrar change log explicito.
 
 ## Change log
+
+### 1.9.0 (2026-02-28)
+- `PUT /api/v1/mobile/me/perfil` agrega `eliminar_foto=true` para baja de foto.
+- Nuevo endpoint `DELETE /api/v1/mobile/me/perfil/foto`.
+- Reemplazo de foto limpia variantes previas por DNI (`.jpg/.png/.webp`) en FTP.
+
+### 1.8.0 (2026-02-28)
+- `PUT /api/v1/mobile/me/perfil` soporta `multipart/form-data` con `foto_file`.
+- Validaciones de imagen en backend (tipo/tamano/firmas binarias).
+- Renombrado remoto por DNI (`<dni>.<ext>`), subida FTP y guardado de URL publica en `empleados.foto`.
 
 ### 1.7.0 (2026-02-27)
 - Nuevo endpoint mobile para KPIs por empleado:
