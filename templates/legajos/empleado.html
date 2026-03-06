@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Legajo empleado{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Legajo</div>
+      <h2>{{ empleado.apellido }} {{ empleado.nombre }}</h2>
+      <p class="module-intro">
+        Legajo: {{ empleado.legajo }} | DNI: {{ empleado.dni }} | Empresa: {{ empleado.empresa_id }}
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Eventos</span>
+      <span class="chip">Adjuntos</span>
+    </div>
+  </div>
+
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('legajos.crear_evento', emp_id=empleado.id) }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Tipo de evento</label>
+        <select name="tipo_id" required>
+          <option value="">Seleccione</option>
+          {% for t in tipos %}
+            <option value="{{ t.id }}" {% if form_data.tipo_id == t.id %}selected{% endif %}>{{ t.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Fecha evento</label>
+        <input type="date" name="fecha_evento" value="{{ form_data.fecha_evento or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Fecha desde</label>
+        <input type="date" name="fecha_desde" value="{{ form_data.fecha_desde or '' }}">
+      </div>
+      <div class="row">
+        <label>Fecha hasta</label>
+        <input type="date" name="fecha_hasta" value="{{ form_data.fecha_hasta or '' }}">
+      </div>
+      <div class="row span-2">
+        <label>Titulo</label>
+        <input name="titulo" value="{{ form_data.titulo or '' }}" maxlength="150">
+      </div>
+      <div class="row">
+        <label>Severidad</label>
+        <select name="severidad">
+          <option value="">Seleccione</option>
+          {% for s in ["leve","media","grave"] %}
+            <option value="{{ s }}" {% if form_data.severidad == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Justificacion ID (opcional)</label>
+        <input name="justificacion_id" value="{{ form_data.justificacion_id or '' }}" inputmode="numeric">
+      </div>
+      <div class="row span-3">
+        <label>Descripcion</label>
+        <textarea name="descripcion" required>{{ form_data.descripcion or '' }}</textarea>
+      </div>
+      <div class="row span-2">
+        <label>Adjuntos (JPG/PNG/WEBP/PDF)</label>
+        <input type="file" name="adjuntos" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Guardar evento</button>
+      <a class="btn btn-secondary" href="{{ url_for('legajos.listado_empleados') }}">Volver</a>
+    </div>
+  </form>
+
+  <h3 class="section-title">Historial</h3>
+  {% if eventos %}
+    <div class="table-responsive">
+      <table>
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Titulo</th>
+          <th>Descripcion</th>
+          <th>Estado</th>
+          <th>Adjuntos</th>
+          <th>Agregar adjuntos</th>
+          <th>Acciones</th>
+        </tr>
+        {% for ev in eventos %}
+          <tr>
+            <td>{{ ev.fecha_evento }}</td>
+            <td>{{ ev.tipo_nombre }}</td>
+            <td>{{ ev.titulo or "-" }}</td>
+            <td>{{ ev.descripcion }}</td>
+            <td>
+              {% if ev.estado == "vigente" %}
+                <span class="badge ok">vigente</span>
+              {% else %}
+                <span class="badge danger">anulado</span>
+              {% endif %}
+            </td>
+            <td>
+              {% set adjuntos = adjuntos_by_evento.get(ev.id, []) %}
+              {% if adjuntos %}
+                <ul>
+                  {% for a in adjuntos %}
+                    <li>
+                      <a href="{{ url_for('media.legajo_adjunto', adjunto_id=a.id) }}" target="_blank" rel="noopener noreferrer">
+                        {{ a.nombre_original }}
+                      </a>
+                      <span class="helper-text">({{ a.tamano_bytes }} bytes)</span>
+                      {% if ev.estado == "vigente" %}
+                        <form method="post" action="{{ url_for('legajos.eliminar_adjunto', emp_id=empleado.id, evento_id=ev.id, adjunto_id=a.id) }}">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                          <button class="btn-danger" type="submit">Quitar</button>
+                        </form>
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <span class="helper-text">Sin adjuntos</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if ev.estado == "vigente" %}
+                <form method="post" action="{{ url_for('legajos.agregar_adjuntos', emp_id=empleado.id, evento_id=ev.id) }}" enctype="multipart/form-data">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="file" name="adjuntos" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
+                  <button type="submit">Subir</button>
+                </form>
+              {% else %}
+                <span class="helper-text">Evento anulado</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if ev.estado == "vigente" %}
+                <div class="inline-actions">
+                  <a href="{{ url_for('legajos.editar_evento', emp_id=empleado.id, evento_id=ev.id) }}">Editar</a>
+                  <form method="post" action="{{ url_for('legajos.anular_evento_route', emp_id=empleado.id, evento_id=ev.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" name="motivo_anulacion" placeholder="Motivo (opcional)" maxlength="255">
+                    <button class="btn-danger" type="submit">Anular</button>
+                  </form>
+                </div>
+              {% else %}
+                <span class="helper-text">{{ ev.anulado_motivo or "Anulado" }}</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay eventos para este empleado.</div>
+  {% endif %}
+</div>
+{% endblock %}

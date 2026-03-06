@@ -33,6 +33,7 @@ from web.francos.francos_routes import francos_bp
 from web.vacaciones.vacaciones_routes import vacaciones_bp
 from web.empleado_excepciones.empleado_excepciones_routes import empleado_excepciones_bp
 from web.qr_puerta.qr_puerta_routes import qr_puerta_bp
+from web.legajos.legajos_routes import legajos_bp
 
 load_dotenv()
 
@@ -105,6 +106,7 @@ def create_app():
     app.register_blueprint(vacaciones_bp)
     app.register_blueprint(empleado_excepciones_bp)
     app.register_blueprint(qr_puerta_bp)
+    app.register_blueprint(legajos_bp)
 
     @app.route("/")
     def index():

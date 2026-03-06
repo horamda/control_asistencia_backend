@@ -84,14 +84,14 @@ def _project_root():
 
 def _local_config():
     local_dir = str(
-        os.getenv("FOTO_LOCAL_DIR") or "static/uploads/empleados"
+        os.getenv("FOTO_LOCAL_DIR") or "uploads/empleados"
     ).strip()
     local_path = Path(local_dir)
     if not local_path.is_absolute():
         local_path = (_project_root() / local_path).resolve()
     public_base_url = str(os.getenv("FOTO_PUBLIC_BASE_URL") or "").strip()
     public_prefix = str(
-        os.getenv("FOTO_PUBLIC_PREFIX") or "static/uploads/empleados"
+        os.getenv("FOTO_PUBLIC_PREFIX") or "media/empleados/foto"
     ).strip()
     return {
         "dir": local_path,
@@ -380,30 +380,52 @@ def get_profile_photo_bytes_by_dni(dni: str | None):
     if not safe_dni or safe_dni == "empleado":
         return None
 
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-    try:
-        _ensure_db_photo_table(cursor)
-        cursor.execute(
-            """
-            SELECT mime_type, ext, data, updated_at
-            FROM empleado_fotos
-            WHERE dni = %s
-            """,
-            (safe_dni,),
-        )
-        row = cursor.fetchone()
-        if not row:
-            return None
-        return {
-            "mime_type": row.get("mime_type") or "application/octet-stream",
-            "ext": row.get("ext"),
-            "data": row.get("data"),
-            "updated_at": row.get("updated_at"),
-        }
-    finally:
-        cursor.close()
-        db.close()
+    backend = _storage_backend()
+    if backend == "db":
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        try:
+            _ensure_db_photo_table(cursor)
+            cursor.execute(
+                """
+                SELECT mime_type, ext, data, updated_at
+                FROM empleado_fotos
+                WHERE dni = %s
+                """,
+                (safe_dni,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "mime_type": row.get("mime_type") or "application/octet-stream",
+                "ext": row.get("ext"),
+                "data": row.get("data"),
+                "updated_at": row.get("updated_at"),
+            }
+        finally:
+            cursor.close()
+            db.close()
+
+    if backend == "local":
+        cfg = _local_config()
+        base_dir: Path = cfg["dir"]
+        for ext, mime in [("jpg", "image/jpeg"), ("png", "image/png"), ("webp", "image/webp")]:
+            path = base_dir / f"{safe_dni}.{ext}"
+            if not path.exists() or not path.is_file():
+                continue
+            try:
+                return {
+                    "mime_type": mime,
+                    "ext": ext,
+                    "data": path.read_bytes(),
+                    "updated_at": None,
+                }
+            except Exception:
+                return None
+        return None
+
+    return None
 
 
 def upload_profile_photo(file_storage, dni: str | None):
@@ -500,7 +522,10 @@ def upload_profile_photo(file_storage, dni: str | None):
         tmp_target.replace(target)
     except Exception as exc:
         raise RuntimeError("No se pudo guardar la imagen localmente.") from exc
-    return _public_url(filename, cfg["public_base_url"], cfg["public_prefix"])
+    path = f"/media/empleados/foto/{safe_dni}"
+    if cfg["public_base_url"]:
+        return _join_url(cfg["public_base_url"], path)
+    return path
 
 
 def delete_profile_photo_for_dni(dni: str | None):
