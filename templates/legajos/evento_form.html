@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Editar evento de legajo{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Legajo</div>
+      <h2>Editar evento</h2>
+      <p class="module-intro">
+        {{ empleado.apellido }} {{ empleado.nombre }} | Legajo {{ empleado.legajo }}
+      </p>
+    </div>
+  </div>
+
+  {% if errors %}
+    <div class="errors">
+      <ul>
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Tipo de evento</label>
+        <select name="tipo_id" required>
+          <option value="">Seleccione</option>
+          {% for t in tipos %}
+            <option value="{{ t.id }}" {% if form_data.tipo_id == t.id %}selected{% endif %}>{{ t.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Fecha evento</label>
+        <input type="date" name="fecha_evento" value="{{ form_data.fecha_evento or '' }}" required>
+      </div>
+      <div class="row">
+        <label>Fecha desde</label>
+        <input type="date" name="fecha_desde" value="{{ form_data.fecha_desde or '' }}">
+      </div>
+      <div class="row">
+        <label>Fecha hasta</label>
+        <input type="date" name="fecha_hasta" value="{{ form_data.fecha_hasta or '' }}">
+      </div>
+      <div class="row span-2">
+        <label>Titulo</label>
+        <input name="titulo" value="{{ form_data.titulo or '' }}" maxlength="150">
+      </div>
+      <div class="row">
+        <label>Severidad</label>
+        <select name="severidad">
+          <option value="">Seleccione</option>
+          {% for s in ["leve","media","grave"] %}
+            <option value="{{ s }}" {% if form_data.severidad == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Justificacion ID</label>
+        <input name="justificacion_id" value="{{ form_data.justificacion_id or '' }}" inputmode="numeric">
+      </div>
+      <div class="row span-3">
+        <label>Descripcion</label>
+        <textarea name="descripcion" required>{{ form_data.descripcion or '' }}</textarea>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Guardar cambios</button>
+      <a class="btn btn-secondary" href="{{ url_for('legajos.empleado', emp_id=empleado.id) }}">Volver</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Legajos{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Capital Humano</div>
+      <h2>Legajos de empleados</h2>
+      <p class="module-intro">
+        Seleccione un empleado para ver su historial de eventos y adjuntos.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Multiempresa</span>
+      <span class="chip">Trazabilidad</span>
+    </div>
+  </div>
+
+  {% if empleados %}
+    <div class="table-responsive">
+      <table>
+        <tr>
+          <th>Empresa</th>
+          <th>Empleado</th>
+          <th>Legajo</th>
+          <th>DNI</th>
+          <th>Estado</th>
+          <th>Accion</th>
+        </tr>
+        {% for e in empleados %}
+          <tr>
+            <td>{{ e.empresa_nombre or e.empresa_id }}</td>
+            <td>{{ e.apellido }} {{ e.nombre }}</td>
+            <td>{{ e.legajo }}</td>
+            <td>{{ e.dni }}</td>
+            <td>
+              {% if e.activo %}
+                <span class="badge activo">Activo</span>
+              {% else %}
+                <span class="badge inactivo">Inactivo</span>
+              {% endif %}
+            </td>
+            <td><a href="{{ url_for('legajos.empleado', emp_id=e.id) }}">Abrir legajo</a></td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay empleados para mostrar.</div>
+  {% endif %}
+</div>
+{% endblock %}
