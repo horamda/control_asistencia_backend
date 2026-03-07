@@ -25,7 +25,7 @@
   </div>
 
   {% if empresas %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <tr>
           <th>Razon social</th>
@@ -37,17 +37,17 @@
 
         {% for e in empresas %}
         <tr>
-          <td>{{ e.razon_social }}</td>
-          <td>{{ e.cuit }}</td>
-          <td>{{ e.email }}</td>
-          <td>
+          <td data-label="Razon social">{{ e.razon_social }}</td>
+          <td data-label="CUIT">{{ e.cuit }}</td>
+          <td data-label="Email">{{ e.email }}</td>
+          <td data-label="Estado">
             {% if e.activa %}
               <span class="badge activo">Activa</span>
             {% else %}
               <span class="badge inactivo">Inactiva</span>
             {% endif %}
           </td>
-          <td>
+          <td data-label="Acciones">
             <div class="inline-actions">
               {% if e.activa %}
                 <a class="btn btn-secondary" href="/empresas/desactivar/{{ e.id }}">Desactivar</a>

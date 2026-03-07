@@ -22,7 +22,7 @@
   </div>
 
   {% if configs %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -38,31 +38,31 @@
         <tbody>
           {% for c in configs %}
           <tr>
-            <td>{{ c.razon_social }}</td>
-            <td>
+            <td data-label="Empresa">{{ c.razon_social }}</td>
+            <td data-label="QR">
               {% if c.requiere_qr %}
                 <span class="badge ok">Si</span>
               {% else %}
                 <span class="badge inactivo">No</span>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Foto">
               {% if c.requiere_foto %}
                 <span class="badge ok">Si</span>
               {% else %}
                 <span class="badge inactivo">No</span>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Geo">
               {% if c.requiere_geo %}
                 <span class="badge ok">Si</span>
               {% else %}
                 <span class="badge inactivo">No</span>
               {% endif %}
             </td>
-            <td>{{ c.tolerancia_global if c.tolerancia_global is not none else "-" }}</td>
-            <td>{{ c.cooldown_scan_segundos if c.cooldown_scan_segundos is not none else 60 }}</td>
-            <td><a class="btn" href="/configuracion-empresa/editar/{{ c.empresa_id }}">Editar</a></td>
+            <td data-label="Tolerancia (min)">{{ c.tolerancia_global if c.tolerancia_global is not none else "-" }}</td>
+            <td data-label="Cooldown QR (seg)">{{ c.cooldown_scan_segundos if c.cooldown_scan_segundos is not none else 60 }}</td>
+            <td data-label="Acciones"><a class="btn" href="/configuracion-empresa/editar/{{ c.empresa_id }}">Editar</a></td>
           </tr>
           {% endfor %}
         </tbody>

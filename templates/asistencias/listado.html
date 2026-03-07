@@ -99,7 +99,7 @@
   </div>
 
   {% if asistencias %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -115,12 +115,12 @@
         <tbody>
           {% for a in asistencias %}
           <tr>
-            <td>{{ a.empresa_nombre or "-" }}</td>
-            <td>{{ a.apellido }} {{ a.nombre }}</td>
-            <td>{{ a.fecha }}</td>
-            <td>{{ a.hora_entrada or "-" }}</td>
-            <td>{{ a.hora_salida or "-" }}</td>
-            <td>
+            <td data-label="Empresa">{{ a.empresa_nombre or "-" }}</td>
+            <td data-label="Empleado">{{ a.apellido }} {{ a.nombre }}</td>
+            <td data-label="Fecha">{{ a.fecha }}</td>
+            <td data-label="Entrada">{{ a.hora_entrada or "-" }}</td>
+            <td data-label="Salida">{{ a.hora_salida or "-" }}</td>
+            <td data-label="Estado">
               {% set estado = (a.estado or "")|lower %}
               {% if estado == "ok" %}
                 <span class="badge ok">{{ a.estado }}</span>
@@ -134,7 +134,7 @@
                 -
               {% endif %}
             </td>
-            <td>
+            <td data-label="Acciones">
               <div class="inline-actions">
                 <a href="/asistencias/editar/{{ a.id }}">Editar</a>
                 <form method="post" action="/asistencias/eliminar/{{ a.id }}">

@@ -17,7 +17,7 @@
   </div>
 
   {% if empleados %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <tr>
           <th>Empresa</th>
@@ -29,18 +29,18 @@
         </tr>
         {% for e in empleados %}
           <tr>
-            <td>{{ e.empresa_nombre or e.empresa_id }}</td>
-            <td>{{ e.apellido }} {{ e.nombre }}</td>
-            <td>{{ e.legajo }}</td>
-            <td>{{ e.dni }}</td>
-            <td>
+            <td data-label="Empresa">{{ e.empresa_nombre or e.empresa_id }}</td>
+            <td data-label="Empleado">{{ e.apellido }} {{ e.nombre }}</td>
+            <td data-label="Legajo">{{ e.legajo }}</td>
+            <td data-label="DNI">{{ e.dni }}</td>
+            <td data-label="Estado">
               {% if e.activo %}
                 <span class="badge activo">Activo</span>
               {% else %}
                 <span class="badge inactivo">Inactivo</span>
               {% endif %}
             </td>
-            <td><a href="{{ url_for('legajos.empleado', emp_id=e.id) }}">Abrir legajo</a></td>
+            <td data-label="Accion"><a href="{{ url_for('legajos.empleado', emp_id=e.id) }}">Abrir legajo</a></td>
           </tr>
         {% endfor %}
       </table>

@@ -115,7 +115,7 @@
 
   <h3 class="section-title">Historial de QRs generados</h3>
   {% if historial %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table class="table-list">
         <thead>
           <tr>
@@ -133,15 +133,15 @@
         <tbody>
           {% for h in historial %}
             <tr>
-              <td>{{ h.id }}</td>
-              <td>{{ h.empresa_nombre }}</td>
-              <td>{{ h.sucursal_nombre }}</td>
-              <td>{{ h.tipo_marca or 'jornada' }}</td>
-              <td>{{ h.tolerancia_m }}</td>
-              <td>{{ h.vigencia_dias }}</td>
-              <td>{{ h.expira_at }}</td>
-              <td>{{ h.fecha }}</td>
-              <td>
+              <td data-label="ID">{{ h.id }}</td>
+              <td data-label="Empresa">{{ h.empresa_nombre }}</td>
+              <td data-label="Sucursal">{{ h.sucursal_nombre }}</td>
+              <td data-label="Tipo">{{ h.tipo_marca or 'jornada' }}</td>
+              <td data-label="Tolerancia (m)">{{ h.tolerancia_m }}</td>
+              <td data-label="Vigencia (dias)">{{ h.vigencia_dias }}</td>
+              <td data-label="Expira">{{ h.expira_at }}</td>
+              <td data-label="Generado">{{ h.fecha }}</td>
+              <td data-label="Acciones">
                 <a href="{{ url_for('qr_puerta.reimprimir', historial_id=h.id) }}" target="_blank" rel="noopener">Reimprimir</a>
               </td>
             </tr>

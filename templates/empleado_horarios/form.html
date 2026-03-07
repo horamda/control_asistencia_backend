@@ -89,7 +89,7 @@
 
   <h3 class="section-title">Historial de asignaciones</h3>
   {% if historial %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -102,10 +102,10 @@
         <tbody>
           {% for h in historial %}
           <tr>
-            <td>{{ h.horario_nombre }}</td>
-            <td>{{ h.fecha_desde }}</td>
-            <td>{{ h.fecha_hasta or "Abierta" }}</td>
-            <td>
+            <td data-label="Horario">{{ h.horario_nombre }}</td>
+            <td data-label="Desde">{{ h.fecha_desde }}</td>
+            <td data-label="Hasta">{{ h.fecha_hasta or "Abierta" }}</td>
+            <td data-label="Acciones">
               <div class="inline-actions">
                 <a href="{{ url_for('empleado_horarios.editar', empleado_id=empleado.id, asignacion_id=h.id) }}">Editar</a>
                 <form method="post" action="{{ url_for('empleado_horarios.eliminar', empleado_id=empleado.id, asignacion_id=h.id) }}">

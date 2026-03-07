@@ -59,7 +59,7 @@
   </div>
 
   {% if usuarios %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <tr>
           <th>Usuario</th>
@@ -71,17 +71,17 @@
 
         {% for u in usuarios %}
         <tr>
-          <td>{{ u.usuario }}</td>
-          <td>{{ u.empresa_nombre or u.empresa_id }}</td>
-          <td>{{ u.rol }}</td>
-          <td>
+          <td data-label="Usuario">{{ u.usuario }}</td>
+          <td data-label="Empresa">{{ u.empresa_nombre or u.empresa_id }}</td>
+          <td data-label="Rol">{{ u.rol }}</td>
+          <td data-label="Estado">
             {% if u.activo %}
               <span class="badge activo">Activo</span>
             {% else %}
               <span class="badge inactivo">Inactivo</span>
             {% endif %}
           </td>
-          <td>
+          <td data-label="Acciones">
             <div class="inline-actions">
               {% if u.activo %}
                 <a class="btn btn-secondary" href="/usuarios/desactivar/{{ u.id }}">Desactivar</a>

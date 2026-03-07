@@ -23,7 +23,7 @@
   </div>
 
   {% if registros %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <tr>
           <th>Usuario</th>
@@ -35,11 +35,11 @@
 
         {% for a in registros %}
         <tr>
-          <td>{{ a.usuario_nombre or a.usuario_id }}</td>
-          <td>{{ a.accion }}</td>
-          <td>{{ a.tabla_afectada }}</td>
-          <td>{{ a.registro_id }}</td>
-          <td>{{ a.fecha }}</td>
+          <td data-label="Usuario">{{ a.usuario_nombre or a.usuario_id }}</td>
+          <td data-label="Accion">{{ a.accion }}</td>
+          <td data-label="Tabla">{{ a.tabla_afectada }}</td>
+          <td data-label="Registro">{{ a.registro_id }}</td>
+          <td data-label="Fecha">{{ a.fecha }}</td>
         </tr>
         {% endfor %}
       </table>

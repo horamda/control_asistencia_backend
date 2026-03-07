@@ -25,7 +25,7 @@
   </div>
 
   {% if francos %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -38,10 +38,10 @@
         <tbody>
           {% for f in francos %}
           <tr>
-            <td>{{ f.apellido }} {{ f.nombre }}</td>
-            <td>{{ f.fecha }}</td>
-            <td>{{ f.motivo or "-" }}</td>
-            <td>
+            <td data-label="Empleado">{{ f.apellido }} {{ f.nombre }}</td>
+            <td data-label="Fecha">{{ f.fecha }}</td>
+            <td data-label="Motivo">{{ f.motivo or "-" }}</td>
+            <td data-label="Acciones">
               <div class="inline-actions">
                 <a href="/francos/editar/{{ f.id }}">Editar</a>
                 <form method="post" action="/francos/eliminar/{{ f.id }}">

@@ -33,13 +33,14 @@
     {% else %}
       {% set current_role = (session.user_role or '')|lower %}
       <div class="app-shell">
-        <aside class="app-sidebar">
+        <aside class="app-sidebar" id="app-sidebar" aria-label="Navegacion principal">
           <div class="brand">
             <div class="brand-mark">CA</div>
             <div>
               <div class="brand-title">Control Asistencia</div>
               <div class="brand-sub">Panel empresarial</div>
             </div>
+            <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Cerrar menu">Cerrar</button>
           </div>
 
           <nav class="nav-groups">
@@ -108,6 +109,7 @@
 
           <a class="logout-link" href="/logout">Cerrar sesion</a>
         </aside>
+        <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
 
         <div class="app-main">
           <header class="app-topbar">
@@ -116,6 +118,9 @@
               <h1 id="page-title">Panel de control</h1>
             </div>
             <div class="topbar-actions">
+              <button type="button" class="nav-toggle" id="nav-toggle" aria-controls="app-sidebar" aria-expanded="false">
+                Menu
+              </button>
               <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" title="Cambiar tema">
                 <span class="theme-toggle-icon" aria-hidden="true"></span>
                 <span class="theme-toggle-text">Modo oscuro</span>

@@ -84,7 +84,7 @@
 
   <h3 class="section-title">Historial</h3>
   {% if eventos %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <tr>
           <th>Fecha</th>
@@ -98,18 +98,18 @@
         </tr>
         {% for ev in eventos %}
           <tr>
-            <td>{{ ev.fecha_evento }}</td>
-            <td>{{ ev.tipo_nombre }}</td>
-            <td>{{ ev.titulo or "-" }}</td>
-            <td>{{ ev.descripcion }}</td>
-            <td>
+            <td data-label="Fecha">{{ ev.fecha_evento }}</td>
+            <td data-label="Tipo">{{ ev.tipo_nombre }}</td>
+            <td data-label="Titulo">{{ ev.titulo or "-" }}</td>
+            <td data-label="Descripcion">{{ ev.descripcion }}</td>
+            <td data-label="Estado">
               {% if ev.estado == "vigente" %}
                 <span class="badge ok">vigente</span>
               {% else %}
                 <span class="badge danger">anulado</span>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Adjuntos">
               {% set adjuntos = adjuntos_by_evento.get(ev.id, []) %}
               {% if adjuntos %}
                 <ul>
@@ -132,7 +132,7 @@
                 <span class="helper-text">Sin adjuntos</span>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Agregar adjuntos">
               {% if ev.estado == "vigente" %}
                 <form method="post" action="{{ url_for('legajos.agregar_adjuntos', emp_id=empleado.id, evento_id=ev.id) }}" enctype="multipart/form-data">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -143,7 +143,7 @@
                 <span class="helper-text">Evento anulado</span>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Acciones">
               {% if ev.estado == "vigente" %}
                 <div class="inline-actions">
                   <a href="{{ url_for('legajos.editar_evento', emp_id=empleado.id, evento_id=ev.id) }}">Editar</a>

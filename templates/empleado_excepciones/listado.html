@@ -78,7 +78,7 @@
   </div>
 
   {% if excepciones %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <tr>
           <th>Empleado</th>
@@ -90,12 +90,12 @@
         </tr>
         {% for e in excepciones %}
         <tr>
-          <td>{{ e.apellido }} {{ e.nombre }}</td>
-          <td>{{ e.fecha }}</td>
-          <td>{{ e.tipo }}</td>
-          <td>{{ "Si" if e.anula_horario else "No" }}</td>
-          <td>{{ e.descripcion or "-" }}</td>
-          <td>
+          <td data-label="Empleado">{{ e.apellido }} {{ e.nombre }}</td>
+          <td data-label="Fecha">{{ e.fecha }}</td>
+          <td data-label="Tipo">{{ e.tipo }}</td>
+          <td data-label="Anula">{{ "Si" if e.anula_horario else "No" }}</td>
+          <td data-label="Descripcion">{{ e.descripcion or "-" }}</td>
+          <td data-label="Acciones">
             <div class="inline-actions">
               <a href="/empleado-excepciones/editar/{{ e.id }}">Editar</a>
               <form method="post" action="/empleado-excepciones/eliminar/{{ e.id }}">

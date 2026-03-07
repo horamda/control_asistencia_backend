@@ -59,7 +59,7 @@
   </div>
 
   {% if justificaciones %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <tr>
           <th>Empresa</th>
@@ -70,10 +70,10 @@
         </tr>
         {% for j in justificaciones %}
         <tr>
-          <td>{{ j.empresa_nombre or "-" }}</td>
-          <td>{{ j.apellido }} {{ j.nombre }}</td>
-          <td>{{ j.asistencia_fecha or "-" }}</td>
-          <td>
+          <td data-label="Empresa">{{ j.empresa_nombre or "-" }}</td>
+          <td data-label="Empleado">{{ j.apellido }} {{ j.nombre }}</td>
+          <td data-label="Asistencia">{{ j.asistencia_fecha or "-" }}</td>
+          <td data-label="Estado">
             {% set estado = (j.estado or "")|lower %}
             {% if estado in ["aprobada", "ok"] %}
               <span class="badge ok">{{ j.estado }}</span>
@@ -87,7 +87,7 @@
               -
             {% endif %}
           </td>
-          <td>
+          <td data-label="Acciones">
             <div class="inline-actions">
               <a href="/justificaciones/editar/{{ j.id }}">Editar</a>
               <form method="post" action="/justificaciones/eliminar/{{ j.id }}">

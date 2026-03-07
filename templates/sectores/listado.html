@@ -56,7 +56,7 @@
   </div>
 
   {% if sectores %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -69,16 +69,16 @@
         <tbody>
           {% for s in sectores %}
           <tr>
-            <td>{{ s.empresa_nombre or s.empresa_id }}</td>
-            <td>{{ s.nombre }}</td>
-            <td>
+            <td data-label="Empresa">{{ s.empresa_nombre or s.empresa_id }}</td>
+            <td data-label="Nombre">{{ s.nombre }}</td>
+            <td data-label="Estado">
               {% if s.activo %}
                 <span class="badge activo">Activo</span>
               {% else %}
                 <span class="badge inactivo">Inactivo</span>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Acciones">
               <div class="inline-actions">
                 {% if s.activo %}
                   <a class="btn btn-secondary" href="/sectores/desactivar/{{ s.id }}">Desactivar</a>
