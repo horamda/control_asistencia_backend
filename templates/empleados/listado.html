@@ -84,7 +84,7 @@
   </div>
 
   {% if empleados %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <tr>
           <th>Foto</th>
@@ -101,7 +101,7 @@
         </tr>
         {% for e in empleados %}
         <tr>
-          <td>
+          <td data-label="Foto">
             {% if e.foto %}
               {% set foto_url = e.foto ~ ('&v=' if '?' in e.foto else '?v=') ~ (photo_cache_buster|string) %}
               <a href="{{ e.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
@@ -118,27 +118,27 @@
               <span class="helper-text">Sin foto</span>
             {% endif %}
           </td>
-          <td>{{ e.empresa_nombre or e.empresa_id }}</td>
-          <td>{{ e.sucursal_nombre or e.sucursal_id }}</td>
-          <td>{{ e.sector_nombre or e.sector_id }}</td>
-          <td>{{ e.puesto_nombre or e.puesto_id }}</td>
-          <td>{{ e.localidad_nombre or e.codigo_postal }}</td>
-          <td>
+          <td data-label="Empresa">{{ e.empresa_nombre or e.empresa_id }}</td>
+          <td data-label="Sucursal">{{ e.sucursal_nombre or e.sucursal_id }}</td>
+          <td data-label="Sector">{{ e.sector_nombre or e.sector_id }}</td>
+          <td data-label="Puesto">{{ e.puesto_nombre or e.puesto_id }}</td>
+          <td data-label="Localidad">{{ e.localidad_nombre or e.codigo_postal }}</td>
+          <td data-label="Empleado">
             <strong>{{ e.apellido }} {{ e.nombre }}</strong>
           </td>
-          <td>
+          <td data-label="Legajo / DNI">
             <div>Legajo: {{ e.legajo or "-" }}</div>
             <div class="helper-text">DNI: {{ e.dni or "-" }}</div>
           </td>
-          <td>{{ e.email }}</td>
-          <td>
+          <td data-label="Email">{{ e.email }}</td>
+          <td data-label="Estado">
             {% if e.activo %}
               <span class="badge activo">Activo</span>
             {% else %}
               <span class="badge inactivo">Inactivo</span>
             {% endif %}
           </td>
-          <td>
+          <td data-label="Acciones">
             <div class="inline-actions">
               <a href="{{ url_for('empleados.editar', emp_id=e.id, next=return_to) }}">Editar</a>
               {% if e.activo %}

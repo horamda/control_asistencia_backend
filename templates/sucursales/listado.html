@@ -26,7 +26,7 @@
   </div>
 
   {% if sucursales %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -41,18 +41,18 @@
         <tbody>
           {% for s in sucursales %}
           <tr>
-            <td>{{ s.empresa_nombre }}</td>
-            <td>{{ s.nombre }}</td>
-            <td>{{ s.direccion or "-" }}</td>
-            <td>{{ s.radio_permitido_m or "-" }}</td>
-            <td>
+            <td data-label="Empresa">{{ s.empresa_nombre }}</td>
+            <td data-label="Nombre">{{ s.nombre }}</td>
+            <td data-label="Direccion">{{ s.direccion or "-" }}</td>
+            <td data-label="Radio (m)">{{ s.radio_permitido_m or "-" }}</td>
+            <td data-label="Estado">
               {% if s.activa %}
                 <span class="badge activo">Activa</span>
               {% else %}
                 <span class="badge inactivo">Inactiva</span>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Acciones">
               <div class="inline-actions">
                 {% if s.activa %}
                   <a class="btn btn-secondary" href="/sucursales/desactivar/{{ s.id }}">Desactivar</a>

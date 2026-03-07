@@ -39,7 +39,7 @@
   </div>
 
   {% if roles %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <tr>
           <th>Nombre</th>
@@ -48,8 +48,8 @@
 
         {% for r in roles %}
         <tr>
-          <td>{{ r.nombre }}</td>
-          <td>
+          <td data-label="Nombre">{{ r.nombre }}</td>
+          <td data-label="Acciones">
             <div class="inline-actions">
               <a href="/roles/editar/{{ r.id }}">Editar</a>
               <form method="post" action="/roles/eliminar/{{ r.id }}">

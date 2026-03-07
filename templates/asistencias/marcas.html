@@ -128,7 +128,7 @@
   </div>
 
   {% if marcas %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -150,12 +150,12 @@
         <tbody>
           {% for m in marcas %}
           <tr>
-            <td>{{ m.id }}</td>
-            <td>{{ m.empresa_nombre }}</td>
-            <td>{{ m.apellido }} {{ m.nombre }}{% if m.dni %}<br><small>DNI {{ m.dni }}</small>{% endif %}</td>
-            <td>{{ m.fecha }}</td>
-            <td>{{ m.hora }}</td>
-            <td>
+            <td data-label="ID">{{ m.id }}</td>
+            <td data-label="Empresa">{{ m.empresa_nombre }}</td>
+            <td data-label="Empleado">{{ m.apellido }} {{ m.nombre }}{% if m.dni %}<br><small>DNI {{ m.dni }}</small>{% endif %}</td>
+            <td data-label="Fecha">{{ m.fecha }}</td>
+            <td data-label="Hora">{{ m.hora }}</td>
+            <td data-label="Accion">
               {% if m.accion == "ingreso" %}
                 <span class="badge ok">ingreso</span>
               {% elif m.accion == "egreso" %}
@@ -164,9 +164,9 @@
                 <span class="badge">{{ m.accion or "-" }}</span>
               {% endif %}
             </td>
-            <td>{{ m.tipo_marca or "jornada" }}</td>
-            <td>{{ m.metodo or "-" }}</td>
-            <td>
+            <td data-label="Tipo">{{ m.tipo_marca or "jornada" }}</td>
+            <td data-label="Metodo">{{ m.metodo or "-" }}</td>
+            <td data-label="GPS">
               {% if m.gps_ok is none %}
                 -
               {% elif m.gps_ok %}
@@ -175,9 +175,9 @@
                 <span class="badge danger">fuera</span>
               {% endif %}
             </td>
-            <td>{{ m.gps_distancia_m if m.gps_distancia_m is not none else "-" }}</td>
-            <td>{{ m.gps_tolerancia_m if m.gps_tolerancia_m is not none else "-" }}</td>
-            <td>
+            <td data-label="Dist (m)">{{ m.gps_distancia_m if m.gps_distancia_m is not none else "-" }}</td>
+            <td data-label="Tol (m)">{{ m.gps_tolerancia_m if m.gps_tolerancia_m is not none else "-" }}</td>
+            <td data-label="Estado">
               {% set estado = (m.estado or "")|lower %}
               {% if estado in ["ok", "aprobada"] %}
                 <span class="badge ok">{{ m.estado }}</span>
@@ -191,7 +191,7 @@
                 -
               {% endif %}
             </td>
-            <td>{{ m.observaciones or "-" }}</td>
+            <td data-label="Observaciones">{{ m.observaciones or "-" }}</td>
           </tr>
           {% endfor %}
         </tbody>

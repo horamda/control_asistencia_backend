@@ -25,7 +25,7 @@
   </div>
 
   {% if vacaciones %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -39,11 +39,11 @@
         <tbody>
           {% for v in vacaciones %}
           <tr>
-            <td>{{ v.apellido }} {{ v.nombre }}</td>
-            <td>{{ v.fecha_desde }}</td>
-            <td>{{ v.fecha_hasta }}</td>
-            <td>{{ v.observaciones or "-" }}</td>
-            <td>
+            <td data-label="Empleado">{{ v.apellido }} {{ v.nombre }}</td>
+            <td data-label="Desde">{{ v.fecha_desde }}</td>
+            <td data-label="Hasta">{{ v.fecha_hasta }}</td>
+            <td data-label="Observaciones">{{ v.observaciones or "-" }}</td>
+            <td data-label="Acciones">
               <div class="inline-actions">
                 <a href="/vacaciones/editar/{{ v.id }}">Editar</a>
                 <form method="post" action="/vacaciones/eliminar/{{ v.id }}">

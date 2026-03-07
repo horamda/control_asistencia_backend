@@ -25,7 +25,7 @@
   </div>
 
   {% if localidades %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -39,11 +39,11 @@
         <tbody>
           {% for l in localidades %}
           <tr>
-            <td>{{ l.codigo_postal }}</td>
-            <td>{{ l.localidad }}</td>
-            <td>{{ l.provincia }}</td>
-            <td>{{ l.pais }}</td>
-            <td>
+            <td data-label="CP">{{ l.codigo_postal }}</td>
+            <td data-label="Localidad">{{ l.localidad }}</td>
+            <td data-label="Provincia">{{ l.provincia }}</td>
+            <td data-label="Pais">{{ l.pais }}</td>
+            <td data-label="Acciones">
               <div class="inline-actions">
                 <a href="/localidades/editar/{{ l.codigo_postal }}">Editar</a>
                 <form method="post" action="/localidades/eliminar/{{ l.codigo_postal }}">

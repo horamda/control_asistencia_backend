@@ -30,7 +30,7 @@
   </div>
 
   {% if horarios %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -46,19 +46,19 @@
         <tbody>
           {% for h in horarios %}
           <tr>
-            <td>{{ h.empresa_nombre }}</td>
-            <td>{{ h.nombre }}</td>
-            <td>{{ h.tolerancia_min }}</td>
-            <td>{{ h.dias_count }}</td>
-            <td>{{ h.bloques_count }}</td>
-            <td>
+            <td data-label="Empresa">{{ h.empresa_nombre }}</td>
+            <td data-label="Nombre">{{ h.nombre }}</td>
+            <td data-label="Tolerancia">{{ h.tolerancia_min }}</td>
+            <td data-label="Dias">{{ h.dias_count }}</td>
+            <td data-label="Bloques">{{ h.bloques_count }}</td>
+            <td data-label="Estado">
               {% if h.activo %}
                 <span class="badge activo">Activo</span>
               {% else %}
                 <span class="badge inactivo">Inactivo</span>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Acciones">
               <div class="inline-actions">
                 {% if h.activo %}
                   <a class="btn btn-secondary" href="/horarios/desactivar/{{ h.id }}">Desactivar</a>

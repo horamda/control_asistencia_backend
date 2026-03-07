@@ -21,7 +21,7 @@
   </div>
 
   {% if empleados %}
-    <div class="table-responsive">
+    <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
@@ -34,16 +34,16 @@
         <tbody>
           {% for e in empleados %}
           <tr>
-            <td>{{ e.apellido }} {{ e.nombre }}</td>
-            <td>{{ e.empresa_nombre or "-" }}</td>
-            <td>
+            <td data-label="Empleado">{{ e.apellido }} {{ e.nombre }}</td>
+            <td data-label="Empresa">{{ e.empresa_nombre or "-" }}</td>
+            <td data-label="Estado">
               {% if e.activo %}
                 <span class="badge activo">Activo</span>
               {% else %}
                 <span class="badge inactivo">Inactivo</span>
               {% endif %}
             </td>
-            <td>
+            <td data-label="Accion">
               <a class="btn btn-secondary" href="/empleado-horarios/{{ e.id }}">Gestionar asignaciones</a>
             </td>
           </tr>
