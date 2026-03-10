@@ -46,8 +46,68 @@ def _base_form_data():
         "sexo": "femenino",
         "fecha_nacimiento": "1990-01-10",
         "fecha_ingreso": "2020-02-01",
-        "foto": "",
     }
+
+
+def test_empleados_listado_muestra_foto_y_fallback(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(
+        empleados_routes,
+        "get_page",
+        lambda *args, **kwargs: (
+            [
+                {
+                    "id": 7,
+                    "activo": 1,
+                    "foto": "https://cdn.example.com/fotos/30123456.jpg",
+                    "apellido": "Perez",
+                    "nombre": "Ana",
+                    "legajo": "L-1",
+                    "dni": "30123456",
+                    "email": "ana@example.com",
+                    "empresa_nombre": "Empresa A",
+                    "empresa_id": 1,
+                    "sucursal_nombre": "Casa",
+                    "sucursal_id": 1,
+                    "sector_nombre": "RRHH",
+                    "sector_id": 1,
+                    "puesto_nombre": "Analista",
+                    "puesto_id": 1,
+                    "localidad_nombre": "CABA",
+                    "codigo_postal": "1000",
+                },
+                {
+                    "id": 8,
+                    "activo": 1,
+                    "foto": None,
+                    "apellido": "Lopez",
+                    "nombre": "Juan",
+                    "legajo": "L-2",
+                    "dni": "30123457",
+                    "email": "juan@example.com",
+                    "empresa_nombre": "Empresa A",
+                    "empresa_id": 1,
+                    "sucursal_nombre": "Casa",
+                    "sucursal_id": 1,
+                    "sector_nombre": "RRHH",
+                    "sector_id": 1,
+                    "puesto_nombre": "Analista",
+                    "puesto_id": 1,
+                    "localidad_nombre": "CABA",
+                    "codigo_postal": "1000",
+                },
+            ],
+            2,
+        ),
+    )
+    monkeypatch.setattr(empleados_routes, "get_empresas", lambda *args, **kwargs: [])
+
+    resp = client.get("/empleados/")
+    assert resp.status_code == 200
+    assert b"https://cdn.example.com/fotos/30123456.jpg" in resp.data
+    assert b"img/empleado-default.svg" in resp.data
 
 
 def test_empleados_nuevo_sube_foto_file(monkeypatch):
@@ -125,7 +185,6 @@ def test_empleados_editar_elimina_foto(monkeypatch):
     monkeypatch.setattr(empleados_routes, "update", lambda emp_id, data: state.update({"update_data": dict(data)}))
 
     form_data = _base_form_data()
-    form_data["foto"] = "https://cdn.example.com/fotos/30123456.jpg"
     form_data["eliminar_foto"] = "1"
 
     resp = client.post(
@@ -139,6 +198,49 @@ def test_empleados_editar_elimina_foto(monkeypatch):
     assert resp.headers["Location"].endswith("/empleados/")
     assert state["deleted_dni"] == "30123456"
     assert state["update_data"]["foto"] is None
+
+
+def test_empleados_editar_preserva_foto_existente_si_no_hay_cambios(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    _patch_catalogs(monkeypatch)
+    monkeypatch.setattr(empleados_routes, "log_audit", lambda *args, **kwargs: None)
+
+    state = {}
+    foto_actual = "https://cdn.example.com/fotos/30123456.jpg"
+    monkeypatch.setattr(
+        empleados_routes,
+        "get_by_id",
+        lambda emp_id: {
+            "id": emp_id,
+            "dni": "30123456",
+            "nombre": "Ana",
+            "apellido": "Perez",
+            "email": "ana@example.com",
+            "empresa_id": 1,
+            "sucursal_id": 1,
+            "sector_id": 1,
+            "puesto_id": 1,
+            "codigo_postal": "1000",
+            "estado": "activo",
+            "sexo": "femenino",
+            "foto": foto_actual,
+        },
+    )
+    monkeypatch.setattr(empleados_routes, "update_password", lambda *args, **kwargs: None)
+    monkeypatch.setattr(empleados_routes, "update", lambda emp_id, data: state.update({"update_data": dict(data)}))
+
+    resp = client.post(
+        "/empleados/editar/7",
+        data=_base_form_data(),
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/empleados/")
+    assert state["update_data"]["foto"] == foto_actual
 
 
 def test_empleados_editar_bloquea_file_y_eliminar_juntos(monkeypatch):

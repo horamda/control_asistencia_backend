@@ -784,3 +784,104 @@ def delete(asistencia_id: int):
     finally:
         cursor.close()
         db.close()
+
+
+def sync_from_asistencia_marcas(asistencia_id: int):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT *
+            FROM asistencias
+            WHERE id = %s
+            LIMIT 1
+            """,
+            (asistencia_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return False
+
+        cursor.execute(
+            """
+            SELECT *
+            FROM asistencia_marcas
+            WHERE asistencia_id = %s
+            ORDER BY hora ASC, id ASC
+            """,
+            (asistencia_id,),
+        )
+        marcas = cursor.fetchall()
+
+        ingresos = [m for m in marcas if str(m.get("accion") or "").lower() == "ingreso"]
+        egresos = [m for m in marcas if str(m.get("accion") or "").lower() == "egreso"]
+
+        ingreso = ingresos[0] if ingresos else None
+        egreso = egresos[-1] if egresos else None
+
+        hora_entrada = ingreso.get("hora") if ingreso else None
+        hora_salida = egreso.get("hora") if egreso else None
+
+        estado = row.get("estado")
+        if not hora_entrada and not hora_salida:
+            estado = "ausente"
+        elif not estado:
+            estado = "ok"
+
+        cursor.execute(
+            """
+            UPDATE asistencias
+            SET hora_entrada = %s,
+                hora_salida = %s,
+                lat_entrada = %s,
+                lon_entrada = %s,
+                lat_salida = %s,
+                lon_salida = %s,
+                foto_entrada = %s,
+                foto_salida = %s,
+                metodo_entrada = %s,
+                metodo_salida = %s,
+                gps_ok_entrada = %s,
+                gps_ok_salida = %s,
+                gps_distancia_entrada_m = %s,
+                gps_distancia_salida_m = %s,
+                gps_tolerancia_entrada_m = %s,
+                gps_tolerancia_salida_m = %s,
+                gps_ref_lat_entrada = %s,
+                gps_ref_lon_entrada = %s,
+                gps_ref_lat_salida = %s,
+                gps_ref_lon_salida = %s,
+                estado = %s
+            WHERE id = %s
+            """,
+            (
+                hora_entrada,
+                hora_salida,
+                ingreso.get("lat") if ingreso else None,
+                ingreso.get("lon") if ingreso else None,
+                egreso.get("lat") if egreso else None,
+                egreso.get("lon") if egreso else None,
+                ingreso.get("foto") if ingreso else None,
+                egreso.get("foto") if egreso else None,
+                ingreso.get("metodo") if ingreso else None,
+                egreso.get("metodo") if egreso else None,
+                ingreso.get("gps_ok") if ingreso else None,
+                egreso.get("gps_ok") if egreso else None,
+                ingreso.get("gps_distancia_m") if ingreso else None,
+                egreso.get("gps_distancia_m") if egreso else None,
+                ingreso.get("gps_tolerancia_m") if ingreso else None,
+                egreso.get("gps_tolerancia_m") if egreso else None,
+                ingreso.get("gps_ref_lat") if ingreso else None,
+                ingreso.get("gps_ref_lon") if ingreso else None,
+                egreso.get("gps_ref_lat") if egreso else None,
+                egreso.get("gps_ref_lon") if egreso else None,
+                estado,
+                asistencia_id,
+            ),
+        )
+        db.commit()
+        return True
+    finally:
+        cursor.close()
+        db.close()

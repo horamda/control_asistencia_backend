@@ -39,3 +39,28 @@ def test_media_foto_ok(monkeypatch):
     assert "image/jpeg" in resp.headers.get("Content-Type", "")
     assert "max-age=86400" in resp.headers.get("Cache-Control", "")
     assert resp.headers.get("ETag")
+
+
+def test_media_imagen_alias_etag_304(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(
+        media_routes,
+        "get_profile_photo_bytes_by_dni",
+        lambda dni: {
+            "mime_type": "image/jpeg",
+            "ext": "jpg",
+            "data": b"\xff\xd8\xff\xdb",
+            "updated_at": datetime.datetime(2026, 3, 1, 12, 0, 0),
+        },
+    )
+
+    first = client.get("/empleados/imagen/30123456?v=1709294400")
+    assert first.status_code == 200
+    etag = first.headers.get("ETag")
+    assert etag
+
+    second = client.get(
+        "/empleados/imagen/30123456?v=1709294400",
+        headers={"If-None-Match": etag},
+    )
+    assert second.status_code == 304

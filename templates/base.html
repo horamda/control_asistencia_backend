@@ -50,59 +50,87 @@
             </div>
 
             {% if current_role == "admin" %}
-              <div class="nav-group">
-                <div class="nav-label">Organizacion</div>
-                <a class="nav-link" href="/empresas/">Empresas</a>
-                <a class="nav-link" href="/sucursales/">Sucursales</a>
-                <a class="nav-link" href="/sectores/">Sectores</a>
-                <a class="nav-link" href="/puestos/">Puestos</a>
-                <a class="nav-link" href="/localidades/">Localidades</a>
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-organizacion">
+                  <span class="nav-label">Organizacion</span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-organizacion">
+                  <a class="nav-link" href="/empresas/">Empresas</a>
+                  <a class="nav-link" href="/sucursales/">Sucursales</a>
+                  <a class="nav-link" href="/sectores/">Sectores</a>
+                  <a class="nav-link" href="/puestos/">Puestos</a>
+                  <a class="nav-link" href="/localidades/">Localidades</a>
+                </div>
               </div>
             {% endif %}
 
             {% if current_role in ["admin", "rrhh"] %}
-              <div class="nav-group">
-                <div class="nav-label">Personas</div>
-                <a class="nav-link" href="/empleados/">Empleados</a>
-                <a class="nav-link" href="/legajos/">Legajos</a>
-                {% if current_role == "admin" %}
-                  <a class="nav-link" href="/roles/">Roles empleados</a>
-                  <a class="nav-link" href="/empleado-roles/">Asignar roles empleados</a>
-                  <a class="nav-link" href="/usuarios/">Usuarios panel</a>
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-personas">
+                  <span class="nav-label">Personas</span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-personas">
+                  <a class="nav-link" href="/empleados/">Empleados</a>
+                  <a class="nav-link" href="/legajos/">Legajos</a>
+                  <a class="nav-link" href="/legajos/eventos/">Eventos legajo</a>
+                  <a class="nav-link" href="/legajos/tipos-evento/">Tipos evento legajo</a>
+                  {% if current_role == "admin" %}
+                    <a class="nav-link" href="/roles/">Roles empleados</a>
+                    <a class="nav-link" href="/empleado-roles/">Asignar roles empleados</a>
+                    <a class="nav-link" href="/usuarios/">Usuarios panel</a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
+
+            {% if current_role in ["admin", "rrhh"] %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-horarios">
+                  <span class="nav-label">Horarios</span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-horarios">
+                  <a class="nav-link" href="/horarios/">Plantillas</a>
+                  <a class="nav-link" href="/empleado-horarios/">Asignaciones</a>
+                  <a class="nav-link" href="/empleado-excepciones/">Excepciones</a>
+                </div>
+              </div>
+            {% endif %}
+
+            <div class="nav-group" data-collapsible="1">
+              <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-asistencia">
+                <span class="nav-label">Asistencia</span>
+                <span class="nav-caret" aria-hidden="true"></span>
+              </button>
+              <div class="nav-submenu" id="nav-submenu-asistencia">
+                <a class="nav-link" href="/asistencias/">Asistencias</a>
+                {% if current_role in ["admin", "rrhh", "supervisor"] %}
+                  <a class="nav-link" href="/asistencias/marcas">Historial marcas</a>
+                  <a class="nav-link" href="/asistencias/planilla">Planilla diaria</a>
+                {% endif %}
+                {% if current_role in ["admin", "rrhh"] %}
+                  <a class="nav-link" href="/qr-puerta/">QR puerta</a>
+                {% endif %}
+                <a class="nav-link" href="/justificaciones/">Justificaciones</a>
+                {% if current_role in ["admin", "rrhh"] %}
+                  <a class="nav-link" href="/francos/">Francos</a>
+                  <a class="nav-link" href="/vacaciones/">Vacaciones</a>
                 {% endif %}
               </div>
-            {% endif %}
-
-            {% if current_role in ["admin", "rrhh"] %}
-              <div class="nav-group">
-                <div class="nav-label">Horarios</div>
-                <a class="nav-link" href="/horarios/">Plantillas</a>
-                <a class="nav-link" href="/empleado-horarios/">Asignaciones</a>
-                <a class="nav-link" href="/empleado-excepciones/">Excepciones</a>
-              </div>
-            {% endif %}
-
-            <div class="nav-group">
-              <div class="nav-label">Asistencia</div>
-              <a class="nav-link" href="/asistencias/">Asistencias</a>
-              {% if current_role in ["admin", "rrhh", "supervisor"] %}
-                <a class="nav-link" href="/asistencias/marcas">Historial marcas</a>
-              {% endif %}
-              {% if current_role in ["admin", "rrhh"] %}
-                <a class="nav-link" href="/qr-puerta/">QR puerta</a>
-              {% endif %}
-              <a class="nav-link" href="/justificaciones/">Justificaciones</a>
-              {% if current_role in ["admin", "rrhh"] %}
-                <a class="nav-link" href="/francos/">Francos</a>
-                <a class="nav-link" href="/vacaciones/">Vacaciones</a>
-              {% endif %}
             </div>
 
             {% if current_role == "admin" %}
-              <div class="nav-group">
-                <div class="nav-label">Sistema</div>
-                <a class="nav-link" href="/configuracion-empresa/">Configuracion</a>
-                <a class="nav-link" href="/auditoria/">Auditoria</a>
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-sistema">
+                  <span class="nav-label">Sistema</span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-sistema">
+                  <a class="nav-link" href="/configuracion-empresa/">Configuracion</a>
+                  <a class="nav-link" href="/auditoria/">Auditoria</a>
+                </div>
               </div>
             {% endif %}
           </nav>

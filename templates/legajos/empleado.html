@@ -1,18 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Legajo empleado{% endblock %}
 {% block content %}
+{% set default_foto_url = url_for('static', filename='img/empleado-default.svg') %}
+{% set foto_empleado_url = empleado.foto or default_foto_url %}
 <div class="content-stack">
   <div class="section-head">
-    <div>
-      <div class="section-kicker">Legajo</div>
-      <h2>{{ empleado.apellido }} {{ empleado.nombre }}</h2>
-      <p class="module-intro">
-        Legajo: {{ empleado.legajo }} | DNI: {{ empleado.dni }} | Empresa: {{ empleado.empresa_id }}
-      </p>
+    <div class="employee-head">
+      {% if empleado.foto %}
+        <a href="{{ empleado.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
+          <img
+            class="employee-avatar lg"
+            src="{{ foto_empleado_url }}"
+            alt="Foto {{ empleado.apellido }} {{ empleado.nombre }}"
+            loading="lazy"
+            data-fallback="{{ default_foto_url }}"
+            onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
+          >
+        </a>
+      {% else %}
+        <img
+          class="employee-avatar lg"
+          src="{{ default_foto_url }}"
+          alt="Foto general"
+          loading="lazy"
+        >
+      {% endif %}
+      <div class="employee-head-meta">
+        <div class="section-kicker">Legajo</div>
+        <h2>{{ empleado.apellido }} {{ empleado.nombre }}</h2>
+        <p class="module-intro">
+          Legajo: {{ empleado.legajo }} | DNI: {{ empleado.dni }} | Empresa: {{ empleado.empresa_id }}
+        </p>
+      </div>
     </div>
     <div class="chip-row">
       <span class="chip">Eventos</span>
       <span class="chip">Adjuntos</span>
+      <a class="chip" href="{{ url_for('legajos.listado_eventos', empleado_id=empleado.id) }}">Ver listado</a>
     </div>
   </div>
 
@@ -74,6 +98,7 @@
       <div class="row span-2">
         <label>Adjuntos (JPG/PNG/WEBP/PDF)</label>
         <input type="file" name="adjuntos" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
+        <div class="helper-text">Se convierten y almacenan en PDF optimizado.</div>
       </div>
     </div>
     <div class="actions">
@@ -137,6 +162,7 @@
                 <form method="post" action="{{ url_for('legajos.agregar_adjuntos', emp_id=empleado.id, evento_id=ev.id) }}" enctype="multipart/form-data">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="file" name="adjuntos" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
+                  <div class="helper-text">Se guardan en PDF optimizado.</div>
                   <button type="submit">Subir</button>
                 </form>
               {% else %}
@@ -146,8 +172,8 @@
             <td data-label="Acciones">
               {% if ev.estado == "vigente" %}
                 <div class="inline-actions">
-                  <a href="{{ url_for('legajos.editar_evento', emp_id=empleado.id, evento_id=ev.id) }}">Editar</a>
-                  <form method="post" action="{{ url_for('legajos.anular_evento_route', emp_id=empleado.id, evento_id=ev.id) }}">
+                  <a href="{{ url_for('legajos.editar_evento', emp_id=empleado.id, evento_id=ev.id, next=request.path) }}">Editar</a>
+                  <form method="post" action="{{ url_for('legajos.anular_evento_route', emp_id=empleado.id, evento_id=ev.id, next=request.path) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="text" name="motivo_anulacion" placeholder="Motivo (opcional)" maxlength="255">
                     <button class="btn-danger" type="submit">Anular</button>

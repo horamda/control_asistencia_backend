@@ -44,15 +44,17 @@ def upsert(data: dict):
                 requiere_foto,
                 requiere_geo,
                 tolerancia_global,
-                cooldown_scan_segundos
+                cooldown_scan_segundos,
+                intervalo_minimo_fichadas_minutos
             )
-            VALUES (%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s)
             ON DUPLICATE KEY UPDATE
                 requiere_qr = VALUES(requiere_qr),
                 requiere_foto = VALUES(requiere_foto),
                 requiere_geo = VALUES(requiere_geo),
                 tolerancia_global = VALUES(tolerancia_global),
-                cooldown_scan_segundos = VALUES(cooldown_scan_segundos)
+                cooldown_scan_segundos = VALUES(cooldown_scan_segundos),
+                intervalo_minimo_fichadas_minutos = VALUES(intervalo_minimo_fichadas_minutos)
         """, (
             data.get("empresa_id"),
             1 if data.get("requiere_qr") else 0,
@@ -60,6 +62,7 @@ def upsert(data: dict):
             1 if data.get("requiere_geo") else 0,
             data.get("tolerancia_global"),
             data.get("cooldown_scan_segundos"),
+            data.get("intervalo_minimo_fichadas_minutos"),
         ))
         db.commit()
         return True

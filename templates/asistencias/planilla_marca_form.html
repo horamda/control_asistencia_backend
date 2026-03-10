@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar marca{% else %}Agregar marca{% endif %}{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>{% if mode == "edit" %}Editar marca #{{ marca.id }}{% else %}Agregar marca{% endif %}</h2>
+      <p class="module-intro">
+        Ajuste puntual de marca detectada en planilla diaria.
+      </p>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="errors">{{ error }}</div>
+  {% endif %}
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="empresa_id" value="{{ empresa_id or '' }}">
+    <input type="hidden" name="sucursal_id" value="{{ sucursal_id or '' }}">
+    <input type="hidden" name="fecha" value="{{ fecha }}">
+    {% if mode == "new" %}
+      <input type="hidden" name="asistencia_id" value="{{ marca.asistencia_id }}">
+      <input type="hidden" name="accion" value="{{ marca.accion }}">
+    {% endif %}
+
+    <div class="form-grid">
+      <div class="row">
+        <label>Asistencia</label>
+        <input value="#{{ marca.asistencia_id or '-' }}" disabled>
+      </div>
+      <div class="row">
+        <label>Fecha</label>
+        <input value="{{ marca.fecha }}" disabled>
+      </div>
+      <div class="row">
+        <label>Accion</label>
+        {% if mode == "edit" %}
+          <select name="accion">
+            <option value="ingreso" {% if marca.accion == "ingreso" %}selected{% endif %}>ingreso</option>
+            <option value="egreso" {% if marca.accion == "egreso" %}selected{% endif %}>egreso</option>
+          </select>
+        {% else %}
+          <input value="{{ marca.accion }}" disabled>
+        {% endif %}
+      </div>
+      <div class="row">
+        <label>Hora (HH:MM)</label>
+        <input name="hora" value="{{ marca.hora or '' }}" placeholder="07:00" required>
+      </div>
+      <div class="row span-2">
+        <label>Observaciones</label>
+        <input name="observaciones" value="{{ marca.observaciones or '' }}" placeholder="Motivo de correccion">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('asistencias.planilla', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

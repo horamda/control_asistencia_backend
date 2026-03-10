@@ -129,3 +129,6 @@ Documento generado automaticamente desde rutas activas del backend.
 | `DELETE` | `/api/v1/mobile/me/perfil/foto` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_delete_profile_photo` |
 | `POST` | `/api/v1/mobile/me/qr` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_generar_qr` |
 | `POST` | `/auth/login` | publico | - | `routes/auth_routes.py:login` |
+| `GET` | `/media/empleados/foto/<dni>` | publico | - | `routes/media_routes.py:empleado_foto` |
+| `GET` | `/empleados/imagen/<dni>` | publico | - | `routes/media_routes.py:empleado_imagen` |
+| `GET` | `/media/legajos/adjunto/<int:adjunto_id>` | sesion web | admin, rrhh, supervisor | `routes/media_routes.py:legajo_adjunto` |

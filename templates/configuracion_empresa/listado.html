@@ -32,6 +32,7 @@
             <th>Geo</th>
             <th>Tolerancia (min)</th>
             <th>Cooldown QR (seg)</th>
+            <th>Intervalo fichadas (min)</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -62,6 +63,7 @@
             </td>
             <td data-label="Tolerancia (min)">{{ c.tolerancia_global if c.tolerancia_global is not none else "-" }}</td>
             <td data-label="Cooldown QR (seg)">{{ c.cooldown_scan_segundos if c.cooldown_scan_segundos is not none else 60 }}</td>
+            <td data-label="Intervalo fichadas (min)">{{ c.intervalo_minimo_fichadas_minutos if c.intervalo_minimo_fichadas_minutos is not none else 60 }}</td>
             <td data-label="Acciones"><a class="btn" href="/configuracion-empresa/editar/{{ c.empresa_id }}">Editar</a></td>
           </tr>
           {% endfor %}

@@ -1,0 +1,84 @@
+{% if planilla_rows %}
+  <div class="table-responsive table-cards planilla-table-wrap">
+    <table class="planilla-table">
+      <thead>
+        <tr>
+          <th>Apellido y nombre</th>
+          {% for idx in range(max_pares) %}
+            <th>Ingreso {{ idx + 1 }}</th>
+            <th>Egreso {{ idx + 1 }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in planilla_rows %}
+        <tr>
+          <td data-label="Apellido y nombre" class="planilla-employee-cell">
+            <div class="planilla-employee-name">{{ row.apellido }} {{ row.nombre }}</div>
+            {% if row.dni %}<div class="planilla-employee-dni">DNI {{ row.dni }}</div>{% endif %}
+            {% if row.errores %}
+              <div class="planilla-errors">
+                {% for err in row.errores %}
+                  <span class="badge danger">{{ err }}</span>{% if not loop.last %}<br>{% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          </td>
+          {% for idx in range(max_pares) %}
+            {% set par = row.pares[idx] if idx < (row.pares|length) else None %}
+            {% set asistencia_ref = (par.asistencia_id if par and par.asistencia_id else row.asistencia_base_id) %}
+            <td data-label="Ingreso {{ idx + 1 }}">
+              <div class="planilla-time-value">{{ par.ingreso if par and par.ingreso else "-" }}</div>
+              {% if par and par.ingreso and par.ingreso_gps_ok is sameas false %}
+                <br><span class="badge danger gps-fraud-badge">Posible fraude GPS</span>
+              {% endif %}
+              {% if show_actions %}
+                <div class="inline-actions planilla-actions">
+                  {% if par and par.ingreso_marca_id %}
+                    <a class="planilla-action-edit" href="{{ url_for('asistencias.planilla_marca_editar', marca_id=par.ingreso_marca_id, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">Editar</a>
+                    <form method="post" action="{{ url_for('asistencias.planilla_marca_eliminar', marca_id=par.ingreso_marca_id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="empresa_id" value="{{ empresa_id or '' }}">
+                      <input type="hidden" name="sucursal_id" value="{{ sucursal_id or '' }}">
+                      <input type="hidden" name="fecha" value="{{ fecha }}">
+                      <button class="planilla-action-delete" type="submit">Eliminar</button>
+                    </form>
+                  {% elif asistencia_ref %}
+                    <a class="planilla-action-add" href="{{ url_for('asistencias.planilla_marca_agregar', asistencia_id=asistencia_ref, accion='ingreso', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">Agregar</a>
+                  {% endif %}
+                </div>
+              {% endif %}
+            </td>
+            <td data-label="Egreso {{ idx + 1 }}">
+              <div class="planilla-time-value">{{ par.egreso if par and par.egreso else "-" }}</div>
+              {% if par and par.egreso and par.egreso_gps_ok is sameas false %}
+                <br><span class="badge danger gps-fraud-badge">Posible fraude GPS</span>
+              {% endif %}
+              {% if show_actions %}
+                <div class="inline-actions planilla-actions">
+                  {% if par and par.egreso_marca_id %}
+                    <a class="planilla-action-edit" href="{{ url_for('asistencias.planilla_marca_editar', marca_id=par.egreso_marca_id, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">Editar</a>
+                    <form method="post" action="{{ url_for('asistencias.planilla_marca_eliminar', marca_id=par.egreso_marca_id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="empresa_id" value="{{ empresa_id or '' }}">
+                      <input type="hidden" name="sucursal_id" value="{{ sucursal_id or '' }}">
+                      <input type="hidden" name="fecha" value="{{ fecha }}">
+                      <button class="planilla-action-delete" type="submit">Eliminar</button>
+                    </form>
+                  {% elif asistencia_ref %}
+                    <a class="planilla-action-add" href="{{ url_for('asistencias.planilla_marca_agregar', asistencia_id=asistencia_ref, accion='egreso', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">Agregar</a>
+                  {% endif %}
+                </div>
+              {% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="empty-state">
+    No hay personas/marcas para los filtros seleccionados.
+  </div>
+{% endif %}

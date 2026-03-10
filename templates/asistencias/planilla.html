@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Planilla diaria de fichadas{% endblock %}
+{% block content %}
+<div class="content-stack planilla-daily-page">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>Planilla diaria de fichadas</h2>
+      <p class="module-intro">
+        Vista operativa para detectar inconsistencias de marcas y saltar rapido a correccion.
+      </p>
+    </div>
+    <div class="chip-row planilla-chip-row">
+      <span class="chip">Por fecha</span>
+      <span class="chip">Por sucursal</span>
+      <span class="chip">Corregible</span>
+    </div>
+  </div>
+
+  {% if error or msg %}
+    {% set ui_message = error or msg %}
+    <div class="center-message-overlay" id="planilla-center-message">
+      <div class="center-message-card {% if error %}is-error{% else %}is-info{% endif %}" role="alert" aria-live="assertive">
+        <div class="center-message-title">{% if error %}Atencion{% else %}Aviso{% endif %}</div>
+        <div class="center-message-text">{{ ui_message }}</div>
+        <button type="button" class="btn btn-secondary center-message-close" id="planilla-center-message-close">
+          Cerrar
+        </button>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var overlay = document.getElementById("planilla-center-message");
+        if (!overlay) return;
+        var closeBtn = document.getElementById("planilla-center-message-close");
+        function dismiss() {
+          overlay.classList.add("is-hidden");
+        }
+        if (closeBtn) {
+          closeBtn.addEventListener("click", dismiss);
+        }
+        window.setTimeout(dismiss, 5200);
+      })();
+    </script>
+  {% endif %}
+
+  <form method="get" action="/asistencias/planilla" class="planilla-filter-form">
+    <h3 class="section-title">Filtros</h3>
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id">
+          <option value="">Todas</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Sucursal</label>
+        <select name="sucursal_id">
+          <option value="">Todas</option>
+          {% for s in sucursales %}
+            <option value="{{ s.id }}" {% if sucursal_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Fecha</label>
+        <input type="date" name="fecha" value="{{ fecha }}" max="{{ today }}">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Ver planilla</button>
+      <a class="btn btn-secondary" href="/asistencias/planilla">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="muted-box planilla-context-strip">
+    <strong>Empresa:</strong> {{ empresa_sel.razon_social if empresa_sel else "-" }} |
+    <strong>Sucursal:</strong> {{ sucursal_sel.nombre if sucursal_sel else "-" }} |
+    <strong>Fecha:</strong> {{ fecha }} |
+    <strong>Intervalo minimo:</strong> {{ intervalo_minimo_fichadas }} min
+  </div>
+
+  <div class="results-bar">
+    <div class="summary">Personas en planilla: {{ planilla_rows|length }}</div>
+  </div>
+  {% set show_actions = true %}
+  {% include "asistencias/_planilla_table.html" %}
+
+  <div class="actions planilla-footer-actions">
+    <a class="btn btn-secondary" href="/asistencias/">Volver a asistencias</a>
+    <a class="btn btn-secondary" href="/asistencias/marcas?fecha_desde={{ fecha }}&fecha_hasta={{ fecha }}{% if empresa_id %}&empresa_id={{ empresa_id }}{% endif %}">
+      Ver historial del dia
+    </a>
+    <a class="btn btn-secondary" href="{{ url_for('asistencias.planilla_xls', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">
+      Exportar Excel
+    </a>
+    <a class="btn btn-secondary" target="_blank" rel="noopener" href="{{ url_for('asistencias.planilla_pdf', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha, auto_print=1) }}">
+      Exportar PDF
+    </a>
+  </div>
+</div>
+{% endblock %}

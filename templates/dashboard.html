@@ -15,10 +15,65 @@
       <span class="chip">Mes en curso</span>
       <span class="chip">Acumulado anual</span>
       <span class="chip">Riesgo RRHH</span>
+      <span class="chip">Alcance: {{ scope.label if scope is defined else stats.scope_label }}</span>
     </div>
   </div>
+  <form
+    id="dashboard-filter-form"
+    method="get"
+    action="{{ url_for('web.dashboard') }}"
+    class="dashboard-filter-form"
+  >
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id" id="dashboard-empresa">
+          <option value="">Todas</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if filtros.empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Sucursal</label>
+        <select name="sucursal_id" id="dashboard-sucursal">
+          <option value="">Todas</option>
+          {% for s in sucursales %}
+            <option value="{{ s.id }}" data-empresa-id="{{ s.empresa_id }}" {% if filtros.sucursal_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="dashboard-filter-meta" id="dashboard-filter-meta" aria-live="polite"></div>
+    <div class="actions">
+      <button type="submit">Aplicar filtros</button>
+      <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Limpiar</a>
+    </div>
+  </form>
+  <nav class="dashboard-jump" aria-label="Navegacion rapida del dashboard">
+    <a href="#dash-kpis">KPIs</a>
+    <a href="#dash-riesgo">Riesgo</a>
+    <a href="#dash-tendencias">Tendencias</a>
+    <a href="#dash-sucursal">Sucursal</a>
+    <a href="#dash-horas">Horas</a>
+    <a href="#dash-actividad">Actividad</a>
+  </nav>
+  <section class="panel">
+    <h3>Contexto del dashboard</h3>
+    <div class="chip-row">
+      <span class="chip scope-chip-general">GENERAL</span>
+      <span class="chip scope-chip-filtered">FILTRADO</span>
+    </div>
+    <ul class="list-clean">
+      <li>Vista actual: <strong>{{ scope.label if scope is defined else stats.scope_label }}</strong></li>
+      <li>Valores generales del sistema (sin filtros): <strong>Asistencias mes {{ stats.get("global_asistencias_mes", stats.asistencias_mes) }}</strong> | <strong>Ausencias mes {{ stats.get("global_ausentes_mes", stats.ausentes_mes) }}</strong> | <strong>Ausentismo {{ "%.1f"|format(stats.get("global_ausentismo_mes_pct", stats.ausentismo_mes_pct)) }}%</strong></li>
+    </ul>
+  </section>
 
-  <section class="grid-kpis dashboard-kpis dashboard-block" style="--mobile-order: 1;">
+  <section id="dash-kpis" class="grid-kpis dashboard-kpis dashboard-block" style="--mobile-order: 1;">
+    <div class="chip-row">
+      <span class="chip scope-chip-filtered">FILTRADO</span>
+    </div>
     <article class="kpi-card" style="--kpi-order: 9;">
       <div class="kpi-label">Empleados activos</div>
       <div class="kpi-value">{{ stats.empleados_activos }}</div>
@@ -52,6 +107,14 @@
     <article class="kpi-card" style="--kpi-order: 10;">
       <div class="kpi-label">Justificaciones mes</div>
       <div class="kpi-value">{{ stats.justificaciones_mes_total }}</div>
+    </article>
+    <article class="kpi-card" style="--kpi-order: 18;">
+      <div class="kpi-label">Eventos legajo mes</div>
+      <div class="kpi-value">{{ stats.get("legajo_eventos_mes", 0) }}</div>
+    </article>
+    <article class="kpi-card" style="--kpi-order: 19;">
+      <div class="kpi-label">Eventos legajo vigentes</div>
+      <div class="kpi-value">{{ stats.get("legajo_eventos_vigentes", 0) }}</div>
     </article>
     <article class="kpi-card" style="--kpi-order: 11;">
       <div class="kpi-label">
@@ -122,8 +185,9 @@
     </article>
   </section>
 
-  <section class="panel dashboard-block" style="--mobile-order: 2;">
+  <section id="dash-riesgo" class="panel dashboard-block" style="--mobile-order: 2;">
     <h3>Semaforo de riesgo (mes)</h3>
+    <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
     <div class="risk-grid">
       <div class="risk-item">
         <div class="risk-head">
@@ -159,6 +223,7 @@
   <section class="panel-grid dashboard-block" style="--mobile-order: 4;">
     <article class="panel">
       <h3>Justificaciones del mes</h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.justificaciones_estado_mes %}
         <div class="status-stack">
           {% for s in charts.justificaciones_estado_mes %}
@@ -183,6 +248,7 @@
     </article>
     <article class="panel">
       <h3>Vacaciones (mes y anual)</h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       <ul class="list-clean">
         <li>En curso hoy: <strong>{{ stats.vacaciones_en_curso_hoy }}</strong></li>
         <li>Proximas 30 dias: <strong>{{ stats.vacaciones_proximas_30d }}</strong></li>
@@ -211,6 +277,7 @@
       <span class="copy-desktop">Vacaciones proximas (30 dias)</span>
       <span class="copy-mobile">Vacaciones proximas 30d</span>
     </h3>
+    <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
     {% if charts.vacaciones_proximas_detalle %}
       <div class="table-responsive table-cards dashboard-mobile-compact">
         <table>
@@ -241,12 +308,13 @@
     {% endif %}
   </section>
 
-  <section class="panel-grid dashboard-block" style="--mobile-order: 6;">
+  <section id="dash-tendencias" class="panel-grid dashboard-block" style="--mobile-order: 6;">
     <article class="panel">
       <h3>
         <span class="copy-desktop">Tendencia diaria (ultimos 7 dias)</span>
         <span class="copy-mobile">Tendencia diaria 7d</span>
       </h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.daily_7d %}
         <div class="rrhh-legend">
           <span><i class="legend-dot total"></i>Asistencias</span>
@@ -275,6 +343,7 @@
         <span class="copy-desktop">Distribucion de estados (30 dias)</span>
         <span class="copy-mobile">Estados 30d</span>
       </h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.status_30d %}
         {% set pie = namespace(ok=0.0, tarde=0.0, ausente=0.0, salida=0.0, otros=0.0) %}
         {% for s in charts.status_30d %}
@@ -327,6 +396,7 @@
       <span class="copy-desktop">Top empresas con mas ausencias/tardanzas (30 dias)</span>
       <span class="copy-mobile">Top empresas por ausencias/tardanzas</span>
     </h3>
+    <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
     {% if charts.empresa_top_30d %}
       <div class="company-chart">
         {% for e in charts.empresa_top_30d %}
@@ -356,6 +426,7 @@
         <span class="copy-desktop">Top reincidencia (incidentes del mes)</span>
         <span class="copy-mobile">Top reincidencia mes</span>
       </h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       <p class="helper-text">
         <span class="copy-desktop">Umbral actual: {{ stats.reincidencia_umbral }} o mas incidentes (ausente/tarde/salida anticipada).</span>
         <span class="copy-mobile">Umbral: {{ stats.reincidencia_umbral }}+ incidentes en el mes.</span>
@@ -406,6 +477,7 @@
 
     <article class="panel">
       <h3>Rachas de asistencia perfecta</h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.streak_top_empleados %}
         {% set max_streak = charts.streak_top_empleados | map(attribute='streak') | max %}
         <div class="mini-bars">
@@ -454,6 +526,7 @@
       <span class="copy-desktop">Personas con mas ausencias (acumulado anual)</span>
       <span class="copy-mobile">Top ausencias anual (personas)</span>
     </h3>
+    <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
     {% if charts.persona_top_ausencias_anio %}
       <div class="table-responsive table-cards dashboard-mobile-compact">
         <table>
@@ -492,6 +565,7 @@
         <span class="copy-desktop">Ausentismo normalizado por empresa</span>
         <span class="copy-mobile">Ausentismo por empresa</span>
       </h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.ausentismo_rank_empresa %}
         {% set max_emp_idx = charts.ausentismo_rank_empresa | map(attribute='indice_ausencias_por_empleado') | max %}
         <div class="mini-bars">
@@ -523,6 +597,7 @@
         <span class="copy-desktop">Ausentismo normalizado por sector</span>
         <span class="copy-mobile">Ausentismo por sector</span>
       </h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.ausentismo_rank_sector %}
         {% set max_sec_idx = charts.ausentismo_rank_sector | map(attribute='indice_ausencias_por_empleado') | max %}
         <div class="mini-bars">
@@ -551,12 +626,34 @@
     </article>
   </section>
 
-  <section class="panel dashboard-block" style="--mobile-order: 11;">
+  <section id="dash-sucursal" class="panel dashboard-block" style="--mobile-order: 11;">
     <h3>
       <span class="copy-desktop">Ausentismo normalizado por sucursal</span>
       <span class="copy-mobile">Ausentismo por sucursal</span>
     </h3>
+    <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
+    <ul class="list-clean">
+      <li>
+        Alcance actual:
+        <strong>Asistencias {{ stats.get("resumen_asistencias_mes", stats.asistencias_mes) }}</strong> |
+        <strong>Ausencias {{ stats.get("resumen_ausentes_mes", stats.ausentes_mes) }}</strong> |
+        <strong>Ausentismo {{ "%.1f"|format(stats.get("resumen_ausentismo_mes_pct", stats.ausentismo_mes_pct)) }}%</strong>
+      </li>
+      <li>
+        General sistema:
+        <strong>Asistencias {{ stats.get("global_asistencias_mes", stats.asistencias_mes) }}</strong> |
+        <strong>Ausencias {{ stats.get("global_ausentes_mes", stats.ausentes_mes) }}</strong> |
+        <strong>Ausentismo {{ "%.1f"|format(stats.get("global_ausentismo_mes_pct", stats.ausentismo_mes_pct)) }}%</strong>
+      </li>
+      <li>
+        Legajo (alcance actual):
+        <strong>Eventos mes {{ stats.get("legajo_eventos_mes", 0) }}</strong> |
+        <strong>Vigentes {{ stats.get("legajo_eventos_vigentes", 0) }}</strong> |
+        <strong>Total historico {{ stats.get("legajo_eventos_total", 0) }}</strong>
+      </li>
+    </ul>
     {% if charts.ausentismo_rank_sucursal %}
+      {% set sucursal_rows = charts.resumen_sucursal_mes if charts.resumen_sucursal_mes else charts.ausentismo_rank_sucursal %}
       {% set max_suc_idx = charts.ausentismo_rank_sucursal | map(attribute='indice_ausencias_por_empleado') | max %}
       <div class="mini-bars">
         {% for r in charts.ausentismo_rank_sucursal %}
@@ -574,20 +671,34 @@
           <thead>
             <tr>
               <th>Sucursal</th>
+              <th>Asistencias mes</th>
               <th>Ausencias mes</th>
+              <th>Tardes mes</th>
               <th>Dotacion</th>
+              <th>Eventos legajo mes</th>
+              <th>Eventos legajo vigentes</th>
               <th>Indice ausencias/empleado</th>
               <th>Tasa diaria (%)</th>
             </tr>
           </thead>
           <tbody>
-            {% for r in charts.ausentismo_rank_sucursal %}
+            {% for r in sucursal_rows %}
               <tr>
                 <td data-label="Sucursal" data-label-mobile="Suc.">{{ r.nombre }}</td>
+                <td data-label="Asistencias mes" data-label-mobile="Asist.">{{ r.asistencias_mes or 0 }}</td>
                 <td data-label="Ausencias mes" data-label-mobile="Aus. mes">{{ r.ausentes }}</td>
+                <td data-label="Tardes mes" data-label-mobile="Tardes">{{ r.tardes_mes or 0 }}</td>
                 <td data-label="Dotacion" data-label-mobile="Dot.">{{ r.dotacion }}</td>
+                <td data-label="Eventos legajo mes" data-label-mobile="Ev. legajo">{{ r.eventos_legajo_mes or 0 }}</td>
+                <td data-label="Eventos legajo vigentes" data-label-mobile="Ev. vig.">{{ r.eventos_legajo_vigentes or 0 }}</td>
                 <td data-label="Indice ausencias/empleado" data-label-mobile="Ind. aus/emp">{{ "%.2f"|format(r.indice_ausencias_por_empleado) }}</td>
-                <td data-label="Tasa diaria (%)" data-label-mobile="Tasa (%)">{{ "%.2f"|format(r.tasa_pct) }}</td>
+                <td data-label="Tasa diaria (%)" data-label-mobile="Tasa (%)">
+                  {% if r.ausentismo_pct is defined %}
+                    {{ "%.2f"|format(r.ausentismo_pct) }}
+                  {% else %}
+                    {{ "%.2f"|format(r.tasa_pct) }}
+                  {% endif %}
+                </td>
               </tr>
             {% endfor %}
           </tbody>
@@ -598,12 +709,14 @@
     {% endif %}
   </section>
 
-  <section class="panel-grid dashboard-block" style="--mobile-order: 12;">
+  <section id="dash-horas" class="panel-grid dashboard-block" style="--mobile-order: 12;">
     <article class="panel">
       <h3>
         <span class="copy-desktop">Horas esperadas vs registradas (mes)</span>
         <span class="copy-mobile">Horas: esperadas vs registradas</span>
       </h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
+      <p class="helper-text">Alcance actual: <strong>{{ scope.label if scope is defined else stats.scope_label }}</strong></p>
       {% set max_horas = [stats.horas_registradas_mes, stats.horas_esperadas_mes, 1] | max %}
       <div class="mini-bars">
         <div class="mini-row">
@@ -627,17 +740,91 @@
         <li>Empleados con planilla: <strong>{{ stats.empleados_con_planilla_mes }}</strong></li>
         <li>Desvio: <strong>{{ "%.1f"|format(stats.desvio_horas_mes) }} h</strong></li>
         <li>Cumplimiento horas: <strong>{{ "%.1f"|format(stats.cumplimiento_horas_mes_pct) }}%</strong></li>
+        {% if (scope is defined and scope.is_segmented) or (stats.get("scope_kind") != "general") %}
+          <li>General sistema - registradas: <strong>{{ "%.1f"|format(stats.get("global_horas_registradas_mes", stats.horas_registradas_mes)) }} h</strong></li>
+          <li>General sistema - esperadas: <strong>{{ "%.1f"|format(stats.get("global_horas_esperadas_mes", stats.horas_esperadas_mes)) }} h</strong></li>
+          <li>General sistema - desvio: <strong>{{ "%.1f"|format(stats.get("global_desvio_horas_mes", stats.desvio_horas_mes)) }} h</strong></li>
+        {% endif %}
       </ul>
       <div class="helper-text">
         <span class="copy-desktop">Calculo estimado sobre horario asignado y bloques del dia; no incluye aprobacion manual de excepciones.</span>
         <span class="copy-mobile">Calculo estimado segun horario asignado y bloques del dia.</span>
       </div>
+      {% set horas_por_plantilla = charts.get("horas_por_plantilla_mes", []) %}
+      {% if horas_por_plantilla %}
+        <h4 class="section-title">Horas por plantilla (alcance actual)</h4>
+        <div class="table-responsive table-cards dashboard-mobile-compact">
+          <table>
+            <thead>
+              <tr>
+                <th>Plantilla</th>
+                <th>Empresa</th>
+                <th>Sucursal</th>
+                <th>Empleados</th>
+                <th>Horas esperadas</th>
+                <th>Horas registradas</th>
+                <th>Desvio</th>
+                <th>Cumplimiento</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for h in horas_por_plantilla %}
+                <tr>
+                  <td data-label="Plantilla" data-label-mobile="Plant.">{{ h.horario_nombre }}</td>
+                  <td data-label="Empresa" data-label-mobile="Emp.">{{ h.empresa_nombre or "-" }}</td>
+                  <td data-label="Sucursal" data-label-mobile="Suc.">{{ h.sucursal_nombre or "-" }}</td>
+                  <td data-label="Empleados" data-label-mobile="Emp.">{{ h.empleados_con_planilla }}</td>
+                  <td data-label="Horas esperadas" data-label-mobile="Esp.">{{ "%.1f"|format(h.horas_esperadas) }}h</td>
+                  <td data-label="Horas registradas" data-label-mobile="Reg.">{{ "%.1f"|format(h.horas_registradas) }}h</td>
+                  <td data-label="Desvio" data-label-mobile="Desv.">{{ "%.1f"|format(h.desvio_horas) }}h</td>
+                  <td data-label="Cumplimiento" data-label-mobile="Cumpl.">{{ "%.1f"|format(h.cumplimiento_pct) }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+      {% set horas_por_sucursal = charts.get("horas_por_sucursal_mes", []) %}
+      {% if horas_por_sucursal %}
+        <h4 class="section-title">Horas por sucursal (alcance actual)</h4>
+        <div class="table-responsive table-cards dashboard-mobile-compact">
+          <table>
+            <thead>
+              <tr>
+                <th>Sucursal</th>
+                <th>Empresa</th>
+                <th>Plantillas</th>
+                <th>Empleados</th>
+                <th>Horas esperadas</th>
+                <th>Horas registradas</th>
+                <th>Desvio</th>
+                <th>Cumplimiento</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for h in horas_por_sucursal %}
+                <tr>
+                  <td data-label="Sucursal" data-label-mobile="Suc.">{{ h.sucursal_nombre or "-" }}</td>
+                  <td data-label="Empresa" data-label-mobile="Emp.">{{ h.empresa_nombre or "-" }}</td>
+                  <td data-label="Plantillas" data-label-mobile="Plant.">{{ h.plantillas_activas }}</td>
+                  <td data-label="Empleados" data-label-mobile="Emp.">{{ h.empleados_con_planilla }}</td>
+                  <td data-label="Horas esperadas" data-label-mobile="Esp.">{{ "%.1f"|format(h.horas_esperadas) }}h</td>
+                  <td data-label="Horas registradas" data-label-mobile="Reg.">{{ "%.1f"|format(h.horas_registradas) }}h</td>
+                  <td data-label="Desvio" data-label-mobile="Desv.">{{ "%.1f"|format(h.desvio_horas) }}h</td>
+                  <td data-label="Cumplimiento" data-label-mobile="Cumpl.">{{ "%.1f"|format(h.cumplimiento_pct) }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
     </article>
     <article class="panel">
       <h3>
         <span class="copy-desktop">Lead time de regularizacion (mes)</span>
         <span class="copy-mobile">Lead time regularizacion mes</span>
       </h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% set total_inc = stats.incidentes_regularizados_mes + stats.incidentes_sin_regularizar_mes %}
       {% set pct_reg = ((stats.incidentes_regularizados_mes * 100) / total_inc) if total_inc > 0 else 0 %}
       {% set pct_pen = ((stats.incidentes_sin_regularizar_mes * 100) / total_inc) if total_inc > 0 else 0 %}
@@ -664,18 +851,21 @@
   <section class="panel-grid dashboard-state-grid dashboard-block" style="--mobile-order: 3;">
     <article class="panel dashboard-links" style="--mobile-order: 2;">
       <h3>Accesos rapidos</h3>
+      <div class="chip-row"><span class="chip scope-chip-general">GENERAL</span></div>
       <div class="quick-links">
         <a href="/horarios/">Gestionar plantillas de horarios</a>
         <a href="/empleado-horarios/">Asignaciones vigentes por empleado</a>
         <a href="/empleado-excepciones/">Registrar excepciones puntuales</a>
         <a href="/asistencias/">Control diario de asistencias</a>
         <a href="/justificaciones/">Gestion de justificaciones</a>
+        <a href="/legajos/eventos/">Eventos de legajo</a>
         <a href="/vacaciones/">Gestion de vacaciones</a>
         <a href="/auditoria/">Trazabilidad y auditoria</a>
       </div>
     </article>
     <article class="panel dashboard-state" style="--mobile-order: 1;">
       <h3>Estado general</h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       <ul class="list-clean">
         <li>Asistencias hoy: <strong>{{ stats.asistencias_hoy }}</strong></li>
         <li>Tardanzas hoy: <strong>{{ stats.tardes_hoy }}</strong></li>
@@ -689,12 +879,16 @@
         <li>Ausencias anio: <strong>{{ stats.ausentes_anio }}</strong></li>
         <li>Horarios activos: <strong>{{ stats.horarios_activos }}</strong></li>
         <li>Asignaciones vigentes: <strong>{{ stats.asignaciones_vigentes }}</strong></li>
+        <li>Eventos legajo mes: <strong>{{ stats.get("legajo_eventos_mes", 0) }}</strong></li>
+        <li>Eventos legajo vigentes: <strong>{{ stats.get("legajo_eventos_vigentes", 0) }}</strong></li>
+        <li>Eventos legajo total: <strong>{{ stats.get("legajo_eventos_total", 0) }}</strong></li>
       </ul>
     </article>
   </section>
 
-  <section class="panel dashboard-block" style="--mobile-order: 13;">
+  <section id="dash-actividad" class="panel dashboard-block" style="--mobile-order: 13;">
     <h3>Actividad reciente</h3>
+    <div class="chip-row"><span class="chip scope-chip-general">GENERAL</span></div>
     {% if recent_events %}
       <ul class="list-clean">
         {% for ev in recent_events %}
@@ -710,4 +904,87 @@
     {% endif %}
   </section>
 </div>
+<script>
+  (function () {
+    var form = document.querySelector(".dashboard-filter-form");
+    var empresa = document.getElementById("dashboard-empresa");
+    var sucursal = document.getElementById("dashboard-sucursal");
+    var filterMeta = document.getElementById("dashboard-filter-meta");
+    var jumpLinks = Array.from(document.querySelectorAll(".dashboard-jump a"));
+    if (!form || !empresa || !sucursal) return;
+
+    function filterSucursales() {
+      var empresaId = String(empresa.value || "");
+      var selected = String(sucursal.value || "");
+      var keepSelected = false;
+      var enabledCount = 0;
+
+      Array.from(sucursal.options).forEach(function (opt) {
+        if (!opt.value) {
+          opt.hidden = false;
+          opt.disabled = false;
+          return;
+        }
+        var optEmpresaId = String(opt.getAttribute("data-empresa-id") || "");
+        var visible = !empresaId || optEmpresaId === empresaId;
+        opt.hidden = !visible;
+        opt.disabled = !visible;
+        if (visible) enabledCount += 1;
+        if (visible && String(opt.value) === selected) keepSelected = true;
+      });
+
+      if (!keepSelected) {
+        sucursal.value = "";
+      }
+      sucursal.disabled = enabledCount === 0 && !!empresaId;
+    }
+
+    function updateFilterSummary() {
+      if (!filterMeta) return;
+      var empresaOpt = empresa.options[empresa.selectedIndex];
+      var sucursalOpt = sucursal.options[sucursal.selectedIndex];
+      var empresaName = empresa.value && empresaOpt ? empresaOpt.textContent.trim() : "";
+      var sucursalName = sucursal.value && sucursalOpt ? sucursalOpt.textContent.trim() : "";
+
+      if (!empresaName && !sucursalName) {
+        filterMeta.textContent = "Vista GENERAL: todas las empresas y sucursales.";
+        return;
+      }
+      if (empresaName && !sucursalName) {
+        filterMeta.textContent = "Vista FILTRADA por empresa: " + empresaName + ".";
+        return;
+      }
+      filterMeta.textContent = "Vista FILTRADA: " + empresaName + " / " + sucursalName + ".";
+    }
+
+    function updateJumpActive() {
+      if (!jumpLinks.length) return;
+      var marker = window.scrollY + 140;
+      var activeId = "";
+      jumpLinks.forEach(function (link) {
+        var section = document.querySelector(link.getAttribute("href"));
+        if (!section) return;
+        if (section.offsetTop <= marker) {
+          activeId = section.id;
+        }
+      });
+      jumpLinks.forEach(function (link) {
+        var isActive = ("#" + activeId) === link.getAttribute("href");
+        link.classList.toggle("active", isActive);
+      });
+    }
+
+    empresa.addEventListener("change", function () {
+      filterSucursales();
+      updateFilterSummary();
+    });
+    sucursal.addEventListener("change", updateFilterSummary);
+    window.addEventListener("scroll", updateJumpActive, { passive: true });
+    window.addEventListener("hashchange", updateJumpActive);
+    filterSucursales();
+    updateFilterSummary();
+    updateJumpActive();
+  })();
+</script>
 {% endblock %}
+

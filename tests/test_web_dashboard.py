@@ -206,6 +206,7 @@ def test_dashboard_rrhh_render_ok(monkeypatch):
     resp = client.get("/dashboard")
     assert resp.status_code == 200
     assert b"Dashboard de asistencia" in resp.data
+    assert b"Aplicar filtros" in resp.data
     assert b"Top empresas con mas ausencias/tardanzas" in resp.data
     assert b"Personas con mas ausencias (acumulado anual)" in resp.data
     assert b"Puntualidad mes" in resp.data
@@ -217,5 +218,7 @@ def test_dashboard_rrhh_render_ok(monkeypatch):
     assert b"Top reincidencia (incidentes del mes)" in resp.data
     assert b"Lead time de regularizacion (mes)" in resp.data
     assert b"% ausentismo mes" in resp.data
+    assert b"Eventos legajo mes" in resp.data
+    assert b"Eventos de legajo" in resp.data
     assert b"Empresa A" in resp.data
     assert b"Perez Ana" in resp.data

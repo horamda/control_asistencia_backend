@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Foto general de empleado">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#e6eef9"/>
+      <stop offset="1" stop-color="#d9e4f3"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="128" fill="url(#bg)"/>
+  <circle cx="128" cy="98" r="46" fill="#9db3cd"/>
+  <path d="M54 224c8-39 39-66 74-66s66 27 74 66H54z" fill="#8aa3bf"/>
+</svg>

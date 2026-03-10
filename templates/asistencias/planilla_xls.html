@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <title>Planilla de fichadas {{ fecha }}</title>
+    <style>
+      table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11pt; }
+      th, td { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+      th { background: #e8e8e8; }
+      .meta td { border: 1px solid #000; font-weight: 600; }
+      .badge { border: 1px solid #000; padding: 1px 3px; }
+      .danger { color: #a40000; }
+      .ok { color: #006400; }
+    </style>
+  </head>
+  <body>
+    <table class="meta">
+      <tr>
+        <td>Empresa</td>
+        <td>{{ empresa_sel.razon_social if empresa_sel else "-" }}</td>
+      </tr>
+      <tr>
+        <td>Sucursal</td>
+        <td>{{ sucursal_sel.nombre if sucursal_sel else "-" }}</td>
+      </tr>
+      <tr>
+        <td>Fecha</td>
+        <td>{{ fecha }}</td>
+      </tr>
+      <tr>
+        <td>Intervalo minimo</td>
+        <td>{{ intervalo_minimo_fichadas }} min</td>
+      </tr>
+    </table>
+    <br>
+    {% set show_actions = false %}
+    {% include "asistencias/_planilla_table.html" %}
+  </body>
+</html>

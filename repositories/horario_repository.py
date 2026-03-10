@@ -7,18 +7,26 @@ def get_all(include_inactive: bool = False):
     try:
         if include_inactive:
             cursor.execute("""
-                SELECT h.*, e.razon_social AS empresa_nombre
+                SELECT
+                    h.*,
+                    e.razon_social AS empresa_nombre,
+                    s.nombre AS sucursal_nombre
                 FROM horarios h
                 JOIN empresas e ON e.id = h.empresa_id
-                ORDER BY e.razon_social, h.nombre
+                LEFT JOIN sucursales s ON s.id = h.sucursal_id
+                ORDER BY e.razon_social, s.nombre, h.nombre
             """)
         else:
             cursor.execute("""
-                SELECT h.*, e.razon_social AS empresa_nombre
+                SELECT
+                    h.*,
+                    e.razon_social AS empresa_nombre,
+                    s.nombre AS sucursal_nombre
                 FROM horarios h
                 JOIN empresas e ON e.id = h.empresa_id
+                LEFT JOIN sucursales s ON s.id = h.sucursal_id
                 WHERE h.activo = 1
-                ORDER BY e.razon_social, h.nombre
+                ORDER BY e.razon_social, s.nombre, h.nombre
             """)
         rows = cursor.fetchall()
         return rows
@@ -32,9 +40,15 @@ def get_by_id(horario_id: int):
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT *
+            SELECT
+                h.*,
+                e.razon_social AS empresa_nombre,
+                s.nombre AS sucursal_nombre
             FROM horarios
-            WHERE id = %s
+            h
+            JOIN empresas e ON e.id = h.empresa_id
+            LEFT JOIN sucursales s ON s.id = h.sucursal_id
+            WHERE h.id = %s
         """, (horario_id,))
         row = cursor.fetchone()
         return row
@@ -51,14 +65,16 @@ def create(data: dict):
             INSERT INTO horarios
             (
                 empresa_id,
+                sucursal_id,
                 nombre,
                 tolerancia_min,
                 descripcion,
                 activo
             )
-            VALUES (%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s)
         """, (
             data.get("empresa_id"),
+            data.get("sucursal_id"),
             data.get("nombre"),
             data.get("tolerancia_min"),
             data.get("descripcion"),
@@ -79,6 +95,7 @@ def update(horario_id: int, data: dict):
             UPDATE horarios
             SET
                 empresa_id = %s,
+                sucursal_id = %s,
                 nombre = %s,
                 tolerancia_min = %s,
                 descripcion = %s,
@@ -86,6 +103,7 @@ def update(horario_id: int, data: dict):
             WHERE id = %s
         """, (
             data.get("empresa_id"),
+            data.get("sucursal_id"),
             data.get("nombre"),
             data.get("tolerancia_min"),
             data.get("descripcion"),

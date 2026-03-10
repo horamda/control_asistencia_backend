@@ -3,6 +3,7 @@
 from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
 
 from repositories.empresa_repository import get_all as get_empresas
+from repositories.sucursal_repository import get_all as get_sucursales
 from repositories.horario_repository import get_by_id, set_activo
 from services.horario_service import (
     create_horario_estructurado,
@@ -41,6 +42,7 @@ def _extract_form_data(form):
     dias_payload_raw = (form.get("dias_payload") or "").strip()
     return {
         "empresa_id": _parse_int(form.get("empresa_id")),
+        "sucursal_id": _parse_int(form.get("sucursal_id")),
         "nombre": (form.get("nombre") or "").strip(),
         "tolerancia_min": _parse_int(form.get("tolerancia_min")),
         "descripcion": (form.get("descripcion") or "").strip(),
@@ -69,11 +71,13 @@ def listado():
 @role_required("admin", "rrhh")
 def nuevo():
     empresas = get_empresas()
+    sucursales = get_sucursales(include_inactive=False)
     if request.method == "POST":
         try:
             data = _extract_form_data(request.form)
             payload = {
                 "empresa_id": data["empresa_id"],
+                "sucursal_id": data["sucursal_id"],
                 "nombre": data["nombre"],
                 "tolerancia_min": data["tolerancia_min"],
                 "descripcion": data["descripcion"],
@@ -89,6 +93,7 @@ def nuevo():
                 mode="new",
                 data={
                     "empresa_id": request.form.get("empresa_id"),
+                    "sucursal_id": request.form.get("sucursal_id"),
                     "nombre": request.form.get("nombre"),
                     "tolerancia_min": request.form.get("tolerancia_min"),
                     "descripcion": request.form.get("descripcion"),
@@ -98,6 +103,7 @@ def nuevo():
                 dias_seed=_safe_seed_from_payload(request.form.get("dias_payload") or "[]"),
                 errors=[str(exc)],
                 empresas=empresas,
+                sucursales=sucursales,
             )
 
     return render_template(
@@ -106,6 +112,7 @@ def nuevo():
         data={"activo": True, "dias_payload": "[]"},
         dias_seed=[],
         empresas=empresas,
+        sucursales=sucursales,
     )
 
 
@@ -117,11 +124,13 @@ def editar(horario_id):
         return redirect(url_for("horarios.listado", error="Horario no encontrado."))
 
     empresas = get_empresas(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
     if request.method == "POST":
         try:
             data = _extract_form_data(request.form)
             payload = {
                 "empresa_id": data["empresa_id"],
+                "sucursal_id": data["sucursal_id"],
                 "nombre": data["nombre"],
                 "tolerancia_min": data["tolerancia_min"],
                 "descripcion": data["descripcion"],
@@ -138,6 +147,7 @@ def editar(horario_id):
                 data={
                     "id": horario_id,
                     "empresa_id": request.form.get("empresa_id"),
+                    "sucursal_id": request.form.get("sucursal_id"),
                     "nombre": request.form.get("nombre"),
                     "tolerancia_min": request.form.get("tolerancia_min"),
                     "descripcion": request.form.get("descripcion"),
@@ -147,6 +157,7 @@ def editar(horario_id):
                 dias_seed=_safe_seed_from_payload(request.form.get("dias_payload") or "[]"),
                 errors=[str(exc)],
                 empresas=empresas,
+                sucursales=sucursales,
             )
 
     return render_template(
@@ -155,6 +166,7 @@ def editar(horario_id):
         data={
             "id": horario["id"],
             "empresa_id": horario["empresa_id"],
+            "sucursal_id": horario.get("sucursal_id"),
             "nombre": horario["nombre"],
             "tolerancia_min": horario["tolerancia_min"],
             "descripcion": horario["descripcion"],
@@ -163,6 +175,7 @@ def editar(horario_id):
         },
         dias_seed=horario["dias"],
         empresas=empresas,
+        sucursales=sucursales,
     )
 
 

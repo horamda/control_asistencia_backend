@@ -1,7 +1,7 @@
 # Contrato API Mobile v1 (Congelado)
 
-Version de contrato: 1.9.0  
-Fecha de corte: 2026-02-28  
+Version de contrato: 1.10.0  
+Fecha de corte: 2026-03-09  
 Base URL local: `http://localhost:5000`  
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`  
 Prefijo: `/api/v1/mobile`
@@ -27,7 +27,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```json
 {
   "token":"<jwt>",
-  "empleado":{"id":12,"dni":"30111222","nombre":"Ana","apellido":"Lopez","empresa_id":1,"foto":"https://.../30111222.jpg"}
+  "empleado":{"id":12,"dni":"30111222","nombre":"Ana","apellido":"Lopez","empresa_id":1,"foto":"https://.../30111222.jpg","imagen_version":"1709294400"}
 }
 ```
 
@@ -38,7 +38,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```
 
 3. `GET /api/v1/mobile/me`
-- Response 200: perfil de empleado autenticado.
+- Response 200: perfil de empleado autenticado (incluye `imagen_version` para cache busting de foto).
 
 4. `GET /api/v1/mobile/me/config-asistencia`
 - Response 200:
@@ -50,6 +50,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
   "requiere_geo":false,
   "tolerancia_global":5,
   "cooldown_scan_segundos":60,
+  "intervalo_minimo_fichadas_minutos":60,
   "metodos_habilitados":["qr","manual","facial"]
 }
 ```
@@ -336,7 +337,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
   - URL publica base para app: `FOTO_PUBLIC_BASE_URL` (+ opcional `FOTO_PUBLIC_PREFIX`)
 - Response 200:
 ```json
-{"id":12,"telefono":"1133344455","direccion":"Calle 123","foto":"https://.../foto.jpg"}
+{"id":12,"telefono":"1133344455","direccion":"Calle 123","foto":"https://.../foto.jpg","imagen_version":"1709294400"}
 ```
 - Response 400:
 ```json
@@ -352,10 +353,18 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 - Limpia `empleados.foto` en base aunque el FTP no este disponible.
 - Response 200:
 ```json
-{"ok":true,"foto":null}
+{"ok":true,"foto":null,"imagen_version":null}
 ```
 
-16. `PUT /api/v1/mobile/me/password`
+16. `GET /empleados/imagen/<dni>?v=<version>`
+- Devuelve la imagen de perfil por DNI.
+- Compatibilidad: se mantiene tambien `GET /media/empleados/foto/<dni>`.
+- Cache:
+  - Responde `ETag`.
+  - Si cliente envia `If-None-Match` y no hay cambios reales de foto, responde `304 Not Modified`.
+  - El query param `v` se usa como cache busting cliente (recomendado: `v=<imagen_version>`).
+
+17. `PUT /api/v1/mobile/me/password`
 - Request:
 ```json
 {"password_actual":"secreta123","password_nueva":"nueva1234"}
@@ -390,6 +399,13 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 
 ## Change log
 
+### 1.10.0 (2026-03-09)
+- `POST /api/v1/mobile/auth/login` agrega `empleado.imagen_version`.
+- `GET /api/v1/mobile/me` agrega `imagen_version`.
+- `PUT /api/v1/mobile/me/perfil` agrega `imagen_version` en response.
+- `DELETE /api/v1/mobile/me/perfil/foto` agrega `imagen_version` en response (`null`).
+- Nuevo endpoint de imagen para cliente mobile: `GET /empleados/imagen/<dni>?v=<imagen_version>` con soporte `ETag/304`.
+
 ### 1.9.0 (2026-02-28)
 - `PUT /api/v1/mobile/me/perfil` agrega `eliminar_foto=true` para baja de foto.
 - Nuevo endpoint `DELETE /api/v1/mobile/me/perfil/foto`.
@@ -415,6 +431,7 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ### 1.6.0 (2026-02-25)
 - `GET /api/v1/mobile/me/config-asistencia` agrega:
   - `cooldown_scan_segundos`
+  - `intervalo_minimo_fichadas_minutos`
 - `POST /api/v1/mobile/me/fichadas/scan` agrega en `409` por doble scan:
   - `code = "scan_cooldown"`
   - `cooldown_segundos_restantes`
