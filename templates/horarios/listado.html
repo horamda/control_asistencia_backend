@@ -7,7 +7,7 @@
       <div class="section-kicker">Horarios</div>
       <h2>Plantillas semanales</h2>
       <p class="module-intro">
-        Gestione horarios estructurados por empresa con dias y bloques en una unica entidad funcional.
+        Gestione horarios estructurados por empresa y sucursal con dias y bloques en una unica entidad funcional.
       </p>
     </div>
     <div class="chip-row">
@@ -35,6 +35,7 @@
         <thead>
           <tr>
             <th>Empresa</th>
+            <th>Sucursal</th>
             <th>Nombre</th>
             <th>Tolerancia</th>
             <th>Dias</th>
@@ -47,6 +48,7 @@
           {% for h in horarios %}
           <tr>
             <td data-label="Empresa">{{ h.empresa_nombre }}</td>
+            <td data-label="Sucursal">{{ h.sucursal_nombre or "-" }}</td>
             <td data-label="Nombre">{{ h.nombre }}</td>
             <td data-label="Tolerancia">{{ h.tolerancia_min }}</td>
             <td data-label="Dias">{{ h.dias_count }}</td>

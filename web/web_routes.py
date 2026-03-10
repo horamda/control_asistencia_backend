@@ -1,8 +1,10 @@
 import datetime
 
-from flask import Blueprint, current_app, render_template
+from flask import Blueprint, current_app, render_template, request
 
 from extensions import get_db
+from repositories.empresa_repository import get_all as get_empresas
+from repositories.sucursal_repository import get_all as get_sucursales
 from web.auth.decorators import login_required
 
 web_bp = Blueprint("web", __name__)
@@ -39,6 +41,14 @@ def _to_float(value):
         return 0.0
 
 
+def _parse_optional_int(value):
+    try:
+        parsed = int(value)
+        return parsed if parsed > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _to_date(value):
     if isinstance(value, datetime.date):
         return value
@@ -58,17 +68,39 @@ def _daterange(start_date: datetime.date, end_date: datetime.date):
         current += datetime.timedelta(days=1)
 
 
-def _calc_expected_minutes_from_planillas(db, start_date: datetime.date, end_date: datetime.date):
+def _calc_expected_minutes_from_planillas(
+    db,
+    start_date: datetime.date,
+    end_date: datetime.date,
+    empresa_id: int | None = None,
+    sucursal_id: int | None = None,
+):
     if start_date > end_date:
-        return 0, set()
+        return 0, set(), {}
 
     dict_cursor = db.cursor(dictionary=True)
     try:
+        scope_where = []
+        scope_params = []
+        if empresa_id:
+            scope_where.append("e.empresa_id = %s")
+            scope_params.append(int(empresa_id))
+        if sucursal_id:
+            scope_where.append("e.sucursal_id = %s")
+            scope_params.append(int(sucursal_id))
+        scope_sql = (" AND " + " AND ".join(scope_where)) if scope_where else ""
+
         plan_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 eh.empleado_id,
+                eh.horario_id,
+                h.nombre AS horario_nombre,
+                e.empresa_id,
+                COALESCE(emp.razon_social, 'Sin empresa') AS empresa_nombre,
+                e.sucursal_id,
+                COALESCE(suc.nombre, 'Sin sucursal') AS sucursal_nombre,
                 eh.fecha_desde,
                 eh.fecha_hasta,
                 hd.dia_semana,
@@ -84,13 +116,28 @@ def _calc_expected_minutes_from_planillas(db, start_date: datetime.date, end_dat
                     0
                 ) AS minutos_planilla
             FROM empleado_horarios eh
+            JOIN empleados e ON e.id = eh.empleado_id
+            JOIN horarios h ON h.id = eh.horario_id
+            LEFT JOIN empresas emp ON emp.id = e.empresa_id
+            LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
             JOIN horario_dias hd ON hd.horario_id = eh.horario_id
             LEFT JOIN horario_dia_bloques hdb ON hdb.horario_dia_id = hd.id
             WHERE eh.fecha_desde <= %s
               AND (eh.fecha_hasta IS NULL OR eh.fecha_hasta >= %s)
-            GROUP BY eh.empleado_id, eh.fecha_desde, eh.fecha_hasta, hd.dia_semana
+              {scope_sql}
+            GROUP BY
+                eh.empleado_id,
+                eh.horario_id,
+                h.nombre,
+                e.empresa_id,
+                emp.razon_social,
+                e.sucursal_id,
+                suc.nombre,
+                eh.fecha_desde,
+                eh.fecha_hasta,
+                hd.dia_semana
             """,
-            (end_date.isoformat(), start_date.isoformat()),
+            (end_date.isoformat(), start_date.isoformat(), *scope_params),
         )
 
         expected_by_employee_day = {}
@@ -125,12 +172,23 @@ def _calc_expected_minutes_from_planillas(db, start_date: datetime.date, end_dat
             cursor_date = rango_desde + datetime.timedelta(days=offset)
             while cursor_date <= rango_hasta:
                 key = (empleado_id, cursor_date.isoformat())
+                payload = {
+                    "minutos": minutos_planilla,
+                    "horario_id": _to_int(row.get("horario_id")),
+                    "horario_nombre": str(row.get("horario_nombre") or "Sin plantilla").strip(),
+                    "empresa_id": _to_int(row.get("empresa_id")),
+                    "empresa_nombre": str(row.get("empresa_nombre") or "Sin empresa").strip(),
+                    "sucursal_id": _to_int(row.get("sucursal_id")),
+                    "sucursal_nombre": str(row.get("sucursal_nombre") or "Sin sucursal").strip(),
+                }
+                prev = expected_by_employee_day.get(key)
                 # Si hay solapamientos de asignaciones por dato sucio, tomamos el mayor esperado diario.
-                expected_by_employee_day[key] = max(expected_by_employee_day.get(key, 0), minutos_planilla)
+                if prev is None or payload["minutos"] > _to_int(prev.get("minutos")):
+                    expected_by_employee_day[key] = payload
                 cursor_date += datetime.timedelta(days=7)
 
         if not planned_employee_ids:
-            return 0, set()
+            return 0, set(), {}
 
         employee_ids = sorted(planned_employee_ids)
         placeholders = ",".join(["%s"] * len(employee_ids))
@@ -153,7 +211,9 @@ def _calc_expected_minutes_from_planillas(db, start_date: datetime.date, end_dat
             if empleado_id <= 0 or fecha_desde is None or fecha_hasta is None:
                 continue
             for fecha in _daterange(max(start_date, fecha_desde), min(end_date, fecha_hasta)):
-                expected_by_employee_day[(empleado_id, fecha.isoformat())] = 0
+                key = (empleado_id, fecha.isoformat())
+                if key in expected_by_employee_day:
+                    expected_by_employee_day[key]["minutos"] = 0
 
         franco_rows = _safe_fetchall(
             dict_cursor,
@@ -170,7 +230,9 @@ def _calc_expected_minutes_from_planillas(db, start_date: datetime.date, end_dat
             fecha = _to_date(row.get("fecha"))
             if empleado_id <= 0 or fecha is None:
                 continue
-            expected_by_employee_day[(empleado_id, fecha.isoformat())] = 0
+            key = (empleado_id, fecha.isoformat())
+            if key in expected_by_employee_day:
+                expected_by_employee_day[key]["minutos"] = 0
 
         exception_rows = _safe_fetchall(
             dict_cursor,
@@ -201,18 +263,21 @@ def _calc_expected_minutes_from_planillas(db, start_date: datetime.date, end_dat
                 continue
 
             key = (empleado_id, fecha.isoformat())
+            if key not in expected_by_employee_day:
+                continue
             tipo = str(row.get("tipo") or "").strip().upper()
             anula_horario = _to_int(row.get("anula_horario")) == 1 or tipo in tipos_anula
 
             if anula_horario:
-                expected_by_employee_day[key] = 0
+                expected_by_employee_day[key]["minutos"] = 0
                 blocked_days.add(key)
                 continue
 
             if tipo == "CAMBIO_HORARIO" and key not in blocked_days:
-                expected_by_employee_day[key] = max(0, _to_int(row.get("minutos_cambio")))
+                expected_by_employee_day[key]["minutos"] = max(0, _to_int(row.get("minutos_cambio")))
 
-        return int(sum(expected_by_employee_day.values())), planned_employee_ids
+        total_expected = int(sum(_to_int(item.get("minutos")) for item in expected_by_employee_day.values()))
+        return total_expected, planned_employee_ids, expected_by_employee_day
     finally:
         dict_cursor.close()
 
@@ -236,7 +301,141 @@ def _calc_registered_minutes_for_employees(cursor, start_iso: str, end_iso: str,
     )
 
 
+def _calc_registered_minutes_map_for_employees(db, start_iso: str, end_iso: str, employee_ids: set[int]):
+    if not employee_ids:
+        return {}
+    ordered_ids = sorted(employee_ids)
+    placeholders = ",".join(["%s"] * len(ordered_ids))
+    dict_cursor = db.cursor(dictionary=True)
+    try:
+        rows = _safe_fetchall(
+            dict_cursor,
+            f"""
+            SELECT
+                empleado_id,
+                fecha,
+                COALESCE(SUM(GREATEST(TIMESTAMPDIFF(MINUTE, hora_entrada, hora_salida), 0)), 0) AS minutos
+            FROM asistencias
+            WHERE fecha BETWEEN %s AND %s
+              AND hora_entrada IS NOT NULL
+              AND hora_salida IS NOT NULL
+              AND empleado_id IN ({placeholders})
+            GROUP BY empleado_id, fecha
+            """,
+            (start_iso, end_iso, *ordered_ids),
+        )
+        result = {}
+        for row in rows:
+            empleado_id = _to_int(row.get("empleado_id"))
+            fecha = _to_date(row.get("fecha"))
+            if empleado_id <= 0 or fecha is None:
+                continue
+            result[(empleado_id, fecha.isoformat())] = _to_int(row.get("minutos"))
+        return result
+    finally:
+        dict_cursor.close()
+
+
+def _build_hours_breakdowns(expected_by_employee_day: dict, registered_by_employee_day: dict):
+    by_plantilla = {}
+    by_sucursal = {}
+
+    for key, payload in expected_by_employee_day.items():
+        empleado_id = _to_int(key[0] if isinstance(key, tuple) and len(key) == 2 else 0)
+        minutos_esperados = _to_int(payload.get("minutos"))
+        minutos_registrados = _to_int(registered_by_employee_day.get(key))
+        horario_id = _to_int(payload.get("horario_id"))
+        horario_nombre = str(payload.get("horario_nombre") or "Sin plantilla").strip()
+        empresa_id = _to_int(payload.get("empresa_id"))
+        empresa_nombre = str(payload.get("empresa_nombre") or "Sin empresa").strip()
+        sucursal_id = _to_int(payload.get("sucursal_id"))
+        sucursal_nombre = str(payload.get("sucursal_nombre") or "Sin sucursal").strip()
+
+        # La plantilla debe segmentarse por empresa/sucursal para no mezclar
+        # horas cuando una misma plantilla se usa en distintos alcances.
+        plantilla_key = (
+            (horario_id, empresa_id, sucursal_id)
+            if horario_id > 0
+            else f"legacy::{horario_nombre}::{empresa_id}::{sucursal_id}"
+        )
+        plantilla = by_plantilla.setdefault(
+            plantilla_key,
+            {
+                "horario_id": horario_id,
+                "horario_nombre": horario_nombre,
+                "empresa_id": empresa_id,
+                "empresa_nombre": empresa_nombre,
+                "sucursal_id": sucursal_id,
+                "sucursal_nombre": sucursal_nombre,
+                "minutos_esperados": 0,
+                "minutos_registrados": 0,
+                "_empleados": set(),
+            },
+        )
+        plantilla["minutos_esperados"] += minutos_esperados
+        plantilla["minutos_registrados"] += minutos_registrados
+        if empleado_id > 0:
+            plantilla["_empleados"].add(empleado_id)
+
+        sucursal_key = (empresa_id, sucursal_id)
+        sucursal = by_sucursal.setdefault(
+            sucursal_key,
+            {
+                "empresa_id": empresa_id,
+                "empresa_nombre": empresa_nombre,
+                "sucursal_id": sucursal_id,
+                "sucursal_nombre": sucursal_nombre,
+                "minutos_esperados": 0,
+                "minutos_registrados": 0,
+                "_empleados": set(),
+                "_plantillas": set(),
+            },
+        )
+        sucursal["minutos_esperados"] += minutos_esperados
+        sucursal["minutos_registrados"] += minutos_registrados
+        if empleado_id > 0:
+            sucursal["_empleados"].add(empleado_id)
+        if plantilla_key:
+            sucursal["_plantillas"].add(plantilla_key)
+
+    def _finalize(rows, with_templates=False):
+        items = []
+        for row in rows.values():
+            minutos_esperados = _to_int(row.get("minutos_esperados"))
+            minutos_registrados = _to_int(row.get("minutos_registrados"))
+            horas_esperadas = round(minutos_esperados / 60.0, 1)
+            horas_registradas = round(minutos_registrados / 60.0, 1)
+            cumplimiento_pct = round((minutos_registrados * 100.0) / minutos_esperados, 1) if minutos_esperados > 0 else 0.0
+            item = {k: v for k, v in row.items() if not k.startswith("_")}
+            item.update(
+                {
+                    "empleados_con_planilla": len(row.get("_empleados") or []),
+                    "horas_esperadas": horas_esperadas,
+                    "horas_registradas": horas_registradas,
+                    "desvio_horas": round(horas_registradas - horas_esperadas, 1),
+                    "cumplimiento_pct": cumplimiento_pct,
+                }
+            )
+            if with_templates:
+                item["plantillas_activas"] = len(row.get("_plantillas") or [])
+            items.append(item)
+        items.sort(
+            key=lambda x: (
+                x.get("horas_esperadas", 0.0),
+                x.get("horas_registradas", 0.0),
+                x.get("sucursal_nombre", ""),
+                x.get("horario_nombre", ""),
+            ),
+            reverse=True,
+        )
+        return items[:20]
+
+    return _finalize(by_plantilla), _finalize(by_sucursal, with_templates=True)
+
+
 def _dashboard_metrics():
+    empresa_id = _parse_optional_int(request.args.get("empresa_id"))
+    sucursal_id = _parse_optional_int(request.args.get("sucursal_id"))
     today_dt = datetime.date.today()
     today = today_dt.isoformat()
     since_7 = (today_dt - datetime.timedelta(days=6)).isoformat()
@@ -302,6 +501,23 @@ def _dashboard_metrics():
         "horarios_activos": 0,
         "asignaciones_vigentes": 0,
         "usuarios_activos": 0,
+        "legajo_eventos_total": 0,
+        "legajo_eventos_mes": 0,
+        "legajo_eventos_vigentes": 0,
+        "legajo_eventos_anulados_mes": 0,
+        "resumen_asistencias_mes": 0,
+        "resumen_ausentes_mes": 0,
+        "resumen_tardes_mes": 0,
+        "resumen_ausentismo_mes_pct": 0.0,
+        "global_asistencias_mes": 0,
+        "global_ausentes_mes": 0,
+        "global_ausentismo_mes_pct": 0.0,
+        "global_horas_registradas_mes": 0.0,
+        "global_horas_esperadas_mes": 0.0,
+        "global_desvio_horas_mes": 0.0,
+        "global_cumplimiento_horas_mes_pct": 0.0,
+        "scope_kind": "general",
+        "scope_label": "General",
     }
     charts = {
         "daily_7d": [],
@@ -317,8 +533,11 @@ def _dashboard_metrics():
         "ausentismo_rank_empresa": [],
         "ausentismo_rank_sector": [],
         "ausentismo_rank_sucursal": [],
+        "resumen_sucursal_mes": [],
         "vacaciones_proximas_detalle": [],
         "vacaciones_top_dias_anio": [],
+        "horas_por_plantilla_mes": [],
+        "horas_por_sucursal_mes": [],
     }
     recent_events = []
 
@@ -326,6 +545,16 @@ def _dashboard_metrics():
     cursor = db.cursor()
     dict_cursor = None
     try:
+        scope_where = []
+        scope_params = []
+        if empresa_id:
+            scope_where.append("e.empresa_id = %s")
+            scope_params.append(int(empresa_id))
+        if sucursal_id:
+            scope_where.append("e.sucursal_id = %s")
+            scope_params.append(int(sucursal_id))
+        scope_sql = (" AND " + " AND ".join(scope_where)) if scope_where else ""
+
         stats["empleados_activos"] = _safe_count(cursor, "SELECT COUNT(*) FROM empleados WHERE activo = 1")
         stats["empleados_con_fichada_hoy"] = _safe_count(
             cursor,
@@ -370,6 +599,51 @@ def _dashboard_metrics():
             (today, today),
         )
         stats["usuarios_activos"] = _safe_count(cursor, "SELECT COUNT(*) FROM usuarios WHERE activo = 1")
+        stats["legajo_eventos_total"] = _safe_count(
+            cursor,
+            f"""
+            SELECT COUNT(*)
+            FROM legajo_eventos le
+            JOIN empleados e ON e.id = le.empleado_id
+            WHERE 1 = 1
+            {scope_sql}
+            """,
+            tuple(scope_params),
+        )
+        stats["legajo_eventos_mes"] = _safe_count(
+            cursor,
+            f"""
+            SELECT COUNT(*)
+            FROM legajo_eventos le
+            JOIN empleados e ON e.id = le.empleado_id
+            WHERE le.fecha_evento BETWEEN %s AND %s
+            {scope_sql}
+            """,
+            (month_start, today, *scope_params),
+        )
+        stats["legajo_eventos_vigentes"] = _safe_count(
+            cursor,
+            f"""
+            SELECT COUNT(*)
+            FROM legajo_eventos le
+            JOIN empleados e ON e.id = le.empleado_id
+            WHERE le.estado = 'vigente'
+            {scope_sql}
+            """,
+            tuple(scope_params),
+        )
+        stats["legajo_eventos_anulados_mes"] = _safe_count(
+            cursor,
+            f"""
+            SELECT COUNT(*)
+            FROM legajo_eventos le
+            JOIN empleados e ON e.id = le.empleado_id
+            WHERE le.fecha_evento BETWEEN %s AND %s
+              AND le.estado = 'anulado'
+            {scope_sql}
+            """,
+            (month_start, today, *scope_params),
+        )
         stats["asistencias_30d"] = _safe_count(
             cursor,
             "SELECT COUNT(*) FROM asistencias WHERE fecha BETWEEN %s AND %s",
@@ -426,6 +700,33 @@ def _dashboard_metrics():
         )
         if stats["asistencias_mes"] > 0:
             stats["ausentismo_mes_pct"] = round((stats["ausentes_mes"] * 100.0) / stats["asistencias_mes"], 1)
+        resumen_cursor = db.cursor(dictionary=True)
+        try:
+            resumen_rows = _safe_fetchall(
+                resumen_cursor,
+                f"""
+                SELECT
+                    COUNT(*) AS asistencias_mes,
+                    SUM(CASE WHEN a.estado = 'ausente' THEN 1 ELSE 0 END) AS ausentes_mes,
+                    SUM(CASE WHEN a.estado = 'tarde' THEN 1 ELSE 0 END) AS tardes_mes
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE a.fecha BETWEEN %s AND %s
+                {scope_sql}
+                """,
+                (month_start, today, *scope_params),
+            )
+        finally:
+            resumen_cursor.close()
+        resumen = resumen_rows[0] if resumen_rows else {}
+        stats["resumen_asistencias_mes"] = _to_int(resumen.get("asistencias_mes"))
+        stats["resumen_ausentes_mes"] = _to_int(resumen.get("ausentes_mes"))
+        stats["resumen_tardes_mes"] = _to_int(resumen.get("tardes_mes"))
+        if stats["resumen_asistencias_mes"] > 0:
+            stats["resumen_ausentismo_mes_pct"] = round(
+                (stats["resumen_ausentes_mes"] * 100.0) / stats["resumen_asistencias_mes"],
+                1,
+            )
         stats["ausentes_sin_justificacion_mes"] = _safe_count(
             cursor,
             """
@@ -562,42 +863,107 @@ def _dashboard_metrics():
                 1,
             )
 
-        minutos_esperados_mes, planned_employee_ids = _calc_expected_minutes_from_planillas(
-            db, today_dt.replace(day=1), today_dt
-        )
-        stats["empleados_con_planilla_mes"] = len(planned_employee_ids)
-        stats["asignaciones_con_planilla_mes"] = _safe_count(
-            cursor,
-            """
-            SELECT COUNT(*)
-            FROM empleado_horarios
-            WHERE fecha_desde <= %s
-              AND (fecha_hasta IS NULL OR fecha_hasta >= %s)
-            """,
-            (today, month_start),
-        )
-        if planned_employee_ids:
-            minutos_registrados_mes = _calc_registered_minutes_for_employees(
-                cursor, month_start, today, planned_employee_ids
+        def _calc_hours_scope_summary(scope_empresa_id: int | None = None, scope_sucursal_id: int | None = None):
+            minutos_esperados, employee_ids, expected_by_employee_day = _calc_expected_minutes_from_planillas(
+                db,
+                today_dt.replace(day=1),
+                today_dt,
+                empresa_id=scope_empresa_id,
+                sucursal_id=scope_sucursal_id,
             )
-        else:
-            minutos_registrados_mes = _safe_count(
+            if employee_ids:
+                registered_by_employee_day = _calc_registered_minutes_map_for_employees(
+                    db,
+                    month_start,
+                    today,
+                    employee_ids,
+                )
+                minutos_registrados = int(sum(registered_by_employee_day.values()))
+            else:
+                registered_by_employee_day = {}
+                raw_where = []
+                raw_params = [month_start, today]
+                if scope_empresa_id:
+                    raw_where.append("e.empresa_id = %s")
+                    raw_params.append(int(scope_empresa_id))
+                if scope_sucursal_id:
+                    raw_where.append("e.sucursal_id = %s")
+                    raw_params.append(int(scope_sucursal_id))
+                raw_scope_sql = (" AND " + " AND ".join(raw_where)) if raw_where else ""
+                minutos_registrados = _safe_count(
+                    cursor,
+                    f"""
+                    SELECT COALESCE(SUM(GREATEST(TIMESTAMPDIFF(MINUTE, a.hora_entrada, a.hora_salida), 0)), 0)
+                    FROM asistencias a
+                    JOIN empleados e ON e.id = a.empleado_id
+                    WHERE a.fecha BETWEEN %s AND %s
+                      AND a.hora_entrada IS NOT NULL
+                      AND a.hora_salida IS NOT NULL
+                      {raw_scope_sql}
+                    """,
+                    tuple(raw_params),
+                )
+            horas_por_plantilla, horas_por_sucursal = _build_hours_breakdowns(
+                expected_by_employee_day,
+                registered_by_employee_day,
+            )
+            asig_where = []
+            asig_params = [today, month_start]
+            if scope_empresa_id:
+                asig_where.append("e.empresa_id = %s")
+                asig_params.append(int(scope_empresa_id))
+            if scope_sucursal_id:
+                asig_where.append("e.sucursal_id = %s")
+                asig_params.append(int(scope_sucursal_id))
+            asig_scope_sql = (" AND " + " AND ".join(asig_where)) if asig_where else ""
+            asignaciones_con_planilla = _safe_count(
                 cursor,
-                """
-                SELECT COALESCE(SUM(GREATEST(TIMESTAMPDIFF(MINUTE, hora_entrada, hora_salida), 0)), 0)
-                FROM asistencias
-                WHERE fecha BETWEEN %s AND %s
-                  AND hora_entrada IS NOT NULL
-                  AND hora_salida IS NOT NULL
+                f"""
+                SELECT COUNT(*)
+                FROM empleado_horarios eh
+                JOIN empleados e ON e.id = eh.empleado_id
+                WHERE eh.fecha_desde <= %s
+                  AND (eh.fecha_hasta IS NULL OR eh.fecha_hasta >= %s)
+                  {asig_scope_sql}
                 """,
-                (month_start, today),
+                tuple(asig_params),
             )
-        stats["horas_registradas_mes"] = round(minutos_registrados_mes / 60.0, 1)
-        stats["horas_esperadas_mes"] = round(minutos_esperados_mes / 60.0, 1)
-        stats["desvio_horas_mes"] = round(stats["horas_registradas_mes"] - stats["horas_esperadas_mes"], 1)
-        if minutos_esperados_mes > 0:
-            stats["cumplimiento_horas_mes_pct"] = round((minutos_registrados_mes * 100.0) / minutos_esperados_mes, 1)
-        else:
+            horas_registradas = round(minutos_registrados / 60.0, 1)
+            horas_esperadas = round(minutos_esperados / 60.0, 1)
+            cumplimiento_horas_pct = (
+                round((minutos_registrados * 100.0) / minutos_esperados, 1)
+                if minutos_esperados > 0
+                else 0.0
+            )
+            return {
+                "minutos_registrados": int(minutos_registrados or 0),
+                "minutos_esperados": int(minutos_esperados or 0),
+                "horas_registradas": horas_registradas,
+                "horas_esperadas": horas_esperadas,
+                "desvio_horas": round(horas_registradas - horas_esperadas, 1),
+                "cumplimiento_horas_pct": cumplimiento_horas_pct,
+                "empleados_con_planilla": len(employee_ids),
+                "asignaciones_con_planilla": int(asignaciones_con_planilla or 0),
+                "horas_por_plantilla": horas_por_plantilla,
+                "horas_por_sucursal": horas_por_sucursal,
+            }
+
+        global_hours = _calc_hours_scope_summary()
+        stats["global_horas_registradas_mes"] = global_hours["horas_registradas"]
+        stats["global_horas_esperadas_mes"] = global_hours["horas_esperadas"]
+        stats["global_desvio_horas_mes"] = global_hours["desvio_horas"]
+        stats["global_cumplimiento_horas_mes_pct"] = global_hours["cumplimiento_horas_pct"]
+
+        stats["horas_registradas_mes"] = global_hours["horas_registradas"]
+        stats["horas_esperadas_mes"] = global_hours["horas_esperadas"]
+        stats["desvio_horas_mes"] = global_hours["desvio_horas"]
+        stats["cumplimiento_horas_mes_pct"] = global_hours["cumplimiento_horas_pct"]
+        stats["empleados_con_planilla_mes"] = global_hours["empleados_con_planilla"]
+        stats["asignaciones_con_planilla_mes"] = global_hours["asignaciones_con_planilla"]
+        charts["horas_por_plantilla_mes"] = global_hours["horas_por_plantilla"]
+        charts["horas_por_sucursal_mes"] = global_hours["horas_por_sucursal"]
+
+        if global_hours["minutos_esperados"] <= 0:
             current_app.logger.warning(
                 "dashboard_expected_hours_zero",
                 extra={
@@ -609,23 +975,6 @@ def _dashboard_metrics():
                     }
                 },
             )
-        current_app.logger.info(
-            "dashboard_hours_metrics",
-            extra={
-                "extra": {
-                    "month_start": month_start,
-                    "today": today,
-                    "minutos_registrados_mes": int(minutos_registrados_mes or 0),
-                    "minutos_esperados_mes": int(minutos_esperados_mes or 0),
-                    "horas_registradas_mes": stats["horas_registradas_mes"],
-                    "horas_esperadas_mes": stats["horas_esperadas_mes"],
-                    "desvio_horas_mes": stats["desvio_horas_mes"],
-                    "cumplimiento_horas_mes_pct": stats["cumplimiento_horas_mes_pct"],
-                    "empleados_con_planilla_mes": stats["empleados_con_planilla_mes"],
-                    "asignaciones_vigentes_mes": stats["asignaciones_con_planilla_mes"],
-                }
-            },
-        )
         stats["vacaciones_en_curso_hoy"] = _safe_count(
             cursor,
             """
@@ -683,11 +1032,535 @@ def _dashboard_metrics():
             (today, year_start, today, year_start),
         )
 
+        stats["global_asistencias_mes"] = stats["asistencias_mes"]
+        stats["global_ausentes_mes"] = stats["ausentes_mes"]
+        stats["global_ausentismo_mes_pct"] = stats["ausentismo_mes_pct"]
+        stats["scope_kind"] = "general"
+        stats["scope_label"] = "General (todas las empresas y sucursales)"
+
+        if scope_params:
+            scoped_params = tuple(scope_params)
+            stats["scope_kind"] = "sucursal" if sucursal_id else "empresa"
+            if sucursal_id:
+                stats["scope_label"] = f"Sucursal #{int(sucursal_id)}"
+            else:
+                stats["scope_label"] = f"Empresa #{int(empresa_id)}"
+
+            stats["empleados_activos"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM empleados e
+                WHERE e.activo = 1
+                {scope_sql}
+                """,
+                scoped_params,
+            )
+            stats["empleados_con_fichada_hoy"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(DISTINCT a.empleado_id)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha = %s
+                  AND (a.hora_entrada IS NOT NULL OR a.hora_salida IS NOT NULL)
+                """,
+                (*scoped_params, today),
+            )
+            if stats["empleados_activos"] > 0:
+                stats["presentismo_hoy_pct"] = round(
+                    (stats["empleados_con_fichada_hoy"] * 100.0) / stats["empleados_activos"],
+                    1,
+                )
+            else:
+                stats["presentismo_hoy_pct"] = 0.0
+
+            stats["asistencias_hoy"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha = %s
+                """,
+                (*scoped_params, today),
+            )
+            stats["tardes_hoy"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha = %s
+                  AND a.estado = 'tarde'
+                """,
+                (*scoped_params, today),
+            )
+            stats["ausentes_hoy"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha = %s
+                  AND a.estado = 'ausente'
+                """,
+                (*scoped_params, today),
+            )
+            stats["excepciones_hoy"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM empleado_excepciones ex
+                JOIN empleados e ON e.id = ex.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND ex.fecha = %s
+                """,
+                (*scoped_params, today),
+            )
+            stats["asignaciones_vigentes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM empleado_horarios eh
+                JOIN empleados e ON e.id = eh.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND eh.fecha_desde <= %s
+                  AND (eh.fecha_hasta IS NULL OR eh.fecha_hasta >= %s)
+                """,
+                (*scoped_params, today, today),
+            )
+
+            stats["asistencias_30d"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                """,
+                (*scoped_params, since_30, today),
+            )
+            stats["tardes_30d"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND a.estado = 'tarde'
+                """,
+                (*scoped_params, since_30, today),
+            )
+            stats["ausentes_30d"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND a.estado = 'ausente'
+                """,
+                (*scoped_params, since_30, today),
+            )
+            stats["fichadas_mes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND (a.hora_entrada IS NOT NULL OR a.hora_salida IS NOT NULL)
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["ok_fichadas_mes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND (a.hora_entrada IS NOT NULL OR a.hora_salida IS NOT NULL)
+                  AND a.estado = 'ok'
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["puntualidad_mes_pct"] = (
+                round((stats["ok_fichadas_mes"] * 100.0) / stats["fichadas_mes"], 1)
+                if stats["fichadas_mes"] > 0
+                else 0.0
+            )
+            stats["asistencias_mes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["tardes_mes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND a.estado = 'tarde'
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["ausentes_mes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND a.estado = 'ausente'
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["ausentismo_mes_pct"] = (
+                round((stats["ausentes_mes"] * 100.0) / stats["asistencias_mes"], 1)
+                if stats["asistencias_mes"] > 0
+                else 0.0
+            )
+            stats["ausentes_sin_justificacion_mes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND a.estado = 'ausente'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM justificaciones j
+                      WHERE j.asistencia_id = a.id
+                        AND j.estado = 'aprobada'
+                  )
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["no_show_mes_pct"] = (
+                round((stats["ausentes_sin_justificacion_mes"] * 100.0) / stats["ausentes_mes"], 1)
+                if stats["ausentes_mes"] > 0
+                else 0.0
+            )
+
+            stats["ausentes_trimestre"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND a.estado = 'ausente'
+                """,
+                (*scoped_params, quarter_start, today),
+            )
+            stats["asistencias_anio"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                """,
+                (*scoped_params, year_start, today),
+            )
+            stats["tardes_anio"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND a.estado = 'tarde'
+                """,
+                (*scoped_params, year_start, today),
+            )
+            stats["ausentes_anio"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND a.estado = 'ausente'
+                """,
+                (*scoped_params, year_start, today),
+            )
+            stats["ausentismo_anual_pct"] = (
+                round((stats["ausentes_anio"] * 100.0) / stats["asistencias_anio"], 1)
+                if stats["asistencias_anio"] > 0
+                else 0.0
+            )
+            if stats["empleados_activos"] > 0:
+                stats["frecuencia_ausencias_mes"] = round(stats["ausentes_mes"] / stats["empleados_activos"], 2)
+                stats["frecuencia_ausencias_trimestre"] = round(
+                    stats["ausentes_trimestre"] / stats["empleados_activos"],
+                    2,
+                )
+            else:
+                stats["frecuencia_ausencias_mes"] = 0.0
+                stats["frecuencia_ausencias_trimestre"] = 0.0
+
+            stats["jornadas_completas_mes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND a.hora_entrada IS NOT NULL
+                  AND a.hora_salida IS NOT NULL
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["cumplimiento_jornada_mes_pct"] = (
+                round((stats["jornadas_completas_mes"] * 100.0) / stats["fichadas_mes"], 1)
+                if stats["fichadas_mes"] > 0
+                else 0.0
+            )
+            stats["salida_anticipada_mes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND a.fecha BETWEEN %s AND %s
+                  AND a.estado = 'salida_anticipada'
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["tasa_salida_anticipada_mes_pct"] = (
+                round((stats["salida_anticipada_mes"] * 100.0) / stats["fichadas_mes"], 1)
+                if stats["fichadas_mes"] > 0
+                else 0.0
+            )
+
+            stats["justificaciones_mes_total"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM justificaciones j
+                JOIN asistencias a ON a.id = j.asistencia_id
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND DATE(j.created_at) BETWEEN %s AND %s
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["justificaciones_mes_pendientes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM justificaciones j
+                JOIN asistencias a ON a.id = j.asistencia_id
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND DATE(j.created_at) BETWEEN %s AND %s
+                  AND LOWER(COALESCE(j.estado, 'pendiente')) = 'pendiente'
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["justificaciones_mes_aprobadas"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM justificaciones j
+                JOIN asistencias a ON a.id = j.asistencia_id
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND DATE(j.created_at) BETWEEN %s AND %s
+                  AND LOWER(COALESCE(j.estado, 'pendiente')) = 'aprobada'
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["justificaciones_mes_rechazadas"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM justificaciones j
+                JOIN asistencias a ON a.id = j.asistencia_id
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND DATE(j.created_at) BETWEEN %s AND %s
+                  AND LOWER(COALESCE(j.estado, 'pendiente')) = 'rechazada'
+                """,
+                (*scoped_params, month_start, today),
+            )
+            stats["justificaciones_pendientes_total"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM justificaciones j
+                JOIN asistencias a ON a.id = j.asistencia_id
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND LOWER(COALESCE(j.estado, 'pendiente')) = 'pendiente'
+                """,
+                scoped_params,
+            )
+            stats["tasa_aprobacion_justificaciones_mes_pct"] = (
+                round((stats["justificaciones_mes_aprobadas"] * 100.0) / stats["justificaciones_mes_total"], 1)
+                if stats["justificaciones_mes_total"] > 0
+                else 0.0
+            )
+
+            stats["vacaciones_en_curso_hoy"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM vacaciones v
+                JOIN empleados e ON e.id = v.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND v.fecha_desde <= %s
+                  AND v.fecha_hasta >= %s
+                """,
+                (*scoped_params, today, today),
+            )
+            stats["vacaciones_proximas_30d"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM vacaciones v
+                JOIN empleados e ON e.id = v.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND v.fecha_desde > %s
+                  AND v.fecha_desde <= %s
+                """,
+                (*scoped_params, today, next_30),
+            )
+            stats["vacaciones_dias_mes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COALESCE(
+                    SUM(
+                        GREATEST(
+                            0,
+                            DATEDIFF(LEAST(v.fecha_hasta, %s), GREATEST(v.fecha_desde, %s)) + 1
+                        )
+                    ),
+                    0
+                )
+                FROM vacaciones v
+                JOIN empleados e ON e.id = v.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND v.fecha_desde <= %s
+                  AND v.fecha_hasta >= %s
+                """,
+                (*scoped_params, today, month_start, today, month_start),
+            )
+            stats["vacaciones_dias_anio"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COALESCE(
+                    SUM(
+                        GREATEST(
+                            0,
+                            DATEDIFF(LEAST(v.fecha_hasta, %s), GREATEST(v.fecha_desde, %s)) + 1
+                        )
+                    ),
+                    0
+                )
+                FROM vacaciones v
+                JOIN empleados e ON e.id = v.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND v.fecha_desde <= %s
+                  AND v.fecha_hasta >= %s
+                """,
+                (*scoped_params, today, year_start, today, year_start),
+            )
+
+            scoped_hours = _calc_hours_scope_summary(empresa_id, sucursal_id)
+            stats["horas_registradas_mes"] = scoped_hours["horas_registradas"]
+            stats["horas_esperadas_mes"] = scoped_hours["horas_esperadas"]
+            stats["desvio_horas_mes"] = scoped_hours["desvio_horas"]
+            stats["cumplimiento_horas_mes_pct"] = scoped_hours["cumplimiento_horas_pct"]
+            stats["empleados_con_planilla_mes"] = scoped_hours["empleados_con_planilla"]
+            stats["asignaciones_con_planilla_mes"] = scoped_hours["asignaciones_con_planilla"]
+            charts["horas_por_plantilla_mes"] = scoped_hours["horas_por_plantilla"]
+            charts["horas_por_sucursal_mes"] = scoped_hours["horas_por_sucursal"]
+
+        current_app.logger.info(
+            "dashboard_hours_metrics",
+            extra={
+                "extra": {
+                    "month_start": month_start,
+                    "today": today,
+                    "scope_kind": stats["scope_kind"],
+                    "scope_label": stats["scope_label"],
+                    "horas_registradas_mes": stats["horas_registradas_mes"],
+                    "horas_esperadas_mes": stats["horas_esperadas_mes"],
+                    "desvio_horas_mes": stats["desvio_horas_mes"],
+                    "cumplimiento_horas_mes_pct": stats["cumplimiento_horas_mes_pct"],
+                    "empleados_con_planilla_mes": stats["empleados_con_planilla_mes"],
+                    "asignaciones_vigentes_mes": stats["asignaciones_con_planilla_mes"],
+                    "global_horas_registradas_mes": stats["global_horas_registradas_mes"],
+                    "global_horas_esperadas_mes": stats["global_horas_esperadas_mes"],
+                }
+            },
+        )
+
         dict_cursor = db.cursor(dictionary=True)
 
         lead_row = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 COUNT(*) AS incidentes,
                 SUM(CASE WHEN j.first_created_at IS NULL THEN 1 ELSE 0 END) AS sin_regularizar,
@@ -702,6 +1575,7 @@ def _dashboard_metrics():
                     END
                 ) AS lead_horas
             FROM asistencias a
+            JOIN empleados e ON e.id = a.empleado_id
             LEFT JOIN (
                 SELECT asistencia_id, MIN(created_at) AS first_created_at
                 FROM justificaciones
@@ -710,8 +1584,9 @@ def _dashboard_metrics():
             ) j ON j.asistencia_id = a.id
             WHERE a.fecha BETWEEN %s AND %s
               AND a.estado IN ('ausente', 'tarde', 'salida_anticipada')
+              {scope_sql}
             """,
-            (month_start, today),
+            (month_start, today, *scope_params),
         )
         lead_data = lead_row[0] if lead_row else {}
         incidentes_mes = _to_int(lead_data.get("incidentes"))
@@ -720,15 +1595,18 @@ def _dashboard_metrics():
         stats["lead_time_regularizacion_horas_mes"] = round(_to_float(lead_data.get("lead_horas")), 1)
         just_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
-                LOWER(COALESCE(estado, 'pendiente')) AS estado,
+                LOWER(COALESCE(j.estado, 'pendiente')) AS estado,
                 COUNT(*) AS total
-            FROM justificaciones
-            WHERE DATE(created_at) BETWEEN %s AND %s
-            GROUP BY LOWER(COALESCE(estado, 'pendiente'))
+            FROM justificaciones j
+            JOIN asistencias a ON a.id = j.asistencia_id
+            JOIN empleados e ON e.id = a.empleado_id
+            WHERE DATE(j.created_at) BETWEEN %s AND %s
+              {scope_sql}
+            GROUP BY LOWER(COALESCE(j.estado, 'pendiente'))
             """,
-            (month_start, today),
+            (month_start, today, *scope_params),
         )
         just_totals = {}
         for row in just_rows:
@@ -759,7 +1637,7 @@ def _dashboard_metrics():
 
         vac_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 v.id,
                 v.fecha_desde,
@@ -773,10 +1651,11 @@ def _dashboard_metrics():
             LEFT JOIN empresas emp ON emp.id = e.empresa_id
             WHERE v.fecha_desde > %s
               AND v.fecha_desde <= %s
+              {scope_sql}
             ORDER BY v.fecha_desde ASC, e.apellido ASC, e.nombre ASC
             LIMIT 12
             """,
-            (today, next_30),
+            (today, next_30, *scope_params),
         )
         charts["vacaciones_proximas_detalle"] = [
             {
@@ -792,7 +1671,7 @@ def _dashboard_metrics():
         ]
         vac_top_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 e.id AS empleado_id,
                 e.apellido,
@@ -809,12 +1688,13 @@ def _dashboard_metrics():
             LEFT JOIN empresas emp ON emp.id = e.empresa_id
             WHERE v.fecha_desde <= %s
               AND v.fecha_hasta >= %s
+              {scope_sql}
             GROUP BY e.id, e.apellido, e.nombre, emp.razon_social
             HAVING dias > 0
             ORDER BY dias DESC, e.apellido ASC, e.nombre ASC
             LIMIT 10
             """,
-            (today, year_start, today, year_start),
+            (today, year_start, today, year_start, *scope_params),
         )
         charts["vacaciones_top_dias_anio"] = [
             {
@@ -832,18 +1712,20 @@ def _dashboard_metrics():
 
         daily_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
-                fecha,
+                a.fecha,
                 COUNT(*) AS asistencias,
-                SUM(CASE WHEN estado = 'tarde' THEN 1 ELSE 0 END) AS tardes,
-                SUM(CASE WHEN estado = 'ausente' THEN 1 ELSE 0 END) AS ausentes
-            FROM asistencias
-            WHERE fecha BETWEEN %s AND %s
-            GROUP BY fecha
-            ORDER BY fecha ASC
+                SUM(CASE WHEN a.estado = 'tarde' THEN 1 ELSE 0 END) AS tardes,
+                SUM(CASE WHEN a.estado = 'ausente' THEN 1 ELSE 0 END) AS ausentes
+            FROM asistencias a
+            JOIN empleados e ON e.id = a.empleado_id
+            WHERE a.fecha BETWEEN %s AND %s
+              {scope_sql}
+            GROUP BY a.fecha
+            ORDER BY a.fecha ASC
             """,
-            (since_7, today),
+            (since_7, today, *scope_params),
         )
         by_date = {str(row.get("fecha")): row for row in daily_rows}
         day_cursor = today_dt - datetime.timedelta(days=6)
@@ -870,13 +1752,15 @@ def _dashboard_metrics():
 
         status_rows = _safe_fetchall(
             dict_cursor,
-            """
-            SELECT COALESCE(estado, 'sin_estado') AS estado, COUNT(*) AS total
-            FROM asistencias
-            WHERE fecha BETWEEN %s AND %s
-            GROUP BY COALESCE(estado, 'sin_estado')
+            f"""
+            SELECT COALESCE(a.estado, 'sin_estado') AS estado, COUNT(*) AS total
+            FROM asistencias a
+            JOIN empleados e ON e.id = a.empleado_id
+            WHERE a.fecha BETWEEN %s AND %s
+              {scope_sql}
+            GROUP BY COALESCE(a.estado, 'sin_estado')
             """,
-            (since_30, today),
+            (since_30, today, *scope_params),
         )
         state_totals = {}
         for row in status_rows:
@@ -904,20 +1788,22 @@ def _dashboard_metrics():
 
         empresa_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 emp.razon_social AS empresa,
                 COUNT(*) AS total,
                 SUM(CASE WHEN a.estado = 'ausente' THEN 1 ELSE 0 END) AS ausentes,
                 SUM(CASE WHEN a.estado = 'tarde' THEN 1 ELSE 0 END) AS tardes
             FROM asistencias a
-            JOIN empresas emp ON emp.id = a.empresa_id
+            JOIN empleados e ON e.id = a.empleado_id
+            JOIN empresas emp ON emp.id = e.empresa_id
             WHERE a.fecha BETWEEN %s AND %s
+              {scope_sql}
             GROUP BY emp.id, emp.razon_social
             ORDER BY ausentes DESC, tardes DESC, total DESC
             LIMIT 8
             """,
-            (since_30, today),
+            (since_30, today, *scope_params),
         )
         charts["empresa_top_30d"] = [
             {
@@ -938,7 +1824,7 @@ def _dashboard_metrics():
 
         reincidencia_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 e.id AS empleado_id,
                 e.apellido,
@@ -953,12 +1839,13 @@ def _dashboard_metrics():
             JOIN empleados e ON e.id = a.empleado_id
             JOIN empresas emp ON emp.id = a.empresa_id
             WHERE a.fecha BETWEEN %s AND %s
+              {scope_sql}
             GROUP BY e.id, e.apellido, e.nombre, e.dni, emp.razon_social
             HAVING incidentes >= %s
             ORDER BY incidentes DESC, ausencias DESC, tardanzas DESC
             LIMIT 12
             """,
-            (month_start, today, reincidencia_umbral),
+            (month_start, today, *scope_params, reincidencia_umbral),
         )
         charts["top_reincidencia_mes"] = [
             {
@@ -977,7 +1864,7 @@ def _dashboard_metrics():
 
         persona_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 e.id AS empleado_id,
                 e.apellido,
@@ -991,12 +1878,13 @@ def _dashboard_metrics():
             JOIN empleados e ON e.id = a.empleado_id
             JOIN empresas emp ON emp.id = a.empresa_id
             WHERE a.fecha BETWEEN %s AND %s
+              {scope_sql}
             GROUP BY e.id, e.apellido, e.nombre, e.dni, emp.razon_social
             HAVING SUM(CASE WHEN a.estado = 'ausente' THEN 1 ELSE 0 END) > 0
             ORDER BY ausencias DESC, tardanzas DESC, total DESC
             LIMIT 12
             """,
-            (year_start, today),
+            (year_start, today, *scope_params),
         )
         charts["persona_top_ausencias_anio"] = [
             {
@@ -1014,7 +1902,7 @@ def _dashboard_metrics():
 
         streak_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 a.empleado_id,
                 a.fecha,
@@ -1033,9 +1921,10 @@ def _dashboard_metrics():
             LEFT JOIN sectores sec ON sec.id = e.sector_id
             LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
             WHERE a.fecha BETWEEN %s AND %s
+              {scope_sql}
             ORDER BY a.empleado_id ASC, a.fecha DESC, a.id DESC
             """,
-            (year_start, today),
+            (year_start, today, *scope_params),
         )
 
         streak_state = {}
@@ -1142,6 +2031,10 @@ def _dashboard_metrics():
                         "nombre": str(row.get("nombre") or "Sin nombre").strip(),
                         "dotacion": dotacion,
                         "ausentes": ausentes,
+                        "asistencias_mes": _to_int(row.get("asistencias_mes")),
+                        "tardes_mes": _to_int(row.get("tardes_mes")),
+                        "eventos_legajo_mes": _to_int(row.get("eventos_legajo_mes")),
+                        "eventos_legajo_vigentes": _to_int(row.get("eventos_legajo_vigentes")),
                         "indice_ausencias_por_empleado": indice,
                         "tasa_pct": tasa_pct,
                     }
@@ -1158,45 +2051,49 @@ def _dashboard_metrics():
 
         aus_emp_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 emp.razon_social AS nombre,
                 COALESCE(a.ausentes, 0) AS ausentes,
                 COALESCE(d.dotacion, 0) AS dotacion
-            FROM empresas emp
+            FROM (
+                SELECT e.empresa_id, COUNT(*) AS dotacion
+                FROM empleados e
+                WHERE e.activo = 1
+                {scope_sql}
+                GROUP BY e.empresa_id
+            ) d
+            JOIN empresas emp ON emp.id = d.empresa_id
             LEFT JOIN (
-                SELECT empresa_id, COUNT(*) AS ausentes
-                FROM asistencias
-                WHERE fecha BETWEEN %s AND %s
-                  AND estado = 'ausente'
-                GROUP BY empresa_id
-            ) a ON a.empresa_id = emp.id
-            LEFT JOIN (
-                SELECT empresa_id, COUNT(*) AS dotacion
-                FROM empleados
-                WHERE activo = 1
-                GROUP BY empresa_id
-            ) d ON d.empresa_id = emp.id
+                SELECT e.empresa_id, COUNT(*) AS ausentes
+                FROM asistencias a
+                JOIN empleados e ON e.id = a.empleado_id
+                WHERE a.fecha BETWEEN %s AND %s
+                  AND a.estado = 'ausente'
+                  {scope_sql}
+                GROUP BY e.empresa_id
+            ) a ON a.empresa_id = d.empresa_id
             WHERE COALESCE(d.dotacion, 0) > 0
             ORDER BY (COALESCE(a.ausentes, 0) / NULLIF(d.dotacion, 0)) DESC, COALESCE(a.ausentes, 0) DESC
             LIMIT 20
             """,
-            (month_start, today),
+            (*scope_params, month_start, today, *scope_params),
         )
         charts["ausentismo_rank_empresa"] = _normalize_rank(aus_emp_rows)
 
         aus_sector_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 COALESCE(sec.nombre, 'Sin sector') AS nombre,
                 COALESCE(a.ausentes, 0) AS ausentes,
                 COALESCE(d.dotacion, 0) AS dotacion
             FROM (
-                SELECT COALESCE(sector_id, 0) AS gid, COUNT(*) AS dotacion
-                FROM empleados
-                WHERE activo = 1
-                GROUP BY COALESCE(sector_id, 0)
+                SELECT COALESCE(e.sector_id, 0) AS gid, COUNT(*) AS dotacion
+                FROM empleados e
+                WHERE e.activo = 1
+                {scope_sql}
+                GROUP BY COALESCE(e.sector_id, 0)
             ) d
             LEFT JOIN (
                 SELECT COALESCE(e.sector_id, 0) AS gid, COUNT(*) AS ausentes
@@ -1204,44 +2101,102 @@ def _dashboard_metrics():
                 JOIN empleados e ON e.id = a.empleado_id
                 WHERE a.fecha BETWEEN %s AND %s
                   AND a.estado = 'ausente'
+                  {scope_sql}
                 GROUP BY COALESCE(e.sector_id, 0)
             ) a ON a.gid = d.gid
             LEFT JOIN sectores sec ON sec.id = NULLIF(d.gid, 0)
             ORDER BY (COALESCE(a.ausentes, 0) / NULLIF(d.dotacion, 0)) DESC, COALESCE(a.ausentes, 0) DESC
             LIMIT 20
             """,
-            (month_start, today),
+            (*scope_params, month_start, today, *scope_params),
         )
         charts["ausentismo_rank_sector"] = _normalize_rank(aus_sector_rows)
 
         aus_sucursal_rows = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT
                 COALESCE(suc.nombre, 'Sin sucursal') AS nombre,
                 COALESCE(a.ausentes, 0) AS ausentes,
-                COALESCE(d.dotacion, 0) AS dotacion
+                COALESCE(d.dotacion, 0) AS dotacion,
+                COALESCE(a.asistencias_mes, 0) AS asistencias_mes,
+                COALESCE(a.tardes_mes, 0) AS tardes_mes,
+                COALESCE(le.eventos_legajo_mes, 0) AS eventos_legajo_mes,
+                COALESCE(le.eventos_legajo_vigentes, 0) AS eventos_legajo_vigentes
             FROM (
-                SELECT COALESCE(sucursal_id, 0) AS gid, COUNT(*) AS dotacion
-                FROM empleados
-                WHERE activo = 1
-                GROUP BY COALESCE(sucursal_id, 0)
+                SELECT COALESCE(e.sucursal_id, 0) AS gid, COUNT(*) AS dotacion
+                FROM empleados e
+                WHERE e.activo = 1
+                {scope_sql}
+                GROUP BY COALESCE(e.sucursal_id, 0)
             ) d
             LEFT JOIN (
-                SELECT COALESCE(e.sucursal_id, 0) AS gid, COUNT(*) AS ausentes
+                SELECT
+                    COALESCE(e.sucursal_id, 0) AS gid,
+                    COUNT(*) AS asistencias_mes,
+                    SUM(CASE WHEN a.estado = 'ausente' THEN 1 ELSE 0 END) AS ausentes,
+                    SUM(CASE WHEN a.estado = 'tarde' THEN 1 ELSE 0 END) AS tardes_mes
                 FROM asistencias a
                 JOIN empleados e ON e.id = a.empleado_id
                 WHERE a.fecha BETWEEN %s AND %s
-                  AND a.estado = 'ausente'
+                {scope_sql}
                 GROUP BY COALESCE(e.sucursal_id, 0)
             ) a ON a.gid = d.gid
+            LEFT JOIN (
+                SELECT
+                    COALESCE(e.sucursal_id, 0) AS gid,
+                    COUNT(*) AS eventos_legajo_mes,
+                    SUM(CASE WHEN le.estado = 'vigente' THEN 1 ELSE 0 END) AS eventos_legajo_vigentes
+                FROM legajo_eventos le
+                JOIN empleados e ON e.id = le.empleado_id
+                WHERE le.fecha_evento BETWEEN %s AND %s
+                {scope_sql}
+                GROUP BY COALESCE(e.sucursal_id, 0)
+            ) le ON le.gid = d.gid
             LEFT JOIN sucursales suc ON suc.id = NULLIF(d.gid, 0)
             ORDER BY (COALESCE(a.ausentes, 0) / NULLIF(d.dotacion, 0)) DESC, COALESCE(a.ausentes, 0) DESC
             LIMIT 20
             """,
-            (month_start, today),
+            (*scope_params, month_start, today, *scope_params, month_start, today, *scope_params),
         )
         charts["ausentismo_rank_sucursal"] = _normalize_rank(aus_sucursal_rows)
+        resumen_sucursal = []
+        for row in aus_sucursal_rows:
+            nombre = str(row.get("nombre") or "Sin sucursal").strip()
+            dotacion = _to_int(row.get("dotacion"))
+            asistencias_mes = _to_int(row.get("asistencias_mes"))
+            ausentes_mes = _to_int(row.get("ausentes"))
+            tardes_mes = _to_int(row.get("tardes_mes"))
+            eventos_legajo_mes = _to_int(row.get("eventos_legajo_mes"))
+            eventos_legajo_vigentes = _to_int(row.get("eventos_legajo_vigentes"))
+            indice_ausencias_por_empleado = round((ausentes_mes / dotacion), 2) if dotacion > 0 else 0.0
+            tasa_pct = round((ausentes_mes * 100.0) / (dotacion * month_days_elapsed), 2) if dotacion > 0 else 0.0
+            ausentismo_pct = round((ausentes_mes * 100.0) / asistencias_mes, 1) if asistencias_mes > 0 else 0.0
+            eventos_por_empleado = round((eventos_legajo_mes / dotacion), 2) if dotacion > 0 else 0.0
+            resumen_sucursal.append(
+                {
+                    "nombre": nombre,
+                    "dotacion": dotacion,
+                    "asistencias_mes": asistencias_mes,
+                    "ausentes_mes": ausentes_mes,
+                    "tardes_mes": tardes_mes,
+                    "ausentismo_pct": ausentismo_pct,
+                    "eventos_legajo_mes": eventos_legajo_mes,
+                    "eventos_legajo_vigentes": eventos_legajo_vigentes,
+                    "eventos_por_empleado": eventos_por_empleado,
+                    "indice_ausencias_por_empleado": indice_ausencias_por_empleado,
+                    "tasa_pct": tasa_pct,
+                }
+            )
+        resumen_sucursal.sort(
+            key=lambda x: (
+                x.get("ausentismo_pct", 0.0),
+                x.get("eventos_legajo_mes", 0),
+                x.get("nombre", ""),
+            ),
+            reverse=True,
+        )
+        charts["resumen_sucursal_mes"] = resumen_sucursal[:12]
 
         recent_events = _safe_fetchall(
             dict_cursor,
@@ -1270,5 +2225,59 @@ def _dashboard_metrics():
 @web_bp.route("/dashboard")
 @login_required
 def dashboard():
+    empresa_id = _parse_optional_int(request.args.get("empresa_id"))
+    sucursal_id = _parse_optional_int(request.args.get("sucursal_id"))
     stats, recent_events, charts = _dashboard_metrics()
-    return render_template("dashboard.html", stats=stats, recent_events=recent_events, charts=charts)
+    try:
+        empresas = get_empresas(include_inactive=False)
+    except Exception:
+        empresas = []
+    try:
+        sucursales = get_sucursales(include_inactive=False)
+    except Exception:
+        sucursales = []
+
+    empresa_sel = None
+    sucursal_sel = None
+    if empresa_id:
+        empresa_sel = next((e for e in empresas if _to_int(e.get("id")) == int(empresa_id)), None)
+    if sucursal_id:
+        sucursal_sel = next((s for s in sucursales if _to_int(s.get("id")) == int(sucursal_id)), None)
+
+    scope = {
+        "kind": "general",
+        "is_segmented": bool(empresa_id or sucursal_id),
+        "label": "General (todas las empresas y sucursales)",
+    }
+    if sucursal_sel:
+        scope["kind"] = "sucursal"
+        empresa_suffix = ""
+        if empresa_sel:
+            empresa_suffix = f" - {empresa_sel.get('razon_social') or ''}"
+        scope["label"] = f"Sucursal: {sucursal_sel.get('nombre') or ('#' + str(sucursal_id))}{empresa_suffix}"
+    elif empresa_sel:
+        scope["kind"] = "empresa"
+        scope["label"] = f"Empresa: {empresa_sel.get('razon_social') or ('#' + str(empresa_id))}"
+    elif sucursal_id:
+        scope["kind"] = "sucursal"
+        scope["label"] = f"Sucursal #{int(sucursal_id)}"
+    elif empresa_id:
+        scope["kind"] = "empresa"
+        scope["label"] = f"Empresa #{int(empresa_id)}"
+
+    stats["scope_kind"] = scope["kind"]
+    stats["scope_label"] = scope["label"]
+
+    if empresa_id:
+        sucursales = [s for s in sucursales if _to_int(s.get("empresa_id")) == int(empresa_id)]
+
+    return render_template(
+        "dashboard.html",
+        stats=stats,
+        recent_events=recent_events,
+        charts=charts,
+        empresas=empresas,
+        sucursales=sucursales,
+        filtros={"empresa_id": empresa_id, "sucursal_id": sucursal_id},
+        scope=scope,
+    )

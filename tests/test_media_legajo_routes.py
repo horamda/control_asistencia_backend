@@ -44,3 +44,30 @@ def test_media_legajo_adjunto_ok(monkeypatch, tmp_path):
     assert resp.status_code == 200
     assert b"%PDF-1.4" in resp.data
     assert "application/pdf" in resp.headers.get("Content-Type", "")
+
+
+def test_media_legajo_adjunto_ok_db(monkeypatch):
+    client = _build_client(monkeypatch)
+    with client.session_transaction() as sess:
+        sess["user_id"] = 5
+
+    monkeypatch.setattr(media_routes, "has_any_role", lambda user_id, roles: True)
+    monkeypatch.setattr(
+        media_routes,
+        "get_adjunto_by_id",
+        lambda adjunto_id: {
+            "id": adjunto_id,
+            "estado": "activo",
+            "evento_estado": "vigente",
+            "storage_backend": "db",
+            "storage_ruta": "db://legajos/sample.pdf",
+            "mime_type": "application/pdf",
+            "nombre_original": "certificado.pdf",
+        },
+    )
+    monkeypatch.setattr(media_routes, "get_adjunto_data_by_id", lambda adjunto_id: b"%PDF-1.7 db")
+
+    resp = client.get("/media/legajos/adjunto/10")
+    assert resp.status_code == 200
+    assert b"%PDF-1.7 db" in resp.data
+    assert "application/pdf" in resp.headers.get("Content-Type", "")

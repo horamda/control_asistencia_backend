@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Legajos{% endblock %}
 {% block content %}
+{% set default_foto_url = url_for('static', filename='img/empleado-default.svg') %}
 <div class="content-stack">
   <div class="section-head">
     <div>
@@ -13,6 +14,8 @@
     <div class="chip-row">
       <span class="chip">Multiempresa</span>
       <span class="chip">Trazabilidad</span>
+      <a class="chip" href="{{ url_for('legajos.listado_eventos') }}">Eventos</a>
+      <a class="chip" href="{{ url_for('legajo_tipos_evento.listado') }}">Tipos evento</a>
     </div>
   </div>
 
@@ -20,6 +23,7 @@
     <div class="table-responsive table-cards">
       <table>
         <tr>
+          <th>Foto</th>
           <th>Empresa</th>
           <th>Empleado</th>
           <th>Legajo</th>
@@ -29,6 +33,27 @@
         </tr>
         {% for e in empleados %}
           <tr>
+            <td data-label="Foto">
+              {% if e.foto %}
+                <a href="{{ e.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
+                  <img
+                    class="employee-avatar sm"
+                    src="{{ e.foto }}"
+                    alt="Foto {{ e.apellido }} {{ e.nombre }}"
+                    loading="lazy"
+                    data-fallback="{{ default_foto_url }}"
+                    onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
+                  >
+                </a>
+              {% else %}
+                <img
+                  class="employee-avatar sm"
+                  src="{{ default_foto_url }}"
+                  alt="Foto general"
+                  loading="lazy"
+                >
+              {% endif %}
+            </td>
             <td data-label="Empresa">{{ e.empresa_nombre or e.empresa_id }}</td>
             <td data-label="Empleado">{{ e.apellido }} {{ e.nombre }}</td>
             <td data-label="Legajo">{{ e.legajo }}</td>

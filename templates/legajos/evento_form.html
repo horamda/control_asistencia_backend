@@ -1,14 +1,37 @@
 {% extends "base.html" %}
 {% block title %}Editar evento de legajo{% endblock %}
 {% block content %}
+{% set default_foto_url = url_for('static', filename='img/empleado-default.svg') %}
+{% set foto_empleado_url = empleado.foto or default_foto_url %}
 <div class="content-stack">
   <div class="section-head">
-    <div>
-      <div class="section-kicker">Legajo</div>
-      <h2>Editar evento</h2>
-      <p class="module-intro">
-        {{ empleado.apellido }} {{ empleado.nombre }} | Legajo {{ empleado.legajo }}
-      </p>
+    <div class="employee-head">
+      {% if empleado.foto %}
+        <a href="{{ empleado.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
+          <img
+            class="employee-avatar md"
+            src="{{ foto_empleado_url }}"
+            alt="Foto {{ empleado.apellido }} {{ empleado.nombre }}"
+            loading="lazy"
+            data-fallback="{{ default_foto_url }}"
+            onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
+          >
+        </a>
+      {% else %}
+        <img
+          class="employee-avatar md"
+          src="{{ default_foto_url }}"
+          alt="Foto general"
+          loading="lazy"
+        >
+      {% endif %}
+      <div class="employee-head-meta">
+        <div class="section-kicker">Legajo</div>
+        <h2>Editar evento</h2>
+        <p class="module-intro">
+          {{ empleado.apellido }} {{ empleado.nombre }} | Legajo {{ empleado.legajo }}
+        </p>
+      </div>
     </div>
   </div>
 
@@ -24,6 +47,9 @@
 
   <form method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if next_url %}
+      <input type="hidden" name="next" value="{{ next_url }}">
+    {% endif %}
     <div class="form-grid">
       <div class="row">
         <label>Tipo de evento</label>
@@ -70,7 +96,7 @@
     </div>
     <div class="actions">
       <button type="submit">Guardar cambios</button>
-      <a class="btn btn-secondary" href="{{ url_for('legajos.empleado', emp_id=empleado.id) }}">Volver</a>
+      <a class="btn btn-secondary" href="{{ next_url or url_for('legajos.empleado', emp_id=empleado.id) }}">Volver</a>
     </div>
   </form>
 </div>

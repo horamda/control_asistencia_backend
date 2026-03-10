@@ -1,5 +1,6 @@
 import io
 import os
+import datetime
 from ftplib import FTP, all_errors
 from pathlib import Path
 
@@ -51,6 +52,17 @@ def _safe_dni(raw):
     return digits or "empleado"
 
 
+def _to_version_from_datetime(value):
+    if value is None:
+        return None
+    if hasattr(value, "timestamp"):
+        return str(int(value.timestamp()))
+    try:
+        return str(int(float(value)))
+    except (TypeError, ValueError):
+        return None
+
+
 def _detect_image_ext(data: bytes):
     if not data:
         return None
@@ -71,7 +83,7 @@ def _storage_backend():
     raw = str(
         os.getenv("FOTO_STORAGE_BACKEND")
         or os.getenv("FOTO_STORAGE")
-        or "local"
+        or "db"
     ).strip().lower()
     if raw in {"local", "ftp", "db"}:
         return raw
@@ -201,8 +213,16 @@ def _public_url(filename: str, public_base_url: str, public_prefix: str):
     return f"/{public_path.lstrip('/')}"
 
 
+def _find_local_photo_path(base_dir: Path, safe_dni: str):
+    for ext, mime in [("jpg", "image/jpeg"), ("png", "image/png"), ("webp", "image/webp")]:
+        path = base_dir / f"{safe_dni}.{ext}"
+        if path.exists() and path.is_file():
+            return path, ext, mime
+    return None, None, None
+
+
 def _preferred_output_ext():
-    output = str(os.getenv("FOTO_OUTPUT_FORMAT", "webp")).strip().lower()
+    output = str(os.getenv("FOTO_OUTPUT_FORMAT", "jpg")).strip().lower()
     if output not in _OUTPUT_FORMATS:
         raise ValueError("FOTO_OUTPUT_FORMAT invalido. Use jpg, png o webp.")
     if output == "jpeg":
@@ -229,6 +249,15 @@ def _resize_to_limits(image: Image.Image, max_width: int, max_height: int):
     resized = image.copy()
     resized.thumbnail((max_width, max_height), _RESAMPLING_LANCZOS)
     return resized
+
+
+def _crop_to_fixed_size(image: Image.Image, width: int, height: int):
+    return ImageOps.fit(
+        image,
+        (width, height),
+        method=_RESAMPLING_LANCZOS,
+        centering=(0.5, 0.5),
+    )
 
 
 def _encode_image_bytes(image: Image.Image, output_ext: str, quality: int, compress_level: int):
@@ -269,6 +298,9 @@ def _normalize_profile_photo(data: bytes, output_max_bytes: int):
     compress_level = _parse_int_env("FOTO_PNG_COMPRESS_LEVEL", 9, minimum=0, maximum=9)
     max_width = _parse_int_env("FOTO_MAX_WIDTH", 720, minimum=128, maximum=4000)
     max_height = _parse_int_env("FOTO_MAX_HEIGHT", 720, minimum=128, maximum=4000)
+    force_crop = _parse_bool_env("FOTO_FORCE_CROP", True)
+    crop_width = _parse_int_env("FOTO_CROP_WIDTH", max_width, minimum=128, maximum=4000)
+    crop_height = _parse_int_env("FOTO_CROP_HEIGHT", max_height, minimum=128, maximum=4000)
 
     try:
         with Image.open(io.BytesIO(data)) as opened:
@@ -279,7 +311,10 @@ def _normalize_profile_photo(data: bytes, output_max_bytes: int):
     except UnidentifiedImageError as exc:
         raise ValueError("Archivo invalido. No se detecta imagen JPG/PNG/WEBP.") from exc
 
-    image = _resize_to_limits(base, max_width, max_height)
+    if force_crop:
+        image = _crop_to_fixed_size(base, crop_width, crop_height)
+    else:
+        image = _resize_to_limits(base, max_width, max_height)
     encoded, mime_type = _encode_image_bytes(
         image=image,
         output_ext=output_ext,
@@ -410,20 +445,60 @@ def get_profile_photo_bytes_by_dni(dni: str | None):
     if backend == "local":
         cfg = _local_config()
         base_dir: Path = cfg["dir"]
-        for ext, mime in [("jpg", "image/jpeg"), ("png", "image/png"), ("webp", "image/webp")]:
-            path = base_dir / f"{safe_dni}.{ext}"
-            if not path.exists() or not path.is_file():
-                continue
-            try:
-                return {
-                    "mime_type": mime,
-                    "ext": ext,
-                    "data": path.read_bytes(),
-                    "updated_at": None,
-                }
-            except Exception:
-                return None
+        path, ext, mime = _find_local_photo_path(base_dir, safe_dni)
+        if not path:
+            return None
+        try:
+            updated_at = datetime.datetime.fromtimestamp(path.stat().st_mtime, tz=datetime.timezone.utc)
+            return {
+                "mime_type": mime,
+                "ext": ext,
+                "data": path.read_bytes(),
+                "updated_at": updated_at,
+            }
+        except Exception:
+            return None
+
+    return None
+
+
+def get_profile_photo_version_by_dni(dni: str | None):
+    safe_dni = _safe_dni(dni)
+    if not safe_dni or safe_dni == "empleado":
         return None
+
+    backend = _storage_backend()
+    if backend == "db":
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        try:
+            _ensure_db_photo_table(cursor)
+            cursor.execute(
+                """
+                SELECT UNIX_TIMESTAMP(updated_at) AS version
+                FROM empleado_fotos
+                WHERE dni = %s
+                """,
+                (safe_dni,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return _to_version_from_datetime(row.get("version"))
+        finally:
+            cursor.close()
+            db.close()
+
+    if backend == "local":
+        cfg = _local_config()
+        base_dir: Path = cfg["dir"]
+        path, _, _ = _find_local_photo_path(base_dir, safe_dni)
+        if not path:
+            return None
+        try:
+            return str(int(path.stat().st_mtime))
+        except Exception:
+            return None
 
     return None
 
@@ -441,7 +516,7 @@ def upload_profile_photo(file_storage, dni: str | None):
     if not data:
         raise ValueError("La imagen esta vacia.")
 
-    max_bytes = _parse_int_env("FOTO_MAX_BYTES", 5242880, minimum=65536, maximum=52428800)
+    max_bytes = _parse_int_env("FOTO_MAX_BYTES", 220000, minimum=65536, maximum=52428800)
     input_max_default = max(10485760, max_bytes * 2)
     input_max_bytes = _parse_int_env(
         "FOTO_INPUT_MAX_BYTES",

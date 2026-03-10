@@ -67,7 +67,7 @@ def _extract_form_data(form):
         "sector": (form.get("sector") or "").strip(),
         "fecha_ingreso": (form.get("fecha_ingreso") or "").strip(),
         "estado": (form.get("estado") or "activo").strip() or "activo",
-        "foto": (form.get("foto") or "").strip(),
+        "foto": None,
     }
 
 
@@ -76,8 +76,7 @@ def _is_checked(value):
 
 
 def _resolve_photo_from_request(data, emp_actual=None):
-    manual_url = str(data.get("foto") or "").strip() or None
-    foto = manual_url
+    foto = str((emp_actual or {}).get("foto") or "").strip() or None
 
     foto_file = request.files.get("foto_file") or request.files.get("foto")
     has_file = bool(foto_file and str(foto_file.filename or "").strip())
@@ -91,6 +90,8 @@ def _resolve_photo_from_request(data, emp_actual=None):
     dni_para_foto = dni_nuevo or dni_actual
 
     if has_file:
+        if not dni_para_foto:
+            raise ValueError("Debe ingresar DNI valido para asociar la foto.")
         try:
             foto = upload_profile_photo(foto_file, dni_para_foto)
             if emp_actual and dni_actual and dni_nuevo and dni_actual != dni_nuevo:

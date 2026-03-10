@@ -46,6 +46,9 @@ def editar(empresa_id):
             "requiere_geo": request.form.get("requiere_geo") == "1",
             "tolerancia_global": _parse_int(request.form.get("tolerancia_global")),
             "cooldown_scan_segundos": _parse_int(request.form.get("cooldown_scan_segundos")),
+            "intervalo_minimo_fichadas_minutos": _parse_int(
+                request.form.get("intervalo_minimo_fichadas_minutos")
+            ),
         }
         upsert(data)
         log_audit(session, "update", "configuracion_empresa", empresa_id)

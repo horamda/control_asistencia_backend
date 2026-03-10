@@ -28,6 +28,7 @@ def test_integracion_horarios_api_create_ok(monkeypatch):
 
     payload = {
         "empresa_id": 1,
+        "sucursal_id": 1,
         "nombre": "Horario Verano",
         "tolerancia_min": 5,
         "dias": [
@@ -61,8 +62,16 @@ def test_integracion_horarios_api_create_error_de_validacion(monkeypatch):
 
 def test_integracion_asignaciones_api_asignar_ok(monkeypatch):
     client = _build_client(monkeypatch)
-    monkeypatch.setattr(empleado_horarios_routes, "get_by_id", lambda empleado_id: {"id": empleado_id, "empresa_id": 1})
-    monkeypatch.setattr(empleado_horarios_routes, "get_horario_by_id", lambda horario_id: {"id": horario_id, "empresa_id": 1})
+    monkeypatch.setattr(
+        empleado_horarios_routes,
+        "get_by_id",
+        lambda empleado_id: {"id": empleado_id, "empresa_id": 1, "sucursal_id": 1},
+    )
+    monkeypatch.setattr(
+        empleado_horarios_routes,
+        "get_horario_by_id",
+        lambda horario_id: {"id": horario_id, "empresa_id": 1, "sucursal_id": 1},
+    )
     monkeypatch.setattr(empleado_horarios_routes, "create_asignacion", lambda *args, **kwargs: 202)
     monkeypatch.setattr(empleado_horarios_routes, "log_audit", lambda *args, **kwargs: None)
 
@@ -79,8 +88,16 @@ def test_integracion_asignaciones_api_asignar_ok(monkeypatch):
 
 def test_integracion_asignaciones_api_rechaza_empresa_inconsistente(monkeypatch):
     client = _build_client(monkeypatch)
-    monkeypatch.setattr(empleado_horarios_routes, "get_by_id", lambda empleado_id: {"id": empleado_id, "empresa_id": 1})
-    monkeypatch.setattr(empleado_horarios_routes, "get_horario_by_id", lambda horario_id: {"id": horario_id, "empresa_id": 2})
+    monkeypatch.setattr(
+        empleado_horarios_routes,
+        "get_by_id",
+        lambda empleado_id: {"id": empleado_id, "empresa_id": 1, "sucursal_id": 1},
+    )
+    monkeypatch.setattr(
+        empleado_horarios_routes,
+        "get_horario_by_id",
+        lambda horario_id: {"id": horario_id, "empresa_id": 2, "sucursal_id": 1},
+    )
 
     payload = {
         "empleado_id": 1,
@@ -90,6 +107,29 @@ def test_integracion_asignaciones_api_rechaza_empresa_inconsistente(monkeypatch)
     response = client.post("/empleado-horarios/api", json=payload)
     assert response.status_code == 400
     assert response.get_json()["error"] == "Empresa inconsistente entre empleado y horario"
+
+
+def test_integracion_asignaciones_api_rechaza_sucursal_inconsistente(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(
+        empleado_horarios_routes,
+        "get_by_id",
+        lambda empleado_id: {"id": empleado_id, "empresa_id": 1, "sucursal_id": 1},
+    )
+    monkeypatch.setattr(
+        empleado_horarios_routes,
+        "get_horario_by_id",
+        lambda horario_id: {"id": horario_id, "empresa_id": 1, "sucursal_id": 2},
+    )
+
+    payload = {
+        "empleado_id": 1,
+        "horario_id": 2,
+        "fecha_desde": "2026-02-01",
+    }
+    response = client.post("/empleado-horarios/api", json=payload)
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "Sucursal inconsistente entre empleado y horario"
 
 
 def test_integracion_excepciones_api_create_ok(monkeypatch):

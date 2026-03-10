@@ -33,10 +33,26 @@
     <div class="form-grid">
       <div class="row span-2">
         <label>Empresa</label>
-        <select name="empresa_id" required>
+        <select name="empresa_id" id="empresa_id" required>
           <option value="">Seleccione</option>
           {% for e in empresas %}
             <option value="{{ e.id }}" {% if data.empresa_id|string == e.id|string %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row span-2">
+        <label>Sucursal</label>
+        <select name="sucursal_id" id="sucursal_id" required>
+          <option value="">Seleccione</option>
+          {% for s in sucursales %}
+            <option
+              value="{{ s.id }}"
+              data-empresa-id="{{ s.empresa_id }}"
+              {% if data.sucursal_id|string == s.id|string %}selected{% endif %}
+            >
+              {{ s.nombre }} ({{ s.empresa_nombre or ("Empresa " ~ s.empresa_id) }})
+            </option>
           {% endfor %}
         </select>
       </div>
@@ -203,6 +219,41 @@
   }
 
   initDays(parseSeedPayload());
+
+  function applySucursalFilter() {
+    const empresaSelect = document.getElementById("empresa_id");
+    const sucursalSelect = document.getElementById("sucursal_id");
+    if (!empresaSelect || !sucursalSelect) return;
+
+    const empresaId = String(empresaSelect.value || "");
+    const current = String(sucursalSelect.value || "");
+    let currentVisible = false;
+
+    Array.from(sucursalSelect.options).forEach((opt) => {
+      if (!opt.value) {
+        opt.hidden = false;
+        opt.disabled = false;
+        return;
+      }
+      const optionEmpresa = String(opt.dataset.empresaId || "");
+      const visible = !empresaId || optionEmpresa === empresaId;
+      opt.hidden = !visible;
+      opt.disabled = !visible;
+      if (visible && String(opt.value) === current) {
+        currentVisible = true;
+      }
+    });
+
+    if (!currentVisible) {
+      sucursalSelect.value = "";
+    }
+  }
+
+  const empresaSelect = document.getElementById("empresa_id");
+  if (empresaSelect) {
+    empresaSelect.addEventListener("change", applySucursalFilter);
+  }
+  applySucursalFilter();
 
   document.getElementById("horario-form").addEventListener("submit", (ev) => {
     const diasPayload = collectDiasPayload();

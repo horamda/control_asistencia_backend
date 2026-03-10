@@ -77,6 +77,86 @@ def create(
         db.close()
 
 
+def get_by_id(marca_id: int):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT *
+            FROM asistencia_marcas
+            WHERE id = %s
+            LIMIT 1
+            """,
+            (marca_id,),
+        )
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        db.close()
+
+
+def get_by_asistencia(asistencia_id: int):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT *
+            FROM asistencia_marcas
+            WHERE asistencia_id = %s
+            ORDER BY hora ASC, id ASC
+            """,
+            (asistencia_id,),
+        )
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        db.close()
+
+
+def update_basic(marca_id: int, *, hora: str, accion: str, observaciones: str | None = None):
+    if accion not in {"ingreso", "egreso"}:
+        raise ValueError("accion invalida")
+
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            """
+            UPDATE asistencia_marcas
+            SET hora = %s,
+                accion = %s,
+                observaciones = %s
+            WHERE id = %s
+            """,
+            (hora, accion, observaciones, marca_id),
+        )
+        db.commit()
+        return cursor.rowcount > 0
+    finally:
+        cursor.close()
+        db.close()
+
+
+def delete_by_id(marca_id: int):
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            """
+            DELETE FROM asistencia_marcas
+            WHERE id = %s
+            """,
+            (marca_id,),
+        )
+        db.commit()
+        return cursor.rowcount > 0
+    finally:
+        cursor.close()
+        db.close()
+
+
 def get_last_by_empleado_fecha(empleado_id: int, fecha: str):
     db = get_db()
     cursor = db.cursor(dictionary=True)

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Control Asistencia - Mobile API
-  version: 1.9.0
+  version: 1.10.0
   description: API v1 para app Flutter de empleados.
 servers:
   - url: http://localhost:5000
@@ -81,6 +81,48 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /empleados/imagen/{dni}:
+    get:
+      tags: [Perfil]
+      summary: Obtener imagen de perfil por DNI
+      parameters:
+        - in: path
+          name: dni
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: v
+          required: false
+          schema:
+            type: string
+          description: Version de imagen enviada por cliente para cache busting.
+      responses:
+        "200":
+          description: Imagen de perfil
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Identificador de version para cache condicional.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        "304":
+          description: Not Modified (sin cambios respecto a If-None-Match)
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/mobile/me/config-asistencia:
     get:
       tags: [Asistencias]
@@ -110,6 +152,10 @@ paths:
                     type: integer
                     nullable: true
                     description: Ventana anti doble escaneo en segundos (0 desactiva).
+                  intervalo_minimo_fichadas_minutos:
+                    type: integer
+                    nullable: true
+                    description: Minutos minimos entre marcas consecutivas (0 desactiva).
                   metodos_habilitados:
                     type: array
                     items:
@@ -523,6 +569,9 @@ paths:
                   foto:
                     type: string
                     nullable: true
+                  imagen_version:
+                    type: string
+                    nullable: true
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -547,6 +596,9 @@ paths:
                   ok:
                     type: boolean
                   foto:
+                    type: string
+                    nullable: true
+                  imagen_version:
                     type: string
                     nullable: true
         "401":
@@ -636,6 +688,9 @@ components:
           type: string
           format: uri
           nullable: true
+        imagen_version:
+          type: string
+          nullable: true
     EmpleadoPerfil:
       type: object
       properties:
@@ -673,6 +728,9 @@ components:
           type: string
           nullable: true
         foto:
+          type: string
+          nullable: true
+        imagen_version:
           type: string
           nullable: true
         estado:
@@ -1201,6 +1259,14 @@ components:
           type: integer
 
 x-changelog:
+  - version: 1.10.0
+    date: 2026-03-09
+    changes:
+      - "POST /api/v1/mobile/auth/login agrega empleado.imagen_version."
+      - "GET /api/v1/mobile/me agrega imagen_version."
+      - "PUT /api/v1/mobile/me/perfil agrega imagen_version en response."
+      - "DELETE /api/v1/mobile/me/perfil/foto agrega imagen_version=null."
+      - "Nuevo endpoint GET /empleados/imagen/{dni}?v=<imagen_version> con soporte ETag/304."
   - version: 1.9.0
     date: 2026-02-28
     changes:
@@ -1222,6 +1288,7 @@ x-changelog:
     date: 2026-02-25
     changes:
       - "GET /api/v1/mobile/me/config-asistencia agrega cooldown_scan_segundos."
+      - "GET /api/v1/mobile/me/config-asistencia agrega intervalo_minimo_fichadas_minutos."
       - "POST /api/v1/mobile/me/fichadas/scan agrega code=scan_cooldown y cooldown_segundos_restantes en 409."
   - version: 1.5.0
     date: 2026-02-24

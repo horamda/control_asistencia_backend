@@ -12,6 +12,7 @@
     </div>
     <div class="chip-row">
       <span class="chip">Empresa {{ empleado.empresa_id or "-" }}</span>
+      <span class="chip">Sucursal {{ empleado.sucursal_id or "-" }}</span>
       <span class="chip">Modulo critico</span>
     </div>
   </div>
@@ -25,6 +26,7 @@
           <div class="kv"><span class="k">Inicio</span><span class="v">{{ actual.fecha_desde }}</span></div>
           <div class="kv"><span class="k">Fin</span><span class="v">{{ actual.fecha_hasta or "Abierta" }}</span></div>
           <div class="kv"><span class="k">Empresa</span><span class="v">{{ actual.empresa_nombre }}</span></div>
+          <div class="kv"><span class="k">Sucursal</span><span class="v">{{ actual.sucursal_nombre or "-" }}</span></div>
         </div>
       {% else %}
         <div class="empty-state">Este empleado no tiene horario vigente.</div>
@@ -35,7 +37,7 @@
       <h3>Reglas</h3>
       <ul class="list-clean">
         <li>No se permiten rangos superpuestos.</li>
-        <li>El horario debe pertenecer a la misma empresa.</li>
+        <li>El horario debe pertenecer a la misma empresa y sucursal.</li>
         <li>Fecha hasta es opcional para vigencia abierta.</li>
       </ul>
     </section>
@@ -61,8 +63,8 @@
         <select name="horario_id" required>
           <option value="">Seleccione</option>
           {% for h in horarios %}
-            <option value="{{ h.id }}" {% if data.horario_id == h.id %}selected{% endif %}>
-              {{ h.nombre }} ({{ h.empresa_nombre or ("Empresa " ~ h.empresa_id) }})
+            <option value="{{ h.id }}" {% if data.horario_id|string == h.id|string %}selected{% endif %}>
+              {{ h.nombre }} ({{ h.empresa_nombre or ("Empresa " ~ h.empresa_id) }} / {{ h.sucursal_nombre or "Global" }})
             </option>
           {% endfor %}
         </select>

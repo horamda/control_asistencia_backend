@@ -7,11 +7,16 @@ def get_actual_by_empleado(empleado_id: int):
     try:
         cursor.execute(
             """
-            SELECT eh.*, h.nombre AS horario_nombre, emp.razon_social AS empresa_nombre
+            SELECT
+                eh.*,
+                h.nombre AS horario_nombre,
+                emp.razon_social AS empresa_nombre,
+                s.nombre AS sucursal_nombre
             FROM empleado_horarios eh
             JOIN horarios h ON h.id = eh.horario_id
             JOIN empleados e ON e.id = eh.empleado_id
             JOIN empresas emp ON emp.id = e.empresa_id
+            LEFT JOIN sucursales s ON s.id = h.sucursal_id
             WHERE eh.empleado_id = %s
               AND eh.fecha_desde <= CURDATE()
               AND (eh.fecha_hasta IS NULL OR eh.fecha_hasta >= CURDATE())
@@ -55,11 +60,16 @@ def get_historial(empleado_id: int):
     try:
         cursor.execute(
             """
-            SELECT eh.*, h.nombre AS horario_nombre, emp.razon_social AS empresa_nombre
+            SELECT
+                eh.*,
+                h.nombre AS horario_nombre,
+                emp.razon_social AS empresa_nombre,
+                s.nombre AS sucursal_nombre
             FROM empleado_horarios eh
             JOIN horarios h ON h.id = eh.horario_id
             JOIN empleados e ON e.id = eh.empleado_id
             JOIN empresas emp ON emp.id = e.empresa_id
+            LEFT JOIN sucursales s ON s.id = h.sucursal_id
             WHERE eh.empleado_id = %s
             ORDER BY eh.fecha_desde DESC, eh.id DESC
             """,

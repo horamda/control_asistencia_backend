@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <title>Planilla de fichadas {{ fecha }}</title>
+    <style>
+      body { font-family: Arial, sans-serif; color: #111; margin: 18px; }
+      .head { margin-bottom: 12px; }
+      .meta { margin: 0 0 8px; font-size: 14px; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td { border: 1px solid #444; padding: 4px 6px; vertical-align: top; }
+      th { background: #f2f2f2; text-align: left; }
+      .badge { display: inline-block; border: 1px solid #888; border-radius: 3px; padding: 1px 4px; margin-bottom: 2px; }
+      .badge.ok { border-color: #2f855a; color: #2f855a; }
+      .badge.danger { border-color: #b91c1c; color: #b91c1c; }
+      .toolbar { margin: 12px 0; }
+      .btn { border: 1px solid #444; background: #f8f8f8; padding: 6px 10px; text-decoration: none; color: #111; }
+      @media print {
+        .toolbar { display: none; }
+        @page { size: landscape; margin: 10mm; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="head">
+      <h2>Planilla diaria de fichadas</h2>
+      <p class="meta">
+        <strong>Empresa:</strong> {{ empresa_sel.razon_social if empresa_sel else "-" }} |
+        <strong>Sucursal:</strong> {{ sucursal_sel.nombre if sucursal_sel else "-" }} |
+        <strong>Fecha:</strong> {{ fecha }} |
+        <strong>Intervalo minimo:</strong> {{ intervalo_minimo_fichadas }} min
+      </p>
+      <p class="meta"><strong>Personas:</strong> {{ planilla_rows|length }}</p>
+    </div>
+    <div class="toolbar">
+      <a class="btn" href="#" onclick="window.print(); return false;">Imprimir / Guardar PDF</a>
+    </div>
+    {% set show_actions = false %}
+    {% include "asistencias/_planilla_table.html" %}
+    {% if auto_print %}
+      <script>
+        window.addEventListener("load", function () {
+          window.print();
+        });
+      </script>
+    {% endif %}
+  </body>
+</html>

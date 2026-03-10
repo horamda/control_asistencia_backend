@@ -15,8 +15,11 @@ def _make_image_bytes(fmt: str = "JPEG", size=(1600, 1200), color=(20, 120, 220)
 
 def test_normalize_profile_photo_webp_and_resize(monkeypatch):
     monkeypatch.setenv("FOTO_OUTPUT_FORMAT", "webp")
+    monkeypatch.setenv("FOTO_FORCE_CROP", "1")
     monkeypatch.setenv("FOTO_MAX_WIDTH", "320")
     monkeypatch.setenv("FOTO_MAX_HEIGHT", "320")
+    monkeypatch.setenv("FOTO_CROP_WIDTH", "320")
+    monkeypatch.setenv("FOTO_CROP_HEIGHT", "320")
     monkeypatch.setenv("FOTO_OUTPUT_QUALITY", "80")
 
     raw = _make_image_bytes(size=(2000, 1400))
@@ -29,6 +32,25 @@ def test_normalize_profile_photo_webp_and_resize(monkeypatch):
     with Image.open(io.BytesIO(normalized)) as out:
         assert out.width <= 320
         assert out.height <= 320
+
+
+def test_normalize_profile_photo_crop_fixed_size(monkeypatch):
+    monkeypatch.setenv("FOTO_OUTPUT_FORMAT", "jpg")
+    monkeypatch.setenv("FOTO_FORCE_CROP", "1")
+    monkeypatch.setenv("FOTO_CROP_WIDTH", "256")
+    monkeypatch.setenv("FOTO_CROP_HEIGHT", "256")
+    monkeypatch.setenv("FOTO_OUTPUT_QUALITY", "80")
+
+    raw = _make_image_bytes(size=(1800, 900))
+    normalized, ext, mime = photo_service._normalize_profile_photo(raw, output_max_bytes=250000)
+
+    assert ext == "jpg"
+    assert mime == "image/jpeg"
+    assert len(normalized) <= 250000
+
+    with Image.open(io.BytesIO(normalized)) as out:
+        assert out.width == 256
+        assert out.height == 256
 
 
 def test_upload_profile_photo_db_uses_relative_url_if_no_public_base(monkeypatch):

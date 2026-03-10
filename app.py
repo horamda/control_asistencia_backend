@@ -5,13 +5,13 @@ import os
 import logging
 import json
 import time
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.exceptions import HTTPException
 
 from extensions import init_db
 from routes.auth_routes import auth_bp          # API
 from routes.mobile_v1_routes import mobile_v1_bp
-from routes.media_routes import media_bp
+from routes.media_routes import media_bp, public_media_bp
 from web.auth.web_auth_routes import web_auth_bp  # WEB
 from web.web_routes import web_bp
 from web.empleados.empleados_routes import empleados_bp
@@ -34,6 +34,7 @@ from web.vacaciones.vacaciones_routes import vacaciones_bp
 from web.empleado_excepciones.empleado_excepciones_routes import empleado_excepciones_bp
 from web.qr_puerta.qr_puerta_routes import qr_puerta_bp
 from web.legajos.legajos_routes import legajos_bp
+from web.legajos.legajo_tipos_evento_routes import legajo_tipos_evento_bp
 
 load_dotenv()
 
@@ -82,6 +83,7 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(mobile_v1_bp)
     app.register_blueprint(media_bp)
+    app.register_blueprint(public_media_bp)
 
     # PANEL WEB
     app.register_blueprint(web_auth_bp)
@@ -107,10 +109,18 @@ def create_app():
     app.register_blueprint(empleado_excepciones_bp)
     app.register_blueprint(qr_puerta_bp)
     app.register_blueprint(legajos_bp)
+    app.register_blueprint(legajo_tipos_evento_bp)
 
     @app.route("/")
     def index():
         return redirect(url_for("web_auth.login"))
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(err):
+        message = "Sesion expirada o formulario invalido. Recargue la pagina e intente nuevamente."
+        if request.path == "/login":
+            return render_template("login.html", error=message), 400
+        return _format_error(err, status_code=400)
 
     @app.errorhandler(HTTPException)
     def handle_http_error(err):
@@ -183,7 +193,10 @@ def create_app():
 # Gunicorn binding
 # ======================
 
-app = create_app()
+if os.getenv("FLASK_SKIP_APP_BOOT", "0") == "1":
+    app = None
+else:
+    app = create_app()
 
 
 # ======================

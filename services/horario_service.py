@@ -137,6 +137,9 @@ def _normalize_payload(data: dict):
     empresa_id = _parse_int(data.get("empresa_id"), "empresa_id")
     if not empresa_id:
         raise ValueError("empresa_id es requerido.")
+    sucursal_id = _parse_int(data.get("sucursal_id"), "sucursal_id")
+    if not sucursal_id:
+        raise ValueError("sucursal_id es requerido.")
 
     nombre = str(data.get("nombre") or "").strip()
     if not nombre:
@@ -154,6 +157,7 @@ def _normalize_payload(data: dict):
 
     return {
         "empresa_id": empresa_id,
+        "sucursal_id": sucursal_id,
         "nombre": nombre,
         "tolerancia_min": tolerancia,
         "descripcion": descripcion,
@@ -172,6 +176,8 @@ def get_horarios_resumen(include_inactive: bool = True):
                 h.id,
                 h.empresa_id,
                 e.razon_social AS empresa_nombre,
+                h.sucursal_id,
+                s.nombre AS sucursal_nombre,
                 h.nombre,
                 h.tolerancia_min,
                 h.descripcion,
@@ -180,11 +186,12 @@ def get_horarios_resumen(include_inactive: bool = True):
                 COUNT(hdb.id) AS bloques_count
             FROM horarios h
             JOIN empresas e ON e.id = h.empresa_id
+            LEFT JOIN sucursales s ON s.id = h.sucursal_id
             LEFT JOIN horario_dias hd ON hd.horario_id = h.id
             LEFT JOIN horario_dia_bloques hdb ON hdb.horario_dia_id = hd.id
             {where}
-            GROUP BY h.id, h.empresa_id, e.razon_social, h.nombre, h.tolerancia_min, h.descripcion, h.activo
-            ORDER BY e.razon_social, h.nombre
+            GROUP BY h.id, h.empresa_id, e.razon_social, h.sucursal_id, s.nombre, h.nombre, h.tolerancia_min, h.descripcion, h.activo
+            ORDER BY e.razon_social, s.nombre, h.nombre
         """)
         return cursor.fetchall()
     finally:
@@ -197,9 +204,13 @@ def get_horario_estructurado(horario_id: int):
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT h.*, e.razon_social AS empresa_nombre
+            SELECT
+                h.*,
+                e.razon_social AS empresa_nombre,
+                s.nombre AS sucursal_nombre
             FROM horarios h
             JOIN empresas e ON e.id = h.empresa_id
+            LEFT JOIN sucursales s ON s.id = h.sucursal_id
             WHERE h.id = %s
         """, (horario_id,))
         horario = cursor.fetchone()
@@ -240,6 +251,8 @@ def get_horario_estructurado(horario_id: int):
             "id": horario["id"],
             "empresa_id": horario["empresa_id"],
             "empresa_nombre": horario["empresa_nombre"],
+            "sucursal_id": horario.get("sucursal_id"),
+            "sucursal_nombre": horario.get("sucursal_nombre"),
             "nombre": horario["nombre"],
             "tolerancia_min": horario["tolerancia_min"],
             "descripcion": horario["descripcion"],
@@ -257,11 +270,24 @@ def create_horario_estructurado(data: dict):
     cursor = db.cursor()
     try:
         db.start_transaction()
+        cursor.execute(
+            """
+            SELECT id
+            FROM sucursales
+            WHERE id = %s
+              AND empresa_id = %s
+            LIMIT 1
+            """,
+            (payload["sucursal_id"], payload["empresa_id"]),
+        )
+        if not cursor.fetchone():
+            raise ValueError("sucursal_id invalido para la empresa seleccionada.")
         cursor.execute("""
-            INSERT INTO horarios (empresa_id, nombre, tolerancia_min, descripcion, activo)
-            VALUES (%s,%s,%s,%s,%s)
+            INSERT INTO horarios (empresa_id, sucursal_id, nombre, tolerancia_min, descripcion, activo)
+            VALUES (%s,%s,%s,%s,%s,%s)
         """, (
             payload["empresa_id"],
+            payload["sucursal_id"],
             payload["nombre"],
             payload["tolerancia_min"],
             payload["descripcion"],
@@ -308,10 +334,23 @@ def update_horario_estructurado(horario_id: int, data: dict):
         cursor.execute("SELECT id FROM horarios WHERE id = %s FOR UPDATE", (horario_id,))
         if not cursor.fetchone():
             raise ValueError("Horario no encontrado.")
+        cursor.execute(
+            """
+            SELECT id
+            FROM sucursales
+            WHERE id = %s
+              AND empresa_id = %s
+            LIMIT 1
+            """,
+            (payload["sucursal_id"], payload["empresa_id"]),
+        )
+        if not cursor.fetchone():
+            raise ValueError("sucursal_id invalido para la empresa seleccionada.")
 
         cursor.execute("""
             UPDATE horarios
             SET empresa_id = %s,
+                sucursal_id = %s,
                 nombre = %s,
                 tolerancia_min = %s,
                 descripcion = %s,
@@ -319,6 +358,7 @@ def update_horario_estructurado(horario_id: int, data: dict):
             WHERE id = %s
         """, (
             payload["empresa_id"],
+            payload["sucursal_id"],
             payload["nombre"],
             payload["tolerancia_min"],
             payload["descripcion"],

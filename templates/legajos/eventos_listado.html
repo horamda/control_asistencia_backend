@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Eventos de legajo{% endblock %}
+{% block content %}
+{% set default_foto_url = url_for('static', filename='img/empleado-default.svg') %}
+{% set from_idx = ((page - 1) * per_page) + 1 if total > 0 else 0 %}
+{% set to_idx = (page * per_page) if (page * per_page) < total else total %}
+{% set can_edit = ((session.user_role or '')|lower in ['admin', 'rrhh']) %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Legajos</div>
+      <h2>Eventos</h2>
+      <p class="module-intro">
+        Listado centralizado para consultar, editar y anular eventos de legajo por empresa y empleado.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">CRUD eventos</span>
+      <span class="chip">Trazabilidad</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn btn-secondary" href="{{ url_for('legajos.listado_empleados') }}">Ir a legajos por empleado</a>
+    <a class="btn btn-secondary" href="{{ url_for('legajo_tipos_evento.listado') }}">Tipos de evento</a>
+  </div>
+
+  <form method="get" action="{{ url_for('legajos.listado_eventos') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id">
+          <option value="">Todas</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id">
+          <option value="">Todos</option>
+          {% for emp in empleados %}
+            <option value="{{ emp.id }}" {% if empleado_id == emp.id %}selected{% endif %}>
+              {{ emp.apellido }} {{ emp.nombre }} ({{ emp.dni }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Tipo</label>
+        <select name="tipo_id">
+          <option value="">Todos</option>
+          {% for t in tipos %}
+            <option value="{{ t.id }}" {% if tipo_id == t.id %}selected{% endif %}>{{ t.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="all" {% if estado == 'all' %}selected{% endif %}>Todos</option>
+          <option value="vigente" {% if estado == 'vigente' %}selected{% endif %}>Vigente</option>
+          <option value="anulado" {% if estado == 'anulado' %}selected{% endif %}>Anulado</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Registros por pagina</label>
+        <select name="per">
+          {% for p in [10, 20, 50, 100] %}
+            <option value="{{ p }}" {% if per_page == p %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row span-2">
+        <label>Buscar</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Titulo, descripcion, apellido, nombre o DNI" autocomplete="off">
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('legajos.listado_eventos') }}">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <div class="summary">Mostrando {{ from_idx }}-{{ to_idx }} de {{ total }}</div>
+  </div>
+
+  {% if eventos %}
+    <div class="table-responsive table-cards">
+      <table>
+        <tr>
+          <th>Foto</th>
+          <th>Empleado</th>
+          <th>Empresa</th>
+          <th>Tipo</th>
+          <th>Fecha</th>
+          <th>Titulo</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+        {% for ev in eventos %}
+          <tr>
+            <td data-label="Foto">
+              {% if ev.empleado_foto %}
+                <img
+                  class="employee-avatar sm"
+                  src="{{ ev.empleado_foto }}"
+                  alt="Foto {{ ev.empleado_apellido }} {{ ev.empleado_nombre }}"
+                  loading="lazy"
+                  data-fallback="{{ default_foto_url }}"
+                  onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
+                >
+              {% else %}
+                <img class="employee-avatar sm" src="{{ default_foto_url }}" alt="Foto general" loading="lazy">
+              {% endif %}
+            </td>
+            <td data-label="Empleado">
+              <strong>{{ ev.empleado_apellido }} {{ ev.empleado_nombre }}</strong>
+              <div class="helper-text">Legajo: {{ ev.empleado_legajo or "-" }} | DNI: {{ ev.empleado_dni }}</div>
+            </td>
+            <td data-label="Empresa">{{ ev.empresa_nombre or ev.empresa_id }}</td>
+            <td data-label="Tipo">{{ ev.tipo_nombre }}</td>
+            <td data-label="Fecha">{{ ev.fecha_evento }}</td>
+            <td data-label="Titulo">{{ ev.titulo or "-" }}</td>
+            <td data-label="Estado">
+              {% if ev.estado == "vigente" %}
+                <span class="badge activo">Vigente</span>
+              {% else %}
+                <span class="badge inactivo">Anulado</span>
+              {% endif %}
+            </td>
+            <td data-label="Acciones">
+              <div class="inline-actions">
+                <a class="btn btn-secondary" href="{{ url_for('legajos.empleado', emp_id=ev.empleado_id) }}">Abrir legajo</a>
+                {% if can_edit and ev.estado == "vigente" %}
+                  <a href="{{ url_for('legajos.editar_evento', emp_id=ev.empleado_id, evento_id=ev.id, next=request.full_path if request.query_string else request.path) }}">Editar</a>
+                  <form method="post" action="{{ url_for('legajos.anular_evento_route', emp_id=ev.empleado_id, evento_id=ev.id, next=request.full_path if request.query_string else request.path) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn-danger" type="submit" data-confirm="Confirma anular este evento?">Anular</button>
+                  </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay eventos para los filtros seleccionados.</div>
+  {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a
+        class="btn btn-secondary"
+        href="{{ url_for('legajos.listado_eventos', page=page - 1, per=per_page, q=q or None, empresa_id=empresa_id, empleado_id=empleado_id, tipo_id=tipo_id, estado=(estado if estado != 'all' else None)) }}"
+      >Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a
+        class="btn btn-secondary"
+        href="{{ url_for('legajos.listado_eventos', page=page + 1, per=per_page, q=q or None, empresa_id=empresa_id, empleado_id=empleado_id, tipo_id=tipo_id, estado=(estado if estado != 'all' else None)) }}"
+      >Siguiente</a>
+    {% endif %}
+    <span class="summary">Pagina {{ page }} | {{ from_idx }}-{{ to_idx }} de {{ total }}</span>
+  </div>
+</div>
+{% endblock %}

@@ -30,7 +30,11 @@ from repositories.security_event_repository import (
 )
 from repositories.sucursal_repository import get_by_id as get_sucursal_by_id
 from services.auth_service import authenticate_user
-from services.profile_photo_service import delete_profile_photo_for_dni, upload_profile_photo
+from services.profile_photo_service import (
+    delete_profile_photo_for_dni,
+    get_profile_photo_version_by_dni,
+    upload_profile_photo,
+)
 from utils.asistencia import get_horario_esperado, validar_asistencia
 from utils.jwt import generar_token, generar_token_qr, verificar_token_qr
 from utils.jwt_guard import mobile_auth_required
@@ -38,6 +42,7 @@ from utils.qr import build_qr_png_base64
 
 mobile_v1_bp = Blueprint("mobile_v1", __name__, url_prefix="/api/v1/mobile")
 TIPO_MARCA_VALUES = {"jornada", "desayuno", "almuerzo", "merienda", "otro"}
+DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN = 60
 
 
 def _today_iso():
@@ -149,6 +154,17 @@ def _mobile_user():
     return empleado
 
 
+def _imagen_version_for_dni(dni):
+    try:
+        return get_profile_photo_version_by_dni(dni)
+    except Exception:
+        current_app.logger.warning(
+            "mobile_profile_image_version_error",
+            extra={"extra": {"dni": dni}},
+        )
+        return None
+
+
 def _check_config_metodo(empresa_id: int, metodo: str, lat, lon, foto):
     config = get_by_empresa_id(empresa_id)
     if not config:
@@ -177,6 +193,18 @@ def _get_scan_cooldown_segundos(config: dict | None):
         return max(0, int(raw))
     except (TypeError, ValueError):
         return 60
+
+
+def _get_intervalo_minimo_fichadas_min(config: dict | None):
+    if not config:
+        return DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN
+    raw = config.get("intervalo_minimo_fichadas_minutos")
+    if raw is None:
+        return DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN
+    try:
+        return max(0, int(raw))
+    except (TypeError, ValueError):
+        return DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN
 
 
 def _parse_db_datetime(value):
@@ -208,6 +236,48 @@ def _validar_cooldown_scan(ultima_marca: dict | None, cooldown_segundos: int):
     if elapsed < cooldown_segundos:
         restante = int(math.ceil(cooldown_segundos - elapsed))
         raise ValueError(f"Escaneo duplicado detectado. Espere {restante} segundos para volver a fichar.")
+
+
+def _to_minutes(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime.timedelta):
+        return int(value.total_seconds() // 60)
+    if hasattr(value, "hour") and hasattr(value, "minute"):
+        return int(value.hour) * 60 + int(value.minute)
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        hhmm = _parse_hhmm(text)
+    except ValueError:
+        return None
+    if not hhmm:
+        return None
+    parts = hhmm.split(":")
+    return int(parts[0]) * 60 + int(parts[1])
+
+
+def _validar_intervalo_minimo_marcas(
+    ultima_marca: dict | None,
+    hora_actual: str | None,
+    minutos_minimos: int = DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN,
+):
+    if not ultima_marca or not hora_actual or minutos_minimos <= 0:
+        return
+
+    minutos_actual = _to_minutes(hora_actual)
+    minutos_ultima = _to_minutes(ultima_marca.get("hora"))
+    if minutos_actual is None or minutos_ultima is None:
+        return
+
+    diferencia = minutos_actual - minutos_ultima
+    if diferencia < 0:
+        raise ValueError("Secuencia invalida de marcas. La hora informada debe ser posterior a la ultima marca.")
+    if diferencia < minutos_minimos:
+        raise ValueError(
+            f"Secuencia invalida de marcas. Debe esperar al menos {minutos_minimos} minutos entre fichadas."
+        )
 
 
 def _haversine_m(lat1, lon1, lat2, lon2):
@@ -354,16 +424,16 @@ def _registrar_intento_fraude_geo(
         )
     except Exception:
         current_app.logger.exception(
-            "scan_qr_geo_rechazado_evento_error",
+            "scan_qr_geo_fraude_evento_error",
             extra={"extra": payload},
         )
         return None
 
     try:
-        create_audit(None, "fraude_geo_qr_rechazado", "eventos_seguridad", evento_id)
+        create_audit(None, "fraude_geo_qr_detectado", "eventos_seguridad", evento_id)
     except Exception:
         current_app.logger.exception(
-            "scan_qr_geo_rechazado_auditoria_error",
+            "scan_qr_geo_fraude_auditoria_error",
             extra={"extra": {"evento_id": evento_id}},
         )
     return evento_id
@@ -440,6 +510,7 @@ def auth_login():
                 "apellido": user.get("apellido"),
                 "empresa_id": user.get("empresa_id"),
                 "foto": user.get("foto"),
+                "imagen_version": _imagen_version_for_dni(user.get("dni")),
             },
         }
     )
@@ -485,6 +556,7 @@ def me():
             "telefono": empleado.get("telefono"),
             "direccion": empleado.get("direccion"),
             "foto": empleado.get("foto"),
+            "imagen_version": _imagen_version_for_dni(empleado.get("dni")),
             "estado": empleado.get("estado"),
         }
     )
@@ -506,6 +578,7 @@ def me_config_asistencia():
             "requiere_geo": bool(config.get("requiere_geo")),
             "tolerancia_global": config.get("tolerancia_global"),
             "cooldown_scan_segundos": _get_scan_cooldown_segundos(config),
+            "intervalo_minimo_fichadas_minutos": _get_intervalo_minimo_fichadas_min(config),
             "metodos_habilitados": ["qr", "manual", "facial"],
         }
     )
@@ -587,57 +660,20 @@ def fichar_scan_qr():
         hora = _parse_hhmm(hora)
         tipo_marca_input = _parse_tipo_marca(tipo_marca_raw, default=None)
         config_empresa = _check_config_metodo(empleado["empresa_id"], "qr", lat, lon, foto)
+        intervalo_minimo_fichadas = _get_intervalo_minimo_fichadas_min(config_empresa)
         qr_payload = _validar_qr_fichada(empleado, qr_token, None)
         tipo_marca_qr = _parse_tipo_marca(qr_payload.get("tipo_marca"), default=None)
         tipo_marca = tipo_marca_qr or tipo_marca_input or "jornada"
         geo = _validar_geo_scan_qr(empleado, qr_payload, lat, lon)
-        if not geo["gps_ok"]:
-            evento_id = _registrar_intento_fraude_geo(
-                empleado=empleado,
-                qr_payload=qr_payload,
-                geo=geo,
-                fecha=fecha,
-                hora=hora,
-                lat=lat,
-                lon=lon,
-            )
-            current_app.logger.info(
-                "scan_qr_geo_rechazado",
-                extra={
-                    "extra": {
-                        "empleado_id": empleado["id"],
-                        "empresa_id": empleado["empresa_id"],
-                        "lat": lat,
-                        "lon": lon,
-                        "ref_lat": geo["ref_lat"],
-                        "ref_lon": geo["ref_lon"],
-                        "distancia_m": geo["distancia_m"],
-                        "tolerancia_m": geo["tolerancia_m"],
-                        "sucursal_id": geo.get("sucursal_id"),
-                        "fecha": fecha,
-                        "hora": hora,
-                        "evento_id": evento_id,
-                    }
-                },
-            )
-            return (
-                jsonify(
-                    {
-                        "error": "Ubicacion fuera del rango permitido para fichar.",
-                        "gps_ok": False,
-                        "distancia_m": geo["distancia_m"],
-                        "tolerancia_m": geo["tolerancia_m"],
-                        "alerta_fraude": True,
-                        "evento_id": evento_id,
-                    }
-                ),
-                403,
-            )
+        gps_ok = bool(geo.get("gps_ok"))
+        alerta_fraude = not gps_ok
 
         gps_note = (
-            f"gps_ok=1;dist_m={geo['distancia_m']};tol_m={geo['tolerancia_m']};"
+            f"gps_ok={1 if gps_ok else 0};dist_m={geo['distancia_m']};tol_m={geo['tolerancia_m']};"
             f"ref={geo['ref_lat']},{geo['ref_lon']}"
         )
+        if alerta_fraude:
+            gps_note = f"{gps_note};alerta_fraude=1"
         observaciones = f"{observaciones} | {gps_note}" if observaciones else gps_note
 
         accion_qr = str(qr_payload.get("accion") or "auto").strip().lower()
@@ -645,6 +681,7 @@ def fichar_scan_qr():
         ultima_marca = get_last_marca_by_empleado_fecha(empleado["id"], fecha)
         cooldown_scan = _get_scan_cooldown_segundos(config_empresa)
         _validar_cooldown_scan(ultima_marca, cooldown_scan)
+        _validar_intervalo_minimo_marcas(ultima_marca, hora, intervalo_minimo_fichadas)
         accion = _decidir_accion_scan(accion_qr, resumen, ultima_marca)
 
         if accion == "ingreso":
@@ -661,7 +698,7 @@ def fichar_scan_qr():
                 foto=foto,
                 estado=estado,
                 observaciones=observaciones,
-                gps_ok=True,
+                gps_ok=gps_ok,
                 gps_distancia_m=geo["distancia_m"],
                 gps_tolerancia_m=geo["tolerancia_m"],
                 gps_ref_lat=geo["ref_lat"],
@@ -682,7 +719,7 @@ def fichar_scan_qr():
                 foto=foto,
                 estado=estado,
                 observaciones=observaciones,
-                gps_ok=True,
+                gps_ok=gps_ok,
                 gps_distancia_m=geo["distancia_m"],
                 gps_tolerancia_m=geo["tolerancia_m"],
                 gps_ref_lat=geo["ref_lat"],
@@ -701,7 +738,7 @@ def fichar_scan_qr():
             lat=lat,
             lon=lon,
             foto=foto,
-            gps_ok=True,
+            gps_ok=gps_ok,
             gps_distancia_m=geo["distancia_m"],
             gps_tolerancia_m=geo["tolerancia_m"],
             gps_ref_lat=geo["ref_lat"],
@@ -709,6 +746,38 @@ def fichar_scan_qr():
             estado=estado,
             observaciones=observaciones,
         )
+        evento_id = None
+        if alerta_fraude:
+            evento_id = _registrar_intento_fraude_geo(
+                empleado=empleado,
+                qr_payload=qr_payload,
+                geo=geo,
+                fecha=fecha,
+                hora=hora,
+                lat=lat,
+                lon=lon,
+            )
+            current_app.logger.warning(
+                "scan_qr_geo_fuera_rango_permitido",
+                extra={
+                    "extra": {
+                        "empleado_id": empleado["id"],
+                        "empresa_id": empleado["empresa_id"],
+                        "asistencia_id": asistencia_id,
+                        "marca_id": marca_id,
+                        "lat": lat,
+                        "lon": lon,
+                        "ref_lat": geo["ref_lat"],
+                        "ref_lon": geo["ref_lon"],
+                        "distancia_m": geo["distancia_m"],
+                        "tolerancia_m": geo["tolerancia_m"],
+                        "sucursal_id": geo.get("sucursal_id"),
+                        "fecha": fecha,
+                        "hora": hora,
+                        "evento_id": evento_id,
+                    }
+                },
+            )
         total_marcas = count_marcas_by_empleado_fecha(empleado["id"], fecha)
         body = {
             "id": asistencia_id,
@@ -716,9 +785,11 @@ def fichar_scan_qr():
             "accion": accion,
             "tipo_marca": tipo_marca,
             "estado": estado,
-            "gps_ok": True,
+            "gps_ok": gps_ok,
             "distancia_m": geo["distancia_m"],
             "tolerancia_m": geo["tolerancia_m"],
+            "alerta_fraude": alerta_fraude,
+            "evento_id": evento_id,
             "total_marcas_dia": total_marcas,
         }
         status = 201 if accion == "ingreso" else 200
@@ -1047,11 +1118,13 @@ def fichar_entrada():
         _parse_date(fecha)
         hora_entrada = _parse_hhmm(hora_entrada)
         tipo_marca = _parse_tipo_marca(tipo_marca_raw, default="jornada")
-        _check_config_metodo(empleado["empresa_id"], metodo, lat, lon, foto)
+        config_empresa = _check_config_metodo(empleado["empresa_id"], metodo, lat, lon, foto)
+        intervalo_minimo_fichadas = _get_intervalo_minimo_fichadas_min(config_empresa)
         if metodo == "qr":
             _validar_qr_fichada(empleado, qr_token, "ingreso")
         resumen = get_by_empleado_fecha(empleado["id"], fecha)
         ultima_marca = get_last_marca_by_empleado_fecha(empleado["id"], fecha)
+        _validar_intervalo_minimo_marcas(ultima_marca, hora_entrada, intervalo_minimo_fichadas)
         _decidir_accion_scan("ingreso", resumen, ultima_marca)
         _, estado_calc = validar_asistencia(empleado["id"], fecha, hora_entrada, None)
         estado = estado_calc or "ok"
@@ -1138,11 +1211,13 @@ def fichar_salida():
         tipo_marca = _parse_tipo_marca(tipo_marca_raw, default="jornada")
         if hora_entrada:
             hora_entrada = _parse_hhmm(hora_entrada)
-        _check_config_metodo(empleado["empresa_id"], metodo, lat, lon, foto)
+        config_empresa = _check_config_metodo(empleado["empresa_id"], metodo, lat, lon, foto)
+        intervalo_minimo_fichadas = _get_intervalo_minimo_fichadas_min(config_empresa)
         if metodo == "qr":
             _validar_qr_fichada(empleado, qr_token, "egreso")
         resumen = get_by_empleado_fecha(empleado["id"], fecha)
         ultima_marca = get_last_marca_by_empleado_fecha(empleado["id"], fecha)
+        _validar_intervalo_minimo_marcas(ultima_marca, hora_salida, intervalo_minimo_fichadas)
         _decidir_accion_scan("egreso", resumen, ultima_marca)
         hora_entrada_base = hora_entrada or _hora_entrada_para_egreso(resumen, ultima_marca)
         if not hora_entrada_base and resumen:
@@ -1189,8 +1264,16 @@ def fichar_salida():
         return jsonify({"id": asistencia_id, "marca_id": marca_id, "estado": estado})
     except ValueError as exc:
         message = str(exc)
-        code = 409 if "ya registrada" in message else 400
-        if "No hay fichada de entrada" in message:
+        lowered = message.lower()
+        code = 400
+        if (
+            "secuencia invalida" in lowered
+            or "ya registrada" in lowered
+            or "ya hay un ingreso abierto" in lowered
+            or "duplicado" in lowered
+        ):
+            code = 409
+        if "no hay fichada de entrada" in lowered:
             code = 404
         return jsonify({"error": message}), code
 
@@ -1276,6 +1359,7 @@ def me_update_profile():
             "telefono": refreshed.get("telefono"),
             "direccion": refreshed.get("direccion"),
             "foto": refreshed.get("foto"),
+            "imagen_version": _imagen_version_for_dni(refreshed.get("dni")),
         }
     )
 
@@ -1310,7 +1394,7 @@ def me_delete_profile_photo():
         direccion=str(empleado.get("direccion") or "").strip() or None,
         foto=None,
     )
-    return jsonify({"ok": True, "foto": None})
+    return jsonify({"ok": True, "foto": None, "imagen_version": None})
 
 
 @mobile_v1_bp.route("/me/password", methods=["PUT"])

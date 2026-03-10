@@ -8,6 +8,7 @@ import routes.mobile_v1_routes as mobile_routes
 
 def _build_client(monkeypatch):
     monkeypatch.setattr(app_module, "init_db", lambda: None)
+    monkeypatch.setattr(mobile_routes, "get_profile_photo_version_by_dni", lambda dni: None)
     app = app_module.create_app()
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
@@ -39,6 +40,7 @@ def test_mobile_login_ok(monkeypatch):
         ),
     )
     monkeypatch.setattr(mobile_routes, "generar_token", lambda payload: "token-demo")
+    monkeypatch.setattr(mobile_routes, "get_profile_photo_version_by_dni", lambda dni: "1709294400")
 
     resp = client.post("/api/v1/mobile/auth/login", json={"dni": "123", "password": "x"})
     body = resp.get_json()
@@ -46,6 +48,7 @@ def test_mobile_login_ok(monkeypatch):
     assert body["token"] == "token-demo"
     assert body["empleado"]["id"] == 10
     assert body["empleado"]["foto"] == "https://cdn.example.com/fotos/123.jpg"
+    assert body["empleado"]["imagen_version"] == "1709294400"
 
 
 def test_mobile_me_requires_bearer(monkeypatch):
@@ -79,10 +82,49 @@ def test_mobile_me_ok(monkeypatch):
             "legajo": "L1",
         },
     )
+    monkeypatch.setattr(mobile_routes, "get_profile_photo_version_by_dni", lambda dni: "1709294500")
 
     resp = client.get("/api/v1/mobile/me", headers={"Authorization": "Bearer abc"})
     assert resp.status_code == 200
     assert resp.get_json()["id"] == 10
+    assert resp.get_json()["imagen_version"] == "1709294500"
+
+
+def test_mobile_me_config_asistencia_incluye_intervalo_minimo(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 10})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 3,
+            "dni": "123",
+            "nombre": "Ana",
+            "apellido": "Lopez",
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empresa_id",
+        lambda empresa_id: {
+            "empresa_id": empresa_id,
+            "requiere_qr": 1,
+            "requiere_foto": 0,
+            "requiere_geo": 1,
+            "tolerancia_global": 5,
+            "cooldown_scan_segundos": 45,
+            "intervalo_minimo_fichadas_minutos": 30,
+        },
+    )
+
+    resp = client.get("/api/v1/mobile/me/config-asistencia", headers={"Authorization": "Bearer abc"})
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["empresa_id"] == 3
+    assert body["cooldown_scan_segundos"] == 45
+    assert body["intervalo_minimo_fichadas_minutos"] == 30
 
 
 def test_mobile_fichada_entrada_requiere_qr(monkeypatch):
@@ -243,6 +285,52 @@ def test_mobile_fichada_entrada_permite_reingreso_despues_egreso(monkeypatch):
     assert body["estado"] == "ok"
 
 
+def test_mobile_fichada_entrada_rechaza_reingreso_sin_intervalo_minimo(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 5})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 1,
+            "dni": "1",
+            "nombre": "Emp",
+            "apellido": "One",
+            "password_hash": "x",
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empresa_id",
+        lambda empresa_id: {
+            "requiere_qr": 0,
+            "requiere_foto": 0,
+            "requiere_geo": 0,
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empleado_fecha",
+        lambda empleado_id, fecha: {"id": 10, "hora_entrada": "07:00", "hora_salida": "07:01"},
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_last_marca_by_empleado_fecha",
+        lambda empleado_id, fecha: {"id": 900, "accion": "egreso", "hora": "07:01"},
+    )
+
+    resp = client.post(
+        "/api/v1/mobile/me/fichadas/entrada",
+        headers={"Authorization": "Bearer abc"},
+        json={"metodo": "manual", "hora_entrada": "07:30"},
+    )
+    body = resp.get_json()
+    assert resp.status_code == 409
+    assert "al menos 60 minutos" in body["error"]
+
+
 def test_mobile_fichada_salida_manual_con_ingreso_abierto(monkeypatch):
     client = _build_client(monkeypatch)
     monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 5})
@@ -286,6 +374,104 @@ def test_mobile_fichada_salida_manual_con_ingreso_abierto(monkeypatch):
         "/api/v1/mobile/me/fichadas/salida",
         headers={"Authorization": "Bearer abc"},
         json={"metodo": "manual", "hora_salida": "17:00"},
+    )
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["id"] == 11
+    assert body["marca_id"] == 902
+    assert body["estado"] == "ok"
+
+
+def test_mobile_fichada_salida_rechaza_intervalo_minimo_de_1_hora(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 5})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 1,
+            "dni": "1",
+            "nombre": "Emp",
+            "apellido": "One",
+            "password_hash": "x",
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empresa_id",
+        lambda empresa_id: {
+            "requiere_qr": 0,
+            "requiere_foto": 0,
+            "requiere_geo": 0,
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empleado_fecha",
+        lambda empleado_id, fecha: {"id": 11, "hora_entrada": "07:00", "hora_salida": None},
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_last_marca_by_empleado_fecha",
+        lambda empleado_id, fecha: {"id": 901, "accion": "ingreso", "hora": "07:00"},
+    )
+
+    resp = client.post(
+        "/api/v1/mobile/me/fichadas/salida",
+        headers={"Authorization": "Bearer abc"},
+        json={"metodo": "manual", "hora_salida": "07:01"},
+    )
+    body = resp.get_json()
+    assert resp.status_code == 409
+    assert "al menos 60 minutos" in body["error"]
+
+
+def test_mobile_fichada_salida_permite_intervalo_corto_si_config_intervalo_en_cero(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 5})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 1,
+            "dni": "1",
+            "nombre": "Emp",
+            "apellido": "One",
+            "password_hash": "x",
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empresa_id",
+        lambda empresa_id: {
+            "requiere_qr": 0,
+            "requiere_foto": 0,
+            "requiere_geo": 0,
+            "intervalo_minimo_fichadas_minutos": 0,
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empleado_fecha",
+        lambda empleado_id, fecha: {"id": 11, "hora_entrada": "07:00", "hora_salida": None},
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_last_marca_by_empleado_fecha",
+        lambda empleado_id, fecha: {"id": 901, "accion": "ingreso", "hora": "07:00"},
+    )
+    monkeypatch.setattr(mobile_routes, "validar_asistencia", lambda *args: ({}, "ok"))
+    monkeypatch.setattr(mobile_routes, "upsert_resumen_desde_marca", lambda **kwargs: 11)
+    monkeypatch.setattr(mobile_routes, "create_asistencia_marca", lambda **kwargs: 902)
+
+    resp = client.post(
+        "/api/v1/mobile/me/fichadas/salida",
+        headers={"Authorization": "Bearer abc"},
+        json={"metodo": "manual", "hora_salida": "07:01"},
     )
     body = resp.get_json()
     assert resp.status_code == 200
@@ -350,7 +536,7 @@ def test_mobile_fichada_scan_qr_auto_ingreso(monkeypatch):
     resp = client.post(
         "/api/v1/mobile/me/fichadas/scan",
         headers={"Authorization": "Bearer abc"},
-        json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816},
+        json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816, "hora": "09:30"},
     )
     body = resp.get_json()
     assert resp.status_code == 201
@@ -435,7 +621,7 @@ def test_mobile_fichada_scan_qr_auto_egreso(monkeypatch):
     resp = client.post(
         "/api/v1/mobile/me/fichadas/scan",
         headers={"Authorization": "Bearer abc"},
-        json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816},
+        json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816, "hora": "13:10"},
     )
     body = resp.get_json()
     assert resp.status_code == 200
@@ -520,7 +706,7 @@ def test_mobile_fichada_scan_qr_auto_ingreso_despues_de_egreso(monkeypatch):
     resp = client.post(
         "/api/v1/mobile/me/fichadas/scan",
         headers={"Authorization": "Bearer abc"},
-        json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816},
+        json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816, "hora": "13:10"},
     )
     body = resp.get_json()
     assert resp.status_code == 201
@@ -860,12 +1046,28 @@ def test_mobile_fichada_scan_qr_fuera_rango(monkeypatch):
             "sucursal_id": 1,
         },
     )
-    captured = {}
+    monkeypatch.setattr(mobile_routes, "get_by_empleado_fecha", lambda empleado_id, fecha: None)
+    monkeypatch.setattr(mobile_routes, "get_last_marca_by_empleado_fecha", lambda empleado_id, fecha: None)
+    monkeypatch.setattr(mobile_routes, "validar_asistencia", lambda *args: ({}, "ok"))
+    captured_evento = {}
+    captured_upsert = {}
+    captured_marca = {}
 
     def _fake_create_geo_qr_rechazo(**kwargs):
-        captured.update(kwargs)
+        captured_evento.update(kwargs)
         return 901
 
+    def _fake_upsert_resumen_desde_marca(**kwargs):
+        captured_upsert.update(kwargs)
+        return 77
+
+    def _fake_create_asistencia_marca(**kwargs):
+        captured_marca.update(kwargs)
+        return 701
+
+    monkeypatch.setattr(mobile_routes, "upsert_resumen_desde_marca", _fake_upsert_resumen_desde_marca)
+    monkeypatch.setattr(mobile_routes, "create_asistencia_marca", _fake_create_asistencia_marca)
+    monkeypatch.setattr(mobile_routes, "count_marcas_by_empleado_fecha", lambda empleado_id, fecha: 1)
     monkeypatch.setattr(mobile_routes, "create_geo_qr_rechazo", _fake_create_geo_qr_rechazo)
     monkeypatch.setattr(mobile_routes, "create_audit", lambda *args, **kwargs: True)
 
@@ -875,14 +1077,19 @@ def test_mobile_fichada_scan_qr_fuera_rango(monkeypatch):
         json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816},
     )
     body = resp.get_json()
-    assert resp.status_code == 403
+    assert resp.status_code == 201
+    assert body["id"] == 77
+    assert body["marca_id"] == 701
     assert body["gps_ok"] is False
     assert body["alerta_fraude"] is True
     assert body["evento_id"] == 901
-    assert captured["empleado_id"] == 6
-    assert captured["empresa_id"] == 1
-    assert captured["distancia_m"] == 302.5
-    assert captured["tolerancia_m"] == 80.0
+    assert captured_upsert["gps_ok"] is False
+    assert captured_marca["gps_ok"] is False
+    assert "alerta_fraude=1" in (captured_marca.get("observaciones") or "")
+    assert captured_evento["empleado_id"] == 6
+    assert captured_evento["empresa_id"] == 1
+    assert captured_evento["distancia_m"] == 302.5
+    assert captured_evento["tolerancia_m"] == 80.0
 
 
 def test_mobile_fichada_scan_qr_cooldown_duplicate(monkeypatch):
@@ -1335,6 +1542,7 @@ def test_mobile_me_perfil_actualiza_con_foto_file(monkeypatch):
         "upload_profile_photo",
         lambda file_storage, dni: f"https://fotos.www.delpalacio.com.ar/{dni}.jpg",
     )
+    monkeypatch.setattr(mobile_routes, "get_profile_photo_version_by_dni", lambda dni: "1709294600")
 
     resp = client.put(
         "/api/v1/mobile/me/perfil",
@@ -1351,6 +1559,7 @@ def test_mobile_me_perfil_actualiza_con_foto_file(monkeypatch):
     assert body["telefono"] == "2222"
     assert body["direccion"] == "Direccion nueva"
     assert body["foto"] == "https://fotos.www.delpalacio.com.ar/30123456.jpg"
+    assert body["imagen_version"] == "1709294600"
 
 
 def test_mobile_me_perfil_foto_file_invalida(monkeypatch):
@@ -1552,5 +1761,6 @@ def test_mobile_me_perfil_delete_foto_endpoint(monkeypatch):
     assert resp.status_code == 200
     assert body["ok"] is True
     assert body["foto"] is None
+    assert body["imagen_version"] is None
     assert deleted["called"] is True
     assert state["foto"] is None

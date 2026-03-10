@@ -52,6 +52,39 @@ def _get_any_empresa_id():
         db.close()
 
 
+def _get_or_create_any_sucursal_id(empresa_id: int):
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT id
+            FROM sucursales
+            WHERE empresa_id = %s
+            ORDER BY id
+            LIMIT 1
+            """,
+            (empresa_id,),
+        )
+        row = cur.fetchone()
+        if row:
+            return int(row[0])
+
+        cur.execute(
+            """
+            INSERT INTO sucursales
+                (empresa_id, nombre, direccion, latitud, longitud, radio_permitido_m, activa)
+            VALUES (%s, %s, %s, %s, %s, %s, 1)
+            """,
+            (empresa_id, f"SUC_TEST_{uuid.uuid4().hex[:8]}", "Direccion test", None, None, 100),
+        )
+        db.commit()
+        return int(cur.lastrowid)
+    finally:
+        cur.close()
+        db.close()
+
+
 @pytest.fixture()
 def test_employee():
     empresa_id = _get_any_empresa_id()
@@ -109,8 +142,10 @@ def test_employee():
 
 
 def _create_test_horario(empresa_id, nombre_suffix):
+    sucursal_id = _get_or_create_any_sucursal_id(empresa_id)
     payload = {
         "empresa_id": empresa_id,
+        "sucursal_id": sucursal_id,
         "nombre": f"Horario Test {nombre_suffix}",
         "tolerancia_min": 5,
         "descripcion": "Integracion DB real",

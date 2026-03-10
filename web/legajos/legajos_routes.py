@@ -1,9 +1,11 @@
 import datetime
+from urllib.parse import urlparse
 
 from flask import Blueprint, abort, redirect, render_template, request, session, url_for
 
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
+from repositories.empresa_repository import get_all as get_empresas
 from repositories.legajo_adjunto_repository import (
     create_adjunto,
     get_adjunto_by_id,
@@ -14,6 +16,7 @@ from repositories.legajo_evento_repository import (
     anular_evento,
     create_evento,
     get_evento_by_id,
+    get_eventos_page,
     get_eventos_by_empleado,
     get_tipo_evento_by_id,
     get_tipos_evento,
@@ -40,6 +43,18 @@ def _parse_date(raw: str | None):
     if not value:
         return None
     return datetime.date.fromisoformat(value).isoformat()
+
+
+def _safe_next_url(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw)
+    if parsed.scheme or parsed.netloc:
+        return None
+    if not raw.startswith("/"):
+        return None
+    return raw
 
 
 def _extract_evento_form(form):
@@ -152,6 +167,54 @@ def listado_empleados():
     return render_template("legajos/listado.html", empleados=empleados)
 
 
+@legajos_bp.route("/eventos/")
+@role_required("admin", "rrhh", "supervisor")
+def listado_eventos():
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per", 20, type=int)
+    if per_page not in {10, 20, 50, 100}:
+        per_page = 20
+
+    search = str(request.args.get("q") or "").strip() or None
+    empresa_id = request.args.get("empresa_id", type=int)
+    empleado_id = request.args.get("empleado_id", type=int)
+    tipo_id = request.args.get("tipo_id", type=int)
+
+    estado_raw = str(request.args.get("estado") or "all").strip().lower()
+    if estado_raw not in {"all", "vigente", "anulado"}:
+        estado_raw = "all"
+    estado = None if estado_raw == "all" else estado_raw
+
+    eventos, total = get_eventos_page(
+        page=page,
+        per_page=per_page,
+        search=search,
+        empresa_id=empresa_id,
+        empleado_id=empleado_id,
+        tipo_id=tipo_id,
+        estado=estado,
+    )
+    empresas = get_empresas(include_inactive=True)
+    empleados = get_empleados(include_inactive=True)
+    tipos = get_tipos_evento(include_inactive=True)
+
+    return render_template(
+        "legajos/eventos_listado.html",
+        eventos=eventos,
+        total=total,
+        page=page,
+        per_page=per_page,
+        q=search,
+        empresa_id=empresa_id,
+        empleado_id=empleado_id,
+        tipo_id=tipo_id,
+        estado=estado_raw,
+        empresas=empresas,
+        empleados=empleados,
+        tipos=tipos,
+    )
+
+
 @legajos_bp.route("/empleado/<int:emp_id>")
 @role_required("admin", "rrhh", "supervisor")
 def empleado(emp_id):
@@ -223,6 +286,7 @@ def crear_evento(emp_id):
                 "sha256": saved["sha256"],
                 "storage_backend": saved["storage_backend"],
                 "storage_ruta": saved["storage_ruta"],
+                "storage_data": saved.get("storage_data"),
                 "created_by_usuario_id": actor_id,
             }
         )
@@ -234,6 +298,7 @@ def crear_evento(emp_id):
 @legajos_bp.route("/empleado/<int:emp_id>/eventos/<int:evento_id>/editar", methods=["GET", "POST"])
 @role_required("admin", "rrhh")
 def editar_evento(emp_id, evento_id):
+    next_url = _safe_next_url(request.values.get("next"))
     empleado_data = get_empleado_by_id(emp_id)
     if not empleado_data:
         abort(404)
@@ -261,7 +326,7 @@ def editar_evento(emp_id, evento_id):
             )
             update_evento(evento_id, payload)
             log_audit(session, "update", "legajo_eventos", evento_id)
-            return redirect(url_for("legajos.empleado", emp_id=emp_id))
+            return redirect(next_url or url_for("legajos.empleado", emp_id=emp_id))
 
     return render_template(
         "legajos/evento_form.html",
@@ -271,12 +336,14 @@ def editar_evento(emp_id, evento_id):
         tipos=tipos,
         errors=errors,
         form_data=form_data,
+        next_url=next_url,
     )
 
 
 @legajos_bp.route("/empleado/<int:emp_id>/eventos/<int:evento_id>/anular", methods=["POST"])
 @role_required("admin", "rrhh")
 def anular_evento_route(emp_id, evento_id):
+    next_url = _safe_next_url(request.values.get("next"))
     empleado_data = get_empleado_by_id(emp_id)
     if not empleado_data:
         abort(404)
@@ -288,7 +355,7 @@ def anular_evento_route(emp_id, evento_id):
     actor_id = session.get("user_id")
     anular_evento(evento_id, actor_id, motivo)
     log_audit(session, "anular", "legajo_eventos", evento_id)
-    return redirect(url_for("legajos.empleado", emp_id=emp_id))
+    return redirect(next_url or url_for("legajos.empleado", emp_id=emp_id))
 
 
 @legajos_bp.route("/empleado/<int:emp_id>/eventos/<int:evento_id>/adjuntos", methods=["POST"])
@@ -326,6 +393,7 @@ def agregar_adjuntos(emp_id, evento_id):
                 "sha256": saved["sha256"],
                 "storage_backend": saved["storage_backend"],
                 "storage_ruta": saved["storage_ruta"],
+                "storage_data": saved.get("storage_data"),
                 "created_by_usuario_id": actor_id,
             }
         )

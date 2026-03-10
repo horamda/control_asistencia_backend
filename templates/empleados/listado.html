@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Empleados{% endblock %}
 {% block content %}
+{% set default_foto_url = url_for('static', filename='img/empleado-default.svg') %}
 {% set from_idx = ((page - 1) * per_page) + 1 if total > 0 else 0 %}
 {% set to_idx = (page * per_page) if (page * per_page) < total else total %}
 {% set ns = namespace(activos=0, inactivos=0, con_foto=0) %}
@@ -102,20 +103,26 @@
         {% for e in empleados %}
         <tr>
           <td data-label="Foto">
+            {% set foto_url = default_foto_url %}
             {% if e.foto %}
               {% set foto_url = e.foto ~ ('&v=' if '?' in e.foto else '?v=') ~ (photo_cache_buster|string) %}
               <a href="{{ e.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
                 <img
+                  class="employee-avatar sm"
                   src="{{ foto_url }}"
                   alt="Foto {{ e.apellido }} {{ e.nombre }}"
-                  style="width:40px;height:40px;border-radius:999px;object-fit:cover;border:1px solid #d7e3ee;"
                   loading="lazy"
-                  onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"
+                  data-fallback="{{ default_foto_url }}"
+                  onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
                 >
-                <span style="display:none;">Sin foto</span>
               </a>
             {% else %}
-              <span class="helper-text">Sin foto</span>
+              <img
+                class="employee-avatar sm"
+                src="{{ default_foto_url }}"
+                alt="Foto general"
+                loading="lazy"
+              >
             {% endif %}
           </td>
           <td data-label="Empresa">{{ e.empresa_nombre or e.empresa_id }}</td>

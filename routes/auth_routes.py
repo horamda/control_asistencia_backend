@@ -1,8 +1,17 @@
 from flask import Blueprint, request, jsonify
 from services.auth_service import authenticate_user
+from services.profile_photo_service import get_profile_photo_version_by_dni
 from utils.jwt import generar_token
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
+
+
+def _imagen_version_safe(dni):
+    try:
+        return get_profile_photo_version_by_dni(dni)
+    except Exception:
+        return None
+
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
@@ -32,6 +41,7 @@ def login():
         "user": {
             "id": user["id"],
             "dni": user["dni"],
-            "nombre": user["nombre"]
+            "nombre": user["nombre"],
+            "imagen_version": _imagen_version_safe(user.get("dni")),
         }
     })

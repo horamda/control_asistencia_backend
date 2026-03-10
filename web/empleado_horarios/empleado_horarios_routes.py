@@ -50,8 +50,31 @@ def _validate_fields(horario_id_raw: str, fecha_desde: str, fecha_hasta: str | N
     return errors, horario_id
 
 
-def _empresa_filter(horarios, empresa_id):
-    return [h for h in horarios if h.get("empresa_id") == empresa_id]
+def _scope_filter(horarios, empleado):
+    empresa_id = empleado.get("empresa_id")
+    sucursal_id = empleado.get("sucursal_id")
+    filtered = []
+    for horario in horarios:
+        if horario.get("empresa_id") != empresa_id:
+            continue
+        horario_sucursal_id = horario.get("sucursal_id")
+        # Compatibilidad: si el horario no tiene sucursal, se considera global de empresa.
+        if sucursal_id and horario_sucursal_id and horario_sucursal_id != sucursal_id:
+            continue
+        filtered.append(horario)
+    return filtered
+
+
+def _validate_horario_scope(empleado, horario):
+    if not horario:
+        return "Horario invalido."
+    if horario.get("empresa_id") != empleado.get("empresa_id"):
+        return "El horario debe pertenecer a la misma empresa del empleado."
+    empleado_sucursal_id = empleado.get("sucursal_id")
+    horario_sucursal_id = horario.get("sucursal_id")
+    if empleado_sucursal_id and horario_sucursal_id and horario_sucursal_id != empleado_sucursal_id:
+        return "El horario debe pertenecer a la misma sucursal del empleado."
+    return None
 
 
 def _render_form(empleado, horarios, actual, historial, data, errors=None, mode="new", asignacion=None):
@@ -82,7 +105,7 @@ def asignar(empleado_id):
     if not empleado:
         abort(404)
 
-    horarios = _empresa_filter(get_horarios(include_inactive=True), empleado.get("empresa_id"))
+    horarios = _scope_filter(get_horarios(include_inactive=True), empleado)
     actual = get_actual_by_empleado(empleado_id)
     historial = get_historial(empleado_id)
 
@@ -93,10 +116,9 @@ def asignar(empleado_id):
         errors, horario_id = _validate_fields(horario_id_raw, fecha_desde, fecha_hasta)
 
         horario = get_horario_by_id(horario_id) if horario_id else None
-        if horario and horario.get("empresa_id") != empleado.get("empresa_id"):
-            errors.append("El horario debe pertenecer a la misma empresa del empleado.")
-        if not horario:
-            errors.append("Horario invalido.")
+        scope_error = _validate_horario_scope(empleado, horario)
+        if scope_error:
+            errors.append(scope_error)
 
         if errors:
             return _render_form(
@@ -143,7 +165,7 @@ def editar(empleado_id, asignacion_id):
     if not asignacion or asignacion.get("empleado_id") != empleado_id:
         abort(404)
 
-    horarios = _empresa_filter(get_horarios(include_inactive=True), empleado.get("empresa_id"))
+    horarios = _scope_filter(get_horarios(include_inactive=True), empleado)
     actual = get_actual_by_empleado(empleado_id)
     historial = get_historial(empleado_id)
 
@@ -154,10 +176,9 @@ def editar(empleado_id, asignacion_id):
         errors, horario_id = _validate_fields(horario_id_raw, fecha_desde, fecha_hasta)
 
         horario = get_horario_by_id(horario_id) if horario_id else None
-        if horario and horario.get("empresa_id") != empleado.get("empresa_id"):
-            errors.append("El horario debe pertenecer a la misma empresa del empleado.")
-        if not horario:
-            errors.append("Horario invalido.")
+        scope_error = _validate_horario_scope(empleado, horario)
+        if scope_error:
+            errors.append(scope_error)
 
         if errors:
             return _render_form(
@@ -226,6 +247,7 @@ def api_historial(empleado_id):
             "empleado": {
                 "id": empleado["id"],
                 "empresa_id": empleado.get("empresa_id"),
+                "sucursal_id": empleado.get("sucursal_id"),
                 "nombre": empleado.get("nombre"),
                 "apellido": empleado.get("apellido"),
             },
@@ -257,6 +279,12 @@ def api_asignar():
         return jsonify({"error": "Empleado u horario invalido"}), 400
     if empleado.get("empresa_id") != horario.get("empresa_id"):
         return jsonify({"error": "Empresa inconsistente entre empleado y horario"}), 400
+    if (
+        empleado.get("sucursal_id")
+        and horario.get("sucursal_id")
+        and empleado.get("sucursal_id") != horario.get("sucursal_id")
+    ):
+        return jsonify({"error": "Sucursal inconsistente entre empleado y horario"}), 400
 
     try:
         asignacion_id = create_asignacion(
@@ -297,6 +325,12 @@ def api_editar(asignacion_id):
         return jsonify({"error": "Empleado u horario invalido"}), 400
     if empleado.get("empresa_id") != horario.get("empresa_id"):
         return jsonify({"error": "Empresa inconsistente entre empleado y horario"}), 400
+    if (
+        empleado.get("sucursal_id")
+        and horario.get("sucursal_id")
+        and empleado.get("sucursal_id") != horario.get("sucursal_id")
+    ):
+        return jsonify({"error": "Sucursal inconsistente entre empleado y horario"}), 400
 
     try:
         update_asignacion(
