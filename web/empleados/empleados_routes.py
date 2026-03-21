@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session, current_app
 from werkzeug.security import generate_password_hash
 import time
-from urllib.parse import urlparse
+from utils.forms import parse_int as _parse_int, safe_next_url as _safe_next_url
 
 from repositories.empleado_repository import (
     create,
@@ -24,27 +24,6 @@ from web.auth.decorators import role_required
 
 empleados_bp = Blueprint("empleados", __name__, url_prefix="/empleados")
 
-
-def _parse_int(value):
-    value = (value or "").strip()
-    if not value:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        return None
-
-
-def _safe_next_url(value):
-    raw = str(value or "").strip()
-    if not raw:
-        return None
-    parsed = urlparse(raw)
-    if parsed.scheme or parsed.netloc:
-        return None
-    if not raw.startswith("/"):
-        return None
-    return raw
 
 
 def _extract_form_data(form):
@@ -187,7 +166,13 @@ def nuevo():
 
         try:
             data["foto"] = _resolve_photo_from_request(data, emp_actual=None)
-        except (ValueError, RuntimeError) as exc:
+        except ValueError as exc:
+            errors.append(str(exc))
+        except RuntimeError as exc:
+            current_app.logger.warning(
+                "web_profile_photo_upload_error",
+                extra={"extra": {"dni": data.get("dni"), "error": str(exc)}},
+            )
             errors.append(str(exc))
 
         if errors:
@@ -254,7 +239,13 @@ def editar(emp_id):
         data = _extract_form_data(request.form)
         try:
             data["foto"] = _resolve_photo_from_request(data, emp_actual=emp)
-        except (ValueError, RuntimeError) as exc:
+        except ValueError as exc:
+            errors.append(str(exc))
+        except RuntimeError as exc:
+            current_app.logger.warning(
+                "web_profile_photo_upload_error",
+                extra={"extra": {"emp_id": emp_id, "dni": data.get("dni"), "error": str(exc)}},
+            )
             errors.append(str(exc))
         password_change_requested = _is_checked(request.form.get("cambiar_password"))
         password = (request.form.get("password") or "").strip()

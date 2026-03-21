@@ -1,4 +1,4 @@
-import web.web_routes as web_routes
+import web.dashboard_metrics as web_routes
 
 
 def test_build_hours_breakdowns_splits_template_by_empresa_y_sucursal():

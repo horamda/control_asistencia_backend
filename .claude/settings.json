@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"from web.legajos.legajos_routes import legajos_bp; print\\(''OK''\\)\")",
+      "Bash(python -m pytest tests/ --collect-only -q)",
+      "Bash(python -m pytest tests/test_validations.py tests/test_profile_photo_service.py tests/test_legajo_attachment_service.py tests/test_dashboard_hours_breakdown.py -v)",
+      "Bash(python -m pytest tests/test_web_legajos.py -v)",
+      "Bash(python -m pytest tests/ -v --ignore=tests/test_integracion_db_real.py)",
+      "Bash(python -m pytest tests/ --ignore=tests/test_integracion_db_real.py -q)",
+      "Bash(python -m pytest tests/test_mobile_v1_api.py -q)",
+      "Bash(python -m pytest tests/test_mobile_v1_api.py::test_mobile_me_estadisticas_ok -v)",
+      "Bash(python -m pytest tests/test_mobile_v1_api.py::test_mobile_me_estadisticas_ok tests/test_mobile_v1_api.py::test_mobile_fichada_scan_qr_fuera_rango -v)",
+      "Bash(python -m pytest tests/test_mobile_v1_api.py::test_mobile_fichada_scan_qr_fuera_rango -v)",
+      "Bash(python -m pytest tests/ -q --tb=short)",
+      "Bash(py -m pytest tests/ -q --tb=short)"
+    ]
+  }
+}

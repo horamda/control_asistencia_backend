@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from web.auth.decorators import role_required
+from utils.forms import parse_float as _parse_float, parse_int as _parse_int
 from repositories.sucursal_repository import (
     get_all,
     get_by_id,
@@ -12,25 +13,6 @@ from utils.audit import log_audit
 
 sucursales_bp = Blueprint("sucursales", __name__, url_prefix="/sucursales")
 
-
-def _parse_int(value):
-    value = (value or "").strip()
-    if not value:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        return None
-
-
-def _parse_float(value):
-    value = (value or "").strip()
-    if not value:
-        return None
-    try:
-        return float(value)
-    except ValueError:
-        return None
 
 
 def _extract_form_data(form):

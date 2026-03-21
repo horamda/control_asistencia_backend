@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <title>Dashboard empleado export XLS</title>
+    <style>
+      body { font-family: Arial, sans-serif; color: #111; margin: 8px; }
+      table { border-collapse: collapse; width: 100%; }
+      td, th { border: 1px solid #777; padding: 4px 6px; font-size: 12px; vertical-align: top; }
+      tr.section td {
+        background: #efefef;
+        font-weight: 700;
+      }
+      tr.empty td {
+        height: 10px;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <table>
+      <tbody>
+        {% for row in rows %}
+          {% set is_empty = (row|length == 0) %}
+          {% set is_section = (row|length > 0 and (row[0] in ["Asistencias", "Legajo", "Eventos por tipo", "Eventos por severidad", "Serie diaria"])) %}
+          <tr class="{% if is_empty %}empty{% elif is_section %}section{% endif %}">
+            {% for cell in row %}
+              <td>{{ cell }}</td>
+            {% endfor %}
+            {% for _ in range(max_cols - (row|length)) %}
+              <td></td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>

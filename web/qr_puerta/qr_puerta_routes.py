@@ -1,6 +1,7 @@
 ﻿import datetime
 
 from flask import Blueprint, abort, render_template, request, session
+from utils.forms import parse_int as _parse_int
 
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.qr_puerta_repository import create as create_qr_historial
@@ -23,15 +24,6 @@ TIPO_MARCA_OPTIONS = [
 ]
 TIPO_MARCA_ALLOWED = {code for code, _ in TIPO_MARCA_OPTIONS}
 
-
-def _parse_int(value):
-    raw = (value or "").strip()
-    if not raw:
-        return None
-    try:
-        return int(raw)
-    except ValueError:
-        return None
 
 
 def _normalize_tipo_marca(value):

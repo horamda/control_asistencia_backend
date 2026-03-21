@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, current_app, jsonify, request
+
 from services.auth_service import authenticate_user
 from services.profile_photo_service import get_profile_photo_version_by_dni
 from utils.jwt import generar_token
@@ -10,6 +11,10 @@ def _imagen_version_safe(dni):
     try:
         return get_profile_photo_version_by_dni(dni)
     except Exception:
+        current_app.logger.warning(
+            "auth_login_imagen_version_error",
+            extra={"extra": {"dni": dni}},
+        )
         return None
 
 

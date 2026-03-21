@@ -1,11 +1,9 @@
 import datetime
-import math
 import re
 
 from flask import Blueprint, current_app, g, jsonify, request
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from repositories.auditoria_repository import create as create_audit
 from repositories.asistencia_repository import (
     get_by_empleado_fecha,
     get_page_by_empleado as get_asistencias_page_by_empleado,
@@ -24,11 +22,11 @@ from repositories.empleado_repository import (
     update_password as update_empleado_password,
 )
 from repositories.mobile_stats_repository import get_by_empleado as get_mobile_stats_by_empleado
+from repositories.auditoria_repository import create as create_audit
 from repositories.security_event_repository import (
     create_geo_qr_rechazo,
     get_page_by_empleado as get_security_events_page,
 )
-from repositories.sucursal_repository import get_by_id as get_sucursal_by_id
 from services.auth_service import authenticate_user
 from services.profile_photo_service import (
     delete_profile_photo_for_dni,
@@ -39,112 +37,38 @@ from utils.asistencia import get_horario_esperado, validar_asistencia
 from utils.jwt import generar_token, generar_token_qr, verificar_token_qr
 from utils.jwt_guard import mobile_auth_required
 from utils.qr import build_qr_png_base64
+from routes.mobile_v1_helpers import (
+    DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN,
+    TIPO_MARCA_VALUES,
+    _decidir_accion_scan,
+    _get_intervalo_minimo_fichadas_min,
+    _get_scan_cooldown_segundos,
+    _geo_ref_from_qr_payload,
+    _haversine_m,
+    _hora_entrada_para_egreso,
+    _now_hhmm,
+    _parse_bool,
+    _parse_date,
+    _parse_float,
+    _parse_hhmm,
+    _parse_int,
+    _parse_tipo_marca,
+    _safe_int,
+    _to_date_str,
+    _to_hhmm,
+    _today_iso,
+    _validate_geo,
+    _validar_cooldown_scan,
+    _validar_intervalo_minimo_marcas,
+)
 
 mobile_v1_bp = Blueprint("mobile_v1", __name__, url_prefix="/api/v1/mobile")
-TIPO_MARCA_VALUES = {"jornada", "desayuno", "almuerzo", "merienda", "otro"}
-DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN = 60
 
 
-def _today_iso():
-    return datetime.date.today().isoformat()
-
-
-def _now_hhmm():
-    return datetime.datetime.now().strftime("%H:%M")
-
-
-def _parse_date(value: str | None):
-    raw = (value or "").strip()
-    if not raw:
-        return None
-    datetime.date.fromisoformat(raw)
-    return raw
-
-
-def _parse_hhmm(value: str | None):
-    raw = (value or "").strip()
-    if not raw:
-        return None
-    candidates = [raw]
-    if len(raw) == 5:
-        candidates.append(f"{raw}:00")
-    for candidate in candidates:
-        try:
-            parsed = datetime.time.fromisoformat(candidate)
-            return parsed.strftime("%H:%M")
-        except ValueError:
-            pass
-    raise ValueError("Hora invalida. Use HH:MM.")
-
-
-def _parse_float(value, label):
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{label} invalido.") from exc
-
-
-def _validate_geo(lat, lon):
-    if lat is not None and (lat < -90 or lat > 90):
-        raise ValueError("Latitud fuera de rango.")
-    if lon is not None and (lon < -180 or lon > 180):
-        raise ValueError("Longitud fuera de rango.")
-
-
-def _parse_int(value, label: str, default=None):
-    if value is None or value == "":
-        return default
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{label} invalido.") from exc
-
-
-def _parse_bool(value, label: str, default=False):
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    raw = str(value).strip().lower()
-    if raw in {"1", "true", "t", "yes", "y", "si", "sí", "on"}:
-        return True
-    if raw in {"0", "false", "f", "no", "off", ""}:
-        return False
-    raise ValueError(f"{label} invalido. Use true/false.")
-
-
-def _parse_tipo_marca(value, *, default=None):
-    raw = str(value or "").strip().lower()
-    if not raw:
-        return default
-    if raw not in TIPO_MARCA_VALUES:
-        raise ValueError("tipo_marca invalido. Use jornada, desayuno, almuerzo, merienda u otro.")
-    return raw
-
-
-def _to_hhmm(value):
-    if value is None:
-        return None
-    if isinstance(value, datetime.timedelta):
-        mins = int(value.total_seconds() // 60)
-        return f"{(mins // 60) % 24:02d}:{mins % 60:02d}"
-    if hasattr(value, "strftime"):
-        return value.strftime("%H:%M")
-    text = str(value).strip()
-    if not text:
-        return None
-    if len(text) >= 5:
-        return text[:5]
-    return text
-
-
-def _to_date_str(value):
-    if hasattr(value, "isoformat"):
-        return value.isoformat()
-    return str(value)
-
+# ---------------------------------------------------------------------------
+# Helpers con acceso a repositorios/servicios
+# (permanecen aquí para que los tests puedan hacer monkeypatch sobre este módulo)
+# ---------------------------------------------------------------------------
 
 def _mobile_user():
     empleado_id = int(g.mobile_empleado_id)
@@ -171,7 +95,6 @@ def _check_config_metodo(empresa_id: int, metodo: str, lat, lon, foto):
         if metodo == "qr" and (lat is None or lon is None):
             raise ValueError("La posicion GPS es obligatoria para fichar por QR.")
         return {}
-
     if config.get("requiere_qr") and metodo != "qr":
         raise ValueError("La empresa requiere metodo QR.")
     if metodo == "qr" and (lat is None or lon is None):
@@ -183,138 +106,11 @@ def _check_config_metodo(empresa_id: int, metodo: str, lat, lon, foto):
     return config
 
 
-def _get_scan_cooldown_segundos(config: dict | None):
-    if not config:
-        return 60
-    raw = config.get("cooldown_scan_segundos")
-    if raw is None:
-        return 60
-    try:
-        return max(0, int(raw))
-    except (TypeError, ValueError):
-        return 60
-
-
-def _get_intervalo_minimo_fichadas_min(config: dict | None):
-    if not config:
-        return DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN
-    raw = config.get("intervalo_minimo_fichadas_minutos")
-    if raw is None:
-        return DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN
-    try:
-        return max(0, int(raw))
-    except (TypeError, ValueError):
-        return DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN
-
-
-def _parse_db_datetime(value):
-    if value is None:
-        return None
-    if isinstance(value, datetime.datetime):
-        return value
-    text = str(value).strip()
-    if not text:
-        return None
-    try:
-        return datetime.datetime.fromisoformat(text.replace("Z", "+00:00")).replace(tzinfo=None)
-    except ValueError:
-        return None
-
-
-def _validar_cooldown_scan(ultima_marca: dict | None, cooldown_segundos: int):
-    if not ultima_marca or cooldown_segundos <= 0:
-        return
-
-    last_dt = _parse_db_datetime(ultima_marca.get("fecha_creacion"))
-    if last_dt is None:
-        return
-
-    now = datetime.datetime.now()
-    elapsed = (now - last_dt).total_seconds()
-    if elapsed < 0:
-        return
-    if elapsed < cooldown_segundos:
-        restante = int(math.ceil(cooldown_segundos - elapsed))
-        raise ValueError(f"Escaneo duplicado detectado. Espere {restante} segundos para volver a fichar.")
-
-
-def _to_minutes(value):
-    if value is None:
-        return None
-    if isinstance(value, datetime.timedelta):
-        return int(value.total_seconds() // 60)
-    if hasattr(value, "hour") and hasattr(value, "minute"):
-        return int(value.hour) * 60 + int(value.minute)
-    text = str(value).strip()
-    if not text:
-        return None
-    try:
-        hhmm = _parse_hhmm(text)
-    except ValueError:
-        return None
-    if not hhmm:
-        return None
-    parts = hhmm.split(":")
-    return int(parts[0]) * 60 + int(parts[1])
-
-
-def _validar_intervalo_minimo_marcas(
-    ultima_marca: dict | None,
-    hora_actual: str | None,
-    minutos_minimos: int = DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN,
-):
-    if not ultima_marca or not hora_actual or minutos_minimos <= 0:
-        return
-
-    minutos_actual = _to_minutes(hora_actual)
-    minutos_ultima = _to_minutes(ultima_marca.get("hora"))
-    if minutos_actual is None or minutos_ultima is None:
-        return
-
-    diferencia = minutos_actual - minutos_ultima
-    if diferencia < 0:
-        raise ValueError("Secuencia invalida de marcas. La hora informada debe ser posterior a la ultima marca.")
-    if diferencia < minutos_minimos:
-        raise ValueError(
-            f"Secuencia invalida de marcas. Debe esperar al menos {minutos_minimos} minutos entre fichadas."
-        )
-
-
-def _haversine_m(lat1, lon1, lat2, lon2):
-    r = 6371000.0
-    p1 = math.radians(lat1)
-    p2 = math.radians(lat2)
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlon / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return r * c
-
-
-def _geo_ref_from_qr_payload(qr_payload):
-    geo_ref = qr_payload.get("geo_ref") if isinstance(qr_payload, dict) else None
-    if not isinstance(geo_ref, dict):
-        return None
-    lat = geo_ref.get("lat")
-    lon = geo_ref.get("lon")
-    radio_m = geo_ref.get("radio_m")
-    if lat is None or lon is None or radio_m is None:
-        return None
-    try:
-        return {
-            "lat": float(lat),
-            "lon": float(lon),
-            "radio_m": float(radio_m),
-            "sucursal_id": geo_ref.get("sucursal_id"),
-        }
-    except (TypeError, ValueError):
-        return None
-
-
 def _geo_ref_from_empleado(empleado):
     sucursal_id = empleado.get("sucursal_id")
     if not sucursal_id:
         return None
+    from repositories.sucursal_repository import get_by_id as get_sucursal_by_id
     sucursal = get_sucursal_by_id(int(sucursal_id))
     if not sucursal:
         return None
@@ -337,11 +133,9 @@ def _geo_ref_from_empleado(empleado):
 def _validar_geo_scan_qr(empleado, qr_payload, lat, lon):
     if lat is None or lon is None:
         raise ValueError("lat y lon son requeridos para escanear QR.")
-
     geo_ref = _geo_ref_from_qr_payload(qr_payload) or _geo_ref_from_empleado(empleado)
     if not geo_ref:
         raise ValueError("No hay geocerca configurada para validar este QR.")
-
     distancia_m = _haversine_m(float(lat), float(lon), geo_ref["lat"], geo_ref["lon"])
     tolerancia_m = float(geo_ref["radio_m"])
     gps_ok = distancia_m <= tolerancia_m
@@ -359,23 +153,14 @@ def _validar_qr_fichada(empleado, qr_token: str | None, accion: str | None):
     token = (qr_token or "").strip()
     if not token:
         raise ValueError("qr_token requerido para metodo qr.")
-
     payload = verificar_token_qr(token, accion_esperada=accion)
     token_empresa = int(payload.get("empresa_id"))
     if token_empresa != int(empleado["empresa_id"]):
         raise ValueError("QR no corresponde a la empresa del empleado.")
-
     token_empleado = payload.get("empleado_id")
     if token_empleado is not None and int(token_empleado) != int(empleado["id"]):
         raise ValueError("QR no corresponde al empleado autenticado.")
     return payload
-
-
-def _safe_int(value):
-    try:
-        return int(value) if value is not None else None
-    except (TypeError, ValueError):
-        return None
 
 
 def _registrar_intento_fraude_geo(
@@ -428,7 +213,6 @@ def _registrar_intento_fraude_geo(
             extra={"extra": payload},
         )
         return None
-
     try:
         create_audit(None, "fraude_geo_qr_detectado", "eventos_seguridad", evento_id)
     except Exception:
@@ -437,47 +221,6 @@ def _registrar_intento_fraude_geo(
             extra={"extra": {"evento_id": evento_id}},
         )
     return evento_id
-
-
-def _decidir_accion_scan(accion_qr: str, resumen: dict | None, ultima_marca: dict | None):
-    if accion_qr in {"ingreso", "egreso"}:
-        accion = accion_qr
-    elif ultima_marca:
-        accion = "egreso" if str(ultima_marca.get("accion")) == "ingreso" else "ingreso"
-    elif not resumen or resumen.get("hora_entrada") is None:
-        accion = "ingreso"
-    elif resumen.get("hora_salida") is None:
-        accion = "egreso"
-    else:
-        # Si no hay marcas atomicas y el resumen del dia esta cerrado, asumimos nuevo ciclo.
-        accion = "ingreso"
-
-    if ultima_marca:
-        ultima_accion = str(ultima_marca.get("accion") or "").strip().lower()
-        if ultima_accion == accion:
-            raise ValueError(f"Secuencia invalida de marcas. Ultima accion: {ultima_accion}.")
-        if accion == "egreso" and ultima_accion != "ingreso":
-            raise ValueError("No hay fichada de entrada para esa fecha.")
-        return accion
-
-    if accion == "egreso" and (not resumen or resumen.get("hora_entrada") is None):
-        raise ValueError("No hay fichada de entrada para esa fecha.")
-    if (
-        accion == "ingreso"
-        and resumen
-        and resumen.get("hora_entrada") is not None
-        and resumen.get("hora_salida") is None
-    ):
-        raise ValueError("Ya hay un ingreso abierto para esa fecha.")
-    return accion
-
-
-def _hora_entrada_para_egreso(resumen: dict | None, ultima_marca: dict | None):
-    if ultima_marca and str(ultima_marca.get("accion")) == "ingreso":
-        return _to_hhmm(ultima_marca.get("hora"))
-    if resumen:
-        return _to_hhmm(resumen.get("hora_entrada"))
-    return None
 
 
 @mobile_v1_bp.route("/auth/login", methods=["POST"])

@@ -1,6 +1,7 @@
 ﻿import json
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
+from utils.forms import parse_int as _parse_int
 
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.sucursal_repository import get_all as get_sucursales
@@ -17,15 +18,6 @@ from web.auth.decorators import role_required
 
 horarios_bp = Blueprint("horarios", __name__, url_prefix="/horarios")
 
-
-def _parse_int(value):
-    value = (value or "").strip()
-    if not value:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        return None
 
 
 def _parse_dias_payload(raw_payload: str):
@@ -211,6 +203,10 @@ def eliminar(horario_id):
     except ValueError as exc:
         return redirect(url_for("horarios.listado", error=str(exc)))
     except Exception:
+        current_app.logger.warning(
+            "web_horario_delete_error",
+            extra={"extra": {"horario_id": horario_id}},
+        )
         return redirect(url_for("horarios.listado", error="No se pudo eliminar el horario por una relacion vigente."))
 
 
@@ -263,5 +259,9 @@ def api_delete(horario_id):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception:
+        current_app.logger.warning(
+            "web_horario_api_delete_error",
+            extra={"extra": {"horario_id": horario_id}},
+        )
         return jsonify({"error": "No se pudo eliminar el horario por una relacion vigente."}), 400
 

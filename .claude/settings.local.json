@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l \"/c/Users/horac/Desktop/Proyectos WEB/control_asistencia/backend/repositories/\"*.py)",
+      "Bash(xargs wc:*)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --index-filter \"git rm --cached --ignore-unmatch .env\" --prune-empty --tag-name-filter cat -- --all)",
+      "Bash(python -c \"import os; from dotenv import load_dotenv; print\\(''ANTES:'', os.getenv\\(''DB_USER''\\), os.getenv\\(''DB_NAME''\\)\\); load_dotenv\\(override=True\\); print\\(''DESPUES:'', os.getenv\\(''DB_USER''\\), os.getenv\\(''DB_NAME''\\)\\)\")"
+    ]
+  }
+}

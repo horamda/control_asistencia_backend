@@ -3,18 +3,10 @@ from web.auth.decorators import role_required
 from repositories.configuracion_empresa_repository import get_all, get_by_empresa_id, upsert
 from repositories.empresa_repository import get_all as get_empresas
 from utils.audit import log_audit
+from utils.forms import parse_int as _parse_int
 
 configuracion_bp = Blueprint("configuracion_empresa", __name__, url_prefix="/configuracion-empresa")
 
-
-def _parse_int(value):
-    value = (value or "").strip()
-    if not value:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        return None
 
 
 @configuracion_bp.route("/")

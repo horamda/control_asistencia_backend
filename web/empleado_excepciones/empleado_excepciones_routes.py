@@ -2,6 +2,7 @@
 import json
 
 from flask import Blueprint, abort, jsonify, redirect, render_template, request, session, url_for
+from utils.forms import parse_int as _parse_int
 
 from repositories.empleado_excepcion_repository import delete, get_all, get_by_id
 from repositories.empleado_repository import get_all as get_empleados
@@ -16,15 +17,6 @@ empleado_excepciones_bp = Blueprint("empleado_excepciones", __name__, url_prefix
 TIPOS = ["VACACIONES", "FRANCO", "FERIADO", "LICENCIA", "CAMBIO_HORARIO", "OTRO"]
 TIPOS_ANULA = {"VACACIONES", "FRANCO", "FERIADO", "LICENCIA"}
 
-
-def _parse_int(value):
-    value = (value or "").strip()
-    if not value:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        return None
 
 
 def _parse_bloques_json(raw):

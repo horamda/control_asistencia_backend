@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <title>Dashboard empleado {{ empleado.apellido }} {{ empleado.nombre }}</title>
+    <style>
+      body { font-family: Arial, sans-serif; color: #111; margin: 16px; }
+      h1, h2, h3 { margin: 0 0 8px; }
+      .meta { margin: 0 0 10px; font-size: 13px; }
+      .toolbar { margin: 12px 0; display: flex; gap: 8px; }
+      .btn { border: 1px solid #444; background: #f8f8f8; padding: 6px 10px; text-decoration: none; color: #111; }
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
+      .box { border: 1px solid #666; padding: 8px; }
+      .box h3 { font-size: 14px; margin-bottom: 6px; }
+      ul { margin: 0; padding-left: 18px; }
+      li { margin: 2px 0; font-size: 12px; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+      th, td { border: 1px solid #444; padding: 4px 6px; vertical-align: top; text-align: left; }
+      th { background: #f0f0f0; }
+      .small { font-size: 11px; color: #444; }
+      .w-50 { width: 50%; }
+      @media print {
+        .toolbar { display: none; }
+        @page { size: A4 landscape; margin: 10mm; }
+      }
+    </style>
+  </head>
+  <body>
+    {% set totales = asistencia.get("totales", {}) %}
+    {% set kpis = asistencia.get("kpis", {}) %}
+    {% set jornadas = asistencia.get("jornadas", {}) %}
+    {% set justificaciones = asistencia.get("justificaciones", {}) %}
+    {% set ausencias = asistencia.get("ausencias", {}) %}
+    {% set vacaciones = asistencia.get("vacaciones", {}) %}
+
+    <h1>Dashboard por empleado</h1>
+    <p class="meta">
+      <strong>Empleado:</strong> {{ empleado.apellido }} {{ empleado.nombre }} |
+      <strong>DNI:</strong> {{ empleado.dni }} |
+      <strong>Legajo:</strong> {{ empleado.legajo or "-" }} |
+      <strong>Empresa:</strong> {{ empleado.empresa_nombre or ("Empresa #" ~ empleado.empresa_id) }} |
+      <strong>Periodo:</strong> {{ desde }} a {{ hasta }}
+    </p>
+
+    <div class="toolbar">
+      <a class="btn" href="#" onclick="window.print(); return false;">Imprimir / Guardar PDF</a>
+      <a class="btn" href="{{ url_for('legajos.dashboard_empleado', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">Volver</a>
+    </div>
+
+    <div class="grid">
+      <div class="box">
+        <h3>Asistencias</h3>
+        <ul>
+          <li>Registros: {{ totales.get("registros", 0) }}</li>
+          <li>OK: {{ totales.get("ok", 0) }}</li>
+          <li>Tarde: {{ totales.get("tarde", 0) }}</li>
+          <li>Ausente: {{ totales.get("ausente", 0) }}</li>
+          <li>Salida anticipada: {{ totales.get("salida_anticipada", 0) }}</li>
+          <li>Sin estado: {{ totales.get("sin_estado", 0) }}</li>
+          <li>Puntualidad: {{ "%.1f"|format(kpis.get("puntualidad_pct", 0.0)) }}%</li>
+          <li>Ausentismo: {{ "%.1f"|format(kpis.get("ausentismo_pct", 0.0)) }}%</li>
+          <li>No-show: {{ "%.1f"|format(kpis.get("no_show_pct", 0.0)) }}%</li>
+          <li>Jornadas completas: {{ jornadas.get("completas", 0) }}</li>
+          <li>Jornadas incompletas: {{ jornadas.get("incompletas", 0) }}</li>
+          <li>Justificaciones pendientes: {{ justificaciones.get("pendientes", 0) }}</li>
+          <li>Ausencias sin justificacion: {{ ausencias.get("sin_justificacion", 0) }}</li>
+          <li>Vacaciones eventos/dias: {{ vacaciones.get("eventos", 0) }} / {{ vacaciones.get("dias", 0) }}</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>Legajo</h3>
+        <ul>
+          <li>Total historico (sin anulados): {{ legajo.historico.total }}</li>
+          <li>Historico vigentes: {{ legajo.historico.vigentes }}</li>
+          <li>Historico anulados: {{ legajo.historico.anulados }}</li>
+          <li>Periodo total (sin anulados): {{ legajo.periodo.total }}</li>
+          <li>Periodo vigentes: {{ legajo.periodo.vigentes }}</li>
+          <li>Periodo anulados (excluidos): {{ legajo.periodo.anulados }}</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="box">
+        <h3>Eventos por tipo</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Total</th>
+              <th>Pct</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if legajo.por_tipo %}
+              {% for row in legajo.por_tipo %}
+                <tr>
+                  <td>{{ row.label }}</td>
+                  <td>{{ row.total }}</td>
+                  <td>{{ "%.1f"|format(row.pct) }}%</td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="3">Sin datos</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+      <div class="box">
+        <h3>Eventos por severidad</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Severidad</th>
+              <th>Total</th>
+              <th>Pct</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if legajo.por_severidad %}
+              {% for row in legajo.por_severidad %}
+                <tr>
+                  <td>{{ row.label }}</td>
+                  <td>{{ row.total }}</td>
+                  <td>{{ "%.1f"|format(row.pct) }}%</td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="3">Sin datos</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="box">
+        <h3>Serie diaria</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Registros</th>
+              <th>Tardes</th>
+              <th>Ausentes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if diaria_rows %}
+              {% for row in diaria_rows %}
+                <tr>
+                  <td>{{ row.fecha }}</td>
+                  <td>{{ row.registros }}</td>
+                  <td>{{ row.tardes }}</td>
+                  <td>{{ row.ausentes }}</td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="4">Sin datos</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+      <div class="box">
+        <h3>Ultimos eventos (periodo)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Titulo</th>
+              <th>Estado</th>
+              <th>Severidad</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if legajo.recientes_periodo %}
+              {% for ev in legajo.recientes_periodo %}
+                <tr>
+                  <td>{{ ev.fecha_evento }}</td>
+                  <td>{{ ev.tipo_nombre or ev.tipo_codigo or "-" }}</td>
+                  <td>{{ ev.titulo or "-" }}</td>
+                  <td>{{ ev.estado or "-" }}</td>
+                  <td>{{ ev.severidad or "-" }}</td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="5">Sin datos</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="small">Generado desde Control Asistencia.</p>
+    {% if auto_print %}
+      <script>
+        window.addEventListener("load", function () {
+          window.print();
+        });
+      </script>
+    {% endif %}
+  </body>
+</html>

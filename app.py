@@ -9,6 +9,7 @@ from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.exceptions import HTTPException
 
 from extensions import init_db
+from db import DatabaseConfigError
 from routes.auth_routes import auth_bp          # API
 from routes.mobile_v1_routes import mobile_v1_bp
 from routes.media_routes import media_bp, public_media_bp
@@ -193,7 +194,7 @@ def create_app():
 # Gunicorn binding
 # ======================
 
-if os.getenv("FLASK_SKIP_APP_BOOT", "0") == "1":
+if os.getenv("FLASK_SKIP_APP_BOOT", "0") == "1" or __name__ == "__main__":
     app = None
 else:
     app = create_app()
@@ -205,5 +206,8 @@ else:
 
 
 if __name__ == "__main__":
-    app = create_app()
+    try:
+        app = create_app()
+    except DatabaseConfigError as exc:
+        raise SystemExit(str(exc))
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=True)

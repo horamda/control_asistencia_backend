@@ -1,8 +1,6 @@
-import datetime
-from urllib.parse import urlparse
-
 from flask import Blueprint, abort, redirect, render_template, request, session, url_for
 
+from utils.forms import parse_date as _parse_date, parse_int as _parse_int, safe_next_url as _safe_next_url
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.empresa_repository import get_all as get_empresas
@@ -28,33 +26,6 @@ from web.auth.decorators import role_required
 
 legajos_bp = Blueprint("legajos", __name__, url_prefix="/legajos")
 
-
-def _parse_int(raw: str | None):
-    value = (raw or "").strip()
-    if not value:
-        return None
-    if value.isdigit():
-        return int(value)
-    return None
-
-
-def _parse_date(raw: str | None):
-    value = (raw or "").strip()
-    if not value:
-        return None
-    return datetime.date.fromisoformat(value).isoformat()
-
-
-def _safe_next_url(value):
-    raw = str(value or "").strip()
-    if not raw:
-        return None
-    parsed = urlparse(raw)
-    if parsed.scheme or parsed.netloc:
-        return None
-    if not raw.startswith("/"):
-        return None
-    return raw
 
 
 def _extract_evento_form(form):
@@ -158,6 +129,35 @@ def _load_empleado_context(emp_id: int):
         evento_id = int(evento["id"])
         adjuntos_by_evento[evento_id] = get_adjuntos_by_evento(evento_id, include_deleted=False)
     return empleado, eventos, tipos, adjuntos_by_evento
+
+
+def _save_adjuntos(archivos, *, empresa_id: int, empleado_id: int, evento_id: int, actor_id):
+    for file_storage in archivos:
+        if not file_storage or not str(file_storage.filename or "").strip():
+            continue
+        saved = save_legajo_attachment_local(
+            file_storage,
+            empresa_id=empresa_id,
+            empleado_id=empleado_id,
+            evento_id=evento_id,
+        )
+        adjunto_id = create_adjunto(
+            {
+                "evento_id": evento_id,
+                "empresa_id": empresa_id,
+                "empleado_id": empleado_id,
+                "nombre_original": saved["nombre_original"],
+                "mime_type": saved["mime_type"],
+                "extension": saved["extension"],
+                "tamano_bytes": saved["tamano_bytes"],
+                "sha256": saved["sha256"],
+                "storage_backend": saved["storage_backend"],
+                "storage_ruta": saved["storage_ruta"],
+                "storage_data": saved.get("storage_data"),
+                "created_by_usuario_id": actor_id,
+            }
+        )
+        log_audit(session, "create", "legajo_evento_adjuntos", adjunto_id)
 
 
 @legajos_bp.route("/")
@@ -264,33 +264,13 @@ def crear_evento(emp_id):
     evento_id = create_evento(payload)
     log_audit(session, "create", "legajo_eventos", evento_id)
 
-    archivos = request.files.getlist("adjuntos")
-    for file_storage in archivos:
-        if not file_storage or not str(file_storage.filename or "").strip():
-            continue
-        saved = save_legajo_attachment_local(
-            file_storage,
-            empresa_id=int(empleado_data["empresa_id"]),
-            empleado_id=int(emp_id),
-            evento_id=int(evento_id),
-        )
-        adjunto_id = create_adjunto(
-            {
-                "evento_id": evento_id,
-                "empresa_id": int(empleado_data["empresa_id"]),
-                "empleado_id": int(emp_id),
-                "nombre_original": saved["nombre_original"],
-                "mime_type": saved["mime_type"],
-                "extension": saved["extension"],
-                "tamano_bytes": saved["tamano_bytes"],
-                "sha256": saved["sha256"],
-                "storage_backend": saved["storage_backend"],
-                "storage_ruta": saved["storage_ruta"],
-                "storage_data": saved.get("storage_data"),
-                "created_by_usuario_id": actor_id,
-            }
-        )
-        log_audit(session, "create", "legajo_evento_adjuntos", adjunto_id)
+    _save_adjuntos(
+        request.files.getlist("adjuntos"),
+        empresa_id=int(empleado_data["empresa_id"]),
+        empleado_id=int(emp_id),
+        evento_id=int(evento_id),
+        actor_id=actor_id,
+    )
 
     return redirect(url_for("legajos.empleado", emp_id=emp_id))
 
@@ -371,33 +351,13 @@ def agregar_adjuntos(emp_id, evento_id):
         abort(400, description="No se pueden adjuntar archivos a un evento anulado.")
 
     actor_id = session.get("user_id")
-    archivos = request.files.getlist("adjuntos")
-    for file_storage in archivos:
-        if not file_storage or not str(file_storage.filename or "").strip():
-            continue
-        saved = save_legajo_attachment_local(
-            file_storage,
-            empresa_id=int(empleado_data["empresa_id"]),
-            empleado_id=int(emp_id),
-            evento_id=int(evento_id),
-        )
-        adjunto_id = create_adjunto(
-            {
-                "evento_id": evento_id,
-                "empresa_id": int(empleado_data["empresa_id"]),
-                "empleado_id": int(emp_id),
-                "nombre_original": saved["nombre_original"],
-                "mime_type": saved["mime_type"],
-                "extension": saved["extension"],
-                "tamano_bytes": saved["tamano_bytes"],
-                "sha256": saved["sha256"],
-                "storage_backend": saved["storage_backend"],
-                "storage_ruta": saved["storage_ruta"],
-                "storage_data": saved.get("storage_data"),
-                "created_by_usuario_id": actor_id,
-            }
-        )
-        log_audit(session, "create", "legajo_evento_adjuntos", adjunto_id)
+    _save_adjuntos(
+        request.files.getlist("adjuntos"),
+        empresa_id=int(empleado_data["empresa_id"]),
+        empleado_id=int(emp_id),
+        evento_id=int(evento_id),
+        actor_id=actor_id,
+    )
 
     return redirect(url_for("legajos.empleado", emp_id=emp_id))
 

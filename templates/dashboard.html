@@ -58,18 +58,6 @@
     <a href="#dash-horas">Horas</a>
     <a href="#dash-actividad">Actividad</a>
   </nav>
-  <section class="panel">
-    <h3>Contexto del dashboard</h3>
-    <div class="chip-row">
-      <span class="chip scope-chip-general">GENERAL</span>
-      <span class="chip scope-chip-filtered">FILTRADO</span>
-    </div>
-    <ul class="list-clean">
-      <li>Vista actual: <strong>{{ scope.label if scope is defined else stats.scope_label }}</strong></li>
-      <li>Valores generales del sistema (sin filtros): <strong>Asistencias mes {{ stats.get("global_asistencias_mes", stats.asistencias_mes) }}</strong> | <strong>Ausencias mes {{ stats.get("global_ausentes_mes", stats.ausentes_mes) }}</strong> | <strong>Ausentismo {{ "%.1f"|format(stats.get("global_ausentismo_mes_pct", stats.ausentismo_mes_pct)) }}%</strong></li>
-    </ul>
-  </section>
-
   <section id="dash-kpis" class="grid-kpis dashboard-kpis dashboard-block" style="--mobile-order: 1;">
     <div class="chip-row">
       <span class="chip scope-chip-filtered">FILTRADO</span>
@@ -77,59 +65,71 @@
     <article class="kpi-card" style="--kpi-order: 9;">
       <div class="kpi-label">Empleados activos</div>
       <div class="kpi-value">{{ stats.empleados_activos }}</div>
+      <div class="kpi-desc">Total con contrato activo</div>
     </article>
-    <article class="kpi-card kpi-critical" style="--kpi-order: 2;">
+    <article class="kpi-card kpi-critical {% if stats.presentismo_hoy_pct >= 90 %}tone-ok{% elif stats.presentismo_hoy_pct >= 75 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 2;">
       <div class="kpi-label">Presentismo hoy</div>
       <div class="kpi-value">{{ "%.1f"|format(stats.presentismo_hoy_pct) }}%</div>
+      <div class="kpi-desc">% con fichada hoy. Bueno: &ge;90%</div>
     </article>
-    <article class="kpi-card kpi-critical" style="--kpi-order: 3;">
+    <article class="kpi-card kpi-critical {% if stats.puntualidad_mes_pct >= 85 %}tone-ok{% elif stats.puntualidad_mes_pct >= 70 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 3;">
       <div class="kpi-label">Puntualidad mes</div>
       <div class="kpi-value">{{ "%.1f"|format(stats.puntualidad_mes_pct) }}%</div>
+      <div class="kpi-desc">Entradas a tiempo. Bueno: &ge;85%</div>
     </article>
-    <article class="kpi-card kpi-critical" style="--kpi-order: 1;">
+    <article class="kpi-card kpi-critical {% if stats.ausentismo_mes_pct <= 8 %}tone-ok{% elif stats.ausentismo_mes_pct <= 15 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 1;">
       <div class="kpi-label">% ausentismo mes</div>
       <div class="kpi-value">{{ "%.1f"|format(stats.ausentismo_mes_pct) }}%</div>
+      <div class="kpi-desc">Dias perdidos / esperados. Bueno: &le;8%</div>
     </article>
-    <article class="kpi-card" style="--kpi-order: 16;">
+    <article class="kpi-card {% if stats.ausentismo_anual_pct <= 8 %}tone-ok{% elif stats.ausentismo_anual_pct <= 15 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 16;">
       <div class="kpi-label">
         <span class="copy-desktop">% ausentismo anual</span>
         <span class="copy-mobile">% ausent. anual</span>
       </div>
       <div class="kpi-value">{{ "%.1f"|format(stats.ausentismo_anual_pct) }}%</div>
+      <div class="kpi-desc">Acumulado del anio. Bueno: &le;8%</div>
     </article>
-    <article class="kpi-card kpi-critical" style="--kpi-order: 5;">
+    <article class="kpi-card kpi-critical {% if stats.no_show_mes_pct <= 5 %}tone-ok{% elif stats.no_show_mes_pct <= 10 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 5;">
       <div class="kpi-label">
         <span class="copy-desktop">Indice no-show mes</span>
         <span class="copy-mobile">No-show mes</span>
       </div>
       <div class="kpi-value">{{ "%.1f"|format(stats.no_show_mes_pct) }}%</div>
+      <div class="kpi-desc">Ausentes sin justificar. Bueno: &le;5%</div>
     </article>
     <article class="kpi-card" style="--kpi-order: 10;">
       <div class="kpi-label">Justificaciones mes</div>
       <div class="kpi-value">{{ stats.justificaciones_mes_total }}</div>
+      <div class="kpi-desc">Solicitudes del mes en curso</div>
     </article>
     <article class="kpi-card" style="--kpi-order: 18;">
       <div class="kpi-label">Eventos legajo mes</div>
       <div class="kpi-value">{{ stats.get("legajo_eventos_mes", 0) }}</div>
+      <div class="kpi-desc">Novedades de legajo del mes</div>
     </article>
     <article class="kpi-card" style="--kpi-order: 19;">
       <div class="kpi-label">Eventos legajo vigentes</div>
       <div class="kpi-value">{{ stats.get("legajo_eventos_vigentes", 0) }}</div>
+      <div class="kpi-desc">Con efecto activo hoy</div>
     </article>
-    <article class="kpi-card" style="--kpi-order: 11;">
+    <article class="kpi-card {% if stats.tasa_aprobacion_justificaciones_mes_pct >= 80 %}tone-ok{% elif stats.tasa_aprobacion_justificaciones_mes_pct >= 60 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 11;">
       <div class="kpi-label">
         <span class="copy-desktop">Aprobacion justif. mes</span>
         <span class="copy-mobile">Aprob. justif.</span>
       </div>
       <div class="kpi-value">{{ "%.1f"|format(stats.tasa_aprobacion_justificaciones_mes_pct) }}%</div>
+      <div class="kpi-desc">% aprobadas sobre total. Bueno: &ge;80%</div>
     </article>
-    <article class="kpi-card kpi-critical" style="--kpi-order: 4;">
+    <article class="kpi-card kpi-critical {% if stats.justificaciones_pendientes_total == 0 %}tone-ok{% elif stats.justificaciones_pendientes_total <= 10 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 4;">
       <div class="kpi-label">Justif. pendientes</div>
       <div class="kpi-value">{{ stats.justificaciones_pendientes_total }}</div>
+      <div class="kpi-desc">Sin resolver. Bueno: 0</div>
     </article>
     <article class="kpi-card" style="--kpi-order: 12;">
       <div class="kpi-label">Vacaciones en curso</div>
       <div class="kpi-value">{{ stats.vacaciones_en_curso_hoy }}</div>
+      <div class="kpi-desc">Empleados de vacaciones hoy</div>
     </article>
     <article class="kpi-card" style="--kpi-order: 13;">
       <div class="kpi-label">
@@ -137,24 +137,28 @@
         <span class="copy-mobile">Vacac. prox. 30d</span>
       </div>
       <div class="kpi-value">{{ stats.vacaciones_proximas_30d }}</div>
+      <div class="kpi-desc">Inicios en los proximos 30 dias</div>
     </article>
-    <article class="kpi-card kpi-critical" style="--kpi-order: 6;">
+    <article class="kpi-card kpi-critical {% if stats.cumplimiento_jornada_mes_pct >= 85 %}tone-ok{% elif stats.cumplimiento_jornada_mes_pct >= 70 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 6;">
       <div class="kpi-label">
         <span class="copy-desktop">Cumplimiento jornada mes</span>
         <span class="copy-mobile">Cumplim. jornada</span>
       </div>
       <div class="kpi-value">{{ "%.1f"|format(stats.cumplimiento_jornada_mes_pct) }}%</div>
+      <div class="kpi-desc">Jornada completa. Bueno: &ge;85%</div>
     </article>
-    <article class="kpi-card kpi-critical" style="--kpi-order: 7;">
+    <article class="kpi-card kpi-critical {% if stats.tasa_salida_anticipada_mes_pct <= 5 %}tone-ok{% elif stats.tasa_salida_anticipada_mes_pct <= 15 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 7;">
       <div class="kpi-label">
         <span class="copy-desktop">Tasa salida anticipada mes</span>
         <span class="copy-mobile">Salida ant. mes</span>
       </div>
       <div class="kpi-value">{{ "%.1f"|format(stats.tasa_salida_anticipada_mes_pct) }}%</div>
+      <div class="kpi-desc">Se retiraron antes. Bueno: &le;5%</div>
     </article>
     <article class="kpi-card" style="--kpi-order: 14;">
       <div class="kpi-label">Frecuencia ausencias mes</div>
       <div class="kpi-value">{{ "%.2f"|format(stats.frecuencia_ausencias_mes) }}</div>
+      <div class="kpi-desc">Ausencias promedio / empleado</div>
     </article>
     <article class="kpi-card" style="--kpi-order: 15;">
       <div class="kpi-label">
@@ -162,13 +166,15 @@
         <span class="copy-mobile">Freq. aus. trim.</span>
       </div>
       <div class="kpi-value">{{ "%.2f"|format(stats.frecuencia_ausencias_trimestre) }}</div>
+      <div class="kpi-desc">Promedio del trimestre</div>
     </article>
-    <article class="kpi-card kpi-critical" style="--kpi-order: 8;">
+    <article class="kpi-card kpi-critical {% if stats.lead_time_regularizacion_horas_mes <= 24 %}tone-ok{% elif stats.lead_time_regularizacion_horas_mes <= 72 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 8;">
       <div class="kpi-label">
         <span class="copy-desktop">Lead time regularizacion (h)</span>
         <span class="copy-mobile">Lead time reg. (h)</span>
       </div>
       <div class="kpi-value">{{ "%.1f"|format(stats.lead_time_regularizacion_horas_mes) }}</div>
+      <div class="kpi-desc">Horas prom. hasta justificar. Bueno: &le;24h</div>
     </article>
     <article class="kpi-card" style="--kpi-order: 17;">
       <div class="kpi-label kpi-label-inline">
@@ -182,6 +188,7 @@
         >?</span>
       </div>
       <div class="kpi-value">{{ "%.1f"|format(stats.desvio_horas_mes) }}h</div>
+      <div class="kpi-desc">Registradas menos esperadas del mes</div>
     </article>
   </section>
 
@@ -866,23 +873,23 @@
     <article class="panel dashboard-state" style="--mobile-order: 1;">
       <h3>Estado general</h3>
       <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
-      <ul class="list-clean">
-        <li>Asistencias hoy: <strong>{{ stats.asistencias_hoy }}</strong></li>
-        <li>Tardanzas hoy: <strong>{{ stats.tardes_hoy }}</strong></li>
-        <li>Ausencias hoy: <strong>{{ stats.ausentes_hoy }}</strong></li>
-        <li>Asistencias mes: <strong>{{ stats.asistencias_mes }}</strong></li>
-        <li>Ausencias mes: <strong>{{ stats.ausentes_mes }}</strong></li>
-        <li>Ausentes sin justificacion mes: <strong>{{ stats.ausentes_sin_justificacion_mes }}</strong></li>
-        <li>Justificaciones pendientes: <strong>{{ stats.justificaciones_pendientes_total }}</strong></li>
-        <li>Vacaciones en curso: <strong>{{ stats.vacaciones_en_curso_hoy }}</strong></li>
-        <li>Asistencias anio: <strong>{{ stats.asistencias_anio }}</strong></li>
-        <li>Ausencias anio: <strong>{{ stats.ausentes_anio }}</strong></li>
-        <li>Horarios activos: <strong>{{ stats.horarios_activos }}</strong></li>
-        <li>Asignaciones vigentes: <strong>{{ stats.asignaciones_vigentes }}</strong></li>
-        <li>Eventos legajo mes: <strong>{{ stats.get("legajo_eventos_mes", 0) }}</strong></li>
-        <li>Eventos legajo vigentes: <strong>{{ stats.get("legajo_eventos_vigentes", 0) }}</strong></li>
-        <li>Eventos legajo total: <strong>{{ stats.get("legajo_eventos_total", 0) }}</strong></li>
-      </ul>
+      <div class="stat-grid">
+        <div class="stat-row"><span class="stat-row-label">Asistencias hoy</span><span class="stat-row-value">{{ stats.asistencias_hoy }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Tardanzas hoy</span><span class="stat-row-value">{{ stats.tardes_hoy }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Ausencias hoy</span><span class="stat-row-value">{{ stats.ausentes_hoy }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Asistencias mes</span><span class="stat-row-value">{{ stats.asistencias_mes }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Ausencias mes</span><span class="stat-row-value">{{ stats.ausentes_mes }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Sin justif. mes</span><span class="stat-row-value">{{ stats.ausentes_sin_justificacion_mes }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Justif. pendientes</span><span class="stat-row-value">{{ stats.justificaciones_pendientes_total }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Vacaciones en curso</span><span class="stat-row-value">{{ stats.vacaciones_en_curso_hoy }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Asistencias anio</span><span class="stat-row-value">{{ stats.asistencias_anio }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Ausencias anio</span><span class="stat-row-value">{{ stats.ausentes_anio }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Horarios activos</span><span class="stat-row-value">{{ stats.horarios_activos }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Asignaciones vigentes</span><span class="stat-row-value">{{ stats.asignaciones_vigentes }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Eventos legajo mes</span><span class="stat-row-value">{{ stats.get("legajo_eventos_mes", 0) }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Legajo vigentes</span><span class="stat-row-value">{{ stats.get("legajo_eventos_vigentes", 0) }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Legajo total</span><span class="stat-row-value">{{ stats.get("legajo_eventos_total", 0) }}</span></div>
+      </div>
     </article>
   </section>
 
