@@ -29,6 +29,7 @@ Pendientes estructurales de este documento que siguen vigentes (no resueltos en 
 Este es un **sistema de gestiÃ³n de asistencias y recursos humanos** construido con Flask, que incluye gestiÃ³n de empleados, horarios, asistencias, justificaciones, vacaciones y mÃ¡s. El proyecto tiene una arquitectura modular bien organizada con separaciÃ³n de responsabilidades.
 
 **TecnologÃ­as identificadas:**
+
 - **Backend**: Flask (Python)
 - **Base de datos**: MySQL con mysql-connector-python + SQLAlchemy
 - **AutenticaciÃ³n**: JWT + Sessions
@@ -40,17 +41,20 @@ Este es un **sistema de gestiÃ³n de asistencias y recursos humanos** construid
 ## âœ… Aspectos Positivos del Proyecto
 
 1. **Arquitectura modular y bien organizada**
+
    - SeparaciÃ³n clara entre repositories, services, routes
    - Blueprints bien estructurados por dominio
    - CÃ³digo DRY (Don't Repeat Yourself) en general
 
 2. **Seguridad implementada**
+
    - CSRF Protection
    - JWT para API
    - Password hashing con Werkzeug
    - Decoradores de autorizaciÃ³n por roles
 
 3. **Logging estructurado**
+
    - Formato JSON para logs
    - Tracking de requests con mÃ©tricas (tiempo de respuesta)
    - InformaciÃ³n de usuario en cada request
@@ -80,6 +84,7 @@ SessionLocal = sessionmaker(bind=engine)
 ```
 
 **Consecuencias:**
+
 - ConfusiÃ³n sobre quÃ© sistema usar
 - DuplicaciÃ³n de configuraciÃ³n
 - Posibles problemas de conexiones abiertas
@@ -123,6 +128,7 @@ def get_all():
 ```
 
 **Problemas:**
+
 - No hay manejo de transacciones entre mÃºltiples operaciones
 - Posibles race conditions
 - Desperdicio de conexiones en operaciones complejas
@@ -132,6 +138,7 @@ def get_all():
 ### 4. **Falta de ValidaciÃ³n de Entrada Consistente**
 
 Las validaciones estÃ¡n dispersas y no son consistentes:
+
 - Algunas validaciones en routes
 - Validaciones parciales en repositories
 - No hay un sistema centralizado de validaciÃ³n
@@ -155,6 +162,7 @@ def create(data: dict):
 ```
 
 **Problemas:**
+
 - No hay rollback explÃ­cito en caso de error
 - Los errores de BD se propagan sin contexto
 - No hay logging de errores en repositories
@@ -164,6 +172,7 @@ def create(data: dict):
 ### 6. **Ausencia de Migraciones de Base de Datos**
 
 No hay sistema de migraciones (Alembic, Flask-Migrate):
+
 - Dificulta el versionado de esquemas
 - Complicado mantener consistencia en mÃºltiples entornos
 - No hay historial de cambios de BD
@@ -173,6 +182,7 @@ No hay sistema de migraciones (Alembic, Flask-Migrate):
 ### 7. **Testing Insuficiente**
 
 Solo hay 1 archivo de tests con ~100 lÃ­neas:
+
 - No hay tests de integraciÃ³n
 - No hay tests de repositories
 - No hay tests de autenticaciÃ³n
@@ -188,6 +198,7 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev_secret")
 ```
 
 **Problemas:**
+
 - Usa un default inseguro en producciÃ³n
 - No hay separaciÃ³n clara de configs por entorno
 - Falta validaciÃ³n de variables de entorno crÃ­ticas
@@ -208,6 +219,7 @@ token_payload["exp"] = datetime.utcnow() + timedelta(...)
 ### 10. **Ausencia de Rate Limiting**
 
 No hay protecciÃ³n contra:
+
 - Brute force en login
 - Spam de requests
 - DoS bÃ¡sico
@@ -236,7 +248,7 @@ def init_orm():
     global engine, SessionLocal
     if engine is not None:
         return
-    
+
     uri = _build_uri()
     engine = create_engine(
         uri,
@@ -267,6 +279,7 @@ def get_db_session():
 ```
 
 **Beneficios:**
+
 - ORM robusto y mantenible
 - Migraciones con Alembic
 - Relaciones automÃ¡ticas
@@ -315,17 +328,17 @@ class ValidationError:
 
 class Validator:
     """Validador base para entidades"""
-    
+
     def __init__(self):
         self.errors: List[ValidationError] = []
-    
+
     def require(self, value: Any, field: str, label: str) -> bool:
         """Campo requerido"""
         if not value or (isinstance(value, str) and not value.strip()):
             self.errors.append(ValidationError(field, f"{label} es requerido"))
             return False
         return True
-    
+
     def email(self, value: str, field: str) -> bool:
         """ValidaciÃ³n de email"""
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -333,46 +346,46 @@ class Validator:
             self.errors.append(ValidationError(field, "Email invÃ¡lido"))
             return False
         return True
-    
+
     def dni(self, value: str, field: str) -> bool:
         """ValidaciÃ³n de DNI argentino"""
         if value and not (value.isdigit() and 7 <= len(value) <= 8):
             self.errors.append(ValidationError(field, "DNI invÃ¡lido (7-8 dÃ­gitos)"))
             return False
         return True
-    
+
     def unique(self, exists_func, value: str, field: str, exclude_id: Optional[int] = None) -> bool:
         """ValidaciÃ³n de unicidad"""
         if value and exists_func(field, value, exclude_id):
             self.errors.append(ValidationError(field, f"{field.upper()} ya existe"))
             return False
         return True
-    
+
     def is_valid(self) -> bool:
         """Retorna si no hay errores"""
         return len(self.errors) == 0
-    
+
     def get_error_messages(self) -> List[str]:
         """Retorna lista de mensajes de error"""
         return [e.message for e in self.errors]
 
 class EmpleadoValidator(Validator):
     """Validador especÃ­fico para empleados"""
-    
+
     def validate_create(self, data: Dict, exists_unique_func) -> bool:
         self.require(data.get('nombre'), 'nombre', 'Nombre')
         self.require(data.get('apellido'), 'apellido', 'Apellido')
         self.require(data.get('dni'), 'dni', 'DNI')
         self.require(data.get('email'), 'email', 'Email')
-        
+
         # Validaciones de formato
         self.email(data.get('email'), 'email')
         self.dni(data.get('dni'), 'dni')
-        
+
         # Validaciones de unicidad
         self.unique(exists_unique_func, data.get('dni'), 'dni')
         self.unique(exists_unique_func, data.get('email'), 'email')
-        
+
         return self.is_valid()
 ```
 
@@ -386,14 +399,14 @@ from utils.validators import EmpleadoValidator
 def create_empleado():
     validator = EmpleadoValidator()
     data = _extract_form_data(request.form)
-    
+
     if not validator.validate_create(data, exists_unique):
         return render_template(
             "empleados/form.html",
             errors=validator.get_error_messages(),
             data=data
         )
-    
+
     # Continuar con creaciÃ³n...
 ```
 
@@ -411,23 +424,23 @@ load_dotenv()
 
 class Config:
     """ConfiguraciÃ³n base"""
-    
+
     # Seguridad
     SECRET_KEY: str = _require_env("SECRET_KEY")
     JWT_SECRET: str = _require_env("JWT_SECRET")
     JWT_EXPIRATION_SECONDS: int = int(os.getenv("JWT_EXPIRE_SECONDS", "28800"))
-    
+
     # Base de datos
     DB_HOST: str = _require_env("DB_HOST")
     DB_PORT: int = int(os.getenv("DB_PORT", "3306"))
     DB_USER: str = _require_env("DB_USER")
     DB_PASSWORD: str = _require_env("DB_PASSWORD")
     DB_NAME: str = _require_env("DB_NAME")
-    
+
     # AplicaciÃ³n
     UPLOAD_FOLDER: str = os.getenv("UPLOAD_FOLDER", "uploads/fotos")
     MAX_CONTENT_LENGTH: int = 16 * 1024 * 1024  # 16MB
-    
+
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
@@ -440,7 +453,7 @@ class ProductionConfig(Config):
     """ConfiguraciÃ³n de producciÃ³n"""
     DEBUG = False
     TESTING = False
-    
+
     # Pool de conexiones mÃ¡s grande
     DB_POOL_SIZE = 20
     DB_MAX_OVERFLOW = 40
@@ -526,12 +539,12 @@ def create(data: dict) -> int:
             empleado = Empleado(**data)
             session.add(empleado)
             session.flush()  # Para obtener el ID
-            
+
             # Log de auditorÃ­a
             log_audit(session, "empleado_created", empleado.id)
-            
+
             return empleado.id
-            
+
         except IntegrityError as e:
             logger.error(f"Error de integridad al crear empleado: {e}")
             raise ValueError("Datos duplicados o invÃ¡lidos")
@@ -556,7 +569,7 @@ from flask_limiter.util import get_remote_address
 
 def create_app():
     app = Flask(__name__)
-    
+
     # Rate limiter
     limiter = Limiter(
         app=app,
@@ -564,9 +577,9 @@ def create_app():
         default_limits=["200 per day", "50 per hour"],
         storage_uri="memory://"  # Usar Redis en producciÃ³n
     )
-    
+
     # ...
-    
+
     return app
 ```
 
@@ -597,7 +610,7 @@ def before_request():
     """Ejecutar antes de cada request"""
     g.request_id = str(uuid.uuid4())
     g.start_time = time.time()
-    
+
     logger.info("Request started", extra={
         "request_id": g.request_id,
         "method": request.method,
@@ -610,7 +623,7 @@ def after_request(response):
     """Ejecutar despuÃ©s de cada request"""
     if hasattr(g, 'start_time'):
         elapsed = round((time.time() - g.start_time) * 1000, 2)
-        
+
         logger.info("Request completed", extra={
             "request_id": getattr(g, 'request_id', 'unknown'),
             "method": request.method,
@@ -620,7 +633,7 @@ def after_request(response):
             "user_id": session.get('user_id'),
             "admin_id": session.get('admin_id')
         })
-    
+
     # Agregar request ID a headers
     response.headers['X-Request-ID'] = getattr(g, 'request_id', 'unknown')
     return response
@@ -681,14 +694,14 @@ def get_page(
 ) -> Tuple[List[Dict], int]:
     """
     Obtiene pÃ¡gina de empleados.
-    
+
     Args:
         page: NÃºmero de pÃ¡gina (1-indexed)
         per_page: Items por pÃ¡gina
         include_inactive: Incluir empleados inactivos
         search: TÃ©rmino de bÃºsqueda (nombre/apellido)
         empresa_id: Filtrar por empresa
-        
+
     Returns:
         Tupla de (lista de empleados, total de registros)
     """
@@ -715,7 +728,7 @@ def health_check():
         "timestamp": datetime.utcnow().isoformat(),
         "checks": {}
     }
-    
+
     # Check database
     try:
         with get_db_session() as session:
@@ -724,7 +737,7 @@ def health_check():
     except Exception as e:
         checks["status"] = "unhealthy"
         checks["checks"]["database"] = f"unhealthy: {str(e)}"
-    
+
     status_code = 200 if checks["status"] == "healthy" else 503
     return jsonify(checks), status_code
 
@@ -783,16 +796,16 @@ def auth_headers(client):
 import pytest
 
 class TestEmpleadosAPI:
-    
+
     def test_get_all_empleados_sin_auth_debe_retornar_401(self, client):
         response = client.get('/api/empleados')
         assert response.status_code == 401
-    
+
     def test_get_all_empleados_con_auth(self, client, auth_headers):
         response = client.get('/api/empleados', headers=auth_headers)
         assert response.status_code == 200
         assert isinstance(response.json, list)
-    
+
     def test_create_empleado_valido(self, client, auth_headers, db_session):
         data = {
             'nombre': 'Juan',
@@ -805,12 +818,12 @@ class TestEmpleadosAPI:
         response = client.post('/api/empleados', json=data, headers=auth_headers)
         assert response.status_code == 201
         assert 'id' in response.json
-    
+
     def test_create_empleado_duplicado_debe_fallar(self, client, auth_headers):
         # Crear primero
         data = {'dni': '12345678', ...}
         client.post('/api/empleados', json=data, headers=auth_headers)
-        
+
         # Intentar duplicado
         response = client.post('/api/empleados', json=data, headers=auth_headers)
         assert response.status_code == 400
@@ -832,7 +845,7 @@ from flasgger import Swagger
 
 def create_app():
     app = Flask(__name__)
-    
+
     swagger_config = {
         "headers": [],
         "specs": [
@@ -847,7 +860,7 @@ def create_app():
         "swagger_ui": True,
         "specs_route": "/api/docs/"
     }
-    
+
     swagger = Swagger(app, config=swagger_config)
     # ...
 ```
@@ -1009,6 +1022,7 @@ gevent==23.9.1
 ## ðŸ“ Checklist de ImplementaciÃ³n
 
 ### Fase 1 - CrÃ­tico (1-2 semanas)
+
 - [ ] Decidir y unificar sistema de BD (SQLAlchemy vs mysql-connector)
 - [ ] Implementar sistema de validaciÃ³n centralizado
 - [ ] Mejorar manejo de errores y transacciones
@@ -1016,6 +1030,7 @@ gevent==23.9.1
 - [ ] Actualizar datetime.utcnow() a datetime.now(timezone.utc)
 
 ### Fase 2 - Alta prioridad (2-3 semanas)
+
 - [ ] Implementar migraciones con Alembic
 - [ ] Rate limiting en endpoints crÃ­ticos
 - [ ] Logging estructurado mejorado
@@ -1023,6 +1038,7 @@ gevent==23.9.1
 - [ ] Health checks
 
 ### Fase 3 - Mejoras (1-2 meses)
+
 - [ ] Cache con Redis
 - [ ] Type hints completos
 - [ ] DocumentaciÃ³n Swagger
@@ -1030,6 +1046,7 @@ gevent==23.9.1
 - [ ] Monitoring con Sentry
 
 ### Fase 4 - OptimizaciÃ³n (continuo)
+
 - [ ] Performance profiling
 - [ ] Refactoring incremental
 - [ ] DocumentaciÃ³n de cÃ³digo
@@ -1115,7 +1132,7 @@ CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "app:app"]
 
 ```yaml
 # docker-compose.yml
-version: '3.8'
+version: "3.8"
 
 services:
   app:
@@ -1162,7 +1179,8 @@ Este proyecto tiene una **base sÃ³lida** con buena arquitectura modular, pero 
 4. **Testing** (coverage muy bajo)
 5. **Migraciones de BD**
 
-**RecomendaciÃ³n final**: 
+**RecomendaciÃ³n final**:
+
 - Implementar las mejoras de **Prioridad CrÃ­tica** inmediatamente
 - Planificar Fase 2 en siguiente sprint
 - Las mejoras de Fase 3-4 implementarlas incrementalmente
@@ -1175,3 +1193,4 @@ Con estas mejoras, el proyecto estarÃ¡ listo para producciÃ³n con alta calid
 
 Â¿Te gustarÃ­a que profundice en alguna de estas mejoras o que genere cÃ³digo de ejemplo para alguna implementaciÃ³n especÃ­fica?
 
+deployed
