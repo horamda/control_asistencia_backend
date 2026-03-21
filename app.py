@@ -37,7 +37,8 @@ from web.qr_puerta.qr_puerta_routes import qr_puerta_bp
 from web.legajos.legajos_routes import legajos_bp
 from web.legajos.legajo_tipos_evento_routes import legajo_tipos_evento_bp
 
-load_dotenv()
+load_dotenv("/etc/secrets/.env", override=False)
+load_dotenv(override=False)
 
 def create_app():
     app = Flask(

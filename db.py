@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, scoped_session
 
-load_dotenv()
+load_dotenv("/etc/secrets/.env", override=False)
+load_dotenv(override=False)
 
 Base = declarative_base()
 engine = None
