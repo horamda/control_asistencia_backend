@@ -100,6 +100,40 @@ def update(franco_id: int, data: dict):
         db.close()
 
 
+def get_page_by_empleado(empleado_id: int, page: int, per_page: int, fecha_desde: str | None = None, fecha_hasta: str | None = None):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        offset = (page - 1) * per_page
+        where = ["f.empleado_id = %s"]
+        params = [empleado_id]
+        if fecha_desde:
+            where.append("f.fecha >= %s")
+            params.append(fecha_desde)
+        if fecha_hasta:
+            where.append("f.fecha <= %s")
+            params.append(fecha_hasta)
+        where_sql = "WHERE " + " AND ".join(where)
+        cursor.execute(f"""
+            SELECT f.*
+            FROM francos f
+            {where_sql}
+            ORDER BY f.fecha DESC, f.id DESC
+            LIMIT %s OFFSET %s
+        """, (*params, per_page, offset))
+        rows = cursor.fetchall()
+        cursor.execute(f"""
+            SELECT COUNT(*) AS total
+            FROM francos f
+            {where_sql}
+        """, params)
+        total = cursor.fetchone()["total"]
+        return rows, total
+    finally:
+        cursor.close()
+        db.close()
+
+
 def delete(franco_id: int):
     db = get_db()
     cursor = db.cursor()

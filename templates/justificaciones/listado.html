@@ -17,6 +17,13 @@
     </div>
   </div>
 
+  {% if error %}
+    <div class="errors"><p>{{ error }}</p></div>
+  {% endif %}
+  {% if msg %}
+    <div class="alert-ok"><p>{{ msg }}</p></div>
+  {% endif %}
+
   <div class="toolbar">
     <a class="btn" href="/justificaciones/nuevo">Nueva justificaci&oacute;n</a>
   </div>
@@ -54,50 +61,69 @@
   </form>
 
   <div class="results-bar">
-    <div class="summary">Resultados: {{ justificaciones|length }} registro(s) en esta pagina</div>
+    <div class="summary">Resultados: {{ justificaciones|length }} registro(s) en esta p&aacute;gina</div>
     <div class="summary">Total general: {{ total }}</div>
   </div>
 
   {% if justificaciones %}
     <div class="table-responsive table-cards">
       <table>
-        <tr>
-          <th>Empresa</th>
-          <th>Empleado</th>
-          <th>Asistencia</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-        {% for j in justificaciones %}
-        <tr>
-          <td data-label="Empresa">{{ j.empresa_nombre or "-" }}</td>
-          <td data-label="Empleado">{{ j.apellido }} {{ j.nombre }}</td>
-          <td data-label="Asistencia">{{ j.asistencia_fecha or "-" }}</td>
-          <td data-label="Estado">
-            {% set estado = (j.estado or "")|lower %}
-            {% if estado in ["aprobada", "ok"] %}
-              <span class="badge ok">{{ j.estado }}</span>
-            {% elif estado in ["rechazada", "anulada"] %}
-              <span class="badge danger">{{ j.estado }}</span>
-            {% elif estado in ["pendiente", "en_revision"] %}
-              <span class="badge warning">{{ j.estado }}</span>
-            {% elif j.estado %}
-              <span class="badge">{{ j.estado }}</span>
-            {% else %}
-              -
-            {% endif %}
-          </td>
-          <td data-label="Acciones">
-            <div class="inline-actions">
-              <a href="/justificaciones/editar/{{ j.id }}">Editar</a>
-              <form method="post" action="/justificaciones/eliminar/{{ j.id }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="btn-danger" type="submit">Eliminar</button>
-              </form>
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Empleado</th>
+            <th>Asistencia</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for j in justificaciones %}
+          <tr>
+            <td data-label="Empresa">{{ j.empresa_nombre or "-" }}</td>
+            <td data-label="Empleado">{{ j.apellido }} {{ j.nombre }}</td>
+            <td data-label="Asistencia">{{ j.asistencia_fecha or "-" }}</td>
+            <td data-label="Estado">
+              {% set estado = (j.estado or "")|lower %}
+              {% if estado == "aprobada" %}
+                <span class="badge ok">Aprobada</span>
+              {% elif estado == "rechazada" %}
+                <span class="badge danger">Rechazada</span>
+              {% elif estado == "pendiente" %}
+                <span class="badge warning">Pendiente</span>
+              {% else %}
+                <span class="badge">{{ j.estado or "-" }}</span>
+              {% endif %}
+            </td>
+            <td data-label="Acciones">
+              <div class="inline-actions">
+                <a class="btn btn-secondary" href="/justificaciones/editar/{{ j.id }}">Editar</a>
+
+                {% if (j.estado or "") == "pendiente" %}
+                  <form method="post" action="/justificaciones/aprobar/{{ j.id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn" type="submit">Aprobar</button>
+                  </form>
+                  <form method="post" action="/justificaciones/rechazar/{{ j.id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn-danger" type="submit">Rechazar</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="/justificaciones/revertir/{{ j.id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-secondary" type="submit">Revertir</button>
+                  </form>
+                {% endif %}
+
+                <form method="post" action="/justificaciones/eliminar/{{ j.id }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn-danger" type="submit">Eliminar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
       </table>
     </div>
   {% else %}

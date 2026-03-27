@@ -45,7 +45,7 @@
             <td data-label="Observaciones">{{ v.observaciones or "-" }}</td>
             <td data-label="Acciones">
               <div class="inline-actions">
-                <a href="/vacaciones/editar/{{ v.id }}">Editar</a>
+                <a class="btn btn-secondary" href="/vacaciones/editar/{{ v.id }}">Editar</a>
                 <form method="post" action="/vacaciones/eliminar/{{ v.id }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button class="btn-danger" type="submit">Eliminar</button>

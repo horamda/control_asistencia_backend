@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Dashboard empleado{% endblock %}
+{% block extra_head %}{% if auto_print %}<script>window.addEventListener("load",function(){window.print();});</script>{% endif %}{% endblock %}
 {% block content %}
 {% set totales = asistencia.get("totales", {}) %}
 {% set kpis = asistencia.get("kpis", {}) %}
@@ -7,6 +8,7 @@
 {% set justificaciones = asistencia.get("justificaciones", {}) %}
 {% set ausencias = asistencia.get("ausencias", {}) %}
 {% set vacaciones = asistencia.get("vacaciones", {}) %}
+{% set racha_ok = asistencia.get("racha_ok", 0) %}
 <div class="content-stack">
   <div class="section-head">
     <div>
@@ -132,6 +134,7 @@
       {% endif %}
     </section>
   {% else %}
+    {# ---- Ficha del empleado ---- #}
     <section class="panel">
       <h3>{{ empleado.apellido }} {{ empleado.nombre }}</h3>
       <ul class="list-clean">
@@ -149,70 +152,187 @@
       </ul>
     </section>
 
+    {# ---- Fila 1 KPIs: asistencia ---- #}
     <section class="grid-kpis dashboard-kpis">
-      <article class="kpi-card">
-        <div class="kpi-label">Asistencias (periodo)</div>
-        <div class="kpi-value">{{ totales.get("registros", 0) }}</div>
-      </article>
-      <article class="kpi-card">
-        <div class="kpi-label">Tardes</div>
-        <div class="kpi-value">{{ totales.get("tarde", 0) }}</div>
-      </article>
-      <article class="kpi-card">
-        <div class="kpi-label">Ausentes</div>
-        <div class="kpi-value">{{ totales.get("ausente", 0) }}</div>
-      </article>
-      <article class="kpi-card">
-        <div class="kpi-label">Salida anticipada</div>
-        <div class="kpi-value">{{ totales.get("salida_anticipada", 0) }}</div>
-      </article>
-      <article class="kpi-card">
-        <div class="kpi-label">Puntualidad</div>
+      <article class="kpi-card {% if kpis.get('puntualidad_pct', 0) >= 90 %}tone-ok{% elif kpis.get('puntualidad_pct', 0) >= 70 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Puntualidad
+          <span class="kpi-help" tabindex="0" data-tooltip="OK / total de registros en el periodo. Meta sugerida: ≥90%.">?</span>
+        </div>
         <div class="kpi-value">{{ "%.1f"|format(kpis.get("puntualidad_pct", 0.0)) }}%</div>
+        <div class="kpi-desc">{{ totales.get("ok", 0) }} de {{ totales.get("registros", 0) }} registros</div>
       </article>
-      <article class="kpi-card">
-        <div class="kpi-label">Ausentismo</div>
+
+      <article class="kpi-card {% if kpis.get('adherencia_pct', 0) >= 90 %}tone-ok{% elif kpis.get('adherencia_pct', 0) >= 70 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Adherencia
+          <span class="kpi-help" tabindex="0" data-tooltip="Dias con registro / dias habiles (lun-vie) del periodo. Mide presencia real.">?</span>
+        </div>
+        <div class="kpi-value">{{ "%.1f"|format(kpis.get("adherencia_pct", 0.0)) }}%</div>
+        <div class="kpi-desc">{{ kpis.get("dias_con_registro", 0) }} / {{ kpis.get("dias_laborables", 0) }} dias habiles</div>
+      </article>
+
+      <article class="kpi-card {% if kpis.get('ausentismo_pct', 0) == 0 %}tone-ok{% elif kpis.get('ausentismo_pct', 0) <= 10 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Ausentismo
+          <span class="kpi-help" tabindex="0" data-tooltip="Ausentes / total registros. Incluye ausentes con o sin justificacion.">?</span>
+        </div>
         <div class="kpi-value">{{ "%.1f"|format(kpis.get("ausentismo_pct", 0.0)) }}%</div>
+        <div class="kpi-desc">{{ totales.get("ausente", 0) }} ausencias</div>
       </article>
-      <article class="kpi-card">
-        <div class="kpi-label">Eventos legajo vigentes</div>
-        <div class="kpi-value">{{ legajo.periodo.total }}</div>
+
+      <article class="kpi-card {% if kpis.get('no_show_pct', 0) == 0 %}tone-ok{% elif kpis.get('no_show_pct', 0) <= 15 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          No-show
+          <span class="kpi-help" tabindex="0" data-tooltip="(Ausentes + salidas anticipadas) / total registros.">?</span>
+        </div>
+        <div class="kpi-value">{{ "%.1f"|format(kpis.get("no_show_pct", 0.0)) }}%</div>
+        <div class="kpi-desc">{{ totales.get("ausente", 0) + totales.get("salida_anticipada", 0) }} incidencias</div>
       </article>
-      <article class="kpi-card">
-        <div class="kpi-label">Incidencias ficha</div>
-        <div class="kpi-value">{{ totales.get("tarde", 0) + totales.get("ausente", 0) + totales.get("salida_anticipada", 0) }}</div>
+
+      <article class="kpi-card {% if kpis.get('horas_promedio', 0) >= 7 %}tone-ok{% elif kpis.get('horas_promedio', 0) >= 5 %}tone-warn{% elif kpis.get('horas_promedio', 0) > 0 %}tone-bad{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Hs promedio
+          <span class="kpi-help" tabindex="0" data-tooltip="Promedio de horas trabajadas por jornada completa (entrada y salida registradas).">?</span>
+        </div>
+        <div class="kpi-value">{{ "%.1f"|format(kpis.get("horas_promedio", 0.0)) }}h</div>
+        <div class="kpi-desc">{{ "%.0f"|format(kpis.get("horas_totales", 0.0)) }}h totales acumuladas</div>
+      </article>
+
+      <article class="kpi-card {% if kpis.get('gps_incidencias', 0) == 0 %}tone-ok{% elif kpis.get('gps_incidencias', 0) <= 3 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          GPS alertas
+          <span class="kpi-help" tabindex="0" data-tooltip="Cantidad de entradas o salidas con GPS fuera del rango permitido.">?</span>
+        </div>
+        <div class="kpi-value">{{ kpis.get("gps_incidencias", 0) }}</div>
+        <div class="kpi-desc">fichadas fuera de rango</div>
+      </article>
+
+      <article class="kpi-card {% if justificaciones.get('tasa_pct', 0) >= 80 %}tone-ok{% elif justificaciones.get('tasa_pct', 0) >= 40 %}tone-warn{% elif totales.get('ausente', 0) > 0 %}tone-bad{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Tasa justif.
+          <span class="kpi-help" tabindex="0" data-tooltip="Justificaciones aprobadas / total de ausencias del periodo. Mide respaldo documental.">?</span>
+        </div>
+        <div class="kpi-value">{{ "%.1f"|format(justificaciones.get("tasa_pct", 0.0)) }}%</div>
+        <div class="kpi-desc">{{ justificaciones.get("aprobadas", 0) }} aprobadas de {{ totales.get("ausente", 0) }} ausencias</div>
+      </article>
+
+      <article class="kpi-card {% if racha_ok >= 10 %}tone-ok{% elif racha_ok >= 3 %}tone-warn{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Racha OK
+          <span class="kpi-help" tabindex="0" data-tooltip="Dias consecutivos con estado OK contados desde el registro mas reciente.">?</span>
+        </div>
+        <div class="kpi-value">{{ racha_ok }}</div>
+        <div class="kpi-desc">dias consecutivos puntual</div>
       </article>
     </section>
 
+    {# ---- Fila 2 KPIs: legajo ---- #}
+    <section class="grid-kpis dashboard-kpis">
+      <article class="kpi-card {% if legajo.periodo.get('vigentes', 0) == 0 %}tone-ok{% elif legajo.periodo.get('vigentes', 0) <= 2 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label">Eventos periodo</div>
+        <div class="kpi-value">{{ legajo.periodo.get("vigentes", 0) }}</div>
+        <div class="kpi-desc">vigentes en el periodo</div>
+      </article>
+
+      <article class="kpi-card {% if legajo.periodo.get('graves', 0) == 0 %}tone-ok{% else %}tone-bad{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Eventos graves
+          <span class="kpi-help" tabindex="0" data-tooltip="Eventos de legajo vigentes con severidad 'grave' en el periodo.">?</span>
+        </div>
+        <div class="kpi-value">{{ legajo.periodo.get("graves", 0) }}</div>
+        <div class="kpi-desc">severidad grave</div>
+      </article>
+
+      <article class="kpi-card {% if legajo.periodo.get('media', 0) == 0 %}tone-ok{% elif legajo.periodo.get('media', 0) <= 2 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label">Eventos medios</div>
+        <div class="kpi-value">{{ legajo.periodo.get("media", 0) }}</div>
+        <div class="kpi-desc">severidad media</div>
+      </article>
+
+      <article class="kpi-card">
+        <div class="kpi-label">Tipos distintos</div>
+        <div class="kpi-value">{{ legajo.periodo.get("tipos_unicos", 0) }}</div>
+        <div class="kpi-desc">tipos de evento en periodo</div>
+      </article>
+
+      <article class="kpi-card {% if jornadas.get('incompletas', 0) == 0 %}tone-ok{% elif jornadas.get('incompletas', 0) <= 3 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Jornadas incompletas
+          <span class="kpi-help" tabindex="0" data-tooltip="Registros con entrada pero sin salida fichada.">?</span>
+        </div>
+        <div class="kpi-value">{{ jornadas.get("incompletas", 0) }}</div>
+        <div class="kpi-desc">sin salida registrada</div>
+      </article>
+
+      <article class="kpi-card {% if ausencias.get('sin_justificacion', 0) == 0 %}tone-ok{% elif ausencias.get('sin_justificacion', 0) <= 2 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Ausencias s/just.
+          <span class="kpi-help" tabindex="0" data-tooltip="Ausencias sin justificacion aprobada asociada.">?</span>
+        </div>
+        <div class="kpi-value">{{ ausencias.get("sin_justificacion", 0) }}</div>
+        <div class="kpi-desc">sin respaldo aprobado</div>
+      </article>
+
+      <article class="kpi-card">
+        <div class="kpi-label">Vacaciones (periodo)</div>
+        <div class="kpi-value">{{ vacaciones.get("dias", 0) }}</div>
+        <div class="kpi-desc">dias — {{ vacaciones.get("eventos", 0) }} registro(s)</div>
+      </article>
+
+      <article class="kpi-card">
+        <div class="kpi-label">Legajo historico</div>
+        <div class="kpi-value">{{ legajo.historico.get("total", 0) }}</div>
+        <div class="kpi-desc">{{ legajo.historico.get("vigentes", 0) }} vigentes / {{ legajo.historico.get("anulados", 0) }} anulados</div>
+      </article>
+    </section>
+
+    {# ---- Paneles de detalle ---- #}
     <section class="panel-grid">
       <article class="panel">
-        <h3>Ficha (asistencias del periodo)</h3>
+        <h3>Ficha de asistencia (periodo)</h3>
         <ul class="list-clean">
-          <li>OK: <strong>{{ totales.get("ok", 0) }}</strong></li>
-          <li>Tardes: <strong>{{ totales.get("tarde", 0) }}</strong></li>
+          <li>Dias habiles en el periodo: <strong>{{ kpis.get("dias_laborables", 0) }}</strong></li>
+          <li>Dias con registro: <strong>{{ kpis.get("dias_con_registro", 0) }}</strong></li>
+          <li>OK / Puntual: <strong>{{ totales.get("ok", 0) }}</strong></li>
+          <li>Tardanzas: <strong>{{ totales.get("tarde", 0) }}</strong></li>
           <li>Ausentes: <strong>{{ totales.get("ausente", 0) }}</strong></li>
+          <li>Salidas anticipadas: <strong>{{ totales.get("salida_anticipada", 0) }}</strong></li>
           <li>Sin justificar: <strong>{{ ausencias.get("sin_justificacion", 0) }}</strong></li>
           <li>Jornadas completas: <strong>{{ jornadas.get("completas", 0) }}</strong></li>
-          <li>Jornadas incompletas: <strong>{{ jornadas.get("incompletas", 0) }}</strong></li>
-          <li>Justificaciones pendientes: <strong>{{ justificaciones.get("pendientes", 0) }}</strong></li>
-          <li>No-show: <strong>{{ "%.1f"|format(kpis.get("no_show_pct", 0.0)) }}%</strong></li>
-          <li>Vacaciones (eventos): <strong>{{ vacaciones.get("eventos", 0) }}</strong></li>
-          <li>Vacaciones (dias): <strong>{{ vacaciones.get("dias", 0) }}</strong></li>
+          <li>Jornadas incompletas (sin salida): <strong>{{ jornadas.get("incompletas", 0) }}</strong></li>
+          {% if kpis.get("horas_promedio", 0) > 0 %}
+          <li>Horas promedio por jornada: <strong>{{ "%.1f"|format(kpis.get("horas_promedio", 0.0)) }}h</strong></li>
+          <li>Horas totales acumuladas: <strong>{{ "%.0f"|format(kpis.get("horas_totales", 0.0)) }}h</strong></li>
+          {% endif %}
+          {% if kpis.get("gps_incidencias", 0) > 0 %}
+          <li>GPS alertas (fuera de rango): <strong>{{ kpis.get("gps_incidencias", 0) }}</strong></li>
+          {% endif %}
         </ul>
       </article>
       <article class="panel">
-        <h3>Eventos de legajo</h3>
+        <h3>Justificaciones</h3>
         <ul class="list-clean">
-          <li>Total historico (sin anulados): <strong>{{ legajo.historico.total }}</strong></li>
-          <li>Historico vigentes: <strong>{{ legajo.historico.vigentes }}</strong></li>
-          <li>Historico anulados: <strong>{{ legajo.historico.anulados }}</strong></li>
-          <li>Periodo total (sin anulados): <strong>{{ legajo.periodo.total }}</strong></li>
-          <li>Periodo vigentes: <strong>{{ legajo.periodo.vigentes }}</strong></li>
-          <li>Periodo anulados (excluidos): <strong>{{ legajo.periodo.anulados }}</strong></li>
+          <li>Total del empleado: <strong>{{ justificaciones.get("total", 0) }}</strong></li>
+          <li>Pendientes: <strong>{{ justificaciones.get("pendientes", 0) }}</strong></li>
+          <li>Aprobadas: <strong>{{ justificaciones.get("aprobadas", 0) }}</strong></li>
+          <li>Rechazadas: <strong>{{ justificaciones.get("rechazadas", 0) }}</strong></li>
+          <li>Tasa de justificacion: <strong>{{ "%.1f"|format(justificaciones.get("tasa_pct", 0.0)) }}%</strong></li>
+        </ul>
+        <h3 style="margin-top:12px;">Eventos de legajo</h3>
+        <ul class="list-clean">
+          <li>Historico total (sin anulados): <strong>{{ legajo.historico.get("total", 0) }}</strong></li>
+          <li>Historico vigentes: <strong>{{ legajo.historico.get("vigentes", 0) }}</strong></li>
+          <li>Historico anulados: <strong>{{ legajo.historico.get("anulados", 0) }}</strong></li>
+          <li>Periodo (vigentes): <strong>{{ legajo.periodo.get("vigentes", 0) }}</strong></li>
+          <li>Periodo (graves): <strong>{{ legajo.periodo.get("graves", 0) }}</strong></li>
+          <li>Periodo (medios): <strong>{{ legajo.periodo.get("media", 0) }}</strong></li>
+          <li>Periodo (leves): <strong>{{ legajo.periodo.get("leve", 0) }}</strong></li>
         </ul>
       </article>
     </section>
 
+    {# ---- Charts ---- #}
     <section class="panel-grid">
       <article class="panel">
         <h3>Distribucion de estados (periodo)</h3>
@@ -232,32 +352,113 @@
           <p>Sin datos en el periodo.</p>
         {% endif %}
       </article>
+
       <article class="panel">
-        <h3>Tendencia diaria (periodo)</h3>
-        {% if diaria_rows %}
-          <div class="rrhh-legend">
-            <span><i class="legend-dot total"></i>Registros</span>
-            <span><i class="legend-dot warning"></i>Tardes</span>
-            <span><i class="legend-dot danger"></i>Ausentes</span>
-          </div>
-          <div class="trend-chart">
-            {% for d in diaria_rows %}
-              <div class="trend-day">
-                <div class="trend-bars">
-                  <span class="trend-bar total" style="height: {{ ((d.registros * 100) / (diaria_max if diaria_max > 0 else 1)) | round(1) }}%"></span>
-                  <span class="trend-bar warning" style="height: {{ ((d.tardes * 100) / (diaria_max if diaria_max > 0 else 1)) | round(1) }}%"></span>
-                  <span class="trend-bar danger" style="height: {{ ((d.ausentes * 100) / (diaria_max if diaria_max > 0 else 1)) | round(1) }}%"></span>
-                </div>
-                <div class="trend-label">{{ d.dia }}</div>
-              </div>
-            {% endfor %}
+        <h3>Resumen semanal</h3>
+        {% if semanas_rows %}
+          <div class="table-responsive">
+            <table class="semanas-table">
+              <thead>
+                <tr>
+                  <th>Semana</th>
+                  <th title="Registros totales">Reg.</th>
+                  <th title="OK / Puntual" class="col-ok">OK</th>
+                  <th title="Tardanzas" class="col-tarde">Tarde</th>
+                  <th title="Ausencias" class="col-ausente">Aus.</th>
+                  <th title="Salidas anticipadas" class="col-salida">S.A.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for w in semanas_rows %}
+                  {% set total_w = w.registros if w.registros > 0 else 1 %}
+                  <tr>
+                    <td>
+                      <span class="semana-label">{{ w.label }}</span>
+                      <span class="semana-dates">{{ w.desde[5:] }} – {{ w.hasta[5:] }}</span>
+                    </td>
+                    <td>{{ w.registros }}</td>
+                    <td class="col-ok">
+                      <span class="inline-bar ok" style="width:{{ (w.ok * 100 / total_w)|round(0)|int }}%"></span>
+                      {{ w.ok }}
+                    </td>
+                    <td class="col-tarde">
+                      {% if w.tardes > 0 %}
+                        <span class="inline-bar tarde" style="width:{{ (w.tardes * 100 / total_w)|round(0)|int }}%"></span>
+                        {{ w.tardes }}
+                      {% else %}-{% endif %}
+                    </td>
+                    <td class="col-ausente">
+                      {% if w.ausentes > 0 %}
+                        <span class="inline-bar ausente" style="width:{{ (w.ausentes * 100 / total_w)|round(0)|int }}%"></span>
+                        {{ w.ausentes }}
+                      {% else %}-{% endif %}
+                    </td>
+                    <td class="col-salida">
+                      {% if w.salidas > 0 %}
+                        <span class="inline-bar salida" style="width:{{ (w.salidas * 100 / total_w)|round(0)|int }}%"></span>
+                        {{ w.salidas }}
+                      {% else %}-{% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         {% else %}
-          <p>Sin serie diaria para el periodo.</p>
+          <p>Sin datos semanales.</p>
         {% endif %}
       </article>
     </section>
 
+    {# ---- Calendario heatmap ---- #}
+    <section class="panel">
+      <h3>Calendario de asistencia</h3>
+      <div class="cal-legend">
+        <span class="cal-legend-item"><i class="cal-dot cal-ok"></i>OK</span>
+        <span class="cal-legend-item"><i class="cal-dot cal-tarde"></i>Tardanza</span>
+        <span class="cal-legend-item"><i class="cal-dot cal-ausente"></i>Ausente</span>
+        <span class="cal-legend-item"><i class="cal-dot cal-salida_anticipada"></i>Salida anticipada</span>
+        <span class="cal-legend-item"><i class="cal-dot cal-nodata"></i>Sin registro</span>
+        <span class="cal-legend-item"><i class="cal-dot cal-weekend"></i>Fin de semana</span>
+      </div>
+      {% if calendar_weeks %}
+        <div class="cal-heatmap-wrap">
+          <div class="cal-heatmap">
+            <div class="cal-header">
+              {% for name in ["L","M","X","J","V","S","D"] %}
+                <div class="cal-col-label">{{ name }}</div>
+              {% endfor %}
+            </div>
+            {% set ns = namespace(prev_mes="") %}
+            {% for week in calendar_weeks %}
+              {# Month label: show when first day of month appears in this week #}
+              {% set ns2 = namespace(week_mes="") %}
+              {% for day in week %}
+                {% if day and day.num == 1 and ns2.week_mes == "" %}
+                  {% set ns2.week_mes = day.mes %}
+                {% endif %}
+              {% endfor %}
+              <div class="cal-week" {% if ns2.week_mes %}data-mes="{{ ns2.week_mes }}"{% endif %}>
+                {% for day in week %}
+                  {% if day %}
+                    <div class="cal-day cal-{{ day.estado }}" title="{{ day.tooltip }}">
+                      <span class="cal-num">{{ day.num }}</span>
+                      {% if day.horas %}<span class="cal-hours">{{ day.horas }}h</span>{% endif %}
+                    </div>
+                  {% else %}
+                    <div class="cal-day cal-pad"></div>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <p>Sin datos para el periodo.</p>
+      {% endif %}
+    </section>
+
+    {# ---- Eventos por tipo / severidad ---- #}
     <section class="panel-grid">
       <article class="panel">
         <h3>Eventos por tipo (periodo)</h3>
@@ -287,7 +488,8 @@
               <div class="mini-row">
                 <div class="mini-label">{{ row.label }}</div>
                 <div class="mini-track">
-                  <span class="mini-fill warning" style="width: {{ ((row.total * 100) / (max_sev if max_sev > 0 else 1)) | round(1) }}%"></span>
+                  {% set tone = "danger" if row.label == "grave" else ("warning" if row.label == "media" else "total") %}
+                  <span class="mini-fill {{ tone }}" style="width: {{ ((row.total * 100) / (max_sev if max_sev > 0 else 1)) | round(1) }}%"></span>
                 </div>
                 <strong>{{ row.total }} ({{ "%.1f"|format(row.pct) }}%)</strong>
               </div>
@@ -299,6 +501,7 @@
       </article>
     </section>
 
+    {# ---- Tabla eventos recientes ---- #}
     <section class="panel">
       <h3>Ultimos eventos de legajo (periodo)</h3>
       {% if legajo.recientes_periodo %}
@@ -326,7 +529,17 @@
                       <span class="badge danger">{{ ev.estado or "-" }}</span>
                     {% endif %}
                   </td>
-                  <td data-label="Severidad">{{ ev.severidad or "-" }}</td>
+                  <td data-label="Severidad">
+                    {% if ev.severidad == "grave" %}
+                      <span class="badge danger">grave</span>
+                    {% elif ev.severidad == "media" %}
+                      <span class="badge warning">media</span>
+                    {% elif ev.severidad == "leve" %}
+                      <span class="badge ok">leve</span>
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
                 </tr>
               {% endfor %}
             </tbody>

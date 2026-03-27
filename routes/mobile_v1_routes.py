@@ -21,6 +21,36 @@ from repositories.empleado_repository import (
     update_mobile_profile,
     update_password as update_empleado_password,
 )
+from repositories.legajo_evento_repository import (
+    get_eventos_page,
+    get_evento_by_id,
+    get_eventos_by_empleado as get_todos_eventos_by_empleado,
+)
+from repositories.franco_repository import (
+    get_page_by_empleado as get_francos_page_by_empleado,
+    get_by_id as get_franco_by_id,
+)
+from repositories.empleado_horario_repository import (
+    get_actual_by_empleado as get_horario_actual_by_empleado,
+    get_historial as get_horario_historial_by_empleado,
+)
+from repositories.horario_dia_repository import get_by_horario as get_dias_by_horario
+from repositories.vacacion_repository import (
+    get_page_by_empleado as get_vacaciones_page_by_empleado,
+    get_by_id as get_vacacion_by_id,
+    create as create_vacacion_row,
+    update as update_vacacion_row,
+    delete as delete_vacacion_row,
+)
+from repositories.justificacion_repository import (
+    get_by_id as get_justificacion_by_id,
+    get_page as get_justificaciones_page,
+    delete as delete_justificacion_row,
+)
+from services.justificacion_service import (
+    create_justificacion as create_justificacion_svc,
+    update_justificacion as update_justificacion_svc,
+)
 from repositories.mobile_stats_repository import get_by_empleado as get_mobile_stats_by_empleado
 from repositories.auditoria_repository import create as create_audit
 from repositories.security_event_repository import (
@@ -1161,3 +1191,627 @@ def me_update_password():
 
     update_empleado_password(empleado["id"], generate_password_hash(new_password))
     return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Justificaciones del empleado autenticado
+# ---------------------------------------------------------------------------
+
+def _justificacion_to_dict(j: dict) -> dict:
+    return {
+        "id": j["id"],
+        "asistencia_id": j.get("asistencia_id"),
+        "asistencia_fecha": _to_date_str(j.get("asistencia_fecha")) if j.get("asistencia_fecha") else None,
+        "motivo": j.get("motivo"),
+        "archivo": j.get("archivo") or None,
+        "estado": j.get("estado") or "pendiente",
+        "created_at": j["created_at"].isoformat() if hasattr(j.get("created_at"), "isoformat") else str(j.get("created_at") or ""),
+    }
+
+
+@mobile_v1_bp.route("/me/justificaciones", methods=["GET"])
+@mobile_auth_required
+def me_justificaciones_list():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = max(1, min(request.args.get("per", 20, type=int) or 20, 100))
+    fecha_desde = (request.args.get("desde") or "").strip() or None
+    fecha_hasta = (request.args.get("hasta") or "").strip() or None
+    estado = (request.args.get("estado") or "").strip() or None
+
+    if estado and estado not in {"pendiente", "aprobada", "rechazada"}:
+        return jsonify({"error": "estado invalido. Valores: pendiente, aprobada, rechazada"}), 400
+
+    rows, total = get_justificaciones_page(
+        page=page,
+        per_page=per_page,
+        empleado_id=int(empleado["id"]),
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        estado=estado,
+    )
+
+    return jsonify({
+        "items": [_justificacion_to_dict(r) for r in rows],
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+    })
+
+
+@mobile_v1_bp.route("/me/justificaciones/<int:justificacion_id>", methods=["GET"])
+@mobile_auth_required
+def me_justificaciones_detail(justificacion_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    j = get_justificacion_by_id(justificacion_id)
+    if not j or j.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Justificacion no encontrada"}), 404
+
+    return jsonify(_justificacion_to_dict(j))
+
+
+@mobile_v1_bp.route("/me/justificaciones", methods=["POST"])
+@mobile_auth_required
+def me_justificaciones_create():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    motivo = (payload.get("motivo") or "").strip()
+    archivo = (payload.get("archivo") or "").strip() or None
+    raw_asistencia_id = payload.get("asistencia_id")
+    asistencia_id = int(raw_asistencia_id) if raw_asistencia_id is not None else None
+
+    data = {
+        "empleado_id": int(empleado["id"]),
+        "asistencia_id": asistencia_id,
+        "motivo": motivo,
+        "archivo": archivo,
+        "estado": "pendiente",
+    }
+    try:
+        just_id = create_justificacion_svc(data)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    create_audit(int(empleado["id"]), "create", "justificaciones", just_id)
+    j = get_justificacion_by_id(just_id)
+    return jsonify(_justificacion_to_dict(j)), 201
+
+
+@mobile_v1_bp.route("/me/justificaciones/<int:justificacion_id>", methods=["PUT"])
+@mobile_auth_required
+def me_justificaciones_update(justificacion_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    j = get_justificacion_by_id(justificacion_id)
+    if not j or j.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Justificacion no encontrada"}), 404
+
+    if (j.get("estado") or "pendiente") != "pendiente":
+        return jsonify({"error": f"Solo se puede editar una justificacion pendiente (estado actual: '{j.get('estado')}')"}), 409
+
+    payload = request.get_json(silent=True) or {}
+    motivo = (payload.get("motivo") or "").strip()
+    archivo = (payload.get("archivo") or "").strip() or None
+
+    try:
+        update_justificacion_svc(justificacion_id, {
+            "empleado_id": j["empleado_id"],
+            "asistencia_id": j.get("asistencia_id"),
+            "motivo": motivo,
+            "archivo": archivo,
+            "estado": j.get("estado") or "pendiente",
+        })
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    create_audit(int(empleado["id"]), "update", "justificaciones", justificacion_id)
+    j = get_justificacion_by_id(justificacion_id)
+    return jsonify(_justificacion_to_dict(j))
+
+
+@mobile_v1_bp.route("/me/justificaciones/<int:justificacion_id>", methods=["DELETE"])
+@mobile_auth_required
+def me_justificaciones_delete(justificacion_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    j = get_justificacion_by_id(justificacion_id)
+    if not j or j.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Justificacion no encontrada"}), 404
+
+    if (j.get("estado") or "pendiente") != "pendiente":
+        return jsonify({"error": f"Solo se puede retirar una justificacion pendiente (estado actual: '{j.get('estado')}')"}), 409
+
+    delete_justificacion_row(justificacion_id)
+    create_audit(int(empleado["id"]), "delete", "justificaciones", justificacion_id)
+    return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Vacaciones
+# ---------------------------------------------------------------------------
+
+def _vacacion_to_dict(v: dict) -> dict:
+    fh = v.get("fecha_hasta")
+    return {
+        "id": v.get("id"),
+        "empleado_id": v.get("empleado_id"),
+        "fecha_desde": _to_date_str(v.get("fecha_desde")),
+        "fecha_hasta": _to_date_str(fh) if fh is not None else None,
+        "observaciones": v.get("observaciones") or "",
+    }
+
+
+@mobile_v1_bp.route("/me/vacaciones", methods=["GET"])
+@mobile_auth_required
+def me_vacaciones_list():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = max(1, min(request.args.get("per_page", 20, type=int) or 20, 100))
+    fecha_desde = request.args.get("desde") or None
+    fecha_hasta = request.args.get("hasta") or None
+
+    rows, total = get_vacaciones_page_by_empleado(
+        int(empleado["id"]), page, per_page,
+        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+    )
+    return jsonify({
+        "items": [_vacacion_to_dict(v) for v in rows],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    })
+
+
+@mobile_v1_bp.route("/me/vacaciones/<int:vacacion_id>", methods=["GET"])
+@mobile_auth_required
+def me_vacaciones_detail(vacacion_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    v = get_vacacion_by_id(vacacion_id)
+    if not v or v.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Vacacion no encontrada"}), 404
+
+    return jsonify(_vacacion_to_dict(v))
+
+
+@mobile_v1_bp.route("/me/vacaciones", methods=["POST"])
+@mobile_auth_required
+def me_vacaciones_create():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    fecha_desde = (payload.get("fecha_desde") or "").strip() or None
+    fecha_hasta = (payload.get("fecha_hasta") or "").strip() or None
+    observaciones = (payload.get("observaciones") or "").strip() or None
+
+    if not fecha_desde or not fecha_hasta:
+        return jsonify({"error": "fecha_desde y fecha_hasta son requeridos"}), 400
+
+    if fecha_desde > fecha_hasta:
+        return jsonify({"error": "fecha_desde no puede ser posterior a fecha_hasta"}), 400
+
+    data = {
+        "empleado_id": int(empleado["id"]),
+        "empresa_id": empleado.get("empresa_id"),
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta,
+        "observaciones": observaciones,
+    }
+    vac_id = create_vacacion_row(data)
+    v = get_vacacion_by_id(vac_id)
+    return jsonify(_vacacion_to_dict(v)), 201
+
+
+@mobile_v1_bp.route("/me/vacaciones/<int:vacacion_id>", methods=["PUT"])
+@mobile_auth_required
+def me_vacaciones_update(vacacion_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    v = get_vacacion_by_id(vacacion_id)
+    if not v or v.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Vacacion no encontrada"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    fecha_desde = (payload.get("fecha_desde") or "").strip() or None
+    fecha_hasta = (payload.get("fecha_hasta") or "").strip() or None
+    observaciones = (payload.get("observaciones") or "").strip() or None
+
+    if not fecha_desde or not fecha_hasta:
+        return jsonify({"error": "fecha_desde y fecha_hasta son requeridos"}), 400
+
+    if fecha_desde > fecha_hasta:
+        return jsonify({"error": "fecha_desde no puede ser posterior a fecha_hasta"}), 400
+
+    update_vacacion_row(vacacion_id, {
+        "empleado_id": int(empleado["id"]),
+        "empresa_id": v.get("empresa_id"),
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta,
+        "observaciones": observaciones,
+    })
+    v = get_vacacion_by_id(vacacion_id)
+    return jsonify(_vacacion_to_dict(v))
+
+
+@mobile_v1_bp.route("/me/vacaciones/<int:vacacion_id>", methods=["DELETE"])
+@mobile_auth_required
+def me_vacaciones_delete(vacacion_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    v = get_vacacion_by_id(vacacion_id)
+    if not v or v.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Vacacion no encontrada"}), 404
+
+    delete_vacacion_row(vacacion_id)
+    return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Horarios asignaciones
+# ---------------------------------------------------------------------------
+
+def _asignacion_to_dict(a: dict) -> dict:
+    fh = a.get("fecha_hasta")
+    return {
+        "id": a.get("id"),
+        "horario_id": a.get("horario_id"),
+        "horario_nombre": a.get("horario_nombre") or "",
+        "fecha_desde": _to_date_str(a.get("fecha_desde")),
+        "fecha_hasta": _to_date_str(fh) if fh is not None else None,
+    }
+
+
+@mobile_v1_bp.route("/me/horarios-asignaciones", methods=["GET"])
+@mobile_auth_required
+def me_horarios_asignaciones_list():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    historial = get_horario_historial_by_empleado(int(empleado["id"]))
+    return jsonify([_asignacion_to_dict(a) for a in historial])
+
+
+@mobile_v1_bp.route("/me/horarios-asignaciones/actual", methods=["GET"])
+@mobile_auth_required
+def me_horarios_asignaciones_actual():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    actual = get_horario_actual_by_empleado(int(empleado["id"]))
+    if not actual:
+        return jsonify({"asignacion": None, "dias": []})
+
+    dias = get_dias_by_horario(int(actual["horario_id"]))
+    return jsonify({
+        "asignacion": _asignacion_to_dict(actual),
+        "dias": [{"dia_semana": d.get("dia_semana")} for d in dias],
+    })
+
+
+# ---------------------------------------------------------------------------
+# Francos
+# ---------------------------------------------------------------------------
+
+def _franco_to_dict(f: dict) -> dict:
+    return {
+        "id": f.get("id"),
+        "empleado_id": f.get("empleado_id"),
+        "fecha": _to_date_str(f.get("fecha")),
+        "motivo": f.get("motivo") or "",
+    }
+
+
+@mobile_v1_bp.route("/me/francos", methods=["GET"])
+@mobile_auth_required
+def me_francos_list():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = max(1, min(request.args.get("per_page", 20, type=int) or 20, 100))
+    fecha_desde = request.args.get("desde") or None
+    fecha_hasta = request.args.get("hasta") or None
+
+    rows, total = get_francos_page_by_empleado(
+        int(empleado["id"]), page, per_page,
+        fecha_desde=fecha_desde, fecha_hasta=fecha_hasta,
+    )
+    return jsonify({
+        "items": [_franco_to_dict(f) for f in rows],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    })
+
+
+@mobile_v1_bp.route("/me/francos/<int:franco_id>", methods=["GET"])
+@mobile_auth_required
+def me_francos_detail(franco_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    f = get_franco_by_id(franco_id)
+    if not f or f.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Franco no encontrado"}), 404
+
+    return jsonify(_franco_to_dict(f))
+
+
+# ---------------------------------------------------------------------------
+# Legajo eventos
+# ---------------------------------------------------------------------------
+
+def _evento_to_dict(e: dict) -> dict:
+    fh = e.get("fecha_hasta")
+    fd = e.get("fecha_desde")
+    return {
+        "id": e.get("id"),
+        "tipo_id": e.get("tipo_id"),
+        "tipo_codigo": e.get("tipo_codigo") or "",
+        "tipo_nombre": e.get("tipo_nombre") or "",
+        "fecha_evento": _to_date_str(e.get("fecha_evento")),
+        "fecha_desde": _to_date_str(fd) if fd is not None else None,
+        "fecha_hasta": _to_date_str(fh) if fh is not None else None,
+        "titulo": e.get("titulo") or "",
+        "descripcion": e.get("descripcion") or "",
+        "estado": e.get("estado") or "vigente",
+        "severidad": e.get("severidad"),
+    }
+
+
+@mobile_v1_bp.route("/me/legajo/eventos", methods=["GET"])
+@mobile_auth_required
+def me_legajo_eventos_list():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = max(1, min(request.args.get("per_page", 20, type=int) or 20, 100))
+    tipo_id_raw = request.args.get("tipo_id")
+    tipo_id = int(tipo_id_raw) if tipo_id_raw else None
+    estado = request.args.get("estado") or None
+    if estado and estado not in {"vigente", "anulado"}:
+        return jsonify({"error": "estado debe ser 'vigente' o 'anulado'"}), 400
+
+    rows, total = get_eventos_page(
+        page, per_page,
+        empleado_id=int(empleado["id"]),
+        tipo_id=tipo_id,
+        estado=estado,
+    )
+    return jsonify({
+        "items": [_evento_to_dict(e) for e in rows],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    })
+
+
+@mobile_v1_bp.route("/me/legajo/eventos/<int:evento_id>", methods=["GET"])
+@mobile_auth_required
+def me_legajo_eventos_detail(evento_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    e = get_evento_by_id(evento_id)
+    if not e or e.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Evento no encontrado"}), 404
+
+    return jsonify(_evento_to_dict(e))
+
+
+# ---------------------------------------------------------------------------
+# Dashboard consolidado — home screen de la app
+# ---------------------------------------------------------------------------
+
+def _legajo_stats_for_mobile(empleado_id: int, desde_dt: datetime.date, hasta_dt: datetime.date):
+    """Aggregate legajo events for the dashboard endpoint."""
+    from collections import defaultdict
+    all_events = get_todos_eventos_by_empleado(empleado_id, include_anulados=True)
+
+    hist_vigentes = sum(1 for e in all_events if str(e.get("estado") or "").lower() == "vigente")
+    hist_anulados = len(all_events) - hist_vigentes
+
+    def _fe_date(ev):
+        fe = ev.get("fecha_evento")
+        if fe is None:
+            return None
+        if hasattr(fe, "date"):
+            return fe.date()
+        if isinstance(fe, datetime.date):
+            return fe
+        try:
+            return datetime.date.fromisoformat(str(fe)[:10])
+        except ValueError:
+            return None
+
+    periodo_vigentes = [
+        e for e in all_events
+        if str(e.get("estado") or "").lower() == "vigente"
+        and (lambda d: d is not None and desde_dt <= d <= hasta_dt)(_fe_date(e))
+    ]
+
+    tipo_counts = defaultdict(lambda: {"label": "", "total": 0})
+    sev_counts = defaultdict(int)
+    for e in periodo_vigentes:
+        tid = e.get("tipo_id")
+        tipo_counts[tid]["label"] = e.get("tipo_nombre") or e.get("tipo_codigo") or str(tid)
+        tipo_counts[tid]["total"] += 1
+        sev_counts[str(e.get("severidad") or "").lower() or "sin_severidad"] += 1
+
+    tipo_total = sum(d["total"] for d in tipo_counts.values()) or 1
+    por_tipo = sorted(
+        [{"label": d["label"], "total": d["total"], "pct": round(d["total"] * 100 / tipo_total, 1)}
+         for d in tipo_counts.values()],
+        key=lambda x: -x["total"],
+    )
+
+    sev_total = sum(sev_counts.values()) or 1
+    por_severidad = [
+        {"severidad": sev, "total": cnt, "pct": round(cnt * 100 / sev_total, 1)}
+        for sev, cnt in sorted(sev_counts.items(), key=lambda x: -x[1])
+    ]
+
+    recientes = sorted(periodo_vigentes, key=lambda e: str(e.get("fecha_evento") or ""), reverse=True)[:5]
+
+    return {
+        "historico": {
+            "total": len(all_events),
+            "vigentes": hist_vigentes,
+            "anulados": hist_anulados,
+        },
+        "periodo": {
+            "total": len(periodo_vigentes),
+            "graves": sum(1 for e in periodo_vigentes if str(e.get("severidad") or "").lower() == "grave"),
+            "media": sum(1 for e in periodo_vigentes if str(e.get("severidad") or "").lower() == "media"),
+            "leve": sum(1 for e in periodo_vigentes if str(e.get("severidad") or "").lower() == "leve"),
+        },
+        "por_tipo": por_tipo,
+        "por_severidad": por_severidad,
+        "recientes": [_evento_to_dict(e) for e in recientes],
+    }
+
+
+@mobile_v1_bp.route("/me/dashboard", methods=["GET"])
+@mobile_auth_required
+def me_dashboard():
+    """
+    Consolidated dashboard endpoint for the mobile home screen.
+
+    Query params:
+      - desde  (date, ISO) — default: 30 days ago
+      - hasta  (date, ISO) — default: today
+      - periodo (str)      — "7d" | "30d" | "mes_actual" | "custom" (overrides desde/hasta)
+    """
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    today_dt = datetime.date.today()
+    today_iso = today_dt.isoformat()
+
+    periodo = (request.args.get("periodo") or "30d").strip().lower()
+    if periodo == "7d":
+        desde_dt = today_dt - datetime.timedelta(days=6)
+        hasta_dt = today_dt
+    elif periodo == "mes_actual":
+        desde_dt = today_dt.replace(day=1)
+        hasta_dt = today_dt
+    elif periodo == "90d":
+        desde_dt = today_dt - datetime.timedelta(days=89)
+        hasta_dt = today_dt
+    else:
+        periodo = "30d"
+        desde_dt = today_dt - datetime.timedelta(days=29)
+        hasta_dt = today_dt
+
+    # Allow custom override
+    raw_desde = (request.args.get("desde") or "").strip()
+    raw_hasta = (request.args.get("hasta") or "").strip()
+    if raw_desde or raw_hasta:
+        try:
+            if raw_desde:
+                desde_dt = datetime.date.fromisoformat(raw_desde)
+            if raw_hasta:
+                hasta_dt = datetime.date.fromisoformat(raw_hasta)
+            periodo = "custom"
+        except ValueError:
+            return jsonify({"error": "Rango de fechas invalido"}), 400
+
+    if desde_dt > today_dt:
+        desde_dt = today_dt
+    if hasta_dt > today_dt:
+        hasta_dt = today_dt
+    if desde_dt > hasta_dt:
+        return jsonify({"error": "El rango de fechas es invalido (desde > hasta)."}), 400
+    if (hasta_dt - desde_dt).days > 366:
+        return jsonify({"error": "El rango maximo permitido es 366 dias."}), 400
+
+    fecha_desde = desde_dt.isoformat()
+    fecha_hasta = hasta_dt.isoformat()
+    emp_id = int(empleado["id"])
+
+    try:
+        stats = get_mobile_stats_by_empleado(
+            empleado_id=emp_id,
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+        )
+    except Exception:
+        current_app.logger.exception("me_dashboard_stats_error", extra={"extra": {"empleado_id": emp_id}})
+        return jsonify({"error": "No se pudo calcular el dashboard."}), 500
+
+    try:
+        legajo = _legajo_stats_for_mobile(emp_id, desde_dt, hasta_dt)
+    except Exception:
+        current_app.logger.exception("me_dashboard_legajo_error", extra={"extra": {"empleado_id": emp_id}})
+        legajo = {}
+
+    # Vacaciones activas o futuras (desde hoy)
+    try:
+        vac_rows, _ = get_vacaciones_page_by_empleado(emp_id, 1, 10, fecha_desde=today_iso)
+        vacaciones_activas = [_vacacion_to_dict(v) for v in vac_rows]
+    except Exception:
+        vacaciones_activas = []
+
+    # Francos próximos 30 días
+    try:
+        proximos_hasta = (today_dt + datetime.timedelta(days=30)).isoformat()
+        franco_rows, _ = get_francos_page_by_empleado(emp_id, 1, 10, fecha_desde=today_iso, fecha_hasta=proximos_hasta)
+        francos_proximos = [_franco_to_dict(f) for f in franco_rows]
+    except Exception:
+        francos_proximos = []
+
+    # Horario actual
+    try:
+        horario = get_horario_actual_by_empleado(emp_id)
+        dias = get_dias_by_horario(int(horario["id"])) if horario else []
+        horario_actual = _asignacion_to_dict(horario) if horario else None
+        if horario_actual and dias:
+            horario_actual["dias"] = [_dia_to_dict(d) for d in dias]
+    except Exception:
+        horario_actual = None
+
+    return jsonify({
+        "periodo": {
+            "desde": fecha_desde,
+            "hasta": fecha_hasta,
+            "preset": periodo,
+            "dias_habiles": (stats or {}).get("kpis", {}).get("dias_laborables", 0),
+        },
+        "asistencia": stats or {},
+        "legajo": legajo,
+        "vacaciones_activas": vacaciones_activas,
+        "francos_proximos": francos_proximos,
+        "horario_actual": horario_actual,
+    })

@@ -1764,3 +1764,581 @@ def test_mobile_me_perfil_delete_foto_endpoint(monkeypatch):
     assert body["imagen_version"] is None
     assert deleted["called"] is True
     assert state["foto"] is None
+
+
+# ---------------------------------------------------------------------------
+# /me/justificaciones
+# ---------------------------------------------------------------------------
+
+_FAKE_EMPLEADO_JUST = {
+    "id": 10, "activo": 1, "empresa_id": 3,
+    "dni": "123", "nombre": "Ana", "apellido": "Lopez",
+}
+
+_FAKE_JUST_ROW = {
+    "id": 55, "empleado_id": 10, "asistencia_id": None,
+    "asistencia_fecha": None, "motivo": "Certificado medico",
+    "archivo": None, "estado": "pendiente",
+    "created_at": datetime.datetime(2026, 3, 1, 10, 0, 0),
+}
+
+
+def _auth_headers():
+    return {"Authorization": "Bearer abc"}
+
+
+def _setup_just_auth(monkeypatch):
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda t: {"empleado_id": 10})
+    monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda _: _FAKE_EMPLEADO_JUST)
+
+
+def test_mobile_justificaciones_list_ok(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_justificaciones_page",
+        lambda **kw: ([_FAKE_JUST_ROW], 1)
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/justificaciones", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == 55
+    assert body["items"][0]["estado"] == "pendiente"
+
+
+def test_mobile_justificaciones_list_filtro_estado_invalido(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    client = _build_client(monkeypatch)
+    resp = client.get(
+        "/api/v1/mobile/me/justificaciones?estado=en_revision",
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 400
+    assert "estado invalido" in resp.get_json()["error"]
+
+
+def test_mobile_justificaciones_list_filtro_estado_valido(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    captured = {}
+    def _fake_page(**kw):
+        captured.update(kw)
+        return ([], 0)
+    monkeypatch.setattr(mobile_routes, "get_justificaciones_page", _fake_page)
+    client = _build_client(monkeypatch)
+    resp = client.get(
+        "/api/v1/mobile/me/justificaciones?estado=aprobada",
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 200
+    assert captured.get("estado") == "aprobada"
+
+
+def test_mobile_justificaciones_detail_ok(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_justificacion_by_id", lambda _: _FAKE_JUST_ROW)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/justificaciones/55", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["id"] == 55
+    assert body["motivo"] == "Certificado medico"
+
+
+def test_mobile_justificaciones_detail_ajena_retorna_404(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    # justificacion pertenece al empleado 99, no al 10
+    monkeypatch.setattr(
+        mobile_routes, "get_justificacion_by_id",
+        lambda _: {**_FAKE_JUST_ROW, "empleado_id": 99}
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/justificaciones/55", headers=_auth_headers())
+    assert resp.status_code == 404
+
+
+def test_mobile_justificaciones_create_ok(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    created_data = {}
+    monkeypatch.setattr(
+        mobile_routes, "create_justificacion_svc",
+        lambda data: (created_data.update(data) or None) or 55
+    )
+    monkeypatch.setattr(mobile_routes, "get_justificacion_by_id", lambda _: _FAKE_JUST_ROW)
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/justificaciones",
+        json={"motivo": "Certificado medico", "asistencia_id": None},
+        headers=_auth_headers()
+    )
+    body = resp.get_json()
+    assert resp.status_code == 201
+    assert body["id"] == 55
+    assert created_data["empleado_id"] == 10
+    assert created_data["estado"] == "pendiente"
+
+
+def test_mobile_justificaciones_create_sin_motivo_retorna_400(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "create_justificacion_svc",
+        lambda data: (_ for _ in ()).throw(ValueError("Motivo es requerido."))
+    )
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/justificaciones",
+        json={"motivo": ""},
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 400
+    assert "motivo" in resp.get_json()["error"].lower()
+
+
+def test_mobile_justificaciones_update_pendiente_ok(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_justificacion_by_id", lambda _: _FAKE_JUST_ROW)
+    updated = {}
+    monkeypatch.setattr(
+        mobile_routes, "update_justificacion_svc",
+        lambda jid, data: updated.update({"jid": jid, **data})
+    )
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+    client = _build_client(monkeypatch)
+    resp = client.put(
+        "/api/v1/mobile/me/justificaciones/55",
+        json={"motivo": "Nuevo motivo"},
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 200
+    assert updated["motivo"] == "Nuevo motivo"
+
+
+def test_mobile_justificaciones_update_aprobada_retorna_409(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_justificacion_by_id",
+        lambda _: {**_FAKE_JUST_ROW, "estado": "aprobada"}
+    )
+    client = _build_client(monkeypatch)
+    resp = client.put(
+        "/api/v1/mobile/me/justificaciones/55",
+        json={"motivo": "Intento editar aprobada"},
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 409
+    assert "aprobada" in resp.get_json()["error"]
+
+
+def test_mobile_justificaciones_delete_pendiente_ok(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_justificacion_by_id", lambda _: _FAKE_JUST_ROW)
+    deleted = {}
+    monkeypatch.setattr(
+        mobile_routes, "delete_justificacion_row",
+        lambda jid: deleted.update({"jid": jid})
+    )
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+    client = _build_client(monkeypatch)
+    resp = client.delete("/api/v1/mobile/me/justificaciones/55", headers=_auth_headers())
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+    assert deleted["jid"] == 55
+
+
+def test_mobile_justificaciones_delete_rechazada_retorna_409(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_justificacion_by_id",
+        lambda _: {**_FAKE_JUST_ROW, "estado": "rechazada"}
+    )
+    client = _build_client(monkeypatch)
+    resp = client.delete("/api/v1/mobile/me/justificaciones/55", headers=_auth_headers())
+    assert resp.status_code == 409
+
+
+# ---------------------------------------------------------------------------
+# Vacaciones
+# ---------------------------------------------------------------------------
+
+_FAKE_VAC_ROW = {
+    "id": 7,
+    "empleado_id": 10,
+    "empresa_id": 3,
+    "fecha_desde": "2026-01-10",
+    "fecha_hasta": "2026-01-20",
+    "observaciones": "Vacaciones anuales",
+}
+
+
+def _setup_vac_auth(monkeypatch):
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 10})
+    monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda eid: _FAKE_EMPLEADO_JUST)
+
+
+def test_mobile_vacaciones_list_ok(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_vacaciones_page_by_empleado",
+        lambda eid, page, per_page, **kw: ([_FAKE_VAC_ROW], 1)
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/vacaciones", headers=_auth_headers())
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["total"] == 1
+    assert data["items"][0]["id"] == 7
+
+
+def test_mobile_vacaciones_detail_ok(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_vacacion_by_id", lambda _: _FAKE_VAC_ROW)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/vacaciones/7", headers=_auth_headers())
+    assert resp.status_code == 200
+    assert resp.get_json()["fecha_desde"] == "2026-01-10"
+
+
+def test_mobile_vacaciones_detail_ajena_retorna_404(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_vacacion_by_id",
+        lambda _: {**_FAKE_VAC_ROW, "empleado_id": 999}
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/vacaciones/7", headers=_auth_headers())
+    assert resp.status_code == 404
+
+
+def test_mobile_vacaciones_create_ok(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    created = {}
+    monkeypatch.setattr(
+        mobile_routes, "create_vacacion_row",
+        lambda data: (created.update(data) or 7)
+    )
+    monkeypatch.setattr(mobile_routes, "get_vacacion_by_id", lambda _: _FAKE_VAC_ROW)
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/vacaciones",
+        json={"fecha_desde": "2026-01-10", "fecha_hasta": "2026-01-20"},
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 201
+    assert resp.get_json()["id"] == 7
+
+
+def test_mobile_vacaciones_create_sin_fechas_retorna_400(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/vacaciones",
+        json={"observaciones": "sin fechas"},
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 400
+    assert "fecha" in resp.get_json()["error"]
+
+
+def test_mobile_vacaciones_create_fechas_invertidas_retorna_400(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/vacaciones",
+        json={"fecha_desde": "2026-01-20", "fecha_hasta": "2026-01-10"},
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 400
+    assert "posterior" in resp.get_json()["error"]
+
+
+def test_mobile_vacaciones_update_ok(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_vacacion_by_id", lambda _: _FAKE_VAC_ROW)
+    updated = {}
+    monkeypatch.setattr(
+        mobile_routes, "update_vacacion_row",
+        lambda vid, data: updated.update({"vid": vid, **data})
+    )
+    client = _build_client(monkeypatch)
+    resp = client.put(
+        "/api/v1/mobile/me/vacaciones/7",
+        json={"fecha_desde": "2026-02-01", "fecha_hasta": "2026-02-10"},
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 200
+    assert updated["fecha_desde"] == "2026-02-01"
+
+
+def test_mobile_vacaciones_delete_ok(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_vacacion_by_id", lambda _: _FAKE_VAC_ROW)
+    deleted = {}
+    monkeypatch.setattr(
+        mobile_routes, "delete_vacacion_row",
+        lambda vid: deleted.update({"vid": vid})
+    )
+    client = _build_client(monkeypatch)
+    resp = client.delete("/api/v1/mobile/me/vacaciones/7", headers=_auth_headers())
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+    assert deleted["vid"] == 7
+
+
+def test_mobile_vacaciones_delete_ajena_retorna_404(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_vacacion_by_id",
+        lambda _: {**_FAKE_VAC_ROW, "empleado_id": 999}
+    )
+    client = _build_client(monkeypatch)
+    resp = client.delete("/api/v1/mobile/me/vacaciones/7", headers=_auth_headers())
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Horarios asignaciones
+# ---------------------------------------------------------------------------
+
+_FAKE_ASIGNACION = {
+    "id": 3,
+    "empleado_id": 10,
+    "horario_id": 5,
+    "horario_nombre": "Turno Mañana",
+    "fecha_desde": "2025-01-01",
+    "fecha_hasta": None,
+}
+
+_FAKE_DIAS = [
+    {"dia_semana": 1},
+    {"dia_semana": 2},
+    {"dia_semana": 3},
+    {"dia_semana": 4},
+    {"dia_semana": 5},
+]
+
+
+def _setup_horario_auth(monkeypatch):
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 10})
+    monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda eid: _FAKE_EMPLEADO_JUST)
+
+
+def test_mobile_horarios_asignaciones_list_ok(monkeypatch):
+    _setup_horario_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_horario_historial_by_empleado",
+        lambda eid: [_FAKE_ASIGNACION]
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/horarios-asignaciones", headers=_auth_headers())
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert len(data) == 1
+    assert data[0]["horario_nombre"] == "Turno Mañana"
+    assert data[0]["fecha_desde"] == "2025-01-01"
+    assert data[0]["fecha_hasta"] is None
+
+
+def test_mobile_horarios_asignaciones_list_vacia(monkeypatch):
+    _setup_horario_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_horario_historial_by_empleado",
+        lambda eid: []
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/horarios-asignaciones", headers=_auth_headers())
+    assert resp.status_code == 200
+    assert resp.get_json() == []
+
+
+def test_mobile_horarios_asignaciones_actual_ok(monkeypatch):
+    _setup_horario_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_horario_actual_by_empleado",
+        lambda eid: _FAKE_ASIGNACION
+    )
+    monkeypatch.setattr(
+        mobile_routes, "get_dias_by_horario",
+        lambda hid: _FAKE_DIAS
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/horarios-asignaciones/actual", headers=_auth_headers())
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["asignacion"]["horario_nombre"] == "Turno Mañana"
+    assert len(data["dias"]) == 5
+    assert data["dias"][0]["dia_semana"] == 1
+
+
+def test_mobile_horarios_asignaciones_actual_sin_asignacion(monkeypatch):
+    _setup_horario_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_horario_actual_by_empleado",
+        lambda eid: None
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/horarios-asignaciones/actual", headers=_auth_headers())
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["asignacion"] is None
+    assert data["dias"] == []
+
+
+# ---------------------------------------------------------------------------
+# Francos
+# ---------------------------------------------------------------------------
+
+_FAKE_FRANCO_ROW = {
+    "id": 12,
+    "empleado_id": 10,
+    "empresa_id": 3,
+    "fecha": "2026-03-10",
+    "motivo": "Franco compensatorio",
+}
+
+
+def _setup_franco_auth(monkeypatch):
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 10})
+    monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda eid: _FAKE_EMPLEADO_JUST)
+
+
+def test_mobile_francos_list_ok(monkeypatch):
+    _setup_franco_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_francos_page_by_empleado",
+        lambda eid, page, per_page, **kw: ([_FAKE_FRANCO_ROW], 1)
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/francos", headers=_auth_headers())
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["total"] == 1
+    assert data["items"][0]["motivo"] == "Franco compensatorio"
+    assert data["items"][0]["fecha"] == "2026-03-10"
+
+
+def test_mobile_francos_list_con_filtro_fechas(monkeypatch):
+    _setup_franco_auth(monkeypatch)
+    captured = {}
+    def _fake_page(eid, page, per_page, **kw):
+        captured.update(kw)
+        return [], 0
+    monkeypatch.setattr(mobile_routes, "get_francos_page_by_empleado", _fake_page)
+    client = _build_client(monkeypatch)
+    resp = client.get(
+        "/api/v1/mobile/me/francos?desde=2026-03-01&hasta=2026-03-31",
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 200
+    assert captured["fecha_desde"] == "2026-03-01"
+    assert captured["fecha_hasta"] == "2026-03-31"
+
+
+def test_mobile_francos_detail_ok(monkeypatch):
+    _setup_franco_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_franco_by_id", lambda _: _FAKE_FRANCO_ROW)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/francos/12", headers=_auth_headers())
+    assert resp.status_code == 200
+    assert resp.get_json()["id"] == 12
+
+
+def test_mobile_francos_detail_ajeno_retorna_404(monkeypatch):
+    _setup_franco_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_franco_by_id",
+        lambda _: {**_FAKE_FRANCO_ROW, "empleado_id": 999}
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/francos/12", headers=_auth_headers())
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Legajo eventos
+# ---------------------------------------------------------------------------
+
+_FAKE_EVENTO_ROW = {
+    "id": 20,
+    "empleado_id": 10,
+    "empresa_id": 3,
+    "tipo_id": 2,
+    "tipo_codigo": "SANCION",
+    "tipo_nombre": "Sanción",
+    "fecha_evento": "2026-02-15",
+    "fecha_desde": None,
+    "fecha_hasta": None,
+    "titulo": "Llegada tarde reiterada",
+    "descripcion": "Tercer episodio en el mes",
+    "estado": "vigente",
+    "severidad": "leve",
+}
+
+
+def _setup_evento_auth(monkeypatch):
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 10})
+    monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda eid: _FAKE_EMPLEADO_JUST)
+
+
+def test_mobile_legajo_eventos_list_ok(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_eventos_page",
+        lambda page, per_page, **kw: ([_FAKE_EVENTO_ROW], 1)
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/legajo/eventos", headers=_auth_headers())
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["total"] == 1
+    assert data["items"][0]["tipo_codigo"] == "SANCION"
+    assert data["items"][0]["titulo"] == "Llegada tarde reiterada"
+
+
+def test_mobile_legajo_eventos_list_estado_invalido(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    client = _build_client(monkeypatch)
+    resp = client.get(
+        "/api/v1/mobile/me/legajo/eventos?estado=invalido",
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 400
+    assert "estado" in resp.get_json()["error"]
+
+
+def test_mobile_legajo_eventos_list_filtro_estado_valido(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    captured = {}
+    def _fake_page(page, per_page, **kw):
+        captured.update(kw)
+        return [], 0
+    monkeypatch.setattr(mobile_routes, "get_eventos_page", _fake_page)
+    client = _build_client(monkeypatch)
+    resp = client.get(
+        "/api/v1/mobile/me/legajo/eventos?estado=vigente",
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 200
+    assert captured["estado"] == "vigente"
+    assert captured["empleado_id"] == 10
+
+
+def test_mobile_legajo_eventos_detail_ok(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_evento_by_id", lambda _: _FAKE_EVENTO_ROW)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/legajo/eventos/20", headers=_auth_headers())
+    assert resp.status_code == 200
+    assert resp.get_json()["id"] == 20
+    assert resp.get_json()["fecha_desde"] is None
+
+
+def test_mobile_legajo_eventos_detail_ajeno_retorna_404(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_evento_by_id",
+        lambda _: {**_FAKE_EVENTO_ROW, "empleado_id": 999}
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/legajo/eventos/20", headers=_auth_headers())
+    assert resp.status_code == 404

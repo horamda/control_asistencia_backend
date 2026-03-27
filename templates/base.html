@@ -46,13 +46,19 @@
           <nav class="nav-groups">
             <div class="nav-group">
               <div class="nav-label">General</div>
-              <a class="nav-link" href="/dashboard">Dashboard</a>
+              <a class="nav-link nav-link-icon" href="/dashboard">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Dashboard
+              </a>
             </div>
 
             {% if current_role == "admin" %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-organizacion">
-                  <span class="nav-label">Organizacion</span>
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M14 16h1M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
+                    <span class="nav-label">Organizacion</span>
+                  </span>
                   <span class="nav-caret" aria-hidden="true"></span>
                 </button>
                 <div class="nav-submenu" id="nav-submenu-organizacion">
@@ -68,12 +74,16 @@
             {% if current_role in ["admin", "rrhh"] %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-personas">
-                  <span class="nav-label">Personas</span>
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span class="nav-label">Personas</span>
+                  </span>
                   <span class="nav-caret" aria-hidden="true"></span>
                 </button>
                 <div class="nav-submenu" id="nav-submenu-personas">
                   <a class="nav-link" href="/empleados/">Empleados</a>
                   <a class="nav-link" href="/legajos/">Legajos</a>
+                  <a class="nav-link" href="/legajos/dashboard-empleado">Dashboard empleado</a>
                   <a class="nav-link" href="/legajos/eventos/">Eventos legajo</a>
                   <a class="nav-link" href="/legajos/tipos-evento/">Tipos evento legajo</a>
                   {% if current_role == "admin" %}
@@ -88,7 +98,10 @@
             {% if current_role in ["admin", "rrhh"] %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-horarios">
-                  <span class="nav-label">Horarios</span>
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span class="nav-label">Horarios</span>
+                  </span>
                   <span class="nav-caret" aria-hidden="true"></span>
                 </button>
                 <div class="nav-submenu" id="nav-submenu-horarios">
@@ -101,7 +114,10 @@
 
             <div class="nav-group" data-collapsible="1">
               <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-asistencia">
-                <span class="nav-label">Asistencia</span>
+                <span class="nav-toggle-label">
+                  <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                  <span class="nav-label">Asistencia</span>
+                </span>
                 <span class="nav-caret" aria-hidden="true"></span>
               </button>
               <div class="nav-submenu" id="nav-submenu-asistencia">
@@ -124,7 +140,10 @@
             {% if current_role == "admin" %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-sistema">
-                  <span class="nav-label">Sistema</span>
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span class="nav-label">Sistema</span>
+                  </span>
                   <span class="nav-caret" aria-hidden="true"></span>
                 </button>
                 <div class="nav-submenu" id="nav-submenu-sistema">
@@ -135,7 +154,10 @@
             {% endif %}
           </nav>
 
-          <a class="logout-link" href="/logout">Cerrar sesion</a>
+          <a class="logout-link" href="/logout">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+            Cerrar sesion
+          </a>
         </aside>
         <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
 
@@ -147,14 +169,21 @@
             </div>
             <div class="topbar-actions">
               <button type="button" class="nav-toggle" id="nav-toggle" aria-controls="app-sidebar" aria-expanded="false">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                 Menu
               </button>
               <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" title="Cambiar tema">
                 <span class="theme-toggle-icon" aria-hidden="true"></span>
                 <span class="theme-toggle-text">Modo oscuro</span>
               </button>
-              <div class="session-info">
-                <span>Usuario: {{ session.web_user or session.admin_user or 'Admin' }} | Rol: {{ current_role or "-" }}</span>
+              {% set _username = session.web_user or session.admin_user or 'Admin' %}
+              {% set _initials = (_username[0] | upper) %}
+              <div class="user-chip">
+                <div class="user-avatar" aria-hidden="true">{{ _initials }}</div>
+                <div class="user-chip-info">
+                  <div class="user-chip-name">{{ _username }}</div>
+                  <div class="user-chip-role">{{ current_role or "admin" }}</div>
+                </div>
               </div>
             </div>
           </header>

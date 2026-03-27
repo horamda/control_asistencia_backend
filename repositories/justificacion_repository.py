@@ -19,7 +19,7 @@ def get_all():
         db.close()
 
 
-def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_desde: str | None = None, fecha_hasta: str | None = None, search: str | None = None):
+def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_desde: str | None = None, fecha_hasta: str | None = None, search: str | None = None, estado: str | None = None):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -39,6 +39,9 @@ def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_des
             where.append("(e.apellido LIKE %s OR e.nombre LIKE %s)")
             like = f"%{search}%"
             params.extend([like, like])
+        if estado:
+            where.append("j.estado = %s")
+            params.append(estado)
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
         cursor.execute(f"""
@@ -148,6 +151,38 @@ def delete(justificacion_id: int):
         """, (justificacion_id,))
         db.commit()
         return True
+    finally:
+        cursor.close()
+        db.close()
+
+
+def get_by_asistencia(asistencia_id: int) -> list:
+    """Returns all justificaciones linked to a given asistencia_id."""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT id, empleado_id, asistencia_id, estado
+            FROM justificaciones
+            WHERE asistencia_id = %s
+        """, (asistencia_id,))
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        db.close()
+
+
+def update_estado(justificacion_id: int, estado: str) -> None:
+    """Minimal update: only changes the estado field."""
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute("""
+            UPDATE justificaciones
+            SET estado = %s
+            WHERE id = %s
+        """, (estado, justificacion_id))
+        db.commit()
     finally:
         cursor.close()
         db.close()

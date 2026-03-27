@@ -78,6 +78,8 @@ def _to_hhmm(value):
 
 
 def _to_date_str(value):
+    if value is None:
+        return None
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return str(value)

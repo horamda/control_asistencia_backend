@@ -1,3 +1,5 @@
+import datetime as _dt
+
 from extensions import get_db
 
 
@@ -28,6 +30,24 @@ def _safe_fetchall(cursor, query, params=()):
         return cursor.fetchall() or []
     except Exception:
         return []
+
+
+def _count_workdays(desde_str, hasta_str):
+    """Count Mon-Fri days in [desde, hasta] inclusive."""
+    try:
+        desde = _dt.date.fromisoformat(str(desde_str))
+        hasta = _dt.date.fromisoformat(str(hasta_str))
+    except (ValueError, TypeError):
+        return 0
+    if hasta < desde:
+        return 0
+    count = 0
+    current = desde
+    while current <= hasta:
+        if current.weekday() < 5:  # 0=Mon ... 4=Fri
+            count += 1
+        current += _dt.timedelta(days=1)
+    return count
 
 
 def get_by_empleado(empleado_id: int, fecha_desde: str, fecha_hasta: str):
@@ -131,6 +151,51 @@ def get_by_empleado(empleado_id: int, fecha_desde: str, fecha_hasta: str):
             (empleado_id, fecha_desde, fecha_hasta),
         )
 
+        gps_row = _safe_fetchone(
+            cursor,
+            """
+            SELECT
+                SUM(CASE WHEN hora_entrada IS NOT NULL AND gps_ok_entrada = 0 THEN 1 ELSE 0 END) +
+                SUM(CASE WHEN hora_salida IS NOT NULL AND gps_ok_salida = 0 THEN 1 ELSE 0 END) AS gps_incidencias
+            FROM asistencias
+            WHERE empleado_id = %s AND fecha BETWEEN %s AND %s
+            """,
+            (empleado_id, fecha_desde, fecha_hasta),
+        )
+
+        horas_row = _safe_fetchone(
+            cursor,
+            """
+            SELECT
+                COALESCE(AVG(TIMESTAMPDIFF(SECOND, hora_entrada, hora_salida)) / 3600.0, 0) AS horas_promedio,
+                COALESCE(SUM(TIMESTAMPDIFF(SECOND, hora_entrada, hora_salida)) / 3600.0, 0) AS horas_totales
+            FROM asistencias
+            WHERE empleado_id = %s AND fecha BETWEEN %s AND %s
+              AND hora_entrada IS NOT NULL AND hora_salida IS NOT NULL AND hora_salida > hora_entrada
+            """,
+            (empleado_id, fecha_desde, fecha_hasta),
+        )
+
+        semanal_rows = _safe_fetchall(
+            cursor,
+            """
+            SELECT
+                YEARWEEK(fecha, 1) AS yearweek,
+                MIN(fecha) AS desde,
+                MAX(fecha) AS hasta,
+                COUNT(*) AS registros,
+                SUM(CASE WHEN COALESCE(estado,'')='ok' THEN 1 ELSE 0 END) AS ok,
+                SUM(CASE WHEN estado='tarde' THEN 1 ELSE 0 END) AS tarde,
+                SUM(CASE WHEN estado='ausente' THEN 1 ELSE 0 END) AS ausente,
+                SUM(CASE WHEN estado='salida_anticipada' THEN 1 ELSE 0 END) AS salida_anticipada
+            FROM asistencias
+            WHERE empleado_id = %s AND fecha BETWEEN %s AND %s
+            GROUP BY YEARWEEK(fecha, 1)
+            ORDER BY yearweek ASC
+            """,
+            (empleado_id, fecha_desde, fecha_hasta),
+        )
+
         total_registros = _to_int(resumen_row.get("registros"))
         ok_total = _to_int(resumen_row.get("ok_total"))
         tarde_total = _to_int(resumen_row.get("tarde_total"))
@@ -148,6 +213,25 @@ def get_by_empleado(empleado_id: int, fecha_desde: str, fecha_hasta: str):
 
         vac_eventos = _to_int(vacaciones_row.get("eventos"))
         vac_dias = _to_int(vacaciones_row.get("dias"))
+
+        # --- racha_ok: consecutive days (sorted DESC) where ok_total == registros > 0 ---
+        racha_ok = 0
+        sorted_diario = sorted(diario_rows, key=lambda r: str(r.get("fecha")), reverse=True)
+        for row in sorted_diario:
+            reg = _to_int(row.get("registros"))
+            ok = _to_int(row.get("ok_total"))
+            if reg > 0 and ok == reg:
+                racha_ok += 1
+            else:
+                break
+
+        # --- adherencia ---
+        dias_laborables = _count_workdays(fecha_desde, fecha_hasta)
+        dias_con_registro = len({str(row.get("fecha")) for row in diario_rows})
+        adherencia_pct = _pct(dias_con_registro, dias_laborables)
+
+        # --- tasa_justificacion_pct: aprobadas / ausentes ---
+        tasa_justificacion_pct = _pct(just_aprobadas, ausente_total)
 
         diario = []
         for row in diario_rows:
@@ -169,6 +253,20 @@ def get_by_empleado(empleado_id: int, fecha_desde: str, fecha_hasta: str):
                 }
             )
 
+        semanal = [
+            {
+                "desde": str(w.get("desde")),
+                "hasta": str(w.get("hasta")),
+                "registros": _to_int(w.get("registros")),
+                "ok": _to_int(w.get("ok")),
+                "tarde": _to_int(w.get("tarde")),
+                "ausente": _to_int(w.get("ausente")),
+                "salida_anticipada": _to_int(w.get("salida_anticipada")),
+                "puntualidad_pct": _pct(_to_int(w.get("ok")), _to_int(w.get("registros"))),
+            }
+            for w in semanal_rows
+        ]
+
         return {
             "totales": {
                 "registros": total_registros,
@@ -184,6 +282,13 @@ def get_by_empleado(empleado_id: int, fecha_desde: str, fecha_hasta: str):
                 "cumplimiento_jornada_pct": _pct(jornadas_completas, jornadas_con_marca),
                 "no_show_pct": _pct(ausentes_sin_justificacion, ausente_total),
                 "tasa_salida_anticipada_pct": _pct(salida_anticipada_total, total_registros),
+                "adherencia_pct": adherencia_pct,
+                "horas_promedio": round(float(horas_row.get("horas_promedio") or 0), 2),
+                "horas_totales": round(float(horas_row.get("horas_totales") or 0), 1),
+                "gps_incidencias": _to_int(gps_row.get("gps_incidencias")),
+                "dias_laborables": dias_laborables,
+                "dias_con_registro": dias_con_registro,
+                "racha_ok": racha_ok,
             },
             "jornadas": {
                 "completas": jornadas_completas,
@@ -196,6 +301,7 @@ def get_by_empleado(empleado_id: int, fecha_desde: str, fecha_hasta: str):
                 "aprobadas": just_aprobadas,
                 "rechazadas": just_rechazadas,
                 "tasa_aprobacion_pct": _pct(just_aprobadas, just_total),
+                "tasa_justificacion_pct": tasa_justificacion_pct,
             },
             "vacaciones": {
                 "eventos": vac_eventos,
@@ -207,6 +313,7 @@ def get_by_empleado(empleado_id: int, fecha_desde: str, fecha_hasta: str):
             },
             "series": {
                 "diaria": diario,
+                "semanal": semanal,
             },
         }
     finally:

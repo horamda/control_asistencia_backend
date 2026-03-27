@@ -103,6 +103,40 @@ def update(vacacion_id: int, data: dict):
         db.close()
 
 
+def get_page_by_empleado(empleado_id: int, page: int, per_page: int, fecha_desde: str | None = None, fecha_hasta: str | None = None):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        offset = (page - 1) * per_page
+        where = ["v.empleado_id = %s"]
+        params = [empleado_id]
+        if fecha_desde:
+            where.append("v.fecha_hasta >= %s")
+            params.append(fecha_desde)
+        if fecha_hasta:
+            where.append("v.fecha_desde <= %s")
+            params.append(fecha_hasta)
+        where_sql = "WHERE " + " AND ".join(where)
+        cursor.execute(f"""
+            SELECT v.*
+            FROM vacaciones v
+            {where_sql}
+            ORDER BY v.fecha_desde DESC, v.id DESC
+            LIMIT %s OFFSET %s
+        """, (*params, per_page, offset))
+        rows = cursor.fetchall()
+        cursor.execute(f"""
+            SELECT COUNT(*) AS total
+            FROM vacaciones v
+            {where_sql}
+        """, params)
+        total = cursor.fetchone()["total"]
+        return rows, total
+    finally:
+        cursor.close()
+        db.close()
+
+
 def delete(vacacion_id: int):
     db = get_db()
     cursor = db.cursor()

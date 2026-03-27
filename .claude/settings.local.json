@@ -4,7 +4,22 @@
       "Bash(wc -l \"/c/Users/horac/Desktop/Proyectos WEB/control_asistencia/backend/repositories/\"*.py)",
       "Bash(xargs wc:*)",
       "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --index-filter \"git rm --cached --ignore-unmatch .env\" --prune-empty --tag-name-filter cat -- --all)",
-      "Bash(python -c \"import os; from dotenv import load_dotenv; print\\(''ANTES:'', os.getenv\\(''DB_USER''\\), os.getenv\\(''DB_NAME''\\)\\); load_dotenv\\(override=True\\); print\\(''DESPUES:'', os.getenv\\(''DB_USER''\\), os.getenv\\(''DB_NAME''\\)\\)\")"
+      "Bash(python -c \"import os; from dotenv import load_dotenv; print\\(''ANTES:'', os.getenv\\(''DB_USER''\\), os.getenv\\(''DB_NAME''\\)\\); load_dotenv\\(override=True\\); print\\(''DESPUES:'', os.getenv\\(''DB_USER''\\), os.getenv\\(''DB_NAME''\\)\\)\")",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r 'CREATE TABLE.*justificacion' . --include=*.py --include=*.sql)",
+      "Bash(python3 -c \"import mysql.connector; help\\(mysql.connector\\)\")",
+      "Bash(grep -i \"CREATE TABLE.*justificacion\\\\|justificaciones.*schema\\\\|table.*justificacion\" docs/*.md)",
+      "Bash(python3:*)",
+      "Bash(py -m pytest tests/test_web_justificaciones.py -v)",
+      "Bash(py -m pytest tests/test_web_auth.py::test_web_login_csrf_error_muestra_mensaje_amigable -v)",
+      "Bash(grep -E \"\\\\.\\(py\\)$\")",
+      "Bash(py -m pytest tests/test_mobile_v1_api.py -v --tb=short)",
+      "Bash(py -m pytest tests/test_mobile_v1_api.py -v --tb=short -k \"vacacion\")",
+      "Bash(py -m pytest tests/test_mobile_v1_api.py -v --tb=short -k \"horario\")",
+      "Bash(py -m pytest tests/test_mobile_v1_api.py --tb=short)",
+      "Bash(grep -n '\\\\\\\\me\\\\\\\\' \"/c/Users/horac/Desktop/Proyectos WEB/control_asistencia/backend/routes/mobile_v1_routes.py\")",
+      "Bash(py -m pytest --tb=short)",
+      "Bash(py -m pytest tests/ --tb=short)"
     ]
   }
 }

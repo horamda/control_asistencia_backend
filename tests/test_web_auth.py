@@ -26,5 +26,5 @@ def test_web_login_csrf_error_muestra_mensaje_amigable(monkeypatch):
 
     assert resp.status_code == 400
     assert "Sesion expirada o formulario invalido" in html
-    assert "Ingreso al panel" in html
+    assert "Control Asistencia" in html
     assert called["auth_called"] is False

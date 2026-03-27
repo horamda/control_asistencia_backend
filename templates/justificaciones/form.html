@@ -11,7 +11,18 @@
       </p>
     </div>
     <div class="chip-row">
-      <span class="chip">Estado controlado</span>
+      {% if mode == "edit" %}
+        {% set estado = (data.estado or "")|lower %}
+        {% if estado == "aprobada" %}
+          <span class="badge ok">Aprobada</span>
+        {% elif estado == "rechazada" %}
+          <span class="badge danger">Rechazada</span>
+        {% else %}
+          <span class="badge warning">Pendiente</span>
+        {% endif %}
+      {% else %}
+        <span class="chip">Estado controlado</span>
+      {% endif %}
       <span class="chip">Trazabilidad</span>
     </div>
   </div>
@@ -31,7 +42,7 @@
     <div class="form-grid">
       <div class="row span-2">
         <label>Empleado</label>
-        <select name="empleado_id" required>
+        <select name="empleado_id" required {% if mode == "edit" %}disabled{% endif %}>
           <option value="">Seleccione</option>
           {% for e in empleados %}
             <option value="{{ e.id }}" {% if data.empleado_id == e.id %}selected{% endif %}>
@@ -39,10 +50,14 @@
             </option>
           {% endfor %}
         </select>
+        {% if mode == "edit" %}
+          {# disabled selects don't submit — send value via hidden input #}
+          <input type="hidden" name="empleado_id" value="{{ data.empleado_id }}">
+        {% endif %}
       </div>
       <div class="row span-2">
         <label>Asistencia</label>
-        <select name="asistencia_id">
+        <select name="asistencia_id" {% if mode == "edit" %}disabled{% endif %}>
           <option value="">Seleccione</option>
           {% for a in asistencias %}
             <option value="{{ a.id }}" {% if data.asistencia_id == a.id %}selected{% endif %}>
@@ -50,6 +65,9 @@
             </option>
           {% endfor %}
         </select>
+        {% if mode == "edit" %}
+          <input type="hidden" name="asistencia_id" value="{{ data.asistencia_id or '' }}">
+        {% endif %}
         <div class="helper-text">Puede dejarlo vacio si la justificacion no referencia una asistencia puntual.</div>
       </div>
       <div class="row span-3">
@@ -60,16 +78,27 @@
         <label>Archivo (URL)</label>
         <input name="archivo" value="{{ data.archivo or '' }}">
       </div>
-      <div class="row">
-        <label>Estado</label>
-        <select name="estado">
-          <option value="">Seleccione</option>
-          {% for s in ["pendiente","aprobada","rechazada"] %}
-            <option value="{{ s }}" {% if data.estado == s %}selected{% endif %}>{{ s }}</option>
-          {% endfor %}
-        </select>
-      </div>
+
+      {% if mode == "new" %}
+        <div class="row">
+          <label>Estado inicial</label>
+          <select name="estado">
+            {% for s in ["pendiente", "aprobada", "rechazada"] %}
+              <option value="{{ s }}" {% if (data.estado or "pendiente") == s %}selected{% endif %}>
+                {{ s | capitalize }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
     </div>
+
+    {% if mode == "edit" %}
+      <div class="helper-text" style="margin-top:8px;">
+        Para cambiar el estado usa los botones <strong>Aprobar</strong>, <strong>Rechazar</strong> o <strong>Revertir</strong> desde el listado.
+      </div>
+    {% endif %}
+
     <div class="actions">
       <button type="submit">Guardar</button>
       <a class="btn btn-secondary" href="{{ url_for('justificaciones.listado') }}">Volver</a>
