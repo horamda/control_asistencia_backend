@@ -579,7 +579,9 @@ tbody tr:hover {
 .kpi-label-inline {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  text-align: center;
 }
 
 .kpi-help {
@@ -2897,8 +2899,8 @@ input[type="submit"][data-loading="1"] {
   }
 
   .kpi-card {
-    align-items: flex-start;
-    text-align: left;
+    align-items: center;
+    text-align: center;
   }
 
   .kpi-value {
