@@ -1,12 +1,12 @@
-# Contrato API Mobile v1 (Congelado)
+# Contrato API Mobile v1
 
-Version de contrato: 1.10.0  
-Fecha de corte: 2026-03-09  
-Base URL local: `http://localhost:5000`  
-Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`  
+Version de contrato: 1.11.0
+Fecha de corte: 2026-03-26
+Base URL local: `http://localhost:5000`
+Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
 
-Este documento fija el contrato para Flutter.  
+Este documento fija el contrato para Flutter.
 Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ## Autenticacion
@@ -16,9 +16,13 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 - Login: `POST /auth/login`
 - Refresh: `POST /auth/refresh`
 
+---
+
 ## Endpoints
 
-1. `POST /api/v1/mobile/auth/login`
+### Auth
+
+#### 1. `POST /api/v1/mobile/auth/login`
 - Request:
 ```json
 {"dni":"30111222","password":"secreta123"}
@@ -31,16 +35,20 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-2. `POST /api/v1/mobile/auth/refresh`
+#### 2. `POST /api/v1/mobile/auth/refresh`
 - Response 200:
 ```json
 {"token":"<jwt>"}
 ```
 
-3. `GET /api/v1/mobile/me`
-- Response 200: perfil de empleado autenticado (incluye `imagen_version` para cache busting de foto).
+---
 
-4. `GET /api/v1/mobile/me/config-asistencia`
+### Perfil
+
+#### 3. `GET /api/v1/mobile/me`
+- Response 200: perfil completo del empleado autenticado (incluye `imagen_version` para cache busting de foto).
+
+#### 4. `GET /api/v1/mobile/me/config-asistencia`
 - Response 200:
 ```json
 {
@@ -55,21 +63,70 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-5. `POST /api/v1/mobile/me/qr`
+#### 5. `PUT /api/v1/mobile/me/perfil`
+- Request JSON (compatible):
+```json
+{"telefono":"1133344455","direccion":"Calle 123","foto":"https://.../foto.jpg"}
+```
+- Para quitar foto via JSON tambien puede enviarse:
+```json
+{"foto":null}
+```
+- Request multipart/form-data (recomendado para subir imagen):
+  - `telefono` (opcional)
+  - `direccion` (opcional)
+  - `foto` (opcional, URL manual)
+  - `foto_file` (opcional, binario JPG/PNG/WEBP)
+    - Compatibilidad: tambien se acepta archivo en campo `foto`.
+  - `eliminar_foto` (opcional, `true/false`; si es `true` elimina foto actual)
+- Restricciones:
+  - No se permite enviar `foto_file` junto con `eliminar_foto=true`.
+- Reglas de `foto_file`:
+  - Tipo permitido: JPG, PNG, WEBP
+  - Tamano maximo: `FOTO_MAX_BYTES` (default `5242880`, 5 MB)
+- Response 200:
+```json
+{"id":12,"telefono":"1133344455","direccion":"Calle 123","foto":"https://.../foto.jpg","imagen_version":"1709294400"}
+```
+
+#### 6. `DELETE /api/v1/mobile/me/perfil/foto`
+- Elimina la foto de perfil actual del empleado.
+- Response 200:
+```json
+{"ok":true,"foto":null,"imagen_version":null}
+```
+
+#### 7. `GET /empleados/imagen/<dni>?v=<version>`
+- Devuelve la imagen de perfil por DNI.
+- Compatibilidad: se mantiene tambien `GET /media/empleados/foto/<dni>`.
+- Cache: responde `ETag`. Si cliente envia `If-None-Match` sin cambios reales, responde `304 Not Modified`.
+- El query param `v` se usa como cache busting cliente (recomendado: `v=<imagen_version>`).
+
+#### 8. `PUT /api/v1/mobile/me/password`
+- Request:
+```json
+{"password_actual":"secreta123","password_nueva":"nueva1234"}
+```
+- Response 200:
+```json
+{"ok":true}
+```
+
+---
+
+### Fichadas
+
+#### 9. `POST /api/v1/mobile/me/qr`
+- Genera un QR de fichada.
 - Request:
 ```json
 {"accion":"auto","scope":"empresa","tipo_marca":"jornada","vigencia_segundos":2592000}
 ```
-- `accion`: `ingreso`, `egreso` o `auto` (recomendado para QR unico de puerta). Si no se envia, usa `auto`.
+- `accion`: `ingreso`, `egreso` o `auto` (recomendado para QR unico de puerta).
 - `scope`:
   - `empresa`: QR general para todos los empleados de la empresa (default)
   - `empleado`: QR exclusivo para el empleado autenticado
-- `tipo_marca`:
-  - `jornada` (default)
-  - `desayuno`
-  - `almuerzo`
-  - `merienda`
-  - `otro`
+- `tipo_marca`: `jornada` (default), `desayuno`, `almuerzo`, `merienda`, `otro`
 - `vigencia_segundos`: 30 a 315360000 (hasta 10 anios)
 - Response 200:
 ```json
@@ -86,12 +143,10 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-6. `POST /api/v1/mobile/me/fichadas/scan`
-- Caso recomendado para QR unico de puerta.
-- El backend detecta empleado por JWT y decide si corresponde `ingreso` o `egreso`.
-- La decision automatica se basa en la ultima marca del dia (soporta horario cortado con multiples ciclos).
+#### 10. `POST /api/v1/mobile/me/fichadas/scan`
+- Endpoint principal. Backend detecta ingreso/egreso automaticamente.
 - Valida geocerca GPS contra la ubicacion del QR (o sucursal asignada).
-- Si esta fuera de rango, bloquea la fichada.
+- Si fuera de rango, bloquea la fichada y registra evento de fraude.
 - Request:
 ```json
 {
@@ -103,15 +158,15 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
   "lon":-58.3816
 }
 ```
-- `lat` y `lon` son obligatorios para validar geocerca.
-- `tipo_marca` es opcional; si el QR contiene tipo, prevalece el del QR.
+- `lat` y `lon` son obligatorios.
+- `tipo_marca` es opcional; si el QR lo incluye, prevalece el del QR.
 - Response 201 (ingreso):
 ```json
-{"id":15,"marca_id":1201,"accion":"ingreso","tipo_marca":"almuerzo","estado":"ok","gps_ok":true,"distancia_m":12.4,"tolerancia_m":80.0,"total_marcas_dia":1}
+{"id":15,"marca_id":1201,"accion":"ingreso","tipo_marca":"almuerzo","estado":"ok","gps_ok":true,"distancia_m":12.4,"tolerancia_m":80.0,"alerta_fraude":false,"evento_id":null,"total_marcas_dia":1}
 ```
 - Response 200 (egreso):
 ```json
-{"id":15,"marca_id":1202,"accion":"egreso","tipo_marca":"almuerzo","estado":"ok","gps_ok":true,"distancia_m":9.8,"tolerancia_m":80.0,"total_marcas_dia":2}
+{"id":15,"marca_id":1202,"accion":"egreso","tipo_marca":"almuerzo","estado":"ok","gps_ok":true,"distancia_m":9.8,"tolerancia_m":80.0,"alerta_fraude":false,"evento_id":null,"total_marcas_dia":2}
 ```
 - Response 403 (fuera de geocerca):
 ```json
@@ -133,7 +188,33 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-7. `GET /api/v1/mobile/me/horario-esperado?fecha=YYYY-MM-DD`
+#### 11. `POST /api/v1/mobile/me/fichadas/entrada` (deprecated)
+- Para nuevas integraciones usar `POST /api/v1/mobile/me/fichadas/scan`.
+- Request:
+```json
+{"fecha":"2026-02-14","metodo":"qr","qr_token":"<jwt_qr_ingreso>","hora_entrada":"08:03","lat":-34.6037,"lon":-58.3816,"foto":null,"observaciones":"Ingreso principal"}
+```
+- Response 201:
+```json
+{"id": 15, "estado":"ok"}
+```
+
+#### 12. `POST /api/v1/mobile/me/fichadas/salida` (deprecated)
+- Para nuevas integraciones usar `POST /api/v1/mobile/me/fichadas/scan`.
+- Request:
+```json
+{"fecha":"2026-02-14","metodo":"qr","qr_token":"<jwt_qr_egreso>","hora_salida":"16:02","lat":-34.6037,"lon":-58.3816}
+```
+- Response 200:
+```json
+{"id": 15, "estado":"ok"}
+```
+
+---
+
+### Asistencias
+
+#### 13. `GET /api/v1/mobile/me/horario-esperado?fecha=YYYY-MM-DD`
 - Response 200:
 ```json
 {
@@ -144,7 +225,8 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```
 - Response 404: `{"error":"sin horario esperado"}`
 
-8. `GET /api/v1/mobile/me/asistencias?desde=&hasta=&page=&per=`
+#### 14. `GET /api/v1/mobile/me/asistencias?desde=&hasta=&page=&per=`
+- Lista paginada de resumen diario de asistencias.
 - Response 200:
 ```json
 {
@@ -172,72 +254,8 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-9. `GET /api/v1/mobile/me/estadisticas?desde=&hasta=`
-- Devuelve KPIs agregados del empleado autenticado para un rango.
-- Defaults:
-  - `hasta`: hoy
-  - `desde`: hoy - 29 dias
-- Restricciones:
-  - No acepta fechas futuras.
-  - `desde` no puede ser mayor a `hasta`.
-  - Rango maximo: 366 dias.
-- Response 200:
-```json
-{
-  "periodo":{"desde":"2026-02-01","hasta":"2026-02-27","dias":27},
-  "totales":{"registros":20,"ok":14,"tarde":3,"ausente":2,"salida_anticipada":1,"sin_estado":0},
-  "kpis":{"puntualidad_pct":70.0,"ausentismo_pct":10.0,"cumplimiento_jornada_pct":88.9,"no_show_pct":50.0,"tasa_salida_anticipada_pct":5.0},
-  "jornadas":{"completas":16,"con_marca":18,"incompletas":2},
-  "justificaciones":{"total":4,"pendientes":1,"aprobadas":2,"rechazadas":1,"tasa_aprobacion_pct":50.0},
-  "vacaciones":{"eventos":1,"dias":5},
-  "ausencias":{"total":2,"sin_justificacion":1},
-  "series":{"diaria":[{"fecha":"2026-02-01","registros":1,"ok":1,"tarde":0,"ausente":0,"salida_anticipada":0,"puntualidad_pct":100.0,"ausentismo_pct":0.0}]}
-}
-```
-- Response 400:
-```json
-{"error":"No se permiten fechas futuras en estadisticas."}
-```
-- Response 500:
-```json
-{"error":"No se pudieron obtener estadisticas."}
-```
-
-10. `GET /api/v1/mobile/me/eventos-seguridad?page=&per=&tipo_evento=`
-- Lista intentos/eventos de seguridad del empleado autenticado (por ejemplo, QR fuera de geocerca).
-- Response 200:
-```json
-{
-  "items":[
-    {
-      "id":901,
-      "tipo_evento":"qr_geo_fuera_rango",
-      "severidad":"alta",
-      "alerta_fraude":true,
-      "fecha":"2026-02-18T15:24:10",
-      "fecha_operacion":"2026-02-18",
-      "hora_operacion":"15:24",
-      "lat":-34.6037,
-      "lon":-58.3816,
-      "ref_lat":-34.6020,
-      "ref_lon":-58.3800,
-      "distancia_m":315.2,
-      "tolerancia_m":80.0,
-      "sucursal_id":3
-    }
-  ],
-  "page":1,
-  "per_page":20,
-  "total":1
-}
-```
-- Response 500:
-```json
-{"error":"No se pudo obtener eventos de seguridad."}
-```
-
-11. `GET /api/v1/mobile/me/marcas?desde=&hasta=&page=&per=`
-- Lista paginada de marcas atomicas del empleado autenticado (ingreso/egreso).
+#### 15. `GET /api/v1/mobile/me/marcas?desde=&hasta=&page=&per=`
+- Lista paginada de marcas atomicas (ingreso/egreso individuales).
 - Response 200:
 ```json
 {
@@ -266,121 +284,374 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-12. `POST /api/v1/mobile/me/fichadas/entrada` (deprecated)
-- Mantener solo por compatibilidad retroactiva.
-- Para nuevas integraciones usar `POST /api/v1/mobile/me/fichadas/scan`.
-- Request:
+---
+
+### Estadisticas y Dashboard
+
+#### 16. `GET /api/v1/mobile/me/estadisticas?desde=&hasta=`
+- KPIs agregados del empleado para un rango de fechas.
+- Defaults: `hasta` = hoy, `desde` = hoy - 29 dias.
+- Restricciones: sin fechas futuras, `desde <= hasta`, maximo 366 dias.
+- Response 200:
 ```json
 {
-  "fecha":"2026-02-14",
-  "metodo":"qr",
-  "qr_token":"<jwt_qr_ingreso>",
-  "hora_entrada":"08:03",
-  "lat":-34.6037,
-  "lon":-58.3816,
-  "foto":null,
-  "observaciones":"Ingreso principal"
+  "periodo":{"desde":"2026-02-01","hasta":"2026-02-27","dias":27},
+  "totales":{"registros":20,"ok":14,"tarde":3,"ausente":2,"salida_anticipada":1,"sin_estado":0},
+  "kpis":{
+    "puntualidad_pct":70.0,
+    "ausentismo_pct":10.0,
+    "cumplimiento_jornada_pct":88.9,
+    "no_show_pct":50.0,
+    "tasa_salida_anticipada_pct":5.0,
+    "adherencia_pct":92.3,
+    "horas_promedio":7.82,
+    "horas_totales":125.1,
+    "gps_incidencias":2,
+    "dias_laborables":21,
+    "dias_con_registro":19,
+    "racha_ok":5
+  },
+  "jornadas":{"completas":16,"con_marca":18,"incompletas":2},
+  "justificaciones":{"total":4,"pendientes":1,"aprobadas":2,"rechazadas":1,"tasa_aprobacion_pct":50.0,"tasa_justificacion_pct":100.0},
+  "vacaciones":{"eventos":1,"dias":5},
+  "ausencias":{"total":2,"sin_justificacion":1},
+  "series":{
+    "diaria":[{"fecha":"2026-02-01","registros":1,"ok":1,"tarde":0,"ausente":0,"salida_anticipada":0,"puntualidad_pct":100.0,"ausentismo_pct":0.0}],
+    "semanal":[{"desde":"2026-02-03","hasta":"2026-02-07","registros":5,"ok":4,"tarde":1,"ausente":0,"salida_anticipada":0,"puntualidad_pct":80.0}]
+  }
 }
 ```
-- Response 201:
-```json
-{"id": 15, "estado":"ok"}
-```
+- Campos `kpis` nuevos vs 1.10.0:
+  - `adherencia_pct`: % de dias laborables con al menos una marca
+  - `horas_promedio`: horas promedio por jornada completa
+  - `horas_totales`: horas trabajadas totales en el periodo
+  - `gps_incidencias`: cantidad de marcas con GPS rechazado
+  - `dias_laborables`: dias habiles (lun-vie) en el rango
+  - `dias_con_registro`: dias con al menos una marca
+  - `racha_ok`: dias consecutivos con estado ok (desde hoy hacia atras)
+- Campo nuevo en `justificaciones`: `tasa_justificacion_pct` (aprobadas / ausentes * 100)
+- Campo nuevo en `series`: `semanal` (resumen por semana ISO)
+- Response 400: `{"error":"No se permiten fechas futuras en estadisticas."}`
+- Response 500: `{"error":"No se pudieron obtener estadisticas."}`
 
-13. `POST /api/v1/mobile/me/fichadas/salida` (deprecated)
-- Mantener solo por compatibilidad retroactiva.
-- Para nuevas integraciones usar `POST /api/v1/mobile/me/fichadas/scan`.
-- Request:
+#### 17. `GET /api/v1/mobile/me/dashboard?periodo=&desde=&hasta=`
+- Dashboard consolidado para pantalla principal de la app.
+- Query params:
+  - `periodo`: `7d` | `30d` (default) | `mes_actual` | `90d`
+  - `desde` + `hasta`: override custom (ISO date); ignora `periodo` si se envian.
+- Restricciones: sin fechas futuras, maximo 366 dias.
+- Response 200:
 ```json
 {
-  "fecha":"2026-02-14",
-  "metodo":"qr",
-  "qr_token":"<jwt_qr_egreso>",
-  "hora_salida":"16:02",
-  "lat":-34.6037,
-  "lon":-58.3816
+  "periodo":{
+    "desde":"2026-02-25",
+    "hasta":"2026-03-26",
+    "preset":"30d",
+    "dias_habiles":21
+  },
+  "asistencia":{
+    "totales":{"registros":20,"ok":14,"tarde":3,"ausente":2,"salida_anticipada":1,"sin_estado":0},
+    "kpis":{
+      "puntualidad_pct":70.0,
+      "ausentismo_pct":10.0,
+      "cumplimiento_jornada_pct":88.9,
+      "no_show_pct":50.0,
+      "tasa_salida_anticipada_pct":5.0,
+      "adherencia_pct":92.3,
+      "horas_promedio":7.82,
+      "horas_totales":125.1,
+      "gps_incidencias":2,
+      "dias_laborables":21,
+      "dias_con_registro":19,
+      "racha_ok":5
+    },
+    "jornadas":{"completas":16,"con_marca":18,"incompletas":2},
+    "justificaciones":{"total":4,"pendientes":1,"aprobadas":2,"rechazadas":1,"tasa_aprobacion_pct":50.0,"tasa_justificacion_pct":100.0},
+    "vacaciones":{"eventos":1,"dias":5},
+    "ausencias":{"total":2,"sin_justificacion":1},
+    "series":{
+      "diaria":[{"fecha":"2026-02-25","registros":1,"ok":1,"tarde":0,"ausente":0,"salida_anticipada":0,"puntualidad_pct":100.0,"ausentismo_pct":0.0}],
+      "semanal":[{"desde":"2026-02-24","hasta":"2026-02-28","registros":5,"ok":4,"tarde":1,"ausente":0,"salida_anticipada":0,"puntualidad_pct":80.0}]
+    }
+  },
+  "legajo":{
+    "historico":{"total":12,"vigentes":10,"anulados":2},
+    "periodo":{
+      "total":3,
+      "graves":1,
+      "media":1,
+      "leve":1
+    },
+    "por_tipo":[{"label":"Llamado de atencion","total":2,"pct":66.7}],
+    "por_severidad":[{"severidad":"grave","total":1,"pct":33.3}],
+    "recientes":[
+      {
+        "id":45,
+        "tipo_id":3,
+        "tipo_codigo":"llamado_atencion",
+        "tipo_nombre":"Llamado de atencion",
+        "fecha_evento":"2026-03-10",
+        "fecha_desde":null,
+        "fecha_hasta":null,
+        "titulo":"Llegada tarde reiterada",
+        "descripcion":"Tercer llamado en el mes",
+        "estado":"vigente",
+        "severidad":"grave"
+      }
+    ]
+  },
+  "vacaciones_activas":[
+    {"id":7,"empleado_id":12,"fecha_desde":"2026-04-01","fecha_hasta":"2026-04-15","observaciones":"Vacaciones anuales"}
+  ],
+  "francos_proximos":[
+    {"id":3,"empleado_id":12,"fecha":"2026-03-28","motivo":"Franco compensatorio"}
+  ],
+  "horario_actual":{
+    "id":5,
+    "horario_id":2,
+    "horario_nombre":"Turno mañana",
+    "fecha_desde":"2026-01-01",
+    "fecha_hasta":null,
+    "dias":[{"dia_semana":1},{"dia_semana":2},{"dia_semana":3},{"dia_semana":4},{"dia_semana":5}]
+  }
 }
 ```
+- Response 400: `{"error":"Rango de fechas invalido"}`
+- Response 500: `{"error":"No se pudo calcular el dashboard."}`
+
+---
+
+### Justificaciones
+
+#### 18. `GET /api/v1/mobile/me/justificaciones?desde=&hasta=&estado=&page=&per=`
+- Lista paginada de justificaciones del empleado.
+- `estado`: `pendiente` | `aprobada` | `rechazada` (opcional)
 - Response 200:
 ```json
-{"id": 15, "estado":"ok"}
+{
+  "items":[
+    {
+      "id":10,
+      "asistencia_id":1,
+      "asistencia_fecha":"2026-02-14",
+      "motivo":"Enfermedad con certificado medico",
+      "archivo":"https://.../cert.pdf",
+      "estado":"aprobada",
+      "created_at":"2026-02-15T09:00:00"
+    }
+  ],
+  "page":1,
+  "per_page":20,
+  "total":1
+}
 ```
 
-14. `PUT /api/v1/mobile/me/perfil`
-- Request JSON (compatible):
-```json
-{"telefono":"1133344455","direccion":"Calle 123","foto":"https://.../foto.jpg"}
-```
-- Para quitar foto via JSON tambien puede enviarse:
-```json
-{"foto":null}
-```
-- Request multipart/form-data (recomendado para subir imagen):
-  - `telefono` (opcional)
-  - `direccion` (opcional)
-  - `foto` (opcional, URL manual)
-  - `foto_file` (opcional, binario JPG/PNG/WEBP)
-    - Compatibilidad: tambien se acepta archivo en campo `foto`.
-  - `eliminar_foto` (opcional, `true/false`; si es `true` elimina foto actual)
-- Restricciones:
-  - No se permite enviar `foto_file` junto con `eliminar_foto=true`.
-- Reglas de `foto_file`:
-  - Tipo permitido: JPG, PNG, WEBP
-  - Tamano maximo: `FOTO_MAX_BYTES` (default `5242880`, 5 MB)
-  - `FOTO_STORAGE_BACKEND=ftp`:
-    - Nombre remoto: `<dni>.<ext>`
-    - `FOTO_FTP_HOST`, `FOTO_FTP_PORT`, `FOTO_FTP_USER`, `FOTO_FTP_PASSWORD`
-    - `FOTO_FTP_DIR` (default `/htdocs/`)
-  - `FOTO_STORAGE_BACKEND=db`:
-    - Guarda binario en tabla `empleado_fotos` (clave por DNI).
-    - `empleados.foto` guarda URL servida por backend: `/media/empleados/foto/<dni>`.
-  - URL publica base para app: `FOTO_PUBLIC_BASE_URL` (+ opcional `FOTO_PUBLIC_PREFIX`)
-- Response 200:
-```json
-{"id":12,"telefono":"1133344455","direccion":"Calle 123","foto":"https://.../foto.jpg","imagen_version":"1709294400"}
-```
-- Response 400:
-```json
-{"error":"Tipo de imagen no permitido. Use JPG, PNG o WEBP."}
-```
-- Response 500:
-```json
-{"error":"No se pudo subir la foto de perfil."}
-```
+#### 19. `GET /api/v1/mobile/me/justificaciones/<id>`
+- Response 200: objeto justificacion (mismo esquema que items arriba).
+- Response 404: `{"error":"Justificacion no encontrada"}`
 
-15. `DELETE /api/v1/mobile/me/perfil/foto`
-- Elimina la foto de perfil actual del empleado.
-- Limpia `empleados.foto` en base aunque el FTP no este disponible.
-- Response 200:
-```json
-{"ok":true,"foto":null,"imagen_version":null}
-```
-
-16. `GET /empleados/imagen/<dni>?v=<version>`
-- Devuelve la imagen de perfil por DNI.
-- Compatibilidad: se mantiene tambien `GET /media/empleados/foto/<dni>`.
-- Cache:
-  - Responde `ETag`.
-  - Si cliente envia `If-None-Match` y no hay cambios reales de foto, responde `304 Not Modified`.
-  - El query param `v` se usa como cache busting cliente (recomendado: `v=<imagen_version>`).
-
-17. `PUT /api/v1/mobile/me/password`
+#### 20. `POST /api/v1/mobile/me/justificaciones`
 - Request:
 ```json
-{"password_actual":"secreta123","password_nueva":"nueva1234"}
+{"asistencia_id":1,"motivo":"Enfermedad con certificado medico","archivo":"https://.../cert.pdf"}
 ```
+- `asistencia_id`: opcional; si es null, la justificacion no tiene asistencia asociada.
+- `archivo`: opcional; URL al documento adjunto.
+- Estado inicial siempre: `pendiente`.
+- Response 201: objeto justificacion creada.
+- Response 400: `{"error":"motivo es requerido"}`
+
+#### 21. `PUT /api/v1/mobile/me/justificaciones/<id>`
+- Solo permite editar justificaciones en estado `pendiente`.
+- Request:
+```json
+{"motivo":"Motivo actualizado","archivo":null}
+```
+- Response 200: objeto justificacion actualizada.
+- Response 404: `{"error":"Justificacion no encontrada"}`
+- Response 409: `{"error":"Solo se puede editar una justificacion pendiente (estado actual: 'aprobada')"}`
+
+#### 22. `DELETE /api/v1/mobile/me/justificaciones/<id>`
+- Solo permite retirar justificaciones en estado `pendiente`.
+- Response 200: `{"ok":true}`
+- Response 404: `{"error":"Justificacion no encontrada"}`
+- Response 409: `{"error":"Solo se puede retirar una justificacion pendiente (estado actual: 'aprobada')"}`
+
+---
+
+### Vacaciones
+
+#### 23. `GET /api/v1/mobile/me/vacaciones?desde=&hasta=&page=&per_page=`
+- Lista paginada de periodos de vacaciones.
 - Response 200:
 ```json
-{"ok":true}
+{
+  "items":[
+    {"id":7,"empleado_id":12,"fecha_desde":"2026-04-01","fecha_hasta":"2026-04-15","observaciones":"Vacaciones anuales"}
+  ],
+  "total":1,
+  "page":1,
+  "per_page":20
+}
 ```
+
+#### 24. `GET /api/v1/mobile/me/vacaciones/<id>`
+- Response 200: objeto vacacion.
+- Response 404: `{"error":"Vacacion no encontrada"}`
+
+#### 25. `POST /api/v1/mobile/me/vacaciones`
+- Request:
+```json
+{"fecha_desde":"2026-04-01","fecha_hasta":"2026-04-15","observaciones":"Vacaciones anuales"}
+```
+- `fecha_desde` y `fecha_hasta` son obligatorios.
+- Response 201: objeto vacacion creada.
+- Response 400: `{"error":"fecha_desde y fecha_hasta son requeridos"}`
+
+#### 26. `PUT /api/v1/mobile/me/vacaciones/<id>`
+- Request: mismo esquema que POST.
+- Response 200: objeto vacacion actualizada.
+- Response 404: `{"error":"Vacacion no encontrada"}`
+
+#### 27. `DELETE /api/v1/mobile/me/vacaciones/<id>`
+- Response 200: `{"ok":true}`
+- Response 404: `{"error":"Vacacion no encontrada"}`
+
+---
+
+### Horarios
+
+#### 28. `GET /api/v1/mobile/me/horarios-asignaciones`
+- Lista historial completo de asignaciones de horario del empleado.
+- Response 200 (array):
+```json
+[
+  {
+    "id":5,
+    "horario_id":2,
+    "horario_nombre":"Turno mañana",
+    "fecha_desde":"2026-01-01",
+    "fecha_hasta":null
+  }
+]
+```
+
+#### 29. `GET /api/v1/mobile/me/horarios-asignaciones/actual`
+- Asignacion de horario vigente a la fecha actual con detalle de dias.
+- Response 200 (con horario asignado):
+```json
+{
+  "asignacion":{"id":5,"horario_id":2,"horario_nombre":"Turno mañana","fecha_desde":"2026-01-01","fecha_hasta":null},
+  "dias":[{"dia_semana":1},{"dia_semana":2},{"dia_semana":3},{"dia_semana":4},{"dia_semana":5}]
+}
+```
+- `dia_semana`: 1=Lunes ... 7=Domingo (ISO week day)
+- Response 200 (sin horario asignado):
+```json
+{"asignacion":null,"dias":[]}
+```
+
+---
+
+### Francos
+
+#### 30. `GET /api/v1/mobile/me/francos?desde=&hasta=&page=&per_page=`
+- Lista paginada de francos (dias libres) del empleado.
+- Response 200:
+```json
+{
+  "items":[
+    {"id":3,"empleado_id":12,"fecha":"2026-03-28","motivo":"Franco compensatorio"}
+  ],
+  "total":1,
+  "page":1,
+  "per_page":20
+}
+```
+
+#### 31. `GET /api/v1/mobile/me/francos/<id>`
+- Response 200: objeto franco.
+- Response 404: `{"error":"Franco no encontrado"}`
+
+---
+
+### Legajo
+
+#### 32. `GET /api/v1/mobile/me/legajo/eventos?tipo_id=&estado=&page=&per_page=`
+- Lista paginada de eventos del legajo del empleado.
+- `estado`: `vigente` | `anulado` (opcional)
+- Response 200:
+```json
+{
+  "items":[
+    {
+      "id":45,
+      "tipo_id":3,
+      "tipo_codigo":"llamado_atencion",
+      "tipo_nombre":"Llamado de atencion",
+      "fecha_evento":"2026-03-10",
+      "fecha_desde":null,
+      "fecha_hasta":null,
+      "titulo":"Llegada tarde reiterada",
+      "descripcion":"Tercer llamado en el mes",
+      "estado":"vigente",
+      "severidad":"grave"
+    }
+  ],
+  "total":1,
+  "page":1,
+  "per_page":20
+}
+```
+- `severidad`: `grave` | `media` | `leve` | `null`
+- `estado`: `vigente` | `anulado`
+
+#### 33. `GET /api/v1/mobile/me/legajo/eventos/<id>`
+- Response 200: objeto evento (mismo esquema).
+- Response 404: `{"error":"Evento no encontrado"}`
+
+---
+
+### Seguridad
+
+#### 34. `GET /api/v1/mobile/me/eventos-seguridad?page=&per=&tipo_evento=`
+- Lista paginada de eventos de seguridad (ej. QR fuera de geocerca).
+- Response 200:
+```json
+{
+  "items":[
+    {
+      "id":901,
+      "tipo_evento":"qr_geo_fuera_rango",
+      "severidad":"alta",
+      "alerta_fraude":true,
+      "fecha":"2026-02-18T15:24:10",
+      "fecha_operacion":"2026-02-18",
+      "hora_operacion":"15:24",
+      "lat":-34.6037,
+      "lon":-58.3816,
+      "ref_lat":-34.6020,
+      "ref_lon":-58.3800,
+      "distancia_m":315.2,
+      "tolerancia_m":80.0,
+      "sucursal_id":3
+    }
+  ],
+  "page":1,
+  "per_page":20,
+  "total":1
+}
+```
+
+---
 
 ## Errores estandar
 
 - `400`: validacion de payload/formato
 - `401`: login/token invalido o vencido
 - `403`: fuera de geocerca o usuario no permitido
-- `404`: recurso no encontrado (ej. sin horario esperado, sin entrada para salida)
-- `409`: conflicto de fichada (ej. salida ya registrada o cooldown por doble scan)
+- `404`: recurso no encontrado
+- `409`: conflicto (ej. salida ya registrada, cooldown por doble scan, edicion de justificacion no pendiente)
 - `500`: error interno inesperado
 
 Formato base:
@@ -394,10 +665,38 @@ Formato recomendado para cooldown scan:
 
 ## Regla de compatibilidad
 
-Desde esta fecha, Flutter debe integrarse solo con este contrato.  
+Desde esta fecha, Flutter debe integrarse solo con este contrato.
 Si cambia una clave o status code, subir version (`v2`) o registrar change log explicito.
 
+---
+
 ## Change log
+
+### 1.11.0 (2026-03-26)
+- Nuevos endpoints: CRUD completo de justificaciones:
+  - `GET /me/justificaciones` (lista paginada con filtros `desde`, `hasta`, `estado`)
+  - `GET /me/justificaciones/<id>`
+  - `POST /me/justificaciones`
+  - `PUT /me/justificaciones/<id>` (solo estado `pendiente`)
+  - `DELETE /me/justificaciones/<id>` (solo estado `pendiente`)
+- Nuevos endpoints: CRUD completo de vacaciones:
+  - `GET /me/vacaciones`, `GET /me/vacaciones/<id>`
+  - `POST /me/vacaciones`, `PUT /me/vacaciones/<id>`, `DELETE /me/vacaciones/<id>`
+- Nuevos endpoints: horarios asignaciones:
+  - `GET /me/horarios-asignaciones` (historial)
+  - `GET /me/horarios-asignaciones/actual` (con dias de la semana)
+- Nuevos endpoints: francos:
+  - `GET /me/francos`, `GET /me/francos/<id>`
+- Nuevos endpoints: legajo:
+  - `GET /me/legajo/eventos` (con filtros `tipo_id`, `estado`)
+  - `GET /me/legajo/eventos/<id>`
+- Nuevo endpoint dashboard consolidado: `GET /me/dashboard`
+  - Combina estadisticas de asistencia + eventos de legajo + vacaciones activas + francos proximos + horario actual
+  - Params: `periodo` (`7d`|`30d`|`mes_actual`|`90d`) + override `desde`/`hasta`
+- `GET /me/estadisticas` ampliado:
+  - 7 nuevos campos en `kpis`: `adherencia_pct`, `horas_promedio`, `horas_totales`, `gps_incidencias`, `dias_laborables`, `dias_con_registro`, `racha_ok`
+  - Nuevo campo en `justificaciones`: `tasa_justificacion_pct`
+  - Nueva serie en `series`: `semanal` (resumen por semana ISO)
 
 ### 1.10.0 (2026-03-09)
 - `POST /api/v1/mobile/auth/login` agrega `empleado.imagen_version`.
@@ -409,39 +708,18 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ### 1.9.0 (2026-02-28)
 - `PUT /api/v1/mobile/me/perfil` agrega `eliminar_foto=true` para baja de foto.
 - Nuevo endpoint `DELETE /api/v1/mobile/me/perfil/foto`.
-- Reemplazo de foto limpia variantes previas por DNI (`.jpg/.png/.webp`) en FTP.
 
 ### 1.8.0 (2026-02-28)
 - `PUT /api/v1/mobile/me/perfil` soporta `multipart/form-data` con `foto_file`.
-- Validaciones de imagen en backend (tipo/tamano/firmas binarias).
-- Renombrado remoto por DNI (`<dni>.<ext>`), subida FTP y guardado de URL publica en `empleados.foto`.
 
 ### 1.7.0 (2026-02-27)
-- Nuevo endpoint mobile para KPIs por empleado:
-  - `GET /api/v1/mobile/me/estadisticas?desde=&hasta=`
-- Incluye:
-  - Totales por estado (`ok`, `tarde`, `ausente`, `salida_anticipada`)
-  - KPIs (`puntualidad_pct`, `ausentismo_pct`, `cumplimiento_jornada_pct`, `no_show_pct`, `tasa_salida_anticipada_pct`)
-  - Justificaciones y vacaciones en el periodo
-  - Serie diaria para graficos
-- Validaciones:
-  - Bloqueo de fechas futuras
-  - Rango maximo de 366 dias
+- Nuevo endpoint: `GET /api/v1/mobile/me/estadisticas`.
 
 ### 1.6.0 (2026-02-25)
-- `GET /api/v1/mobile/me/config-asistencia` agrega:
-  - `cooldown_scan_segundos`
-  - `intervalo_minimo_fichadas_minutos`
-- `POST /api/v1/mobile/me/fichadas/scan` agrega en `409` por doble scan:
-  - `code = "scan_cooldown"`
-  - `cooldown_segundos_restantes`
-- Objetivo: permitir mensaje UX claro en Flutter sin parsear texto libre.
+- `GET /api/v1/mobile/me/config-asistencia` agrega `cooldown_scan_segundos` e `intervalo_minimo_fichadas_minutos`.
+- `POST /api/v1/mobile/me/fichadas/scan` agrega `code` y `cooldown_segundos_restantes` en 409 por doble scan.
 
 ### 1.5.0 (2026-02-24)
-- Se mantiene como endpoint recomendado `POST /api/v1/mobile/me/fichadas/scan`.
-- Se marcan como `deprecated` (compatibilidad legacy):
-  - `POST /api/v1/mobile/me/fichadas/entrada`
-  - `POST /api/v1/mobile/me/fichadas/salida`
-- Se agrega base URL de produccion:
-  - `https://control-asistencia-backend-8gle.onrender.com`
-- No hay cambios de payload ni status codes en endpoints activos.
+- Se mantiene `POST /api/v1/mobile/me/fichadas/scan` como endpoint recomendado.
+- Se marcan `deprecated`: `/fichadas/entrada` y `/fichadas/salida`.
+- Se agrega base URL de produccion.

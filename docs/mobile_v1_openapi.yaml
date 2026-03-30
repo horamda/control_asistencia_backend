@@ -1,675 +1,42 @@
 openapi: 3.0.3
 info:
-  title: Control Asistencia - Mobile API
-  version: 1.10.0
-  description: API v1 para app Flutter de empleados.
+  title: Control Asistencia — Mobile API v1
+  version: 1.11.0
+  description: |
+    API REST para la aplicacion Flutter de control de asistencia.
+    Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
+  contact:
+    name: Equipo Backend
 servers:
-  - url: http://localhost:5000
+  - url: http://localhost:5000/api/v1/mobile
     description: Local
-  - url: https://control-asistencia-backend-8gle.onrender.com
+  - url: https://control-asistencia-backend-8gle.onrender.com/api/v1/mobile
     description: Produccion
-tags:
-  - name: Auth
-  - name: Perfil
-  - name: Asistencias
-paths:
-  /api/v1/mobile/auth/login:
-    post:
-      tags: [Auth]
-      summary: Login de empleado
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [dni, password]
-              properties:
-                dni:
-                  type: string
-                password:
-                  type: string
-      responses:
-        "200":
-          description: Login correcto
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-                  empleado:
-                    $ref: "#/components/schemas/EmpleadoResumen"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
 
-  /api/v1/mobile/auth/refresh:
-    post:
-      tags: [Auth]
-      summary: Renovar JWT
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Token renovado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /api/v1/mobile/me:
-    get:
-      tags: [Perfil]
-      summary: Perfil del empleado autenticado
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Perfil
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EmpleadoPerfil"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /empleados/imagen/{dni}:
-    get:
-      tags: [Perfil]
-      summary: Obtener imagen de perfil por DNI
-      parameters:
-        - in: path
-          name: dni
-          required: true
-          schema:
-            type: string
-        - in: query
-          name: v
-          required: false
-          schema:
-            type: string
-          description: Version de imagen enviada por cliente para cache busting.
-      responses:
-        "200":
-          description: Imagen de perfil
-          headers:
-            ETag:
-              schema:
-                type: string
-              description: Identificador de version para cache condicional.
-          content:
-            image/jpeg:
-              schema:
-                type: string
-                format: binary
-            image/png:
-              schema:
-                type: string
-                format: binary
-            image/webp:
-              schema:
-                type: string
-                format: binary
-        "304":
-          description: Not Modified (sin cambios respecto a If-None-Match)
-        "404":
-          $ref: "#/components/responses/NotFound"
-
-  /api/v1/mobile/me/config-asistencia:
-    get:
-      tags: [Asistencias]
-      summary: Configuracion de fichado de la empresa
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Configuracion
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  empresa_id:
-                    type: integer
-                  requiere_qr:
-                    type: boolean
-                  requiere_foto:
-                    type: boolean
-                  requiere_geo:
-                    type: boolean
-                  tolerancia_global:
-                    type: integer
-                    nullable: true
-                  cooldown_scan_segundos:
-                    type: integer
-                    nullable: true
-                    description: Ventana anti doble escaneo en segundos (0 desactiva).
-                  intervalo_minimo_fichadas_minutos:
-                    type: integer
-                    nullable: true
-                    description: Minutos minimos entre marcas consecutivas (0 desactiva).
-                  metodos_habilitados:
-                    type: array
-                    items:
-                      type: string
-                      enum: [qr, manual, facial]
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /api/v1/mobile/me/qr:
-    post:
-      tags: [Asistencias]
-      summary: Generar QR firmado de puerta
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/QrGenerarRequest"
-      responses:
-        "200":
-          description: QR generado
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/QrGenerarResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /api/v1/mobile/me/fichadas/scan:
-    post:
-      tags: [Asistencias]
-      summary: Escanear QR de puerta y registrar ingreso o egreso automatico
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/FichadaScanQrRequest"
-      responses:
-        "200":
-          description: Egreso registrado
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FichadaScanQrResponse"
-        "201":
-          description: Ingreso registrado
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FichadaScanQrResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: Fuera de geocerca permitida
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FichadaScanQrForbiddenResponse"
-        "404":
-          description: No hay entrada para registrar salida
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: Jornada cerrada o conflicto de marcacion (incluye cooldown anti doble scan)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FichadaScanQrConflictResponse"
-
-  /api/v1/mobile/me/horario-esperado:
-    get:
-      tags: [Asistencias]
-      summary: Horario esperado para fecha
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: fecha
-          schema:
-            type: string
-            format: date
-          required: false
-          description: YYYY-MM-DD. Si no se informa, usa la fecha actual.
-      responses:
-        "200":
-          description: Horario esperado
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HorarioEsperado"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          description: Sin horario esperado
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/v1/mobile/me/asistencias:
-    get:
-      tags: [Asistencias]
-      summary: Listado paginado de asistencias del empleado
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: desde
-          schema:
-            type: string
-            format: date
-          required: false
-        - in: query
-          name: hasta
-          schema:
-            type: string
-            format: date
-          required: false
-        - in: query
-          name: page
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          required: false
-        - in: query
-          name: per
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          required: false
-      responses:
-        "200":
-          description: Pagina de asistencias
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/AsistenciaItem"
-                  page:
-                    type: integer
-                  per_page:
-                    type: integer
-                  total:
-                    type: integer
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /api/v1/mobile/me/estadisticas:
-    get:
-      tags: [Asistencias]
-      summary: KPIs agregados del empleado para rango de fechas
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: desde
-          schema:
-            type: string
-            format: date
-          required: false
-          description: Default hoy - 29 dias.
-        - in: query
-          name: hasta
-          schema:
-            type: string
-            format: date
-          required: false
-          description: Default hoy.
-      responses:
-        "200":
-          description: KPIs de asistencia del empleado
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EstadisticasEmpleadoResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /api/v1/mobile/me/marcas:
-    get:
-      tags: [Asistencias]
-      summary: Listado paginado de marcas atomicas del empleado
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: desde
-          schema:
-            type: string
-            format: date
-          required: false
-        - in: query
-          name: hasta
-          schema:
-            type: string
-            format: date
-          required: false
-        - in: query
-          name: page
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          required: false
-        - in: query
-          name: per
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          required: false
-      responses:
-        "200":
-          description: Pagina de marcas
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MarcasPageResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /api/v1/mobile/me/eventos-seguridad:
-    get:
-      tags: [Asistencias]
-      summary: Listado paginado de eventos de seguridad del empleado
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: page
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          required: false
-        - in: query
-          name: per
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          required: false
-        - in: query
-          name: tipo_evento
-          schema:
-            type: string
-          required: false
-      responses:
-        "200":
-          description: Pagina de eventos de seguridad
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EventosSeguridadPageResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /api/v1/mobile/me/fichadas/entrada:
-    post:
-      tags: [Asistencias]
-      summary: Registrar fichada de entrada (legacy)
-      description: Endpoint legacy. Se recomienda usar /api/v1/mobile/me/fichadas/scan.
-      deprecated: true
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/FichadaEntradaRequest"
-      responses:
-        "201":
-          description: Entrada registrada
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FichadaResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /api/v1/mobile/me/fichadas/salida:
-    post:
-      tags: [Asistencias]
-      summary: Registrar fichada de salida (legacy)
-      description: Endpoint legacy. Se recomienda usar /api/v1/mobile/me/fichadas/scan.
-      deprecated: true
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/FichadaSalidaRequest"
-      responses:
-        "200":
-          description: Salida registrada
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FichadaResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          description: No hay entrada del dia
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: Salida ya registrada
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/v1/mobile/me/perfil:
-    put:
-      tags: [Perfil]
-      summary: Actualizar datos editables de perfil
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                telefono:
-                  type: string
-                direccion:
-                  type: string
-                foto:
-                  type: string
-                  nullable: true
-                eliminar_foto:
-                  type: boolean
-                  description: Si es true elimina la foto actual.
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                telefono:
-                  type: string
-                direccion:
-                  type: string
-                foto:
-                  type: string
-                  nullable: true
-                eliminar_foto:
-                  type: boolean
-                  description: Si es true elimina la foto actual.
-                foto_file:
-                  type: string
-                  format: binary
-                  description: Archivo de imagen de perfil (JPG/PNG/WEBP).
-      responses:
-        "200":
-          description: Perfil actualizado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: integer
-                  telefono:
-                    type: string
-                    nullable: true
-                  direccion:
-                    type: string
-                    nullable: true
-                  foto:
-                    type: string
-                    nullable: true
-                  imagen_version:
-                    type: string
-                    nullable: true
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
-  /api/v1/mobile/me/perfil/foto:
-    delete:
-      tags: [Perfil]
-      summary: Eliminar foto de perfil del empleado
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Foto eliminada
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                  foto:
-                    type: string
-                    nullable: true
-                  imagen_version:
-                    type: string
-                    nullable: true
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /api/v1/mobile/me/password:
-    put:
-      tags: [Perfil]
-      summary: Cambio de password de empleado
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [password_actual, password_nueva]
-              properties:
-                password_actual:
-                  type: string
-                password_nueva:
-                  type: string
-                  minLength: 8
-      responses:
-        "200":
-          description: Password actualizado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
 components:
   securitySchemes:
-    bearerAuth:
+    BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  responses:
-    BadRequest:
-      description: Error de validacion
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    Unauthorized:
-      description: Token invalido o credenciales incorrectas
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-    InternalServerError:
-      description: Error interno del servidor
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
+
   schemas:
-    ErrorResponse:
+    # --- Auth ---
+    LoginRequest:
       type: object
+      required: [dni, password]
       properties:
-        error:
+        dni:
           type: string
-    EmpleadoResumen:
+          example: "30111222"
+        password:
+          type: string
+          example: "secreta123"
+
+    EmpleadoBasico:
       type: object
       properties:
         id:
@@ -680,83 +47,24 @@ components:
           type: string
         apellido:
           type: string
-          nullable: true
         empresa_id:
           type: integer
-          nullable: true
-        foto:
-          type: string
-          format: uri
-          nullable: true
-        imagen_version:
-          type: string
-          nullable: true
-    EmpleadoPerfil:
-      type: object
-      properties:
-        id:
-          type: integer
-        empresa_id:
-          type: integer
-          nullable: true
-        sucursal_id:
-          type: integer
-          nullable: true
-        sector_id:
-          type: integer
-          nullable: true
-        puesto_id:
-          type: integer
-          nullable: true
-        dni:
-          type: string
-        legajo:
-          type: string
-          nullable: true
-        nombre:
-          type: string
-        apellido:
-          type: string
-          nullable: true
-        email:
-          type: string
-          nullable: true
-        telefono:
-          type: string
-          nullable: true
-        direccion:
-          type: string
-          nullable: true
         foto:
           type: string
           nullable: true
         imagen_version:
           type: string
           nullable: true
-        estado:
-          type: string
-          nullable: true
-    HorarioBloque:
+
+    LoginResponse:
       type: object
       properties:
-        entrada:
+        token:
           type: string
-          example: "08:00"
-        salida:
-          type: string
-          example: "16:00"
-    HorarioEsperado:
-      type: object
-      properties:
-        tiene_excepcion:
-          type: boolean
-        bloques:
-          type: array
-          items:
-            $ref: "#/components/schemas/HorarioBloque"
-        tolerancia:
-          type: integer
-          nullable: true
+        empleado:
+          $ref: '#/components/schemas/EmpleadoBasico'
+
+    # --- Asistencia ---
     AsistenciaItem:
       type: object
       properties:
@@ -768,9 +76,11 @@ components:
         hora_entrada:
           type: string
           nullable: true
+          example: "08:01"
         hora_salida:
           type: string
           nullable: true
+          example: "16:04"
         metodo_entrada:
           type: string
           nullable: true
@@ -780,6 +90,7 @@ components:
         estado:
           type: string
           nullable: true
+          enum: [ok, tarde, ausente, salida_anticipada]
         observaciones:
           type: string
           nullable: true
@@ -791,43 +102,70 @@ components:
           nullable: true
         gps_distancia_entrada_m:
           type: number
-          format: float
           nullable: true
         gps_distancia_salida_m:
           type: number
-          format: float
           nullable: true
         gps_tolerancia_entrada_m:
           type: number
-          format: float
           nullable: true
         gps_tolerancia_salida_m:
           type: number
-          format: float
           nullable: true
-    EstadisticaDiariaItem:
+
+    PaginatedAsistencias:
       type: object
       properties:
-        fecha:
-          type: string
-          format: date
-        registros:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AsistenciaItem'
+        page:
           type: integer
-        ok:
+        per_page:
           type: integer
-        tarde:
+        total:
           type: integer
-        ausente:
-          type: integer
-        salida_anticipada:
-          type: integer
+
+    # --- Estadisticas ---
+    EstadisticasKpis:
+      type: object
+      properties:
         puntualidad_pct:
           type: number
-          format: float
+          description: "% de registros con estado ok"
         ausentismo_pct:
           type: number
-          format: float
-    EstadisticasEmpleadoResponse:
+        cumplimiento_jornada_pct:
+          type: number
+          description: "% de jornadas con entrada y salida"
+        no_show_pct:
+          type: number
+          description: "% de ausencias sin justificacion aprobada"
+        tasa_salida_anticipada_pct:
+          type: number
+        adherencia_pct:
+          type: number
+          description: "% de dias laborables con al menos una marca"
+        horas_promedio:
+          type: number
+          description: "Horas promedio por jornada completa"
+        horas_totales:
+          type: number
+          description: "Horas trabajadas totales en el periodo"
+        gps_incidencias:
+          type: integer
+          description: "Cantidad de marcas con GPS rechazado"
+        dias_laborables:
+          type: integer
+          description: "Dias habiles (lun-vie) en el rango"
+        dias_con_registro:
+          type: integer
+        racha_ok:
+          type: integer
+          description: "Dias consecutivos con estado ok desde hoy hacia atras"
+
+    EstadisticasResponse:
       type: object
       properties:
         periodo:
@@ -857,23 +195,7 @@ components:
             sin_estado:
               type: integer
         kpis:
-          type: object
-          properties:
-            puntualidad_pct:
-              type: number
-              format: float
-            ausentismo_pct:
-              type: number
-              format: float
-            cumplimiento_jornada_pct:
-              type: number
-              format: float
-            no_show_pct:
-              type: number
-              format: float
-            tasa_salida_anticipada_pct:
-              type: number
-              format: float
+          $ref: '#/components/schemas/EstadisticasKpis'
         jornadas:
           type: object
           properties:
@@ -896,7 +218,9 @@ components:
               type: integer
             tasa_aprobacion_pct:
               type: number
-              format: float
+            tasa_justificacion_pct:
+              type: number
+              description: "% de ausencias cubiertas con justificacion aprobada"
         vacaciones:
           type: object
           properties:
@@ -917,220 +241,276 @@ components:
             diaria:
               type: array
               items:
-                $ref: "#/components/schemas/EstadisticaDiariaItem"
-    FichadaEntradaRequest:
-      type: object
-      required: [metodo]
-      properties:
-        fecha:
-          type: string
-          format: date
-          description: Por defecto fecha actual del servidor.
-        metodo:
-          type: string
-          enum: [qr, manual, facial]
-        hora_entrada:
-          type: string
-          example: "08:02"
-          description: Por defecto hora actual del servidor.
-        foto:
-          type: string
-          nullable: true
-        qr_token:
-          type: string
-          nullable: true
-          description: Requerido cuando metodo es qr.
-        observaciones:
-          type: string
-          nullable: true
-        lat:
-          type: number
-          format: float
-          nullable: true
-        lon:
-          type: number
-          format: float
-          nullable: true
-    FichadaSalidaRequest:
-      type: object
-      required: [metodo]
-      properties:
-        fecha:
-          type: string
-          format: date
-        metodo:
-          type: string
-          enum: [qr, manual, facial]
-        hora_salida:
-          type: string
-          example: "17:01"
-        hora_entrada:
-          type: string
-          nullable: true
-          description: Solo para mejorar calculo si no existe en contexto.
-        foto:
-          type: string
-          nullable: true
-        qr_token:
-          type: string
-          nullable: true
-          description: Requerido cuando metodo es qr.
-        observaciones:
-          type: string
-          nullable: true
-        lat:
-          type: number
-          format: float
-          nullable: true
-        lon:
-          type: number
-          format: float
-          nullable: true
-    FichadaResponse:
+                type: object
+                properties:
+                  fecha:
+                    type: string
+                    format: date
+                  registros:
+                    type: integer
+                  ok:
+                    type: integer
+                  tarde:
+                    type: integer
+                  ausente:
+                    type: integer
+                  salida_anticipada:
+                    type: integer
+                  puntualidad_pct:
+                    type: number
+                  ausentismo_pct:
+                    type: number
+            semanal:
+              type: array
+              items:
+                type: object
+                properties:
+                  desde:
+                    type: string
+                    format: date
+                  hasta:
+                    type: string
+                    format: date
+                  registros:
+                    type: integer
+                  ok:
+                    type: integer
+                  tarde:
+                    type: integer
+                  ausente:
+                    type: integer
+                  salida_anticipada:
+                    type: integer
+                  puntualidad_pct:
+                    type: number
+
+    # --- Justificacion ---
+    JustificacionItem:
       type: object
       properties:
         id:
           type: integer
+        asistencia_id:
+          type: integer
+          nullable: true
+        asistencia_fecha:
+          type: string
+          format: date
+          nullable: true
+        motivo:
+          type: string
+        archivo:
+          type: string
+          nullable: true
         estado:
           type: string
-    QrGenerarRequest:
+          enum: [pendiente, aprobada, rechazada]
+          default: pendiente
+        created_at:
+          type: string
+          format: date-time
+
+    JustificacionCreateRequest:
       type: object
+      required: [motivo]
       properties:
-        accion:
-          type: string
-          enum: [ingreso, egreso, auto]
-          default: auto
-          description: Si no se envia, se usa auto.
-        scope:
-          type: string
-          enum: [empresa, empleado]
-          default: empresa
-          description: empresa para QR general o empleado para QR personal. Si no se envia, usa empresa.
-        tipo_marca:
-          type: string
-          enum: [jornada, desayuno, almuerzo, merienda, otro]
-          default: jornada
-          description: Clasificacion funcional de la marca para reportes de pausas.
-        vigencia_segundos:
+        asistencia_id:
           type: integer
-          minimum: 30
-          maximum: 315360000
-          default: 120
-    QrGenerarResponse:
+          nullable: true
+        motivo:
+          type: string
+          example: "Enfermedad con certificado medico"
+        archivo:
+          type: string
+          nullable: true
+          example: "https://.../cert.pdf"
+
+    JustificacionUpdateRequest:
+      type: object
+      required: [motivo]
+      properties:
+        motivo:
+          type: string
+        archivo:
+          type: string
+          nullable: true
+
+    PaginatedJustificaciones:
       type: object
       properties:
-        accion:
-          type: string
-          enum: [ingreso, egreso, auto]
-        scope:
-          type: string
-          enum: [empresa, empleado]
-        tipo_marca:
-          type: string
-          enum: [jornada, desayuno, almuerzo, merienda, otro]
-        empresa_id:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JustificacionItem'
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+
+    # --- Vacacion ---
+    VacacionItem:
+      type: object
+      properties:
+        id:
           type: integer
         empleado_id:
           type: integer
-          nullable: true
-        vigencia_segundos:
-          type: integer
-        expira_at:
-          type: string
-          example: "2026-02-16T15:02:00Z"
-        qr_token:
-          type: string
-        qr_png_base64:
-          type: string
-    FichadaScanQrRequest:
-      type: object
-      required: [qr_token, lat, lon]
-      properties:
-        qr_token:
-          type: string
-          description: Token QR escaneado en puerta.
-        fecha:
+        fecha_desde:
           type: string
           format: date
-          description: Por defecto fecha actual del servidor.
-        hora:
+        fecha_hasta:
           type: string
-          example: "08:01"
-          description: Por defecto hora actual del servidor.
-        foto:
-          type: string
+          format: date
           nullable: true
         observaciones:
           type: string
-          nullable: true
-        tipo_marca:
+
+    VacacionRequest:
+      type: object
+      required: [fecha_desde, fecha_hasta]
+      properties:
+        fecha_desde:
           type: string
-          enum: [jornada, desayuno, almuerzo, merienda, otro]
+          format: date
+        fecha_hasta:
+          type: string
+          format: date
+        observaciones:
+          type: string
           nullable: true
-          description: Opcional. Si el QR contiene tipo_marca, prevalece el del QR.
-        lat:
-          type: number
-          format: float
-          description: Requerido para validacion de geocerca.
-        lon:
-          type: number
-          format: float
-          description: Requerido para validacion de geocerca.
-    FichadaScanQrResponse:
+
+    PaginatedVacaciones:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacacionItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+
+    # --- Horario ---
+    AsignacionHorario:
       type: object
       properties:
         id:
           type: integer
-        marca_id:
+        horario_id:
           type: integer
-        accion:
+        horario_nombre:
           type: string
-          enum: [ingreso, egreso]
-        tipo_marca:
+        fecha_desde:
           type: string
-          enum: [jornada, desayuno, almuerzo, merienda, otro]
+          format: date
+        fecha_hasta:
+          type: string
+          format: date
+          nullable: true
+
+    DiaHorario:
+      type: object
+      properties:
+        dia_semana:
+          type: integer
+          description: "1=Lunes ... 7=Domingo (ISO week day)"
+
+    HorarioActualResponse:
+      type: object
+      properties:
+        asignacion:
+          allOf:
+            - $ref: '#/components/schemas/AsignacionHorario'
+          nullable: true
+        dias:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiaHorario'
+
+    # --- Franco ---
+    FrancoItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        empleado_id:
+          type: integer
+        fecha:
+          type: string
+          format: date
+        motivo:
+          type: string
+
+    PaginatedFrancos:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FrancoItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+
+    # --- Legajo evento ---
+    LegajoEventoItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        tipo_id:
+          type: integer
+        tipo_codigo:
+          type: string
+        tipo_nombre:
+          type: string
+        fecha_evento:
+          type: string
+          format: date
+          nullable: true
+        fecha_desde:
+          type: string
+          format: date
+          nullable: true
+        fecha_hasta:
+          type: string
+          format: date
+          nullable: true
+        titulo:
+          type: string
+        descripcion:
+          type: string
         estado:
           type: string
-        gps_ok:
-          type: boolean
-        distancia_m:
-          type: number
-          format: float
-        tolerancia_m:
-          type: number
-          format: float
-        total_marcas_dia:
-          type: integer
-    FichadaScanQrForbiddenResponse:
+          enum: [vigente, anulado]
+        severidad:
+          type: string
+          nullable: true
+          enum: [grave, media, leve]
+
+    PaginatedLegajoEventos:
       type: object
       properties:
-        error:
-          type: string
-        gps_ok:
-          type: boolean
-        distancia_m:
-          type: number
-          format: float
-        tolerancia_m:
-          type: number
-          format: float
-        alerta_fraude:
-          type: boolean
-        evento_id:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LegajoEventoItem'
+        total:
           type: integer
-          nullable: true
-    FichadaScanQrConflictResponse:
-      type: object
-      properties:
-        error:
-          type: string
-        code:
-          type: string
-          nullable: true
-          example: scan_cooldown
-        cooldown_segundos_restantes:
+        page:
           type: integer
-          nullable: true
+        per_page:
+          type: integer
+
+    # --- Seguridad ---
     EventoSeguridadItem:
       type: object
       properties:
@@ -1140,11 +520,12 @@ components:
           type: string
         severidad:
           type: string
+          nullable: true
         alerta_fraude:
           type: boolean
         fecha:
           type: string
-          example: "2026-02-18T15:24:10"
+          format: date-time
         fecha_operacion:
           type: string
           format: date
@@ -1154,146 +535,1167 @@ components:
           nullable: true
         lat:
           type: number
-          format: float
           nullable: true
         lon:
           type: number
-          format: float
           nullable: true
         ref_lat:
           type: number
-          format: float
           nullable: true
         ref_lon:
           type: number
-          format: float
           nullable: true
         distancia_m:
           type: number
-          format: float
           nullable: true
         tolerancia_m:
           type: number
-          format: float
           nullable: true
         sucursal_id:
           type: integer
           nullable: true
-    MarcaItem:
-      type: object
-      properties:
-        id:
-          type: integer
-        asistencia_id:
-          type: integer
-          nullable: true
-        fecha:
-          type: string
-          format: date
-        hora:
-          type: string
-          nullable: true
-        accion:
-          type: string
-          enum: [ingreso, egreso]
-        metodo:
-          type: string
-          nullable: true
-        tipo_marca:
-          type: string
-          enum: [jornada, desayuno, almuerzo, merienda, otro]
-          nullable: true
-        estado:
-          type: string
-          nullable: true
-        observaciones:
-          type: string
-          nullable: true
-        lat:
-          type: number
-          format: float
-          nullable: true
-        lon:
-          type: number
-          format: float
-          nullable: true
-        gps_ok:
-          type: boolean
-          nullable: true
-        gps_distancia_m:
-          type: number
-          format: float
-          nullable: true
-        gps_tolerancia_m:
-          type: number
-          format: float
-          nullable: true
-        fecha_creacion:
-          type: string
-          nullable: true
-    MarcasPageResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/MarcaItem"
-        page:
-          type: integer
-        per_page:
-          type: integer
-        total:
-          type: integer
-    EventosSeguridadPageResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/EventoSeguridadItem"
-        page:
-          type: integer
-        per_page:
-          type: integer
-        total:
-          type: integer
 
-x-changelog:
-  - version: 1.10.0
-    date: 2026-03-09
-    changes:
-      - "POST /api/v1/mobile/auth/login agrega empleado.imagen_version."
-      - "GET /api/v1/mobile/me agrega imagen_version."
-      - "PUT /api/v1/mobile/me/perfil agrega imagen_version en response."
-      - "DELETE /api/v1/mobile/me/perfil/foto agrega imagen_version=null."
-      - "Nuevo endpoint GET /empleados/imagen/{dni}?v=<imagen_version> con soporte ETag/304."
-  - version: 1.9.0
-    date: 2026-02-28
-    changes:
-      - "PUT /api/v1/mobile/me/perfil agrega eliminar_foto para baja explicita."
-      - "Nuevo endpoint DELETE /api/v1/mobile/me/perfil/foto."
-      - "Reemplazo de foto limpia variantes previas por DNI en FTP."
-  - version: 1.8.0
-    date: 2026-02-28
-    changes:
-      - "PUT /api/v1/mobile/me/perfil soporta multipart/form-data con foto_file."
-      - "Valida tipo y tamano de imagen, renombra por DNI y sube a FTP."
-  - version: 1.7.0
-    date: 2026-02-27
-    changes:
-      - "Nuevo endpoint: GET /api/v1/mobile/me/estadisticas para KPIs agregados del empleado."
-      - "Valida rango de fechas sin futuros y limite maximo de 366 dias."
-      - "Incluye series diarias, estados, justificaciones y vacaciones del periodo."
-  - version: 1.6.0
-    date: 2026-02-25
-    changes:
-      - "GET /api/v1/mobile/me/config-asistencia agrega cooldown_scan_segundos."
-      - "GET /api/v1/mobile/me/config-asistencia agrega intervalo_minimo_fichadas_minutos."
-      - "POST /api/v1/mobile/me/fichadas/scan agrega code=scan_cooldown y cooldown_segundos_restantes en 409."
-  - version: 1.5.0
-    date: 2026-02-24
-    changes:
-      - "Deprecated endpoints legacy: /api/v1/mobile/me/fichadas/entrada y /api/v1/mobile/me/fichadas/salida."
-      - "Se mantiene /api/v1/mobile/me/fichadas/scan como flujo recomendado."
-      - "Se agrega server de produccion: https://control-asistencia-backend-8gle.onrender.com."
-      - "Sin cambios de payload ni status codes en endpoints activos."
+    # --- Dashboard ---
+    LegajoStats:
+      type: object
+      properties:
+        historico:
+          type: object
+          properties:
+            total:
+              type: integer
+            vigentes:
+              type: integer
+            anulados:
+              type: integer
+        periodo:
+          type: object
+          properties:
+            total:
+              type: integer
+            graves:
+              type: integer
+            media:
+              type: integer
+            leve:
+              type: integer
+        por_tipo:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              total:
+                type: integer
+              pct:
+                type: number
+        por_severidad:
+          type: array
+          items:
+            type: object
+            properties:
+              severidad:
+                type: string
+              total:
+                type: integer
+              pct:
+                type: number
+        recientes:
+          type: array
+          items:
+            $ref: '#/components/schemas/LegajoEventoItem'
+
+    AsignacionHorarioConDias:
+      allOf:
+        - $ref: '#/components/schemas/AsignacionHorario'
+        - type: object
+          properties:
+            dias:
+              type: array
+              items:
+                $ref: '#/components/schemas/DiaHorario'
+
+    DashboardResponse:
+      type: object
+      properties:
+        periodo:
+          type: object
+          properties:
+            desde:
+              type: string
+              format: date
+            hasta:
+              type: string
+              format: date
+            preset:
+              type: string
+              enum: [7d, 30d, mes_actual, 90d, custom]
+            dias_habiles:
+              type: integer
+        asistencia:
+          $ref: '#/components/schemas/EstadisticasResponse'
+        legajo:
+          $ref: '#/components/schemas/LegajoStats'
+        vacaciones_activas:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacacionItem'
+        francos_proximos:
+          type: array
+          items:
+            $ref: '#/components/schemas/FrancoItem'
+        horario_actual:
+          allOf:
+            - $ref: '#/components/schemas/AsignacionHorarioConDias'
+          nullable: true
+
+    # --- Comunes ---
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+
+security:
+  - BearerAuth: []
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+paths:
+
+  # ---- Auth ----
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login con DNI y password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Token JWT + datos del empleado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Credenciales invalidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renueva el token JWT
+      responses:
+        '200':
+          description: Nuevo token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+
+  # ---- Perfil ----
+  /me:
+    get:
+      tags: [Perfil]
+      summary: Perfil del empleado autenticado
+      responses:
+        '200':
+          description: Datos del empleado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmpleadoBasico'
+
+  /me/config-asistencia:
+    get:
+      tags: [Perfil]
+      summary: Configuracion de asistencia de la empresa
+      responses:
+        '200':
+          description: Config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  empresa_id:
+                    type: integer
+                  requiere_qr:
+                    type: boolean
+                  requiere_foto:
+                    type: boolean
+                  requiere_geo:
+                    type: boolean
+                  tolerancia_global:
+                    type: integer
+                  cooldown_scan_segundos:
+                    type: integer
+                  intervalo_minimo_fichadas_minutos:
+                    type: integer
+                  metodos_habilitados:
+                    type: array
+                    items:
+                      type: string
+
+  /me/perfil:
+    put:
+      tags: [Perfil]
+      summary: Actualiza perfil (JSON o multipart)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                telefono:
+                  type: string
+                  nullable: true
+                direccion:
+                  type: string
+                  nullable: true
+                foto:
+                  type: string
+                  nullable: true
+                eliminar_foto:
+                  type: boolean
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                telefono:
+                  type: string
+                direccion:
+                  type: string
+                foto:
+                  type: string
+                foto_file:
+                  type: string
+                  format: binary
+                eliminar_foto:
+                  type: string
+      responses:
+        '200':
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  telefono:
+                    type: string
+                    nullable: true
+                  direccion:
+                    type: string
+                    nullable: true
+                  foto:
+                    type: string
+                    nullable: true
+                  imagen_version:
+                    type: string
+                    nullable: true
+        '400':
+          description: Error de validacion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me/perfil/foto:
+    delete:
+      tags: [Perfil]
+      summary: Elimina la foto de perfil
+      responses:
+        '200':
+          description: Foto eliminada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  foto:
+                    type: string
+                    nullable: true
+                  imagen_version:
+                    type: string
+                    nullable: true
+
+  /me/password:
+    put:
+      tags: [Perfil]
+      summary: Cambia la password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password_actual, password_nueva]
+              properties:
+                password_actual:
+                  type: string
+                password_nueva:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '401':
+          description: Password actual incorrecta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---- Fichadas ----
+  /me/qr:
+    post:
+      tags: [Fichadas]
+      summary: Genera un QR de fichada
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accion:
+                  type: string
+                  enum: [ingreso, egreso, auto]
+                  default: auto
+                scope:
+                  type: string
+                  enum: [empresa, empleado]
+                  default: empresa
+                tipo_marca:
+                  type: string
+                  enum: [jornada, desayuno, almuerzo, merienda, otro]
+                  default: jornada
+                vigencia_segundos:
+                  type: integer
+                  minimum: 30
+                  maximum: 315360000
+                  default: 2592000
+      responses:
+        '200':
+          description: QR generado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accion:
+                    type: string
+                  scope:
+                    type: string
+                  tipo_marca:
+                    type: string
+                  empresa_id:
+                    type: integer
+                  empleado_id:
+                    type: integer
+                    nullable: true
+                  vigencia_segundos:
+                    type: integer
+                  expira_at:
+                    type: string
+                    format: date-time
+                  qr_token:
+                    type: string
+                  qr_png_base64:
+                    type: string
+
+  /me/fichadas/scan:
+    post:
+      tags: [Fichadas]
+      summary: Fichada via QR (ingreso/egreso automatico) — recomendado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qr_token, lat, lon]
+              properties:
+                qr_token:
+                  type: string
+                fecha:
+                  type: string
+                  format: date
+                hora:
+                  type: string
+                  example: "08:03"
+                tipo_marca:
+                  type: string
+                  enum: [jornada, desayuno, almuerzo, merienda, otro]
+                lat:
+                  type: number
+                  example: -34.6037
+                lon:
+                  type: number
+                  example: -58.3816
+      responses:
+        '201':
+          description: Ingreso registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  marca_id:
+                    type: integer
+                  accion:
+                    type: string
+                    example: ingreso
+                  tipo_marca:
+                    type: string
+                  estado:
+                    type: string
+                  gps_ok:
+                    type: boolean
+                  distancia_m:
+                    type: number
+                  tolerancia_m:
+                    type: number
+                  alerta_fraude:
+                    type: boolean
+                  evento_id:
+                    type: integer
+                    nullable: true
+                  total_marcas_dia:
+                    type: integer
+        '200':
+          description: Egreso registrado (mismo esquema con accion=egreso)
+        '403':
+          description: Fuera de geocerca
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  gps_ok:
+                    type: boolean
+                  distancia_m:
+                    type: number
+                  tolerancia_m:
+                    type: number
+                  alerta_fraude:
+                    type: boolean
+                  evento_id:
+                    type: integer
+        '409':
+          description: Cooldown (doble scan) o conflicto de jornada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: scan_cooldown
+                  cooldown_segundos_restantes:
+                    type: integer
+                    nullable: true
+
+  /me/fichadas/entrada:
+    post:
+      tags: [Fichadas]
+      deprecated: true
+      summary: Registra entrada (deprecated — usar /scan)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Entrada registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  estado:
+                    type: string
+
+  /me/fichadas/salida:
+    post:
+      tags: [Fichadas]
+      deprecated: true
+      summary: Registra salida (deprecated — usar /scan)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Salida registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  estado:
+                    type: string
+
+  # ---- Asistencias ----
+  /me/horario-esperado:
+    get:
+      tags: [Asistencias]
+      summary: Horario esperado para una fecha
+      parameters:
+        - name: fecha
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Horario esperado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tiene_excepcion:
+                    type: boolean
+                  bloques:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entrada:
+                          type: string
+                        salida:
+                          type: string
+                  tolerancia:
+                    type: integer
+        '404':
+          description: Sin horario esperado
+
+  /me/asistencias:
+    get:
+      tags: [Asistencias]
+      summary: Lista paginada de asistencias
+      parameters:
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Lista de asistencias
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAsistencias'
+
+  /me/marcas:
+    get:
+      tags: [Asistencias]
+      summary: Lista paginada de marcas atomicas (ingreso/egreso)
+      parameters:
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Lista de marcas
+
+  # ---- Estadisticas ----
+  /me/estadisticas:
+    get:
+      tags: [Estadisticas]
+      summary: KPIs agregados del empleado para un rango
+      parameters:
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+          description: "Default: hoy - 29 dias"
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+          description: "Default: hoy. Sin fechas futuras. Max 366 dias."
+      responses:
+        '200':
+          description: Estadisticas completas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadisticasResponse'
+        '400':
+          description: Fechas invalidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me/dashboard:
+    get:
+      tags: [Estadisticas]
+      summary: Dashboard consolidado para pantalla principal
+      description: |
+        Combina en una sola llamada:
+        - Estadisticas de asistencia (KPIs, series diaria y semanal)
+        - Resumen de legajo (historico, periodo, por tipo/severidad, recientes)
+        - Vacaciones activas o futuras (desde hoy)
+        - Francos proximos 30 dias
+        - Horario actual asignado con dias de la semana
+      parameters:
+        - name: periodo
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, mes_actual, 90d]
+            default: 30d
+          description: "Preset de rango. Ignorado si se envian desde/hasta."
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+          description: "Override custom (ISO date)"
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+          description: "Override custom (ISO date). Sin fechas futuras. Max 366 dias."
+      responses:
+        '200':
+          description: Dashboard completo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+        '400':
+          description: Rango invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---- Justificaciones ----
+  /me/justificaciones:
+    get:
+      tags: [Justificaciones]
+      summary: Lista paginada de justificaciones del empleado
+      parameters:
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: estado
+          in: query
+          schema:
+            type: string
+            enum: [pendiente, aprobada, rechazada]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Lista de justificaciones
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedJustificaciones'
+    post:
+      tags: [Justificaciones]
+      summary: Crea una justificacion (estado inicial siempre pendiente)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JustificacionCreateRequest'
+      responses:
+        '201':
+          description: Justificacion creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificacionItem'
+        '400':
+          description: Validacion fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me/justificaciones/{id}:
+    get:
+      tags: [Justificaciones]
+      summary: Detalle de una justificacion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Justificacion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificacionItem'
+        '404':
+          description: No encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [Justificaciones]
+      summary: Edita una justificacion (solo si esta pendiente)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JustificacionUpdateRequest'
+      responses:
+        '200':
+          description: Justificacion actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificacionItem'
+        '404':
+          description: No encontrada
+        '409':
+          description: No esta en estado pendiente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Justificaciones]
+      summary: Retira una justificacion (solo si esta pendiente)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Eliminada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '404':
+          description: No encontrada
+        '409':
+          description: No esta en estado pendiente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---- Vacaciones ----
+  /me/vacaciones:
+    get:
+      tags: [Vacaciones]
+      summary: Lista paginada de periodos de vacaciones
+      parameters:
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Lista de vacaciones
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVacaciones'
+    post:
+      tags: [Vacaciones]
+      summary: Solicita un periodo de vacaciones
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VacacionRequest'
+      responses:
+        '201':
+          description: Vacacion creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacacionItem'
+        '400':
+          description: Validacion fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me/vacaciones/{id}:
+    get:
+      tags: [Vacaciones]
+      summary: Detalle de un periodo de vacaciones
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Vacacion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacacionItem'
+        '404':
+          description: No encontrada
+    put:
+      tags: [Vacaciones]
+      summary: Actualiza un periodo de vacaciones
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VacacionRequest'
+      responses:
+        '200':
+          description: Vacacion actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacacionItem'
+        '404':
+          description: No encontrada
+    delete:
+      tags: [Vacaciones]
+      summary: Elimina un periodo de vacaciones
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Eliminada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '404':
+          description: No encontrada
+
+  # ---- Horarios ----
+  /me/horarios-asignaciones:
+    get:
+      tags: [Horarios]
+      summary: Historial de asignaciones de horario del empleado
+      responses:
+        '200':
+          description: Lista de asignaciones (array)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AsignacionHorario'
+
+  /me/horarios-asignaciones/actual:
+    get:
+      tags: [Horarios]
+      summary: Horario vigente con detalle de dias laborables
+      responses:
+        '200':
+          description: Horario actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HorarioActualResponse'
+
+  # ---- Francos ----
+  /me/francos:
+    get:
+      tags: [Francos]
+      summary: Lista paginada de francos (dias libres)
+      parameters:
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Lista de francos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFrancos'
+
+  /me/francos/{id}:
+    get:
+      tags: [Francos]
+      summary: Detalle de un franco
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Franco
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrancoItem'
+        '404':
+          description: No encontrado
+
+  # ---- Legajo ----
+  /me/legajo/eventos:
+    get:
+      tags: [Legajo]
+      summary: Lista paginada de eventos del legajo
+      parameters:
+        - name: tipo_id
+          in: query
+          schema:
+            type: integer
+        - name: estado
+          in: query
+          schema:
+            type: string
+            enum: [vigente, anulado]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Lista de eventos del legajo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLegajoEventos'
+        '400':
+          description: Parametro de estado invalido
+
+  /me/legajo/eventos/{id}:
+    get:
+      tags: [Legajo]
+      summary: Detalle de un evento del legajo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Evento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegajoEventoItem'
+        '404':
+          description: No encontrado
+
+  # ---- Seguridad ----
+  /me/eventos-seguridad:
+    get:
+      tags: [Seguridad]
+      summary: Lista de eventos de seguridad (fraude GPS, etc.)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: tipo_evento
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de eventos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventoSeguridadItem'
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
+        '500':
+          description: Error interno

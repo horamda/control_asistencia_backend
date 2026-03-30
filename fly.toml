@@ -1,0 +1,18 @@
+app = "tu-app-name"
+
+[env]
+  PORT = "8080"
+
+[processes]
+  app = "gunicorn app:app --bind 0.0.0.0:8080 --workers 2"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 80
+
+  [[services.ports]]
+    port = 443
+    
