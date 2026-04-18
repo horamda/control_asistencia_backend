@@ -476,6 +476,12 @@ def _dashboard_metrics():
         "justificaciones_mes_rechazadas": 0,
         "tasa_aprobacion_justificaciones_mes_pct": 0.0,
         "justificaciones_pendientes_total": 0,
+        "adelantos_mes_total": 0,
+        "adelantos_mes_pendientes": 0,
+        "adelantos_mes_aprobados": 0,
+        "adelantos_mes_rechazados": 0,
+        "adelantos_mes_cancelados": 0,
+        "adelantos_pendientes_total": 0,
         "jornadas_completas_mes": 0,
         "cumplimiento_jornada_mes_pct": 0.0,
         "salida_anticipada_mes": 0,
@@ -797,6 +803,68 @@ def _dashboard_metrics():
                 (stats["justificaciones_mes_aprobadas"] * 100.0) / stats["justificaciones_mes_total"],
                 1,
             )
+        stats["adelantos_mes_total"] = _safe_count(
+            cursor,
+            """
+            SELECT COUNT(*)
+            FROM adelantos
+            WHERE periodo_year = %s
+              AND periodo_month = %s
+            """,
+            (today_dt.year, today_dt.month),
+        )
+        stats["adelantos_mes_pendientes"] = _safe_count(
+            cursor,
+            """
+            SELECT COUNT(*)
+            FROM adelantos
+            WHERE periodo_year = %s
+              AND periodo_month = %s
+              AND LOWER(COALESCE(estado, 'pendiente')) = 'pendiente'
+            """,
+            (today_dt.year, today_dt.month),
+        )
+        stats["adelantos_mes_aprobados"] = _safe_count(
+            cursor,
+            """
+            SELECT COUNT(*)
+            FROM adelantos
+            WHERE periodo_year = %s
+              AND periodo_month = %s
+              AND LOWER(COALESCE(estado, 'pendiente')) = 'aprobado'
+            """,
+            (today_dt.year, today_dt.month),
+        )
+        stats["adelantos_mes_rechazados"] = _safe_count(
+            cursor,
+            """
+            SELECT COUNT(*)
+            FROM adelantos
+            WHERE periodo_year = %s
+              AND periodo_month = %s
+              AND LOWER(COALESCE(estado, 'pendiente')) = 'rechazado'
+            """,
+            (today_dt.year, today_dt.month),
+        )
+        stats["adelantos_mes_cancelados"] = _safe_count(
+            cursor,
+            """
+            SELECT COUNT(*)
+            FROM adelantos
+            WHERE periodo_year = %s
+              AND periodo_month = %s
+              AND LOWER(COALESCE(estado, 'pendiente')) = 'cancelado'
+            """,
+            (today_dt.year, today_dt.month),
+        )
+        stats["adelantos_pendientes_total"] = _safe_count(
+            cursor,
+            """
+            SELECT COUNT(*)
+            FROM adelantos
+            WHERE LOWER(COALESCE(estado, 'pendiente')) = 'pendiente'
+            """,
+        )
 
         stats["ausentes_trimestre"] = _safe_count(
             cursor,
@@ -1452,6 +1520,87 @@ def _dashboard_metrics():
                 round((stats["justificaciones_mes_aprobadas"] * 100.0) / stats["justificaciones_mes_total"], 1)
                 if stats["justificaciones_mes_total"] > 0
                 else 0.0
+            )
+            stats["adelantos_mes_total"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM adelantos ad
+                JOIN empleados e ON e.id = ad.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND ad.periodo_year = %s
+                  AND ad.periodo_month = %s
+                """,
+                (*scoped_params, today_dt.year, today_dt.month),
+            )
+            stats["adelantos_mes_pendientes"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM adelantos ad
+                JOIN empleados e ON e.id = ad.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND ad.periodo_year = %s
+                  AND ad.periodo_month = %s
+                  AND LOWER(COALESCE(ad.estado, 'pendiente')) = 'pendiente'
+                """,
+                (*scoped_params, today_dt.year, today_dt.month),
+            )
+            stats["adelantos_mes_aprobados"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM adelantos ad
+                JOIN empleados e ON e.id = ad.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND ad.periodo_year = %s
+                  AND ad.periodo_month = %s
+                  AND LOWER(COALESCE(ad.estado, 'pendiente')) = 'aprobado'
+                """,
+                (*scoped_params, today_dt.year, today_dt.month),
+            )
+            stats["adelantos_mes_rechazados"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM adelantos ad
+                JOIN empleados e ON e.id = ad.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND ad.periodo_year = %s
+                  AND ad.periodo_month = %s
+                  AND LOWER(COALESCE(ad.estado, 'pendiente')) = 'rechazado'
+                """,
+                (*scoped_params, today_dt.year, today_dt.month),
+            )
+            stats["adelantos_mes_cancelados"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM adelantos ad
+                JOIN empleados e ON e.id = ad.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND ad.periodo_year = %s
+                  AND ad.periodo_month = %s
+                  AND LOWER(COALESCE(ad.estado, 'pendiente')) = 'cancelado'
+                """,
+                (*scoped_params, today_dt.year, today_dt.month),
+            )
+            stats["adelantos_pendientes_total"] = _safe_count(
+                cursor,
+                f"""
+                SELECT COUNT(*)
+                FROM adelantos ad
+                JOIN empleados e ON e.id = ad.empleado_id
+                WHERE 1 = 1
+                {scope_sql}
+                  AND LOWER(COALESCE(ad.estado, 'pendiente')) = 'pendiente'
+                """,
+                scoped_params,
             )
 
             stats["vacaciones_en_curso_hoy"] = _safe_count(

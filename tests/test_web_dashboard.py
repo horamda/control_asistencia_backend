@@ -54,6 +54,12 @@ def test_dashboard_rrhh_render_ok(monkeypatch):
                 "justificaciones_mes_rechazadas": 5,
                 "tasa_aprobacion_justificaciones_mes_pct": 63.2,
                 "justificaciones_pendientes_total": 14,
+                "adelantos_mes_total": 7,
+                "adelantos_mes_pendientes": 3,
+                "adelantos_mes_aprobados": 3,
+                "adelantos_mes_rechazados": 1,
+                "adelantos_mes_cancelados": 0,
+                "adelantos_pendientes_total": 3,
                 "jornadas_completas_mes": 870,
                 "cumplimiento_jornada_mes_pct": 90.6,
                 "salida_anticipada_mes": 44,
@@ -212,6 +218,9 @@ def test_dashboard_rrhh_render_ok(monkeypatch):
     assert b"Puntualidad mes" in resp.data
     assert b"Indice no-show mes" in resp.data
     assert b"Justificaciones del mes" in resp.data
+    assert b"Adelantos del mes" in resp.data
+    assert b"Adelantos pendientes" in resp.data
+    assert b"Reporte de adelantos" in resp.data
     assert b"Vacaciones proximas (30 dias)" in resp.data
     assert b"Torta de estados (30 dias)" in resp.data
     assert b"Aprobacion justif. mes" in resp.data

@@ -24,6 +24,10 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/configuracion-empresa/` | sesion web | admin | `web/configuracion/configuracion_empresa_routes.py:listado` |
 | `GET,POST` | `/configuracion-empresa/editar/<int:empresa_id>` | sesion web | admin | `web/configuracion/configuracion_empresa_routes.py:editar` |
 | `GET` | `/dashboard` | sesion web | usuario autenticado | `web/web_routes.py:dashboard` |
+| `GET` | `/adelantos/` | sesion web | admin, rrhh | `web/adelantos/adelantos_routes.py:listado` |
+| `GET` | `/adelantos/export.csv` | sesion web | admin, rrhh | `web/adelantos/adelantos_routes.py:export_csv` |
+| `POST` | `/adelantos/aprobar/<int:adelanto_id>` | sesion web | admin, rrhh | `web/adelantos/adelantos_routes.py:aprobar` |
+| `POST` | `/adelantos/rechazar/<int:adelanto_id>` | sesion web | admin, rrhh | `web/adelantos/adelantos_routes.py:rechazar` |
 | `GET` | `/empleado-excepciones/` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:listado` |
 | `POST` | `/empleado-excepciones/api` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:api_create` |
 | `GET` | `/empleado-excepciones/api/<int:excepcion_id>` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:api_get` |
@@ -127,6 +131,8 @@ Documento generado automaticamente desde rutas activas del backend.
 | `PUT` | `/api/v1/mobile/me/password` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_update_password` |
 | `PUT` | `/api/v1/mobile/me/perfil` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_update_profile` |
 | `DELETE` | `/api/v1/mobile/me/perfil/foto` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_delete_profile_photo` |
+| `GET` | `/api/v1/mobile/me/adelantos/estado` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_adelantos_estado` |
+| `POST` | `/api/v1/mobile/me/adelantos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_adelantos_create` |
 | `POST` | `/api/v1/mobile/me/qr` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_generar_qr` |
 | `POST` | `/auth/login` | publico | - | `routes/auth_routes.py:login` |
 | `GET` | `/media/empleados/foto/<dni>` | publico | - | `routes/media_routes.py:empleado_foto` |

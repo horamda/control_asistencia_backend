@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Control Asistencia — Mobile API v1
-  version: 1.11.0
+  version: 1.12.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -394,6 +394,47 @@ components:
           type: integer
         per_page:
           type: integer
+
+    # --- Adelanto ---
+    AdelantoItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        periodo:
+          type: string
+          example: "2026-04"
+        periodo_year:
+          type: integer
+        periodo_month:
+          type: integer
+        fecha_solicitud:
+          type: string
+          format: date
+        estado:
+          type: string
+          enum: [pendiente, aprobado, rechazado, cancelado]
+          default: pendiente
+        created_at:
+          type: string
+          format: date-time
+
+    AdelantoEstadoResponse:
+      type: object
+      properties:
+        periodo:
+          type: string
+          example: "2026-04"
+        periodo_year:
+          type: integer
+        periodo_month:
+          type: integer
+        ya_solicitado:
+          type: boolean
+        adelanto:
+          allOf:
+            - $ref: '#/components/schemas/AdelantoItem'
+          nullable: true
 
     # --- Horario ---
     AsignacionHorario:
@@ -1520,6 +1561,43 @@ paths:
                 $ref: '#/components/schemas/OkResponse'
         '404':
           description: No encontrada
+
+  # ---- Adelantos ----
+  /me/adelantos/estado:
+    get:
+      tags: [Adelantos]
+      summary: Estado del adelanto del mes actual
+      responses:
+        '200':
+          description: Estado del mes actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdelantoEstadoResponse'
+
+  /me/adelantos:
+    post:
+      tags: [Adelantos]
+      summary: Solicita el adelanto del mes actual (solo uno por mes)
+      responses:
+        '201':
+          description: Adelanto creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdelantoItem'
+        '400':
+          description: Validacion fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Ya existe una solicitud en el mes actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   # ---- Horarios ----
   /me/horarios-asignaciones:

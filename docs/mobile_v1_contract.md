@@ -519,6 +519,39 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ---
 
+### Adelantos
+
+#### 27A. `GET /api/v1/mobile/me/adelantos/estado`
+- Devuelve el estado del adelanto para el mes calendario actual del servidor.
+- Response 200:
+```json
+{
+  "periodo":"2026-04",
+  "periodo_year":2026,
+  "periodo_month":4,
+  "ya_solicitado":true,
+  "adelanto":{
+    "id":81,
+    "periodo":"2026-04",
+    "periodo_year":2026,
+    "periodo_month":4,
+    "fecha_solicitud":"2026-04-17",
+    "estado":"pendiente",
+    "created_at":"2026-04-17T09:30:00"
+  }
+}
+```
+- Si todavia no hubo solicitud en el mes: `ya_solicitado=false` y `adelanto=null`.
+
+#### 27B. `POST /api/v1/mobile/me/adelantos`
+- No requiere body.
+- Crea una solicitud de adelanto para el mes calendario actual.
+- Estado inicial siempre: `pendiente`.
+- Response 201: objeto adelanto.
+- Response 409: `{"error":"Ya solicitaste un adelanto en este mes."}`
+
+---
+
 ### Horarios
 
 #### 28. `GET /api/v1/mobile/me/horarios-asignaciones`
@@ -671,6 +704,13 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.12.0 (2026-04-17)
+- Nuevos endpoints de adelantos para mobile:
+  - `GET /me/adelantos/estado` (consulta si ya existe solicitud en el mes actual)
+  - `POST /me/adelantos` (crea la solicitud del mes actual)
+- Regla nueva de negocio:
+  - solo se permite un adelanto por empleado por mes calendario
 
 ### 1.11.0 (2026-03-26)
 - Nuevos endpoints: CRUD completo de justificaciones:

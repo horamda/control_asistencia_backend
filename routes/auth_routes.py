@@ -1,8 +1,12 @@
 from flask import Blueprint, current_app, jsonify, request
 
-from services.auth_service import authenticate_user
+from services.auth_service import (
+    AUTH_INVALID_CREDENTIALS_MESSAGE,
+    authenticate_user,
+)
 from services.profile_photo_service import get_profile_photo_version_by_dni
 from utils.jwt import generar_token
+from utils.limiter import limiter
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -19,8 +23,9 @@ def _imagen_version_safe(dni):
 
 
 @auth_bp.route("/login", methods=["POST"])
+@limiter.limit("10 per minute")
 def login():
-    data = request.json
+    data = request.get_json(silent=True) or {}
 
     dni = data.get("dni")
     password = data.get("password")
@@ -31,7 +36,11 @@ def login():
     user, error = authenticate_user(dni, password)
 
     if error:
-        return jsonify({"error": error}), 401
+        current_app.logger.info(
+            "auth_login_failed",
+            extra={"extra": {"dni": str(dni or "").strip(), "reason": error}},
+        )
+        return jsonify({"error": AUTH_INVALID_CREDENTIALS_MESSAGE}), 401
 
     payload = {
         "user_id": user["id"],

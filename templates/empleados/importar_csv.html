@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Importar empleados por CSV{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Capital Humano</div>
+      <h2>Importar empleados por CSV</h2>
+      <p class="module-intro">
+        Cargue masivamente empleados desde un archivo CSV. Revise el formato requerido antes de subir.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Carga masiva</span>
+      <span class="chip">CSV</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn btn-secondary" href="{{ url_for('empleados.listado') }}">← Volver al listado</a>
+    <a class="btn btn-secondary" href="{{ url_for('empleados.descargar_template_csv') }}">Descargar template Excel</a>
+  </div>
+
+  {# ── Resultado de la importación ─────────────────────────────────── #}
+  {% if resultado %}
+    {% if resultado.error %}
+      <div class="errors"><ul><li>{{ resultado.error }}</li></ul></div>
+    {% else %}
+      <div class="import-resultado">
+        <div class="import-stats">
+          <span class="chip chip-ok">✔ Creados: {{ resultado.creados }}</span>
+          <span class="chip chip-warn">↷ Omitidos: {{ resultado.omitidos }}</span>
+          <span class="chip chip-err">✖ Errores: {{ resultado.errores | length }}</span>
+        </div>
+
+        {% if resultado.errores %}
+          <h3 class="section-title" style="margin-top:1.5rem">Detalle de errores y omitidos</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fila</th>
+                  <th>DNI</th>
+                  <th>Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for e in resultado.errores %}
+                  <tr>
+                    <td>{{ e.fila }}</td>
+                    <td>{{ e.dni or "—" }}</td>
+                    <td>{{ e.motivo }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endif %}
+
+  {# ── Formulario ──────────────────────────────────────────────────── #}
+  <form method="post" enctype="multipart/form-data" style="margin-top:1.5rem">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <h3 class="section-title">Configuración de importación</h3>
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa <span style="color:var(--danger)">*</span></label>
+        <select name="empresa_id" required>
+          <option value="">Seleccione empresa</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}">{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+        <small>Todos los empleados del CSV se asignarán a esta empresa.</small>
+      </div>
+
+      <div class="row">
+        <label>Archivo CSV <span style="color:var(--danger)">*</span></label>
+        <input type="file" name="archivo_csv" accept=".csv" required>
+        <small>
+          Formato UTF-8, separado por comas. Máx. 5 MB.<br>
+          Descargue el template Excel, complete la hoja <strong>Plantilla</strong>
+          usando las hojas de referencia y luego exporte esa hoja como CSV para subir aquí.
+        </small>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn">Importar empleados</button>
+    </div>
+  </form>
+
+  {# ── Guía de formato ─────────────────────────────────────────────── #}
+  <details style="margin-top:2rem">
+    <summary><strong>Formato del CSV — columnas aceptadas</strong></summary>
+    <div class="table-wrap" style="margin-top:1rem">
+      <table>
+        <thead>
+          <tr><th>Columna</th><th>Obligatorio</th><th>Valores / formato</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>legajo</td><td>✔</td><td>Texto único</td></tr>
+          <tr><td>dni</td><td>✔</td><td>Número único</td></tr>
+          <tr><td>cuil</td><td></td><td>XX-XXXXXXXX-X</td></tr>
+          <tr><td>apellido</td><td>✔</td><td>Texto</td></tr>
+          <tr><td>nombre</td><td>✔</td><td>Texto</td></tr>
+          <tr><td>sexo</td><td></td><td>masculino / femenino / no_binario / no_informa</td></tr>
+          <tr><td>fecha_nacimiento</td><td></td><td>YYYY-MM-DD</td></tr>
+          <tr><td>email</td><td></td><td>Email válido</td></tr>
+          <tr><td>telefono</td><td></td><td>Texto</td></tr>
+          <tr><td>direccion</td><td></td><td>Texto</td></tr>
+          <tr><td>codigo_postal</td><td></td><td>Código postal existente</td></tr>
+          <tr><td>fecha_ingreso</td><td></td><td>YYYY-MM-DD</td></tr>
+          <tr><td>tipo_contrato</td><td></td><td>efectivo / temporal / pasantia / otro</td></tr>
+          <tr><td>modalidad</td><td></td><td>presencial / remoto / hibrido</td></tr>
+          <tr><td>categoria</td><td></td><td>Texto libre</td></tr>
+          <tr><td>obra_social</td><td></td><td>Texto libre</td></tr>
+          <tr><td>cod_chess_erp</td><td></td><td>Número entero</td></tr>
+          <tr><td>banco</td><td></td><td>Texto libre</td></tr>
+          <tr><td>cbu</td><td></td><td>22 dígitos</td></tr>
+          <tr><td>numero_emergencia</td><td></td><td>Teléfono</td></tr>
+          <tr><td>estado</td><td></td><td>activo / inactivo / suspendido (default: activo)</td></tr>
+          <tr><td>sucursal_nombre</td><td></td><td>Nombre exacto de sucursal activa</td></tr>
+          <tr><td>sector_nombre</td><td></td><td>Nombre exacto de sector activo</td></tr>
+          <tr><td>puesto_nombre</td><td></td><td>Nombre exacto de puesto activo</td></tr>
+          <tr><td>password</td><td></td><td>Si se omite, se usa el DNI como contraseña inicial</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+</div>
+{% endblock %}

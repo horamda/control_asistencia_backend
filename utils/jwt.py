@@ -3,10 +3,22 @@ import os
 from datetime import datetime, timedelta
 
 
+_JWT_MIN_SECRET_LEN = 32
+_JWT_PLACEHOLDER_VALUES = {"changeme", "secret", "your-secret", "jwt_secret", "test_secret"}
+
+
 def _get_secret():
-    secret = os.getenv("JWT_SECRET")
+    secret = os.getenv("JWT_SECRET", "").strip()
     if not secret:
         raise RuntimeError("JWT_SECRET no configurada")
+    if secret.lower() in _JWT_PLACEHOLDER_VALUES:
+        raise RuntimeError(
+            "JWT_SECRET tiene un valor inseguro de plantilla. Configure una clave real."
+        )
+    if len(secret) < _JWT_MIN_SECRET_LEN:
+        raise RuntimeError(
+            f"JWT_SECRET debe tener al menos {_JWT_MIN_SECRET_LEN} caracteres."
+        )
     return secret
 
 

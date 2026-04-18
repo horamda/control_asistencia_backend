@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Adelantos{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Reporte</div>
+      <h2>Adelantos solicitados</h2>
+      <p class="module-intro">
+        Revise las solicitudes de adelanto registradas desde la app mobile, con filtro por empleado, periodo y estado.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Solicitudes mobile</span>
+      <span class="chip">1 por mes</span>
+      <span class="chip">Auditable</span>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="errors"><p>{{ error }}</p></div>
+  {% endif %}
+  {% if msg %}
+    <div class="alert-ok"><p>{{ msg }}</p></div>
+  {% endif %}
+
+  <div class="toolbar">
+    <a
+      class="btn btn-secondary"
+      href="{{ url_for('adelantos.export_csv', empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None) }}"
+    >
+      Exportar CSV
+    </a>
+  </div>
+
+  <form method="get" action="{{ url_for('adelantos.listado') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id">
+          <option value="">Todos</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Año</label>
+        <select name="anio">
+          <option value="">Todos</option>
+          {% for year in years %}
+            <option value="{{ year }}" {% if anio == year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Mes</label>
+        <select name="mes">
+          <option value="">Todos</option>
+          {% for value, label in months %}
+            <option value="{{ value }}" {% if mes == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="">Todos</option>
+          <option value="pendiente" {% if estado == "pendiente" %}selected{% endif %}>Pendiente</option>
+          <option value="aprobado" {% if estado == "aprobado" %}selected{% endif %}>Aprobado</option>
+          <option value="rechazado" {% if estado == "rechazado" %}selected{% endif %}>Rechazado</option>
+          <option value="cancelado" {% if estado == "cancelado" %}selected{% endif %}>Cancelado</option>
+        </select>
+      </div>
+
+      <div class="row span-2">
+        <label>Buscar</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Apellido, nombre o DNI">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('adelantos.listado') }}">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <div class="summary">Resultados: {{ adelantos|length }} registro(s) en esta pagina</div>
+    <div class="summary">Total general: {{ total }}</div>
+  </div>
+
+  <div class="chip-row">
+    <span class="chip">Total: {{ summary.total }}</span>
+    <span class="chip">Pendientes: {{ summary.pendientes }}</span>
+    <span class="chip">Aprobados: {{ summary.aprobados }}</span>
+    <span class="chip">Rechazados: {{ summary.rechazados }}</span>
+    <span class="chip">Cancelados: {{ summary.cancelados }}</span>
+  </div>
+
+  {% if adelantos %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Empleado</th>
+            <th>DNI</th>
+            <th>Periodo</th>
+            <th>Fecha solicitud</th>
+            <th>Estado</th>
+            <th>Resolucion</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in adelantos %}
+            <tr>
+              <td data-label="Empresa">{{ a.empresa_nombre or "-" }}</td>
+              <td data-label="Empleado">{{ a.apellido }} {{ a.nombre }}</td>
+              <td data-label="DNI">{{ a.dni or "-" }}</td>
+              <td data-label="Periodo">{{ "%04d-%02d"|format(a.periodo_year or 0, a.periodo_month or 0) }}</td>
+              <td data-label="Fecha solicitud">{{ a.fecha_solicitud or "-" }}</td>
+              <td data-label="Estado">
+                {% set estado_actual = (a.estado or "")|lower %}
+                {% if estado_actual == "aprobado" %}
+                  <span class="badge ok">Aprobado</span>
+                {% elif estado_actual == "rechazado" %}
+                  <span class="badge danger">Rechazado</span>
+                {% elif estado_actual == "cancelado" %}
+                  <span class="badge">Cancelado</span>
+                {% else %}
+                  <span class="badge warning">Pendiente</span>
+                {% endif %}
+              </td>
+              <td data-label="Resolucion">
+                {% if a.resuelto_by_usuario or a.resuelto_at %}
+                  <div>{{ a.resuelto_by_usuario or "-" }}</div>
+                  <small>{{ a.resuelto_at or "-" }}</small>
+                {% else %}
+                  <span class="helper-text">Pendiente</span>
+                {% endif %}
+              </td>
+              <td data-label="Acciones">
+                {% if estado_actual == "pendiente" %}
+                  <div class="inline-actions">
+                    <form method="post" action="{{ url_for('adelantos.aprobar', adelanto_id=a.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn" type="submit">Aprobar</button>
+                    </form>
+                    <form method="post" action="{{ url_for('adelantos.rechazar', adelanto_id=a.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn-danger" type="submit">Rechazar</button>
+                    </form>
+                  </div>
+                {% else %}
+                  <span class="helper-text">Ya resuelto</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay adelantos para los filtros seleccionados.</div>
+  {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a
+        class="btn btn-secondary"
+        href="{{ url_for('adelantos.listado', page=page - 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None) }}"
+      >
+        Anterior
+      </a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a
+        class="btn btn-secondary"
+        href="{{ url_for('adelantos.listado', page=page + 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None) }}"
+      >
+        Siguiente
+      </a>
+    {% endif %}
+    <span class="summary">Pagina {{ page }}</span>
+  </div>
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
+{% endblock %}

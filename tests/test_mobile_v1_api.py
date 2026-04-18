@@ -51,11 +51,38 @@ def test_mobile_login_ok(monkeypatch):
     assert body["empleado"]["imagen_version"] == "1709294400"
 
 
+def test_mobile_login_invalid_credentials_sanitized(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "authenticate_user",
+        lambda dni, password: (None, "inactive"),
+    )
+
+    resp = client.post("/api/v1/mobile/auth/login", json={"dni": "123", "password": "x"})
+    body = resp.get_json()
+
+    assert resp.status_code == 401
+    assert body["error"] == "Credenciales invalidas."
+
+
 def test_mobile_me_requires_bearer(monkeypatch):
     client = _build_client(monkeypatch)
     resp = client.get("/api/v1/mobile/me")
     assert resp.status_code == 401
     assert "Bearer" in resp.get_json()["error"]
+
+
+def test_mobile_me_invalid_token_sanitized(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: (_ for _ in ()).throw(ValueError("Token expirado")))
+
+    resp = client.get("/api/v1/mobile/me", headers={"Authorization": "Bearer abc"})
+    body = resp.get_json()
+
+    assert resp.status_code == 401
+    assert body["error"] == "Sesion invalida o expirada."
+    assert resp.headers["WWW-Authenticate"] == 'Bearer realm="mobile"'
 
 
 def test_mobile_me_ok(monkeypatch):
@@ -88,6 +115,18 @@ def test_mobile_me_ok(monkeypatch):
     assert resp.status_code == 200
     assert resp.get_json()["id"] == 10
     assert resp.get_json()["imagen_version"] == "1709294500"
+
+
+def test_mobile_auth_refresh_invalid_session_sanitized(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 10})
+    monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda empleado_id: None)
+
+    resp = client.post("/api/v1/mobile/auth/refresh", headers={"Authorization": "Bearer abc"})
+    body = resp.get_json()
+
+    assert resp.status_code == 401
+    assert body["error"] == "Sesion invalida o expirada."
 
 
 def test_mobile_me_config_asistencia_incluye_intervalo_minimo(monkeypatch):
@@ -2094,6 +2133,102 @@ def test_mobile_vacaciones_delete_ajena_retorna_404(monkeypatch):
     client = _build_client(monkeypatch)
     resp = client.delete("/api/v1/mobile/me/vacaciones/7", headers=_auth_headers())
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Adelantos
+# ---------------------------------------------------------------------------
+
+_FAKE_ADELANTO_ROW = {
+    "id": 81,
+    "empleado_id": 10,
+    "empresa_id": 3,
+    "periodo_year": 2026,
+    "periodo_month": 4,
+    "fecha_solicitud": "2026-04-17",
+    "estado": "pendiente",
+    "created_at": datetime.datetime(2026, 4, 17, 9, 30, 0),
+}
+
+
+def _setup_adelanto_auth(monkeypatch):
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 10})
+    monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda eid: _FAKE_EMPLEADO_JUST)
+
+
+def test_mobile_adelantos_estado_sin_solicitud(monkeypatch):
+    _setup_adelanto_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "_today_iso", lambda: "2026-04-17")
+    monkeypatch.setattr(mobile_routes, "get_adelanto_mes_actual_svc", lambda empleado_id, **kw: None)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/adelantos/estado", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["periodo"] == "2026-04"
+    assert body["ya_solicitado"] is False
+    assert body["adelanto"] is None
+
+
+def test_mobile_adelantos_estado_con_solicitud(monkeypatch):
+    _setup_adelanto_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "_today_iso", lambda: "2026-04-17")
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_adelanto_mes_actual_svc",
+        lambda empleado_id, **kw: _FAKE_ADELANTO_ROW,
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/adelantos/estado", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["ya_solicitado"] is True
+    assert body["adelanto"]["id"] == 81
+    assert body["adelanto"]["estado"] == "pendiente"
+
+
+def test_mobile_adelantos_create_ok(monkeypatch):
+    _setup_adelanto_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "_today_iso", lambda: "2026-04-17")
+    created = {}
+    monkeypatch.setattr(
+        mobile_routes,
+        "solicitar_adelanto_svc",
+        lambda **kw: created.update(kw) or 81,
+    )
+    monkeypatch.setattr(mobile_routes, "get_adelanto_by_id", lambda _: _FAKE_ADELANTO_ROW)
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/adelantos",
+        json={},
+        headers=_auth_headers(),
+    )
+    body = resp.get_json()
+    assert resp.status_code == 201
+    assert body["id"] == 81
+    assert created["empleado_id"] == 10
+    assert created["empresa_id"] == 3
+    assert created["fecha_solicitud"] == "2026-04-17"
+
+
+def test_mobile_adelantos_create_mes_duplicado_retorna_409(monkeypatch):
+    _setup_adelanto_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "_today_iso", lambda: "2026-04-17")
+    monkeypatch.setattr(
+        mobile_routes,
+        "solicitar_adelanto_svc",
+        lambda **kw: (_ for _ in ()).throw(
+            mobile_routes.AdelantoAlreadyRequestedError("Ya solicitaste un adelanto en este mes.")
+        ),
+    )
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/adelantos",
+        json={},
+        headers=_auth_headers(),
+    )
+    assert resp.status_code == 409
+    assert "este mes" in resp.get_json()["error"]
 
 
 # ---------------------------------------------------------------------------

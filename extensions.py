@@ -22,12 +22,14 @@ def _ensure_required_indexes():
     cursor = conn.cursor(dictionary=True)
     try:
         for table, indexes in REQUIRED_INDEXES.items():
-            cursor.execute(f"SHOW INDEX FROM {table}")
+            # Usar backticks para quoting de identificadores SQL (nombres de tabla/índice
+            # son constantes internas, pero el quoting es buena práctica defensiva).
+            cursor.execute(f"SHOW INDEX FROM `{table}`")
             existing = {row["Key_name"] for row in cursor.fetchall()}
             for name, cols in indexes.items():
                 if name in existing:
                     continue
-                cursor.execute(f"CREATE INDEX {name} ON {table} {cols}")
+                cursor.execute(f"CREATE INDEX `{name}` ON `{table}` {cols}")
         conn.commit()
     finally:
         cursor.close()

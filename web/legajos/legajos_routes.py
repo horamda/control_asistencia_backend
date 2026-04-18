@@ -29,6 +29,8 @@ from repositories.legajo_evento_repository import (
     get_tipos_evento,
     update_evento,
 )
+from repositories.empleado_horario_repository import get_actual_by_empleado as _get_horario_actual
+from services.horario_service import get_horario_estructurado as _get_horario_estructurado
 from services.legajo_attachment_service import save_legajo_attachment_local
 from utils.audit import log_audit
 from web.auth.decorators import role_required
@@ -486,6 +488,93 @@ _ESTADO_LABEL = {
 
 _WEEKDAY_NAMES = ["L", "M", "X", "J", "V", "S", "D"]
 _MONTH_NAMES = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+_MONTH_NAMES_FULL = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+
+
+def _build_calendar_months(daily_map, desde, hasta):
+    """
+    Construye una lista de meses con grilla lun–dom.
+    Todos los días del rango son válidos: tienen data o aparecen como nodata/weekend.
+    Retorna lista de dicts:
+      { key, name, month_num, year, weeks: [[day|None, ...], ...] }
+    """
+    try:
+        d_start = datetime.date.fromisoformat(str(desde)[:10])
+        d_end = datetime.date.fromisoformat(str(hasta)[:10])
+    except (ValueError, TypeError):
+        return []
+
+    if (d_end - d_start).days > 400:
+        d_start = d_end - datetime.timedelta(days=400)
+
+    months = []
+    cur = d_start.replace(day=1)
+
+    while cur <= d_end:
+        year, month = cur.year, cur.month
+        if month == 12:
+            month_end = datetime.date(year + 1, 1, 1) - datetime.timedelta(days=1)
+        else:
+            month_end = datetime.date(year, month + 1, 1) - datetime.timedelta(days=1)
+
+        days = []
+        d = cur
+        while d <= month_end:
+            ds = d.isoformat()
+            dm = daily_map.get(ds)
+            is_weekend = d.weekday() >= 5
+
+            if dm:
+                estado = dm["estado"]
+                parts = [ds, _ESTADO_LABEL.get(estado, estado)]
+                if dm.get("horas"):
+                    parts.append(f"{dm['horas']}h")
+                if dm.get("tardes"):
+                    parts.append(f"{dm['tardes']} tardanza(s)")
+                if dm.get("ausentes"):
+                    parts.append(f"{dm['ausentes']} ausencia(s)")
+                tooltip = " · ".join(parts)
+            else:
+                estado = "weekend" if is_weekend else "nodata"
+                tooltip = f"{ds} — {'Fin de semana' if is_weekend else 'Sin registro'}"
+
+            days.append({
+                "date": ds,
+                "num": d.day,
+                "weekday": d.weekday(),
+                "is_weekend": is_weekend,
+                "estado": estado,
+                "horas": (dm or {}).get("horas"),
+                "tooltip": tooltip,
+            })
+            d += datetime.timedelta(days=1)
+
+        weeks = []
+        week = [None] * days[0]["weekday"]
+        for day in days:
+            week.append(day)
+            if len(week) == 7:
+                weeks.append(week)
+                week = []
+        if week:
+            week += [None] * (7 - len(week))
+            weeks.append(week)
+
+        months.append({
+            "key": f"{year}-{month:02d}",
+            "name": f"{_MONTH_NAMES_FULL[month]} {year}",
+            "month_num": month,
+            "year": year,
+            "weeks": weeks,
+        })
+
+        if month == 12:
+            cur = datetime.date(year + 1, 1, 1)
+        else:
+            cur = datetime.date(year, month + 1, 1)
+
+    return months
 
 
 def _build_calendar_grid(daily_map, desde, hasta):
@@ -585,14 +674,52 @@ def _build_calendar_grid(daily_map, desde, hasta):
     return weeks, semanas_rows
 
 
+def _rows_to_daily_map(rows: list) -> dict:
+    """Convierte una lista de filas de asistencia en un daily_map {fecha: {...}}."""
+    daily_map: dict = {}
+    _rank = {"ausente": 4, "salida_anticipada": 3, "tarde": 2, "ok": 1}
+    for r in rows:
+        fecha = r.get("fecha")
+        if not fecha:
+            continue
+        ds = str(fecha)[:10]
+        if ds not in daily_map:
+            daily_map[ds] = {
+                "registros": 0, "tardes": 0, "ausentes": 0,
+                "salidas": 0, "ok": 0, "estado": "none", "horas": None,
+            }
+        dm = daily_map[ds]
+        dm["registros"] += 1
+        estado = str(r.get("estado") or "").lower()
+        if estado == "tarde":
+            dm["tardes"] += 1
+        elif estado == "ausente":
+            dm["ausentes"] += 1
+        elif estado == "salida_anticipada":
+            dm["salidas"] += 1
+        elif estado == "ok":
+            dm["ok"] += 1
+        if _rank.get(estado, 0) > _rank.get(dm["estado"], 0):
+            dm["estado"] = estado
+        h_entrada = r.get("hora_entrada")
+        h_salida = r.get("hora_salida")
+        if h_entrada and h_salida:
+            he = _td_to_hours(h_entrada)
+            hs = _td_to_hours(h_salida)
+            if he is not None and hs is not None and hs > he:
+                dm["horas"] = round(hs - he, 1)
+    return daily_map
+
+
 def _compute_asistencia_stats(empleado_id, desde, hasta):
     rows, _ = _get_asistencias_page(1, 50000, empleado_id=empleado_id, fecha_desde=desde, fecha_hasta=hasta)
 
     totales = {"registros": 0, "ok": 0, "tarde": 0, "ausente": 0, "salida_anticipada": 0}
     jornadas = {"completas": 0, "incompletas": 0}
-    daily_map = {}
     horas_jornada = []
     gps_incidencias = 0
+    entradas_manuales = 0   # hora_entrada registrada con método manual (admin o app manual)
+    salidas_manuales = 0    # hora_salida registrada con método manual
 
     for r in rows:
         totales["registros"] += 1
@@ -617,30 +744,12 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
         if h_salida is not None and r.get("gps_ok_salida") == 0:
             gps_incidencias += 1
 
-        fecha = r.get("fecha")
-        if fecha:
-            ds = str(fecha)[:10]
-            if ds not in daily_map:
-                daily_map[ds] = {"registros": 0, "tardes": 0, "ausentes": 0, "salidas": 0, "ok": 0, "estado": "none", "horas": None}
-            dm = daily_map[ds]
-            dm["registros"] += 1
-            if estado == "tarde":
-                dm["tardes"] += 1
-            elif estado == "ausente":
-                dm["ausentes"] += 1
-            elif estado == "salida_anticipada":
-                dm["salidas"] += 1
-            elif estado == "ok":
-                dm["ok"] += 1
-            # Dominant estado: ausente > salida_anticipada > tarde > ok
-            _rank = {"ausente": 4, "salida_anticipada": 3, "tarde": 2, "ok": 1}
-            if _rank.get(estado, 0) > _rank.get(dm["estado"], 0):
-                dm["estado"] = estado
-            if h_entrada and h_salida:
-                he = _td_to_hours(h_entrada)
-                hs = _td_to_hours(h_salida)
-                if he is not None and hs is not None and hs > he:
-                    dm["horas"] = round(hs - he, 1)
+        if h_entrada and str(r.get("metodo_entrada") or "").lower() == "manual":
+            entradas_manuales += 1
+        if h_salida and str(r.get("metodo_salida") or "").lower() == "manual":
+            salidas_manuales += 1
+
+    daily_map = _rows_to_daily_map(rows)
 
     n = max(totales["registros"], 1)
     dias_laborables = _count_workdays(desde, hasta)
@@ -684,16 +793,31 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
         "total": len(all_just),
         "tasa_pct": tasa_just,
     }
-    ausencias = {"sin_justificacion": max(0, totales["ausente"] - just_aprobadas)}
-
     vac_rows, _ = _get_vacaciones_page(empleado_id, 1, 50000, fecha_desde=desde, fecha_hasta=hasta)
     vac_dias = 0
+    vac_dates: set = set()  # fechas ISO cubiertas por vacaciones en el período
     for v in vac_rows:
         fd = _to_date(v.get("fecha_desde"))
         fh = _to_date(v.get("fecha_hasta"))
         if fd and fh and fh >= fd:
             vac_dias += (fh - fd).days + 1
+            cur_v = fd
+            while cur_v <= fh:
+                vac_dates.add(cur_v.isoformat())
+                cur_v += datetime.timedelta(days=1)
     vacaciones = {"eventos": len(vac_rows), "dias": vac_dias}
+
+    # Ausencias cubiertas por vacaciones (no deben contarse como "sin justificar")
+    ausencias_en_vacaciones = sum(
+        1 for r in rows
+        if str(r.get("estado") or "").lower() == "ausente"
+        and str(r.get("fecha") or "")[:10] in vac_dates
+    )
+    ausencias_sin_just = max(0, totales["ausente"] - just_aprobadas - ausencias_en_vacaciones)
+    ausencias = {
+        "sin_justificacion": ausencias_sin_just,
+        "en_vacaciones": ausencias_en_vacaciones,
+    }
 
     status_labels = [
         ("ok", "OK / Puntual", "ok"),
@@ -709,6 +833,259 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
 
     calendar_weeks, semanas_rows = _build_calendar_grid(daily_map, desde, hasta)
 
+    # Calendario libre: últimos 13 meses hasta hoy, independiente del filtro de KPIs
+    today = datetime.date.today()
+    cal_end = today
+    cal_start = (today.replace(day=1) - datetime.timedelta(days=365)).replace(day=1)
+    cal_rows, _ = _get_asistencias_page(
+        1, 50000,
+        empleado_id=empleado_id,
+        fecha_desde=cal_start.isoformat(),
+        fecha_hasta=cal_end.isoformat(),
+    )
+    cal_daily_map = _rows_to_daily_map(cal_rows)
+    calendar_months = _build_calendar_months(cal_daily_map, cal_start.isoformat(), cal_end.isoformat())
+
+    # Horario asignado: horas teóricas por día de semana
+    teo_por_wd = _get_horas_teoricas_por_dia_semana(empleado_id)  # {0:8.0, 5:4.0, ...} o None
+
+    # Horas promedio por mes — con teóricas calculadas sobre los días efectivamente trabajados
+    _horas_mes: dict = {}
+    for r in cal_rows:
+        fecha = r.get("fecha")
+        h_entrada = r.get("hora_entrada")
+        h_salida = r.get("hora_salida")
+        if not fecha or not h_entrada or not h_salida:
+            continue
+        he = _td_to_hours(h_entrada)
+        hs = _td_to_hours(h_salida)
+        if he is None or hs is None or hs <= he:
+            continue
+        ds = str(fecha)[:10]
+        mes_key = ds[:7]
+        wd = datetime.date.fromisoformat(ds).weekday()  # 0=Lun … 6=Dom
+
+        if mes_key not in _horas_mes:
+            _horas_mes[mes_key] = {"sum_horas": 0.0, "jornadas": 0, "sum_teo": 0.0, "jornadas_teo": 0}
+        _horas_mes[mes_key]["sum_horas"] += hs - he
+        _horas_mes[mes_key]["jornadas"] += 1
+
+        # Acumular teóricas solo para días que tienen horario definido
+        if teo_por_wd and wd in teo_por_wd:
+            _horas_mes[mes_key]["sum_teo"] += teo_por_wd[wd]
+            _horas_mes[mes_key]["jornadas_teo"] += 1
+
+    horas_promedio_por_mes = []
+    for key in sorted(_horas_mes.keys()):
+        d = _horas_mes[key]
+        year, month = int(key[:4]), int(key[5:7])
+        promedio = round(d["sum_horas"] / d["jornadas"], 1) if d["jornadas"] > 0 else 0.0
+        # Teóricas: promedio de lo esperado en los mismos días trabajados ese mes
+        teo_prom = (
+            round(d["sum_teo"] / d["jornadas_teo"], 1)
+            if d["jornadas_teo"] > 0 else None
+        )
+        horas_promedio_por_mes.append({
+            "key": key,
+            "mes": f"{_MONTH_NAMES[month]} {year}",
+            "promedio": promedio,
+            "jornadas": d["jornadas"],
+            "teoricas_prom": teo_prom,  # teóricas reales para ese mes según días trabajados
+        })
+
+    # Descripción legible del horario para el template
+    horario_desc = None
+    if teo_por_wd:
+        _dias_names = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+        horario_desc = ", ".join(
+            f"{_dias_names[wd]}: {h}h"
+            for wd, h in sorted(teo_por_wd.items())
+        )
+
+    # Estados por mes — para stacked bar chart (últimos 13 meses, mismos datos que el calendario)
+    _estados_mes: dict = {}
+    for r in cal_rows:
+        fecha = r.get("fecha")
+        if not fecha:
+            continue
+        mes_key = str(fecha)[:7]
+        estado = str(r.get("estado") or "none").lower()
+        if mes_key not in _estados_mes:
+            _estados_mes[mes_key] = {"ok": 0, "tarde": 0, "ausente": 0, "salida_anticipada": 0, "total": 0}
+        _estados_mes[mes_key]["total"] += 1
+        if estado in _estados_mes[mes_key]:
+            _estados_mes[mes_key][estado] += 1
+
+    estados_por_mes = []
+    for key in sorted(_estados_mes.keys()):
+        year, month = int(key[:4]), int(key[5:7])
+        d = _estados_mes[key]
+        total = max(d["total"], 1)
+        estados_por_mes.append({
+            "key": key,
+            "mes": f"{_MONTH_NAMES[month]} {year}",
+            "ok": d["ok"],
+            "tarde": d["tarde"],
+            "ausente": d["ausente"],
+            "salida_anticipada": d["salida_anticipada"],
+            "total": d["total"],
+            "ok_pct": round(d["ok"] * 100 / total, 1),
+            "tarde_pct": round(d["tarde"] * 100 / total, 1),
+            "ausente_pct": round(d["ausente"] * 100 / total, 1),
+            "sa_pct": round(d["salida_anticipada"] * 100 / total, 1),
+        })
+
+    # ── Calidad de fichada ───────────────────────────────────────────────────
+    # Por cada día hábil del horario: ambos fichados=100%, uno solo=50%, ninguno=0%
+    # Si no hay horario asignado: evalúa todos los días con registro.
+
+    def _calidad_per_range(date_rows_map, teo_wd, d_start, d_end, skip_dates=None):
+        """Retorna (score_sum, n_dias_evaluados). skip_dates excluye fechas ISO (ej: vacaciones)."""
+        score, n = 0, 0
+        skip = skip_dates or set()
+        if teo_wd:
+            cur = d_start
+            while cur <= d_end:
+                ds = cur.isoformat()
+                if cur.weekday() in teo_wd and ds not in skip:
+                    dr = date_rows_map.get(ds, [])
+                    he = any(r.get("hora_entrada") for r in dr)
+                    hs = any(r.get("hora_salida") for r in dr)
+                    score += 100 if (he and hs) else (50 if (he or hs) else 0)
+                    n += 1
+                cur += datetime.timedelta(days=1)
+        else:
+            d0, d1 = d_start.isoformat(), d_end.isoformat()
+            for ds, dr in date_rows_map.items():
+                if d0 <= ds <= d1 and ds not in skip:
+                    he = any(r.get("hora_entrada") for r in dr)
+                    hs = any(r.get("hora_salida") for r in dr)
+                    score += 100 if (he and hs) else (50 if (he or hs) else 0)
+                    n += 1
+        return score, n
+
+    # Mapas fecha→lista de rows
+    _period_drows: dict = {}
+    for r in rows:
+        ds = str(r.get("fecha") or "")[:10]
+        if ds:
+            _period_drows.setdefault(ds, []).append(r)
+
+    _cal_drows: dict = {}
+    for r in cal_rows:
+        ds = str(r.get("fecha") or "")[:10]
+        if ds:
+            _cal_drows.setdefault(ds, []).append(r)
+
+    # KPI del período seleccionado
+    try:
+        _kpi_desde = datetime.date.fromisoformat(str(desde)[:10])
+        _kpi_hasta = min(datetime.date.fromisoformat(str(hasta)[:10]), today)
+    except (ValueError, TypeError):
+        _kpi_desde = _kpi_hasta = today
+
+    # Vacaciones de los últimos 13 meses para excluir de calidad mensual
+    _all_vac, _ = _get_vacaciones_page(empleado_id, 1, 50000,
+                                        fecha_desde=cal_start.isoformat(),
+                                        fecha_hasta=cal_end.isoformat())
+    _all_vac_dates: set = set()
+    for _v in _all_vac:
+        _vfd = _to_date(_v.get("fecha_desde"))
+        _vfh = _to_date(_v.get("fecha_hasta"))
+        if _vfd and _vfh:
+            _vc = _vfd
+            while _vc <= _vfh:
+                _all_vac_dates.add(_vc.isoformat())
+                _vc += datetime.timedelta(days=1)
+
+    _cscore, _cn = _calidad_per_range(_period_drows, teo_por_wd, _kpi_desde, _kpi_hasta,
+                                       skip_dates=vac_dates)
+    calidad_fichada_pct = round(_cscore / _cn, 1) if _cn > 0 else None
+    calidad_fichada_n = _cn
+
+    # Por mes — últimos 13 meses (excluye días de vacaciones)
+    calidad_por_mes = []
+    _cal_mes_keys = sorted({ds[:7] for ds in _cal_drows})
+    for _mk in _cal_mes_keys:
+        _my, _mm = int(_mk[:4]), int(_mk[5:7])
+        _ms = datetime.date(_my, _mm, 1)
+        _me = (
+            datetime.date(_my + 1, 1, 1) if _mm == 12
+            else datetime.date(_my, _mm + 1, 1)
+        ) - datetime.timedelta(days=1)
+        _me = min(_me, today)
+        _sc, _nd = _calidad_per_range(_cal_drows, teo_por_wd, _ms, _me,
+                                       skip_dates=_all_vac_dates)
+        calidad_por_mes.append({
+            "key": _mk,
+            "mes": f"{_MONTH_NAMES[_mm]} {_my}",
+            "calidad_pct": round(_sc / _nd, 1) if _nd > 0 else None,
+            "dias_evaluados": _nd,
+        })
+
+    # ── Panel de alertas consolidado ────────────────────────────────────────
+    alertas = []
+
+    if just_pendientes > 0:
+        alertas.append({
+            "tipo": "warn",
+            "icono": "⏳",
+            "msg": f"{just_pendientes} justificación(es) pendiente(s) de revisión",
+            "link_label": "Ver justificaciones",
+            "link_key": "justificaciones",
+        })
+
+    if ausencias_sin_just > 0:
+        alertas.append({
+            "tipo": "danger",
+            "icono": "✖",
+            "msg": f"{ausencias_sin_just} ausencia(s) sin justificación aprobada en el periodo",
+            "link_label": None,
+            "link_key": None,
+        })
+
+    total_manuales = entradas_manuales + salidas_manuales
+    if total_manuales > 0:
+        partes = []
+        if entradas_manuales:
+            partes.append(f"{entradas_manuales} entrada(s)")
+        if salidas_manuales:
+            partes.append(f"{salidas_manuales} salida(s)")
+        alertas.append({
+            "tipo": "info",
+            "icono": "✎",
+            "msg": f"{total_manuales} fichada(s) completada(s) manualmente ({', '.join(partes)}) — no por QR",
+            "link_label": "Ver asistencias",
+            "link_key": "asistencias",
+        })
+
+    if gps_incidencias > 0:
+        alertas.append({
+            "tipo": "warn",
+            "icono": "📍",
+            "msg": f"{gps_incidencias} fichada(s) con GPS fuera del rango permitido",
+            "link_label": None,
+            "link_key": None,
+        })
+
+    if jornadas["incompletas"] > 0:
+        alertas.append({
+            "tipo": "warn",
+            "icono": "⏱",
+            "msg": f"{jornadas['incompletas']} jornada(s) incompleta(s): entrada registrada pero sin salida",
+            "link_label": None,
+            "link_key": None,
+        })
+
+    if calidad_fichada_pct is not None and calidad_fichada_pct < 70:
+        alertas.append({
+            "tipo": "danger",
+            "icono": "📋",
+            "msg": f"Calidad de fichada baja: {calidad_fichada_pct:.1f}% (meta: ≥ 90%)",
+            "link_label": None,
+            "link_key": None,
+        })
+
     return {
         "asistencia": {
             "totales": totales,
@@ -721,7 +1098,15 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
         },
         "asistencia_status_rows": asistencia_status_rows,
         "calendar_weeks": calendar_weeks,
+        "calendar_months": calendar_months,
         "semanas_rows": semanas_rows,
+        "horas_promedio_por_mes": horas_promedio_por_mes,
+        "horario_desc": horario_desc,
+        "estados_por_mes": estados_por_mes,
+        "calidad_fichada_pct": calidad_fichada_pct,
+        "calidad_fichada_n": calidad_fichada_n,
+        "calidad_por_mes": calidad_por_mes,
+        "alertas": alertas,
         "_rows": rows,
     }
 
@@ -794,6 +1179,51 @@ def _compute_legajo_stats(empleado_id, desde, hasta):
     }
 
 
+def _parse_hhmm(value: str) -> float | None:
+    """Convierte 'HH:MM' a horas decimales. None si formato inválido."""
+    s = str(value or "").strip()
+    if len(s) < 5 or s[2] != ":":
+        return None
+    try:
+        return int(s[:2]) + int(s[3:5]) / 60
+    except ValueError:
+        return None
+
+
+def _get_horas_teoricas_por_dia_semana(empleado_id: int) -> dict[int, float] | None:
+    """
+    Devuelve {dia_semana (0=Lun … 6=Dom): horas_teoricas} según el horario
+    actualmente asignado al empleado.
+    Ejemplo: {0: 8.0, 1: 8.0, 2: 8.0, 3: 8.0, 4: 8.0, 5: 4.0}
+    Retorna None si el empleado no tiene horario asignado.
+    """
+    try:
+        asignacion = _get_horario_actual(empleado_id)
+        if not asignacion:
+            return None
+        horario = _get_horario_estructurado(asignacion["horario_id"])
+        if not horario or not horario.get("dias"):
+            return None
+
+        result: dict[int, float] = {}
+        for dia in horario["dias"]:
+            wd = dia.get("dia_semana")
+            if wd is None:
+                continue
+            dia_horas = 0.0
+            for bloque in dia.get("bloques", []):
+                he = _parse_hhmm(bloque.get("entrada"))
+                hs = _parse_hhmm(bloque.get("salida"))
+                if he is not None and hs is not None and hs > he:
+                    dia_horas += hs - he
+            if dia_horas > 0:
+                result[int(wd)] = round(dia_horas, 2)
+
+        return result if result else None
+    except Exception:
+        return None
+
+
 def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos):
     empleados, empleados_total = _get_empleados_page(
         1, 50,
@@ -806,8 +1236,16 @@ def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos
     legajo = {"historico": {}, "periodo": {}, "por_tipo": [], "por_severidad": [], "recientes_periodo": []}
     asistencia_status_rows = []
     calendar_weeks = []
+    calendar_months = []
     semanas_rows = []
     asistencia_rows = []
+    horas_promedio_por_mes = []
+    horario_desc = None
+    estados_por_mes = []
+    calidad_fichada_pct = None
+    calidad_fichada_n = 0
+    calidad_por_mes = []
+    alertas = []
 
     if empleado_id:
         empleado = get_empleado_by_id(empleado_id)
@@ -816,7 +1254,15 @@ def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos
             asistencia = stats["asistencia"]
             asistencia_status_rows = stats["asistencia_status_rows"]
             calendar_weeks = stats["calendar_weeks"]
+            calendar_months = stats["calendar_months"]
             semanas_rows = stats["semanas_rows"]
+            horas_promedio_por_mes = stats["horas_promedio_por_mes"]
+            horario_desc = stats["horario_desc"]
+            estados_por_mes = stats["estados_por_mes"]
+            calidad_fichada_pct = stats["calidad_fichada_pct"]
+            calidad_fichada_n = stats["calidad_fichada_n"]
+            calidad_por_mes = stats["calidad_por_mes"]
+            alertas = stats["alertas"]
             asistencia_rows = stats["_rows"]
             legajo = _compute_legajo_stats(empleado_id, desde, hasta)
 
@@ -829,7 +1275,15 @@ def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos
         "legajo": legajo,
         "asistencia_status_rows": asistencia_status_rows,
         "calendar_weeks": calendar_weeks,
+        "calendar_months": calendar_months,
         "semanas_rows": semanas_rows,
+        "horas_promedio_por_mes": horas_promedio_por_mes,
+        "horario_desc": horario_desc,
+        "estados_por_mes": estados_por_mes,
+        "calidad_fichada_pct": calidad_fichada_pct,
+        "calidad_fichada_n": calidad_fichada_n,
+        "calidad_por_mes": calidad_por_mes,
+        "alertas": alertas,
         "desde": desde,
         "hasta": hasta,
         "periodo": periodo,

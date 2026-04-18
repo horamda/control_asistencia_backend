@@ -224,6 +224,63 @@
       </div>
     </div>
 
+    <h3 class="section-title">Datos laborales y contractuales</h3>
+    <div class="form-grid">
+      <div class="row">
+        <label>CUIL</label>
+        <input name="cuil" value="{{ data.cuil or '' }}" maxlength="15" placeholder="XX-XXXXXXXX-X" autocomplete="off">
+      </div>
+      <div class="row">
+        <label>Tipo de contrato</label>
+        <select name="tipo_contrato">
+          <option value="">Sin especificar</option>
+          {% for v in ["efectivo", "temporal", "pasantia", "otro"] %}
+            <option value="{{ v }}" {% if data.tipo_contrato == v %}selected{% endif %}>{{ v|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Modalidad</label>
+        <select name="modalidad">
+          {% for v in ["presencial", "remoto", "hibrido"] %}
+            <option value="{{ v }}" {% if (data.modalidad or 'presencial') == v %}selected{% endif %}>{{ v|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Fecha de baja</label>
+        <input name="fecha_baja" type="date" value="{{ data.fecha_baja or '' }}">
+      </div>
+      <div class="row">
+        <label>Categoria</label>
+        <input name="categoria" value="{{ data.categoria or '' }}" maxlength="100">
+      </div>
+      <div class="row">
+        <label>Obra social</label>
+        <input name="obra_social" value="{{ data.obra_social or '' }}" maxlength="100">
+      </div>
+      <div class="row">
+        <label>Cod. Chess ERP</label>
+        <input name="cod_chess_erp" value="{{ data.cod_chess_erp or '' }}" inputmode="numeric" maxlength="12">
+      </div>
+      <div class="row">
+        <label>Numero de emergencia</label>
+        <input name="numero_emergencia" value="{{ data.numero_emergencia or '' }}" inputmode="tel" maxlength="50">
+      </div>
+    </div>
+
+    <h3 class="section-title">Datos bancarios</h3>
+    <div class="form-grid">
+      <div class="row">
+        <label>Banco</label>
+        <input name="banco" value="{{ data.banco or '' }}" maxlength="100">
+      </div>
+      <div class="row">
+        <label>CBU</label>
+        <input name="cbu" value="{{ data.cbu or '' }}" maxlength="22" inputmode="numeric" placeholder="22 digitos">
+      </div>
+    </div>
+
     <div class="actions">
       <button id="submit-btn" type="submit">Guardar</button>
       <a class="btn btn-secondary" href="{{ next_url or url_for('empleados.listado') }}">Volver</a>

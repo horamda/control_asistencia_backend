@@ -18,5 +18,6 @@ os.environ.setdefault("DB_USER", "test")
 os.environ.setdefault("DB_PASSWORD", "test")
 os.environ.setdefault("DB_NAME", "test")
 
-os.environ.setdefault("JWT_SECRET", "test_secret")
-os.environ.setdefault("SECRET_KEY", "test_flask_secret")
+os.environ.setdefault("JWT_SECRET", "test_jwt_secret_0123456789abcdef_pytest")
+os.environ.setdefault("APP_ENV", "test")
+os.environ.setdefault("SECRET_KEY", "test_flask_secret_0123456789abcdef")

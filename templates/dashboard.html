@@ -126,6 +126,11 @@
       <div class="kpi-value">{{ stats.justificaciones_pendientes_total }}</div>
       <div class="kpi-desc">Sin resolver. Bueno: 0</div>
     </article>
+    <article class="kpi-card kpi-critical {% if stats.get('adelantos_pendientes_total', 0) == 0 %}tone-ok{% elif stats.get('adelantos_pendientes_total', 0) <= 5 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order: 4;">
+      <div class="kpi-label">Adelantos pendientes</div>
+      <div class="kpi-value">{{ stats.get("adelantos_pendientes_total", 0) }}</div>
+      <div class="kpi-desc">Solicitudes por resolver. Bueno: 0</div>
+    </article>
     <article class="kpi-card" style="--kpi-order: 12;">
       <div class="kpi-label">Vacaciones en curso</div>
       <div class="kpi-value">{{ stats.vacaciones_en_curso_hoy }}</div>
@@ -252,6 +257,20 @@
         <li>Rechazadas: <strong>{{ stats.justificaciones_mes_rechazadas }}</strong></li>
         <li>Pendientes mes: <strong>{{ stats.justificaciones_mes_pendientes }}</strong></li>
       </ul>
+    </article>
+    <article class="panel">
+      <h3>Adelantos del mes</h3>
+      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
+      <ul class="list-clean">
+        <li>Total mes: <strong>{{ stats.get("adelantos_mes_total", 0) }}</strong></li>
+        <li>Aprobados: <strong>{{ stats.get("adelantos_mes_aprobados", 0) }}</strong></li>
+        <li>Rechazados: <strong>{{ stats.get("adelantos_mes_rechazados", 0) }}</strong></li>
+        <li>Cancelados: <strong>{{ stats.get("adelantos_mes_cancelados", 0) }}</strong></li>
+        <li>Pendientes: <strong>{{ stats.get("adelantos_mes_pendientes", 0) }}</strong></li>
+      </ul>
+      <div class="actions">
+        <a class="btn btn-secondary" href="/adelantos/">Ver reporte de adelantos</a>
+      </div>
     </article>
     <article class="panel">
       <h3>Vacaciones (mes y anual)</h3>
@@ -864,6 +883,7 @@
         <a href="/empleado-horarios/">Asignaciones vigentes por empleado</a>
         <a href="/empleado-excepciones/">Registrar excepciones puntuales</a>
         <a href="/asistencias/">Control diario de asistencias</a>
+        <a href="/adelantos/">Reporte de adelantos</a>
         <a href="/justificaciones/">Gestion de justificaciones</a>
         <a href="/legajos/eventos/">Eventos de legajo</a>
         <a href="/vacaciones/">Gestion de vacaciones</a>
@@ -881,6 +901,7 @@
         <div class="stat-row"><span class="stat-row-label">Ausencias mes</span><span class="stat-row-value">{{ stats.ausentes_mes }}</span></div>
         <div class="stat-row"><span class="stat-row-label">Sin justif. mes</span><span class="stat-row-value">{{ stats.ausentes_sin_justificacion_mes }}</span></div>
         <div class="stat-row"><span class="stat-row-label">Justif. pendientes</span><span class="stat-row-value">{{ stats.justificaciones_pendientes_total }}</span></div>
+        <div class="stat-row"><span class="stat-row-label">Adelantos pendientes</span><span class="stat-row-value">{{ stats.get("adelantos_pendientes_total", 0) }}</span></div>
         <div class="stat-row"><span class="stat-row-label">Vacaciones en curso</span><span class="stat-row-value">{{ stats.vacaciones_en_curso_hoy }}</span></div>
         <div class="stat-row"><span class="stat-row-label">Asistencias anio</span><span class="stat-row-value">{{ stats.asistencias_anio }}</span></div>
         <div class="stat-row"><span class="stat-row-label">Ausencias anio</span><span class="stat-row-value">{{ stats.ausentes_anio }}</span></div>
@@ -994,4 +1015,3 @@
   })();
 </script>
 {% endblock %}
-

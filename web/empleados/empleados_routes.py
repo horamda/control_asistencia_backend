@@ -1,7 +1,9 @@
-from flask import Blueprint, render_template, redirect, url_for, request, abort, session, current_app
+from flask import Blueprint, render_template, redirect, url_for, request, abort, session, current_app, Response
 from werkzeug.security import generate_password_hash
 import time
 from utils.forms import parse_int as _parse_int, safe_next_url as _safe_next_url
+from services.empleado_import_service import importar_desde_csv
+from services.empleado_template_service import generar_template_excel
 
 from repositories.empleado_repository import (
     create,
@@ -47,6 +49,17 @@ def _extract_form_data(form):
         "fecha_ingreso": (form.get("fecha_ingreso") or "").strip(),
         "estado": (form.get("estado") or "activo").strip() or "activo",
         "foto": None,
+        # Nuevos campos
+        "cuil": (form.get("cuil") or "").strip(),
+        "tipo_contrato": (form.get("tipo_contrato") or "").strip() or None,
+        "modalidad": (form.get("modalidad") or "presencial").strip(),
+        "fecha_baja": (form.get("fecha_baja") or "").strip() or None,
+        "categoria": (form.get("categoria") or "").strip() or None,
+        "obra_social": (form.get("obra_social") or "").strip() or None,
+        "cod_chess_erp": _parse_int(form.get("cod_chess_erp")),
+        "banco": (form.get("banco") or "").strip() or None,
+        "cbu": (form.get("cbu") or "").strip() or None,
+        "numero_emergencia": (form.get("numero_emergencia") or "").strip() or None,
     }
 
 
@@ -310,3 +323,51 @@ def desactivar(emp_id):
     set_activo(emp_id, 0)
     log_audit(session, "deactivate", "empleados", emp_id)
     return redirect(_safe_next_url(request.args.get("next")) or url_for("empleados.listado"))
+
+
+@empleados_bp.route("/importar-csv", methods=["GET", "POST"])
+@role_required("admin", "rrhh")
+def importar_csv():
+    resultado = None
+
+    if request.method == "POST":
+        archivo = request.files.get("archivo_csv")
+        empresa_id = _parse_int(request.form.get("empresa_id"))
+
+        if not archivo or not archivo.filename.endswith(".csv"):
+            resultado = {"error": "Debe subir un archivo .csv válido."}
+        elif not empresa_id:
+            resultado = {"error": "Debe seleccionar una empresa."}
+        else:
+            try:
+                resultado = importar_desde_csv(archivo.stream, empresa_id)
+                log_audit(session, "importar_csv", "empleados", empresa_id)
+            except Exception as exc:
+                current_app.logger.exception("importar_csv_error")
+                resultado = {"error": f"Error al procesar el archivo: {exc}"}
+
+    empresas = get_empresas(include_inactive=False)
+    return render_template(
+        "empleados/importar_csv.html",
+        empresas=empresas,
+        resultado=resultado,
+    )
+
+
+@empleados_bp.route("/importar-csv/template")
+@role_required("admin", "rrhh")
+def descargar_template_csv():
+    try:
+        excel_bytes = generar_template_excel()
+    except Exception as exc:
+        current_app.logger.exception("template_excel_error")
+        return Response(
+            f"Error al generar el template: {exc}",
+            status=500,
+            mimetype="text/plain",
+        )
+    return Response(
+        excel_bytes,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=template_empleados.xlsx"},
+    )

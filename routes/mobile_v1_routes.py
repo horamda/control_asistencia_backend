@@ -35,6 +35,7 @@ from repositories.empleado_horario_repository import (
     get_historial as get_horario_historial_by_empleado,
 )
 from repositories.horario_dia_repository import get_by_horario as get_dias_by_horario
+from repositories.adelanto_repository import get_by_id as get_adelanto_by_id
 from repositories.vacacion_repository import (
     get_page_by_empleado as get_vacaciones_page_by_empleado,
     get_by_id as get_vacacion_by_id,
@@ -47,6 +48,11 @@ from repositories.justificacion_repository import (
     get_page as get_justificaciones_page,
     delete as delete_justificacion_row,
 )
+from services.adelanto_service import (
+    AdelantoAlreadyRequestedError,
+    get_adelanto_mes_actual as get_adelanto_mes_actual_svc,
+    solicitar_adelanto as solicitar_adelanto_svc,
+)
 from services.justificacion_service import (
     create_justificacion as create_justificacion_svc,
     update_justificacion as update_justificacion_svc,
@@ -58,6 +64,7 @@ from repositories.security_event_repository import (
     get_page_by_empleado as get_security_events_page,
 )
 from services.auth_service import authenticate_user
+from services.auth_service import AUTH_INVALID_CREDENTIALS_MESSAGE
 from services.profile_photo_service import (
     delete_profile_photo_for_dni,
     get_profile_photo_version_by_dni,
@@ -65,7 +72,7 @@ from services.profile_photo_service import (
 )
 from utils.asistencia import get_horario_esperado, validar_asistencia
 from utils.jwt import generar_token, generar_token_qr, verificar_token_qr
-from utils.jwt_guard import mobile_auth_required
+from utils.jwt_guard import INVALID_SESSION_MESSAGE, mobile_auth_required
 from utils.qr import build_qr_png_base64
 from routes.mobile_v1_helpers import (
     DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN,
@@ -263,7 +270,11 @@ def auth_login():
 
     user, error = authenticate_user(dni, password)
     if error:
-        return jsonify({"error": error}), 401
+        current_app.logger.info(
+            "mobile_auth_login_failed",
+            extra={"extra": {"dni": dni, "reason": error}},
+        )
+        return jsonify({"error": AUTH_INVALID_CREDENTIALS_MESSAGE}), 401
 
     token = generar_token(
         {
@@ -294,7 +305,8 @@ def auth_login():
 def auth_refresh():
     empleado = _mobile_user()
     if not empleado:
-        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+        current_app.logger.info("mobile_auth_refresh_failed", extra={"extra": {"reason": "inactive_or_missing"}})
+        return jsonify({"error": INVALID_SESSION_MESSAGE}), 401
 
     token = generar_token(
         {
@@ -1468,6 +1480,72 @@ def me_vacaciones_delete(vacacion_id):
 
     delete_vacacion_row(vacacion_id)
     return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Adelantos
+# ---------------------------------------------------------------------------
+
+def _adelanto_to_dict(a: dict) -> dict:
+    periodo_year = int(a.get("periodo_year") or 0)
+    periodo_month = int(a.get("periodo_month") or 0)
+    return {
+        "id": a.get("id"),
+        "periodo": f"{periodo_year:04d}-{periodo_month:02d}",
+        "periodo_year": periodo_year,
+        "periodo_month": periodo_month,
+        "fecha_solicitud": _to_date_str(a.get("fecha_solicitud")),
+        "estado": a.get("estado") or "pendiente",
+        "created_at": a["created_at"].isoformat() if hasattr(a.get("created_at"), "isoformat") else str(a.get("created_at") or ""),
+    }
+
+
+@mobile_v1_bp.route("/me/adelantos/estado", methods=["GET"])
+@mobile_auth_required
+def me_adelantos_estado():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    today_iso = _today_iso()
+    today = datetime.date.fromisoformat(today_iso)
+    adelanto = get_adelanto_mes_actual_svc(
+        int(empleado["id"]),
+        fecha_solicitud=today_iso,
+    )
+    return jsonify(
+        {
+            "periodo": f"{today.year:04d}-{today.month:02d}",
+            "periodo_year": today.year,
+            "periodo_month": today.month,
+            "ya_solicitado": adelanto is not None,
+            "adelanto": _adelanto_to_dict(adelanto) if adelanto else None,
+        }
+    )
+
+
+@mobile_v1_bp.route("/me/adelantos", methods=["POST"])
+@mobile_auth_required
+def me_adelantos_create():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    today_iso = _today_iso()
+    try:
+        adelanto_id = solicitar_adelanto_svc(
+            empleado_id=int(empleado["id"]),
+            empresa_id=empleado.get("empresa_id"),
+            fecha_solicitud=today_iso,
+        )
+    except AdelantoAlreadyRequestedError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    create_audit(int(empleado["id"]), "create", "adelantos", adelanto_id)
+    adelanto = get_adelanto_by_id(adelanto_id)
+    return jsonify(_adelanto_to_dict(adelanto)), 201
 
 
 # ---------------------------------------------------------------------------

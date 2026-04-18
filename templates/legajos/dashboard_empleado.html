@@ -152,6 +152,29 @@
       </ul>
     </section>
 
+    {# ---- Panel de alertas ---- #}
+    {% if alertas %}
+    <section class="panel panel-alertas">
+      <div class="alertas-header">
+        <span class="alertas-icon">⚠</span>
+        <h3 style="margin:0;">{{ alertas | length }} alerta(s) para este empleado en el período</h3>
+      </div>
+      <ul class="alertas-list">
+        {% for a in alertas %}
+          <li class="alerta alerta-{{ a.tipo }}">
+            <span class="alerta-icono">{{ a.icono }}</span>
+            <span class="alerta-msg">{{ a.msg }}</span>
+            {% if a.link_key == "justificaciones" %}
+              <a class="alerta-link" href="{{ url_for('justificaciones.listado', empleado_id=empleado.id) }}">{{ a.link_label }}</a>
+            {% elif a.link_key == "asistencias" %}
+              <a class="alerta-link" href="{{ url_for('asistencias.listado', empleado_id=empleado.id) }}">{{ a.link_label }}</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
     {# ---- Fila 1 KPIs: asistencia ---- #}
     <section class="grid-kpis dashboard-kpis">
       <article class="kpi-card {% if kpis.get('puntualidad_pct', 0) >= 90 %}tone-ok{% elif kpis.get('puntualidad_pct', 0) >= 70 %}tone-warn{% else %}tone-bad{% endif %}">
@@ -225,6 +248,17 @@
         <div class="kpi-value">{{ racha_ok }}</div>
         <div class="kpi-desc">dias consecutivos puntual</div>
       </article>
+
+      <article class="kpi-card {% if calidad_fichada_pct is not none %}{% if calidad_fichada_pct >= 90 %}tone-ok{% elif calidad_fichada_pct >= 70 %}tone-warn{% else %}tone-bad{% endif %}{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Calidad fichada
+          <span class="kpi-help" tabindex="0" data-tooltip="Por cada dia habilitado del horario: entrada+salida=100%, solo una=50%, ninguna=0%. Promedio del periodo.">?</span>
+        </div>
+        <div class="kpi-value">
+          {% if calidad_fichada_pct is not none %}{{ "%.1f"|format(calidad_fichada_pct) }}%{% else %}—{% endif %}
+        </div>
+        <div class="kpi-desc">{{ calidad_fichada_n }} dias evaluados</div>
+      </article>
     </section>
 
     {# ---- Fila 2 KPIs: legajo ---- #}
@@ -268,10 +302,10 @@
       <article class="kpi-card {% if ausencias.get('sin_justificacion', 0) == 0 %}tone-ok{% elif ausencias.get('sin_justificacion', 0) <= 2 %}tone-warn{% else %}tone-bad{% endif %}">
         <div class="kpi-label kpi-label-inline">
           Ausencias s/just.
-          <span class="kpi-help" tabindex="0" data-tooltip="Ausencias sin justificacion aprobada asociada.">?</span>
+          <span class="kpi-help" tabindex="0" data-tooltip="Ausencias sin justificacion aprobada. Los dias de vacaciones registrados se descuentan automaticamente.">?</span>
         </div>
         <div class="kpi-value">{{ ausencias.get("sin_justificacion", 0) }}</div>
-        <div class="kpi-desc">sin respaldo aprobado</div>
+        <div class="kpi-desc">sin respaldo aprobado{% if ausencias.get("en_vacaciones", 0) %} · {{ ausencias.get("en_vacaciones") }} en vacaciones{% endif %}</div>
       </article>
 
       <article class="kpi-card">
@@ -298,7 +332,7 @@
           <li>Tardanzas: <strong>{{ totales.get("tarde", 0) }}</strong></li>
           <li>Ausentes: <strong>{{ totales.get("ausente", 0) }}</strong></li>
           <li>Salidas anticipadas: <strong>{{ totales.get("salida_anticipada", 0) }}</strong></li>
-          <li>Sin justificar: <strong>{{ ausencias.get("sin_justificacion", 0) }}</strong></li>
+          <li>Sin justificar: <strong>{{ ausencias.get("sin_justificacion", 0) }}</strong>{% if ausencias.get("en_vacaciones", 0) %} <span class="helper-text">({{ ausencias.get("en_vacaciones") }} en vacaciones)</span>{% endif %}</li>
           <li>Jornadas completas: <strong>{{ jornadas.get("completas", 0) }}</strong></li>
           <li>Jornadas incompletas (sin salida): <strong>{{ jornadas.get("incompletas", 0) }}</strong></li>
           {% if kpis.get("horas_promedio", 0) > 0 %}
@@ -307,6 +341,9 @@
           {% endif %}
           {% if kpis.get("gps_incidencias", 0) > 0 %}
           <li>GPS alertas (fuera de rango): <strong>{{ kpis.get("gps_incidencias", 0) }}</strong></li>
+          {% endif %}
+          {% if calidad_fichada_pct is not none %}
+          <li>Calidad fichada (periodo): <strong>{{ "%.1f"|format(calidad_fichada_pct) }}%</strong> <span class="helper-text">({{ calidad_fichada_n }} días evaluados)</span></li>
           {% endif %}
         </ul>
       </article>
@@ -410,9 +447,761 @@
       </article>
     </section>
 
-    {# ---- Calendario heatmap ---- #}
-    <section class="panel">
-      <h3>Calendario de asistencia</h3>
+    {# ---- Gráfico de barras: horas promedio por mes ---- #}
+    {% if horas_promedio_por_mes %}
+    {% set _pts     = horas_promedio_por_mes %}
+    {% set _n       = _pts | length %}
+    {% set _max_h   = (_pts | map(attribute='promedio') | max) %}
+    {% set _teo_vals = [] %}
+    {% for _p in _pts %}{% if _p.teoricas_prom %}{% set _ = _teo_vals.append(_p.teoricas_prom) %}{% endif %}{% endfor %}
+    {% set _max_teo = (_teo_vals | max) if _teo_vals else 0 %}
+    {% set _y_raw   = ([_max_h, _max_teo] | max) %}
+    {% set _y_max   = (_y_raw + 1.5) | round(0, 'ceil') | int %}
+    {# layout #}
+    {% set _ml = 54 %}{% set _mr = 24 %}{% set _mt = 36 %}{% set _mb = 52 %}
+    {% set _w  = 740 %}{% set _h  = 260 %}
+    {% set _pw = _w - _ml - _mr %}
+    {% set _ph = _h - _mt - _mb %}
+    {% set _slot  = _pw / _n %}
+    {% set _bw    = _slot * 0.58 %}
+
+    <section class="panel" id="hs-chart-panel" style="position:relative;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+        <div>
+          <h3 style="margin:0 0 4px;">Horas promedio por jornada &mdash; últimos 13 meses</h3>
+          <p class="helper-text" style="margin:0;">
+            Solo jornadas con entrada <em>y</em> salida registradas.
+            {% if horario_desc %}
+              Horario asignado: <strong>{{ horario_desc }}</strong>.
+              Los rombos punteados muestran las horas esperadas <em>para los días efectivamente trabajados</em> ese mes.
+            {% else %}
+              Sin horario asignado &mdash; sin referencia teórica.
+            {% endif %}
+          </p>
+        </div>
+        {# Mini leyenda #}
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12px;color:var(--muted,#64748b);">
+          {% if horario_desc %}
+            <span style="display:flex;align-items:center;gap:5px;">
+              <svg width="14" height="14"><polygon points="7,1 13,7 7,13 1,7" fill="none" stroke="#94a3b8" stroke-width="1.8"/></svg>Teóricas del mes
+            </span>
+            <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#16a34a;display:inline-block;"></i>≥ 90 %</span>
+            <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#d97706;display:inline-block;"></i>70–90 %</span>
+            <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#dc2626;display:inline-block;"></i>&lt; 70 %</span>
+          {% else %}
+            <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#2563eb;display:inline-block;"></i>Horas reales</span>
+          {% endif %}
+          <span style="display:flex;align-items:center;gap:5px;">
+            <svg width="26" height="8"><polyline points="0,7 8,2 18,5 26,1" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>Tendencia
+          </span>
+        </div>
+      </div>
+
+      {# Tooltip flotante #}
+      <div id="hs-tooltip" style="
+        display:none;position:absolute;z-index:200;
+        background:var(--surface,#fff);
+        border:1px solid var(--border,#e2e8f0);
+        border-radius:10px;padding:10px 14px;
+        box-shadow:0 8px 24px rgba(0,0,0,0.13);
+        pointer-events:none;min-width:160px;font-size:13px;line-height:1.5;
+      "></div>
+
+      <div style="overflow-x:auto;margin-top:14px;">
+        <svg id="hs-svg" viewBox="0 0 {{ _w }} {{ _h }}"
+             xmlns="http://www.w3.org/2000/svg"
+             style="width:100%;min-width:480px;max-width:{{ _w }}px;height:auto;display:block;overflow:visible;">
+
+          {# ── Gradiente de relleno de barras (por JS se cambia el color individual) ── #}
+          <defs>
+            <linearGradient id="bar-grad-ok"   x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#16a34a" stop-opacity="0.95"/><stop offset="100%" stop-color="#16a34a" stop-opacity="0.55"/></linearGradient>
+            <linearGradient id="bar-grad-warn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#d97706" stop-opacity="0.95"/><stop offset="100%" stop-color="#d97706" stop-opacity="0.55"/></linearGradient>
+            <linearGradient id="bar-grad-bad"  x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#dc2626" stop-opacity="0.95"/><stop offset="100%" stop-color="#dc2626" stop-opacity="0.55"/></linearGradient>
+            <linearGradient id="bar-grad-neu"  x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2563eb" stop-opacity="0.90"/><stop offset="100%" stop-color="#2563eb" stop-opacity="0.50"/></linearGradient>
+          </defs>
+
+          {# Líneas guía horizontales + etiquetas Y #}
+          {% set _ticks = range(0, _y_max + 1) %}
+          {% for _t in _ticks %}
+            {% set _ty = _mt + _ph - ((_t / _y_max) * _ph) %}
+            {% if _t > 0 %}
+              <line x1="{{ _ml }}" y1="{{ _ty }}" x2="{{ _w - _mr }}" y2="{{ _ty }}"
+                    stroke="#e2e8f0" stroke-width="0.8" stroke-dasharray="4,5"/>
+            {% endif %}
+            <text x="{{ _ml - 10 }}" y="{{ _ty + 4 }}"
+                  text-anchor="end" font-size="11" fill="#94a3b8">{{ _t }}h</text>
+          {% endfor %}
+
+          {# Eje X base #}
+          <line x1="{{ _ml }}" y1="{{ _mt + _ph }}"
+                x2="{{ _w - _mr }}" y2="{{ _mt + _ph }}"
+                stroke="#cbd5e1" stroke-width="1.5"/>
+
+          {# Línea de referencia teórica por mes (puntos rombo conectados) #}
+          {% set _teo_line = namespace(pts="", has=false) %}
+          {% for p in _pts %}
+            {% if p.teoricas_prom %}
+              {% set _cx = _ml + (loop.index0 + 0.5) * _slot %}
+              {% set _ty = _mt + _ph - ((p.teoricas_prom / _y_max) * _ph) %}
+              {% set _sep = "" if not _teo_line.has else " " %}
+              {% set _teo_line.pts = _teo_line.pts ~ _sep ~ _cx ~ "," ~ _ty %}
+              {% set _teo_line.has = true %}
+            {% endif %}
+          {% endfor %}
+          {% if _teo_line.has %}
+            <polyline points="{{ _teo_line.pts }}"
+                      fill="none" stroke="#94a3b8" stroke-width="1.5"
+                      stroke-dasharray="5,4" opacity="0.8" pointer-events="none"/>
+            {% for p in _pts %}
+              {% if p.teoricas_prom %}
+                {% set _cx = _ml + (loop.index0 + 0.5) * _slot %}
+                {% set _ty = _mt + _ph - ((p.teoricas_prom / _y_max) * _ph) %}
+                {# Rombo #}
+                <polygon points="{{ _cx }},{{ _ty - 5 }} {{ _cx + 5 }},{{ _ty }} {{ _cx }},{{ _ty + 5 }} {{ _cx - 5 }},{{ _ty }}"
+                         fill="white" stroke="#94a3b8" stroke-width="1.5"
+                         pointer-events="none"/>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+
+          {# ── Barras ── #}
+          {% set _trend = namespace(v="") %}
+          {% for p in _pts %}
+            {% set _cx   = _ml + (loop.index0 + 0.5) * _slot %}
+            {% set _bx   = _cx - _bw / 2 %}
+            {% set _by   = _mt + _ph - ((p.promedio / _y_max) * _ph) %}
+            {% set _bh   = _mt + _ph - _by %}
+
+            {# Color según cumplimiento teórico real de ese mes #}
+            {% set _teo_mes = p.teoricas_prom %}
+            {% if _teo_mes and _teo_mes > 0 %}
+              {% set _ratio = p.promedio / _teo_mes %}
+              {% if _ratio >= 0.9 %}
+                {% set _fill = "url(#bar-grad-ok)"  %}{% set _stroke = "#16a34a" %}{% set _tcolor = "#15803d" %}
+              {% elif _ratio >= 0.7 %}
+                {% set _fill = "url(#bar-grad-warn)" %}{% set _stroke = "#d97706" %}{% set _tcolor = "#b45309" %}
+              {% else %}
+                {% set _fill = "url(#bar-grad-bad)"  %}{% set _stroke = "#dc2626" %}{% set _tcolor = "#b91c1c" %}
+              {% endif %}
+            {% else %}
+              {% set _fill = "url(#bar-grad-neu)" %}{% set _stroke = "#2563eb" %}{% set _tcolor = "#1d4ed8" %}
+            {% endif %}
+
+            {# Punto para línea de tendencia (centro-superior de la barra) #}
+            {% set _sep = "" if loop.first else " " %}
+            {% set _trend.v = _trend.v ~ _sep ~ _cx ~ "," ~ _by %}
+
+            {# Sombra / fondo de barra #}
+            <rect x="{{ _bx + 2 }}" y="{{ _by + 3 }}"
+                  width="{{ _bw }}" height="{{ _bh }}"
+                  rx="5" fill="rgba(0,0,0,0.06)"/>
+
+            {# Barra real (halo invisible encima para hover) #}
+            <rect class="hs-bar"
+                  x="{{ _bx }}" y="{{ _by }}"
+                  width="{{ _bw }}" height="{{ _bh }}"
+                  rx="5"
+                  fill="{{ _fill }}"
+                  stroke="{{ _stroke }}" stroke-width="0.8" stroke-opacity="0.4"
+                  data-mes="{{ p.mes }}"
+                  data-promedio="{{ p.promedio }}"
+                  data-jornadas="{{ p.jornadas }}"
+                  data-teoricas="{{ p.teoricas_prom or '' }}"
+                  data-cx="{{ _cx | round(1) }}"
+                  style="cursor:pointer;transition:filter 0.12s,opacity 0.12s;"/>
+
+            {# Etiqueta valor encima de barra #}
+            {% if p.promedio > 0 %}
+              <text x="{{ _cx }}" y="{{ _by - 6 }}"
+                    text-anchor="middle" font-size="11" font-weight="700"
+                    fill="{{ _tcolor }}" pointer-events="none">{{ p.promedio }}h</text>
+            {% endif %}
+
+            {# Etiqueta mes eje X #}
+            <text x="{{ _cx }}" y="{{ _mt + _ph + 16 }}"
+                  text-anchor="middle" font-size="10" fill="#94a3b8"
+                  transform="rotate(-40, {{ _cx }}, {{ _mt + _ph + 16 }})"
+                  pointer-events="none">{{ p.mes }}</text>
+
+            {# Mini etiqueta jornadas bajo barra #}
+            <text x="{{ _cx }}" y="{{ _mt + _ph + 30 }}"
+                  text-anchor="middle" font-size="9" fill="#cbd5e1"
+                  pointer-events="none">{{ p.jornadas }}j</text>
+          {% endfor %}
+
+          {# ── Línea de tendencia sobre barras ── #}
+          {% if _n > 1 %}
+            <polyline points="{{ _trend.v }}"
+                      fill="none"
+                      stroke="#2563eb" stroke-width="2"
+                      stroke-linejoin="round" stroke-linecap="round"
+                      stroke-dasharray="0"
+                      opacity="0.55"
+                      pointer-events="none"/>
+            {# Punto de tendencia en cada cima #}
+            {% for p in _pts %}
+              {% set _cx = _ml + (loop.index0 + 0.5) * _slot %}
+              {% set _by = _mt + _ph - ((p.promedio / _y_max) * _ph) %}
+              <circle cx="{{ _cx }}" cy="{{ _by }}" r="3"
+                      fill="#2563eb" stroke="white" stroke-width="1.5"
+                      opacity="0.7" pointer-events="none"/>
+            {% endfor %}
+          {% endif %}
+
+          {# Crosshair vertical #}
+          <line id="hs-crosshair"
+                x1="0" y1="{{ _mt }}" x2="0" y2="{{ _mt + _ph }}"
+                stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,3"
+                opacity="0" pointer-events="none"/>
+
+        </svg>
+      </div>
+
+      {# ── Chips resumen ── #}
+      {% set _en_obj = namespace(n=0) %}{% set _en_warn = namespace(n=0) %}{% set _en_bajo = namespace(n=0) %}
+      {% for _p in _pts %}
+        {% if _p.teoricas_prom and _p.teoricas_prom > 0 %}
+          {% set _r = _p.promedio / _p.teoricas_prom %}
+          {% if _r >= 0.9 %}{% set _en_obj.n = _en_obj.n + 1 %}
+          {% elif _r >= 0.7 %}{% set _en_warn.n = _en_warn.n + 1 %}
+          {% else %}{% set _en_bajo.n = _en_bajo.n + 1 %}{% endif %}
+        {% endif %}
+      {% endfor %}
+      <div class="chip-row" style="margin-top:14px;">
+        <span class="chip">{{ _n }} meses</span>
+        <span class="chip">Máx: {{ _max_h }}h</span>
+        {% if _en_obj.n  %}<span class="chip chip-ok">{{ _en_obj.n }} en objetivo</span>{% endif %}
+        {% if _en_warn.n %}<span class="chip" style="background:#fef3c7;color:#92400e;">{{ _en_warn.n }} en alerta</span>{% endif %}
+        {% if _en_bajo.n %}<span class="chip chip-err">{{ _en_bajo.n }} bajo umbral</span>{% endif %}
+        {% if horario_desc %}<span class="chip">Horario: {{ horario_desc }}</span>{% endif %}
+      </div>
+    </section>
+
+    <script>
+    (function () {
+      var svg     = document.getElementById("hs-svg");
+      var tooltip = document.getElementById("hs-tooltip");
+      var xhair   = document.getElementById("hs-crosshair");
+      if (!svg || !tooltip) return;
+
+      var bars = svg.querySelectorAll(".hs-bar");
+
+      bars.forEach(function (bar) {
+        bar.addEventListener("mouseenter", function (e) {
+          var mes      = bar.dataset.mes;
+          var prom     = parseFloat(bar.dataset.promedio);
+          var jornadas = parseInt(bar.dataset.jornadas, 10);
+          var teo      = bar.dataset.teoricas ? parseFloat(bar.dataset.teoricas) : null;
+          var cx       = parseFloat(bar.dataset.cx);
+          var pct      = teo ? Math.round(prom / teo * 100) : null;
+
+          var color = !teo    ? "#2563eb"
+                    : pct >= 90 ? "#16a34a"
+                    : pct >= 70 ? "#d97706"
+                                : "#dc2626";
+          var badge_bg = !teo    ? "#eff6ff"
+                       : pct >= 90 ? "#dcfce7"
+                       : pct >= 70 ? "#fef3c7"
+                                   : "#fee2e2";
+
+          // Crosshair
+          if (xhair) {
+            xhair.setAttribute("x1", cx); xhair.setAttribute("x2", cx);
+            xhair.setAttribute("opacity", "1");
+          }
+          // Highlight barra
+          bar.style.filter = "brightness(1.12)";
+
+          // Tooltip
+          var rows = [
+            "<div style='font-weight:700;font-size:13px;color:" + color + ";margin-bottom:6px;'>" + mes + "</div>",
+            "<div style='display:flex;align-items:baseline;gap:4px;'>",
+              "<span style='font-size:26px;font-weight:800;color:" + color + ";line-height:1;'>" + prom + "</span>",
+              "<span style='font-size:12px;color:#94a3b8;'>h prom./jornada</span>",
+            "</div>",
+            "<div style='margin-top:6px;padding-top:6px;border-top:1px solid #f1f5f9;font-size:12px;color:#64748b;'>",
+              "<div>" + jornadas + " jornada" + (jornadas !== 1 ? "s" : "") + " completa" + (jornadas !== 1 ? "s" : "") + "</div>",
+          ];
+          if (teo) {
+            var bar_w = Math.min(100, pct);
+            rows.push(
+              "<div style='margin-top:5px;'>",
+                "<div style='display:flex;justify-content:space-between;margin-bottom:3px;'>",
+                  "<span>Cumplimiento</span>",
+                  "<strong style='color:" + color + ";'>" + pct + " %</strong>",
+                "</div>",
+                "<div style='height:5px;background:#f1f5f9;border-radius:99px;overflow:hidden;'>",
+                  "<div style='height:100%;width:" + bar_w + "%;background:" + color + ";border-radius:99px;transition:width .3s;'></div>",
+                "</div>",
+                "<div style='color:#94a3b8;margin-top:3px;'>Teóricas: " + teo + "h</div>",
+              "</div>"
+            );
+          }
+          rows.push("</div>");
+
+          tooltip.innerHTML = rows.join("");
+          tooltip.style.background = badge_bg;
+          tooltip.style.borderColor = color + "55";
+          tooltip.style.display = "block";
+          _posTooltip(e);
+        });
+
+        bar.addEventListener("mousemove", _posTooltip);
+        bar.addEventListener("mouseleave", function () {
+          if (xhair) xhair.setAttribute("opacity", "0");
+          bar.style.filter = "";
+          tooltip.style.display = "none";
+        });
+      });
+
+      function _posTooltip(e) {
+        var panel = document.getElementById("hs-chart-panel");
+        if (!panel) return;
+        var pr  = panel.getBoundingClientRect();
+        var tw  = tooltip.offsetWidth  || 190;
+        var th  = tooltip.offsetHeight || 120;
+        var x   = e.clientX - pr.left + 16;
+        var y   = e.clientY - pr.top  - th / 2;
+        if (x + tw > pr.width  - 8) x = e.clientX - pr.left - tw - 16;
+        if (y < 8)                   y = 8;
+        if (y + th > pr.height - 8)  y = pr.height - th - 8;
+        tooltip.style.left = x + "px";
+        tooltip.style.top  = y + "px";
+      }
+    })();
+    </script>
+    {% endif %}
+
+    {# ---- Gráfico: estados de asistencia por mes (stacked bar) ---- #}
+    {% if estados_por_mes %}
+    {% set _em      = estados_por_mes %}
+    {% set _en      = _em | length %}
+    {% set _emax    = (_em | map(attribute='total') | max) %}
+    {% set _eml = 44 %}{% set _emr = 24 %}{% set _emt = 36 %}{% set _emb = 52 %}
+    {% set _ew  = 740 %}{% set _eh  = 220 %}
+    {% set _epw = _ew - _eml - _emr %}
+    {% set _eph = _eh - _emt - _emb %}
+    {% set _eslot = _epw / _en %}
+    {% set _ebw   = _eslot * 0.58 %}
+
+    <section class="panel" id="est-chart-panel" style="position:relative;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+        <div>
+          <h3 style="margin:0 0 4px;">Composición de asistencia por mes &mdash; últimos 13 meses</h3>
+          <p class="helper-text" style="margin:0;">Barras apiladas: OK / Tardanza / Ausente / Salida anticipada. La línea punteada muestra la evolución del % puntual.</p>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12px;color:var(--muted,#64748b);">
+          <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#16a34a;display:inline-block;"></i>OK</span>
+          <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#d97706;display:inline-block;"></i>Tardanza</span>
+          <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#dc2626;display:inline-block;"></i>Ausente</span>
+          <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#f59e0b;display:inline-block;"></i>Sal. Ant.</span>
+          <span style="display:flex;align-items:center;gap:5px;">
+            <svg width="26" height="8"><polyline points="0,7 8,2 18,5 26,1" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-dasharray="4,3" stroke-linejoin="round" stroke-linecap="round"/></svg>% Puntual
+          </span>
+        </div>
+      </div>
+
+      <div id="est-tooltip" style="
+        display:none;position:absolute;z-index:200;
+        background:var(--surface,#fff);
+        border:1px solid var(--border,#e2e8f0);
+        border-radius:10px;padding:10px 14px;
+        box-shadow:0 8px 24px rgba(0,0,0,0.13);
+        pointer-events:none;min-width:170px;font-size:13px;line-height:1.6;
+      "></div>
+
+      <div style="overflow-x:auto;margin-top:14px;">
+        <svg id="est-svg" viewBox="0 0 {{ _ew }} {{ _eh }}"
+             xmlns="http://www.w3.org/2000/svg"
+             style="width:100%;min-width:480px;max-width:{{ _ew }}px;height:auto;display:block;overflow:visible;">
+
+          {# Líneas guía + etiquetas Y #}
+          {% set _eticks = range(0, _emax + 2) %}
+          {% for _t in _eticks %}
+            {% if _t <= _emax + 1 %}
+              {% set _ty = _emt + _eph - ((_t / (_emax + 1)) * _eph) %}
+              {% if _t > 0 %}
+                <line x1="{{ _eml }}" y1="{{ _ty }}" x2="{{ _ew - _emr }}" y2="{{ _ty }}"
+                      stroke="#e2e8f0" stroke-width="0.8" stroke-dasharray="4,5"/>
+              {% endif %}
+              {% if _t % 2 == 0 or _emax <= 5 %}
+                <text x="{{ _eml - 8 }}" y="{{ _ty + 4 }}"
+                      text-anchor="end" font-size="10" fill="#94a3b8">{{ _t }}</text>
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+
+          {# Eje X base #}
+          <line x1="{{ _eml }}" y1="{{ _emt + _eph }}" x2="{{ _ew - _emr }}" y2="{{ _emt + _eph }}"
+                stroke="#cbd5e1" stroke-width="1"/>
+
+          {# Barras apiladas + etiquetas X + puntos de tendencia #}
+          {% set _ns_etrend = namespace(pts="") %}
+          {% for _p in _em %}
+            {% set _cx = _eml + (loop.index0 + 0.5) * _eslot %}
+            {% set _bx = _cx - _ebw / 2 %}
+            {% set _base = _emt + _eph %}
+            {% set _scale = _eph / (_emax + 1) %}
+
+            {# Segmento OK (abajo) #}
+            {% set _hok = _p.ok * _scale %}
+            {% if _hok > 0 %}
+              <rect class="est-bar" x="{{ _bx }}" y="{{ _base - _hok }}" width="{{ _ebw }}" height="{{ _hok }}"
+                    fill="#16a34a" rx="2"
+                    data-mes="{{ _p.mes }}" data-ok="{{ _p.ok }}" data-tarde="{{ _p.tarde }}"
+                    data-ausente="{{ _p.ausente }}" data-sa="{{ _p.salida_anticipada }}"
+                    data-total="{{ _p.total }}" data-ok-pct="{{ _p.ok_pct }}"
+                    style="cursor:pointer;"/>
+            {% endif %}
+
+            {# Segmento Tarde #}
+            {% set _htarde = _p.tarde * _scale %}
+            {% if _htarde > 0 %}
+              <rect class="est-bar" x="{{ _bx }}" y="{{ _base - _hok - _htarde }}" width="{{ _ebw }}" height="{{ _htarde }}"
+                    fill="#d97706" rx="2"
+                    data-mes="{{ _p.mes }}" data-ok="{{ _p.ok }}" data-tarde="{{ _p.tarde }}"
+                    data-ausente="{{ _p.ausente }}" data-sa="{{ _p.salida_anticipada }}"
+                    data-total="{{ _p.total }}" data-ok-pct="{{ _p.ok_pct }}"
+                    style="cursor:pointer;"/>
+            {% endif %}
+
+            {# Segmento Ausente #}
+            {% set _haus = _p.ausente * _scale %}
+            {% if _haus > 0 %}
+              <rect class="est-bar" x="{{ _bx }}" y="{{ _base - _hok - _htarde - _haus }}" width="{{ _ebw }}" height="{{ _haus }}"
+                    fill="#dc2626" rx="2"
+                    data-mes="{{ _p.mes }}" data-ok="{{ _p.ok }}" data-tarde="{{ _p.tarde }}"
+                    data-ausente="{{ _p.ausente }}" data-sa="{{ _p.salida_anticipada }}"
+                    data-total="{{ _p.total }}" data-ok-pct="{{ _p.ok_pct }}"
+                    style="cursor:pointer;"/>
+            {% endif %}
+
+            {# Segmento Salida Anticipada #}
+            {% set _hsa = _p.salida_anticipada * _scale %}
+            {% if _hsa > 0 %}
+              <rect class="est-bar" x="{{ _bx }}" y="{{ _base - _hok - _htarde - _haus - _hsa }}" width="{{ _ebw }}" height="{{ _hsa }}"
+                    fill="#f59e0b" rx="2"
+                    data-mes="{{ _p.mes }}" data-ok="{{ _p.ok }}" data-tarde="{{ _p.tarde }}"
+                    data-ausente="{{ _p.ausente }}" data-sa="{{ _p.salida_anticipada }}"
+                    data-total="{{ _p.total }}" data-ok-pct="{{ _p.ok_pct }}"
+                    style="cursor:pointer;"/>
+            {% endif %}
+
+            {# Número total encima de la barra #}
+            {% set _hbar = (_p.total) * _scale %}
+            {% if _p.total > 0 %}
+              <text x="{{ _cx }}" y="{{ _base - _hbar - 4 }}"
+                    text-anchor="middle" font-size="10" fill="#475569" font-weight="600">{{ _p.total }}</text>
+            {% endif %}
+
+            {# Etiqueta X #}
+            <text x="{{ _cx }}" y="{{ _base + 16 }}"
+                  text-anchor="middle" font-size="10" fill="#64748b">{{ _p.mes }}</text>
+
+            {# Punto para polyline de % OK — mapeado al eje Y (0–100% → _eph) #}
+            {% set _cx_f = _eml + (loop.index0 + 0.5) * _eslot %}
+            {% set _pct_y = _emt + _eph - (_p.ok_pct / 100 * _eph) %}
+            {% if loop.first %}
+              {% set _ns_etrend.pts = _cx_f|string ~ "," ~ _pct_y|string %}
+            {% else %}
+              {% set _ns_etrend.pts = _ns_etrend.pts ~ " " ~ _cx_f|string ~ "," ~ _pct_y|string %}
+            {% endif %}
+          {% endfor %}
+
+          {# Polyline % OK #}
+          {% if _ns_etrend.pts %}
+            <polyline points="{{ _ns_etrend.pts }}"
+                      fill="none" stroke="#2563eb" stroke-width="1.8"
+                      stroke-dasharray="5,3" stroke-linejoin="round" stroke-linecap="round"
+                      opacity="0.8"/>
+            {# Puntos sobre la polyline #}
+            {% for _p in _em %}
+              {% set _cx_f = _eml + (loop.index0 + 0.5) * _eslot %}
+              {% set _pct_y = _emt + _eph - (_p.ok_pct / 100 * _eph) %}
+              <circle cx="{{ _cx_f }}" cy="{{ _pct_y }}" r="3"
+                      fill="#2563eb" stroke="#fff" stroke-width="1.5" opacity="0.9"/>
+            {% endfor %}
+          {% endif %}
+
+          {# Crosshair vertical (JS) #}
+          <line id="est-xhair" x1="0" y1="{{ _emt }}" x2="0" y2="{{ _emt + _eph }}"
+                stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>
+        </svg>
+      </div>
+    </section>
+
+    <script>
+    (function () {
+      var bars     = document.querySelectorAll(".est-bar");
+      var tooltip  = document.getElementById("est-tooltip");
+      var xhair    = document.getElementById("est-xhair");
+      if (!bars.length || !tooltip) return;
+
+      bars.forEach(function (bar) {
+        bar.addEventListener("mouseenter", function (e) {
+          var mes    = bar.dataset.mes    || "";
+          var ok     = parseInt(bar.dataset.ok     || 0);
+          var tarde  = parseInt(bar.dataset.tarde  || 0);
+          var ausente= parseInt(bar.dataset.ausente|| 0);
+          var sa     = parseInt(bar.dataset.sa     || 0);
+          var total  = parseInt(bar.dataset.total  || 1);
+          var okPct  = parseFloat(bar.dataset.okPct|| 0);
+
+          // Crosshair
+          var bx = parseFloat(bar.getAttribute("x")) + parseFloat(bar.getAttribute("width")) / 2;
+          if (xhair) { xhair.setAttribute("x1", bx); xhair.setAttribute("x2", bx); xhair.setAttribute("opacity", "1"); }
+          bar.style.filter = "brightness(1.15)";
+
+          // Chip color
+          var tone = okPct >= 90 ? "#16a34a" : okPct >= 70 ? "#d97706" : "#dc2626";
+
+          var rows = [
+            "<strong style='font-size:14px;'>" + mes + "</strong>",
+            "<span style='color:" + tone + ";font-weight:700;font-size:15px;'>" + okPct + "% puntual</span>",
+            "<hr style='border:none;border-top:1px solid #e2e8f0;margin:6px 0;'>",
+            "OK: <strong>" + ok + "</strong>",
+            "Tardanzas: <strong>" + tarde + "</strong>",
+            "Ausentes: <strong>" + ausente + "</strong>",
+            "Sal. anticipada: <strong>" + sa + "</strong>",
+            "<hr style='border:none;border-top:1px solid #e2e8f0;margin:6px 0;'>",
+            "Total registros: <strong>" + total + "</strong>",
+          ];
+          tooltip.innerHTML = rows.join("<br>");
+          tooltip.style.borderColor = tone + "55";
+          tooltip.style.display = "block";
+          _posEstTooltip(e);
+        });
+
+        bar.addEventListener("mousemove", _posEstTooltip);
+        bar.addEventListener("mouseleave", function () {
+          if (xhair) xhair.setAttribute("opacity", "0");
+          bar.style.filter = "";
+          tooltip.style.display = "none";
+        });
+      });
+
+      function _posEstTooltip(e) {
+        var panel = document.getElementById("est-chart-panel");
+        if (!panel) return;
+        var pr = panel.getBoundingClientRect();
+        var tw = tooltip.offsetWidth  || 190;
+        var th = tooltip.offsetHeight || 160;
+        var x  = e.clientX - pr.left + 16;
+        var y  = e.clientY - pr.top  - th / 2;
+        if (x + tw > pr.width  - 8) x = e.clientX - pr.left - tw - 16;
+        if (y < 8)                   y = 8;
+        if (y + th > pr.height - 8)  y = pr.height - th - 8;
+        tooltip.style.left = x + "px";
+        tooltip.style.top  = y + "px";
+      }
+    })();
+    </script>
+    {% endif %}
+
+    {# ---- Gráfico: Calidad de fichada por mes ---- #}
+    {% if calidad_por_mes %}
+    {% set _cpm     = calidad_por_mes | selectattr('calidad_pct', '!=', none) | list %}
+    {% if _cpm %}
+    {% set _cpn     = _cpm | length %}
+    {% set _cml2 = 48 %}{% set _cmr2 = 24 %}{% set _cmt2 = 36 %}{% set _cmb2 = 52 %}
+    {% set _cw2  = 740 %}{% set _ch2  = 200 %}
+    {% set _cpw2 = _cw2 - _cml2 - _cmr2 %}
+    {% set _cph2 = _ch2 - _cmt2 - _cmb2 %}
+    {% set _cslot2 = _cpw2 / _cpn %}
+    {% set _cbw2   = _cslot2 * 0.58 %}
+
+    <section class="panel" id="cal-chart-panel" style="position:relative;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+        <div>
+          <h3 style="margin:0 0 4px;">Calidad de fichada por mes &mdash; últimos 13 meses</h3>
+          <p class="helper-text" style="margin:0;">
+            Por cada día hábil del horario: entrada+salida = 100%, solo una = 50%, ninguna = 0%.
+            {% if not horario_desc %}Sin horario asignado: evalúa todos los días con registro.{% endif %}
+          </p>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12px;color:var(--muted,#64748b);">
+          <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#16a34a;display:inline-block;"></i>≥ 90%</span>
+          <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#d97706;display:inline-block;"></i>70–90%</span>
+          <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#dc2626;display:inline-block;"></i>&lt; 70%</span>
+        </div>
+      </div>
+
+      <div id="cal-chart-tooltip" style="
+        display:none;position:absolute;z-index:200;
+        background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);
+        border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,0.13);
+        pointer-events:none;min-width:155px;font-size:13px;line-height:1.6;
+      "></div>
+
+      <div style="overflow-x:auto;margin-top:14px;">
+        <svg id="cal-chart-svg" viewBox="0 0 {{ _cw2 }} {{ _ch2 }}"
+             xmlns="http://www.w3.org/2000/svg"
+             style="width:100%;min-width:480px;max-width:{{ _cw2 }}px;height:auto;display:block;overflow:visible;">
+
+          <defs>
+            <linearGradient id="cq-grad-ok"   x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#16a34a" stop-opacity="0.95"/><stop offset="100%" stop-color="#16a34a" stop-opacity="0.50"/></linearGradient>
+            <linearGradient id="cq-grad-warn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#d97706" stop-opacity="0.95"/><stop offset="100%" stop-color="#d97706" stop-opacity="0.50"/></linearGradient>
+            <linearGradient id="cq-grad-bad"  x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#dc2626" stop-opacity="0.95"/><stop offset="100%" stop-color="#dc2626" stop-opacity="0.50"/></linearGradient>
+          </defs>
+
+          {# Líneas guía 0%, 25%, 50%, 75%, 100% #}
+          {% for _pct_tick in [0, 25, 50, 75, 100] %}
+            {% set _ty = _cmt2 + _cph2 - (_pct_tick / 100 * _cph2) %}
+            {% if _pct_tick > 0 %}
+              <line x1="{{ _cml2 }}" y1="{{ _ty }}" x2="{{ _cw2 - _cmr2 }}" y2="{{ _ty }}"
+                    stroke="#e2e8f0" stroke-width="0.8" stroke-dasharray="4,5"/>
+            {% endif %}
+            <text x="{{ _cml2 - 8 }}" y="{{ _ty + 4 }}"
+                  text-anchor="end" font-size="10" fill="#94a3b8">{{ _pct_tick }}%</text>
+          {% endfor %}
+
+          {# Meta line 90% #}
+          {% set _goal_y = _cmt2 + _cph2 - (0.9 * _cph2) %}
+          <line x1="{{ _cml2 }}" y1="{{ _goal_y }}" x2="{{ _cw2 - _cmr2 }}" y2="{{ _goal_y }}"
+                stroke="#16a34a" stroke-width="1" stroke-dasharray="6,4" opacity="0.4"/>
+          <text x="{{ _cw2 - _cmr2 + 4 }}" y="{{ _goal_y + 4 }}"
+                font-size="9" fill="#16a34a" opacity="0.7">meta</text>
+
+          {# Eje X #}
+          <line x1="{{ _cml2 }}" y1="{{ _cmt2 + _cph2 }}" x2="{{ _cw2 - _cmr2 }}" y2="{{ _cmt2 + _cph2 }}"
+                stroke="#cbd5e1" stroke-width="1"/>
+
+          {# Barras + etiquetas #}
+          {% set _ns_cqtrend = namespace(pts="") %}
+          {% set _loop_idx = namespace(i=0) %}
+          {% for _p in calidad_por_mes %}
+            {% if _p.calidad_pct is not none %}
+              {% set _cx = _cml2 + (_loop_idx.i + 0.5) * _cslot2 %}
+              {% set _bx = _cx - _cbw2 / 2 %}
+              {% set _bh = (_p.calidad_pct / 100) * _cph2 %}
+              {% set _by = _cmt2 + _cph2 - _bh %}
+
+              {# Color según umbral #}
+              {% if _p.calidad_pct >= 90 %}{% set _grad = "cq-grad-ok" %}
+              {% elif _p.calidad_pct >= 70 %}{% set _grad = "cq-grad-warn" %}
+              {% else %}{% set _grad = "cq-grad-bad" %}{% endif %}
+
+              <rect class="cq-bar" x="{{ _bx }}" y="{{ _by }}" width="{{ _cbw2 }}" height="{{ _bh }}"
+                    fill="url(#{{ _grad }})" rx="3"
+                    data-mes="{{ _p.mes }}"
+                    data-pct="{{ _p.calidad_pct }}"
+                    data-dias="{{ _p.dias_evaluados }}"
+                    style="cursor:pointer;"/>
+
+              {# Etiqueta encima #}
+              <text x="{{ _cx }}" y="{{ _by - 4 }}"
+                    text-anchor="middle" font-size="10"
+                    fill="{% if _p.calidad_pct >= 90 %}#15803d{% elif _p.calidad_pct >= 70 %}#b45309{% else %}#b91c1c{% endif %}"
+                    font-weight="600">{{ "%.0f"|format(_p.calidad_pct) }}%</text>
+
+              {# Etiqueta X #}
+              <text x="{{ _cx }}" y="{{ _cmt2 + _cph2 + 16 }}"
+                    text-anchor="middle" font-size="10" fill="#64748b">{{ _p.mes }}</text>
+
+              {# Punto para trend #}
+              {% set _py = _cmt2 + _cph2 - (_p.calidad_pct / 100 * _cph2) %}
+              {% if _loop_idx.i == 0 %}
+                {% set _ns_cqtrend.pts = _cx|string ~ "," ~ _py|string %}
+              {% else %}
+                {% set _ns_cqtrend.pts = _ns_cqtrend.pts ~ " " ~ _cx|string ~ "," ~ _py|string %}
+              {% endif %}
+              {% set _loop_idx.i = _loop_idx.i + 1 %}
+            {% endif %}
+          {% endfor %}
+
+          {# Crosshair #}
+          <line id="cq-xhair" x1="0" y1="{{ _cmt2 }}" x2="0" y2="{{ _cmt2 + _cph2 }}"
+                stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>
+        </svg>
+      </div>
+
+      {# Chips resumen #}
+      {% set _ns_cqok = namespace(n=0) %}{% set _ns_cqwarn = namespace(n=0) %}{% set _ns_cqbad = namespace(n=0) %}
+      {% for _p in calidad_por_mes %}{% if _p.calidad_pct is not none %}
+        {% if _p.calidad_pct >= 90 %}{% set _ns_cqok.n = _ns_cqok.n + 1 %}
+        {% elif _p.calidad_pct >= 70 %}{% set _ns_cqwarn.n = _ns_cqwarn.n + 1 %}
+        {% else %}{% set _ns_cqbad.n = _ns_cqbad.n + 1 %}{% endif %}
+      {% endif %}{% endfor %}
+      <div class="chip-row" style="margin-top:14px;">
+        <span class="chip">{{ _cpn }} meses</span>
+        {% if _ns_cqok.n   %}<span class="chip chip-ok">{{ _ns_cqok.n }} ≥ 90%</span>{% endif %}
+        {% if _ns_cqwarn.n %}<span class="chip" style="background:#fef3c7;color:#92400e;">{{ _ns_cqwarn.n }} en 70–90%</span>{% endif %}
+        {% if _ns_cqbad.n  %}<span class="chip chip-err">{{ _ns_cqbad.n }} &lt; 70%</span>{% endif %}
+        {% if horario_desc %}<span class="chip">{{ horario_desc }}</span>{% endif %}
+      </div>
+    </section>
+
+    <script>
+    (function () {
+      var bars    = document.querySelectorAll(".cq-bar");
+      var tooltip = document.getElementById("cal-chart-tooltip");
+      var xhair   = document.getElementById("cq-xhair");
+      if (!bars.length || !tooltip) return;
+
+      bars.forEach(function (bar) {
+        bar.addEventListener("mouseenter", function (e) {
+          var mes  = bar.dataset.mes  || "";
+          var pct  = parseFloat(bar.dataset.pct  || 0);
+          var dias = parseInt(bar.dataset.dias || 0);
+          var tone = pct >= 90 ? "#16a34a" : pct >= 70 ? "#d97706" : "#dc2626";
+          var label = pct >= 90 ? "Excelente" : pct >= 70 ? "Aceptable" : "Bajo";
+
+          var bx = parseFloat(bar.getAttribute("x")) + parseFloat(bar.getAttribute("width")) / 2;
+          if (xhair) { xhair.setAttribute("x1", bx); xhair.setAttribute("x2", bx); xhair.setAttribute("opacity", "1"); }
+          bar.style.filter = "brightness(1.15)";
+
+          tooltip.innerHTML = [
+            "<strong style='font-size:14px;'>" + mes + "</strong>",
+            "<span style='color:" + tone + ";font-weight:700;font-size:18px;'>" + pct.toFixed(1) + "%</span>",
+            "<span style='color:" + tone + ";font-size:12px;'>" + label + "</span>",
+            "<hr style='border:none;border-top:1px solid #e2e8f0;margin:6px 0;'>",
+            "Días evaluados: <strong>" + dias + "</strong>",
+          ].join("<br>");
+          tooltip.style.borderColor = tone + "55";
+          tooltip.style.display = "block";
+          _posCQTooltip(e);
+        });
+        bar.addEventListener("mousemove", _posCQTooltip);
+        bar.addEventListener("mouseleave", function () {
+          if (xhair) xhair.setAttribute("opacity", "0");
+          bar.style.filter = "";
+          tooltip.style.display = "none";
+        });
+      });
+
+      function _posCQTooltip(e) {
+        var panel = document.getElementById("cal-chart-panel");
+        if (!panel) return;
+        var pr = panel.getBoundingClientRect();
+        var tw = tooltip.offsetWidth  || 170;
+        var th = tooltip.offsetHeight || 130;
+        var x  = e.clientX - pr.left + 16;
+        var y  = e.clientY - pr.top  - th / 2;
+        if (x + tw > pr.width  - 8) x = e.clientX - pr.left - tw - 16;
+        if (y < 8)                   y = 8;
+        if (y + th > pr.height - 8)  y = pr.height - th - 8;
+        tooltip.style.left = x + "px";
+        tooltip.style.top  = y + "px";
+      }
+    })();
+    </script>
+    {% endif %}
+    {% endif %}
+
+    {# ---- Calendario mensual dinámico ---- #}
+    <section class="panel" id="cal-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <h3 style="margin:0;">Calendario de asistencia</h3>
+        {% if calendar_months %}
+          <div class="cal-nav" id="cal-nav">
+            <button type="button" class="btn btn-secondary btn-sm" id="cal-prev" aria-label="Mes anterior">&#8592;</button>
+            <span id="cal-month-label" style="font-weight:600;min-width:160px;text-align:center;"></span>
+            <span id="cal-month-counter" class="helper-text" style="min-width:60px;text-align:center;"></span>
+            <button type="button" class="btn btn-secondary btn-sm" id="cal-next" aria-label="Mes siguiente">&#8594;</button>
+          </div>
+        {% endif %}
+      </div>
+
       <div class="cal-legend">
         <span class="cal-legend-item"><i class="cal-dot cal-ok"></i>OK</span>
         <span class="cal-legend-item"><i class="cal-dot cal-tarde"></i>Tardanza</span>
@@ -421,42 +1210,98 @@
         <span class="cal-legend-item"><i class="cal-dot cal-nodata"></i>Sin registro</span>
         <span class="cal-legend-item"><i class="cal-dot cal-weekend"></i>Fin de semana</span>
       </div>
-      {% if calendar_weeks %}
-        <div class="cal-heatmap-wrap">
-          <div class="cal-heatmap">
-            <div class="cal-header">
-              {% for name in ["L","M","X","J","V","S","D"] %}
-                <div class="cal-col-label">{{ name }}</div>
-              {% endfor %}
-            </div>
-            {% set ns = namespace(prev_mes="") %}
-            {% for week in calendar_weeks %}
-              {# Month label: show when first day of month appears in this week #}
-              {% set ns2 = namespace(week_mes="") %}
-              {% for day in week %}
-                {% if day and day.num == 1 and ns2.week_mes == "" %}
-                  {% set ns2.week_mes = day.mes %}
-                {% endif %}
-              {% endfor %}
-              <div class="cal-week" {% if ns2.week_mes %}data-mes="{{ ns2.week_mes }}"{% endif %}>
-                {% for day in week %}
-                  {% if day %}
-                    <div class="cal-day cal-{{ day.estado }}" title="{{ day.tooltip }}">
-                      <span class="cal-num">{{ day.num }}</span>
-                      {% if day.horas %}<span class="cal-hours">{{ day.horas }}h</span>{% endif %}
+
+      {% if calendar_months %}
+        <div id="cal-months-container">
+          {% for month in calendar_months %}
+            <div class="cal-month-block" data-month-idx="{{ loop.index0 }}" style="display:none;">
+              <div class="cal-heatmap-wrap">
+                <div class="cal-heatmap cal-heatmap-monthly">
+                  <div class="cal-header">
+                    {% for name in ["L","M","X","J","V","S","D"] %}
+                      <div class="cal-col-label">{{ name }}</div>
+                    {% endfor %}
+                  </div>
+                  {% for week in month.weeks %}
+                    <div class="cal-week">
+                      {% for day in week %}
+                        {% if day %}
+                          <div class="cal-day cal-{{ day.estado }}" title="{{ day.tooltip }}">
+                            <span class="cal-num">{{ day.num }}</span>
+                            {% if day.horas %}<span class="cal-hours">{{ day.horas }}h</span>{% endif %}
+                          </div>
+                        {% else %}
+                          <div class="cal-day cal-pad"></div>
+                        {% endif %}
+                      {% endfor %}
                     </div>
-                  {% else %}
-                    <div class="cal-day cal-pad"></div>
-                  {% endif %}
-                {% endfor %}
+                  {% endfor %}
+                </div>
               </div>
-            {% endfor %}
-          </div>
+            </div>
+          {% endfor %}
         </div>
       {% else %}
         <p>Sin datos para el periodo.</p>
       {% endif %}
     </section>
+
+    <script>
+    (function () {
+      var blocks = document.querySelectorAll(".cal-month-block");
+      if (!blocks.length) return;
+
+      var total = blocks.length;
+      var current = total - 1; // arrancar en el último mes (más reciente)
+
+      var labelEl = document.getElementById("cal-month-label");
+      var counterEl = document.getElementById("cal-month-counter");
+      var prevBtn = document.getElementById("cal-prev");
+      var nextBtn = document.getElementById("cal-next");
+
+      function show(idx) {
+        blocks.forEach(function (b, i) {
+          b.style.display = i === idx ? "" : "none";
+        });
+        var active = blocks[idx];
+        if (labelEl) {
+          // El nombre del mes está en el data, lo extraemos del título del primer día con in_range
+          var days = active.querySelectorAll(".cal-day:not(.cal-pad)");
+          // Usamos el atributo title del primer día para extraer la fecha
+          var firstDay = active.querySelector(".cal-day:not(.cal-pad):not(.cal-norange)");
+          var name = active.dataset.monthName || "";
+          labelEl.textContent = name;
+        }
+        if (counterEl) {
+          counterEl.textContent = (idx + 1) + " / " + total;
+        }
+        if (prevBtn) prevBtn.disabled = idx === 0;
+        if (nextBtn) nextBtn.disabled = idx === total - 1;
+        current = idx;
+      }
+
+      // Inyectar nombre de mes en cada bloque desde Jinja
+      {% for month in calendar_months %}
+        (function () {
+          var b = document.querySelector('[data-month-idx="{{ loop.index0 }}"]');
+          if (b) b.dataset.monthName = "{{ month.name }}";
+        })();
+      {% endfor %}
+
+      if (prevBtn) prevBtn.addEventListener("click", function () { if (current > 0) show(current - 1); });
+      if (nextBtn) nextBtn.addEventListener("click", function () { if (current < total - 1) show(current + 1); });
+
+      // Soporte de teclado en la sección
+      document.addEventListener("keydown", function (e) {
+        var section = document.getElementById("cal-section");
+        if (!section) return;
+        if (e.key === "ArrowLeft") show(Math.max(0, current - 1));
+        if (e.key === "ArrowRight") show(Math.min(total - 1, current + 1));
+      });
+
+      show(current);
+    })();
+    </script>
 
     {# ---- Eventos por tipo / severidad ---- #}
     <section class="panel-grid">
