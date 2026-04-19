@@ -35,7 +35,13 @@ from repositories.empleado_horario_repository import (
     get_historial as get_horario_historial_by_empleado,
 )
 from repositories.horario_dia_repository import get_by_horario as get_dias_by_horario
-from repositories.adelanto_repository import get_by_id as get_adelanto_by_id
+from repositories.adelanto_repository import (
+    get_by_id as get_adelanto_by_id,
+    get_page_by_empleado as get_adelantos_page_by_empleado,
+)
+from repositories.articulo_catalogo_pedido_repository import (
+    get_page as get_articulos_catalogo_pedidos_page,
+)
 from repositories.vacacion_repository import (
     get_page_by_empleado as get_vacaciones_page_by_empleado,
     get_by_id as get_vacacion_by_id,
@@ -53,9 +59,20 @@ from services.adelanto_service import (
     get_adelanto_mes_actual as get_adelanto_mes_actual_svc,
     solicitar_adelanto as solicitar_adelanto_svc,
 )
+from services.pedido_mercaderia_service import (
+    PedidoMercaderiaAlreadyRequestedError,
+    cancelar_pedido as cancelar_pedido_mercaderia_svc,
+    editar_pedido as editar_pedido_mercaderia_svc,
+    get_pedido_mes_actual as get_pedido_mercaderia_mes_actual_svc,
+    solicitar_pedido as solicitar_pedido_mercaderia_svc,
+)
 from services.justificacion_service import (
     create_justificacion as create_justificacion_svc,
     update_justificacion as update_justificacion_svc,
+)
+from repositories.pedido_mercaderia_repository import (
+    get_by_id as get_pedido_mercaderia_by_id,
+    get_page_by_empleado as get_pedidos_mercaderia_page_by_empleado,
 )
 from repositories.mobile_stats_repository import get_by_empleado as get_mobile_stats_by_empleado
 from repositories.auditoria_repository import create as create_audit
@@ -1489,6 +1506,7 @@ def me_vacaciones_delete(vacacion_id):
 def _adelanto_to_dict(a: dict) -> dict:
     periodo_year = int(a.get("periodo_year") or 0)
     periodo_month = int(a.get("periodo_month") or 0)
+    resolved_at = a.get("resuelto_at")
     return {
         "id": a.get("id"),
         "periodo": f"{periodo_year:04d}-{periodo_month:02d}",
@@ -1497,7 +1515,85 @@ def _adelanto_to_dict(a: dict) -> dict:
         "fecha_solicitud": _to_date_str(a.get("fecha_solicitud")),
         "estado": a.get("estado") or "pendiente",
         "created_at": a["created_at"].isoformat() if hasattr(a.get("created_at"), "isoformat") else str(a.get("created_at") or ""),
+        "resuelto_at": resolved_at.isoformat() if hasattr(resolved_at, "isoformat") else (str(resolved_at) if resolved_at else None),
+        "resuelto_by_usuario": a.get("resuelto_by_usuario") or None,
     }
+
+
+@mobile_v1_bp.route("/me/adelantos/resumen", methods=["GET"])
+@mobile_auth_required
+def me_adelantos_resumen():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    empleado_id = int(empleado["id"])
+    today_iso = _today_iso()
+    today = datetime.date.fromisoformat(today_iso)
+    adelanto_mes_actual = get_adelanto_mes_actual_svc(
+        empleado_id,
+        fecha_solicitud=today_iso,
+    )
+    latest_rows, total_historial = get_adelantos_page_by_empleado(empleado_id, 1, 1)
+    _, pendientes_total = get_adelantos_page_by_empleado(empleado_id, 1, 1, estado="pendiente")
+
+    ultimo_adelanto = latest_rows[0] if latest_rows else None
+    return jsonify(
+        {
+            "periodo": f"{today.year:04d}-{today.month:02d}",
+            "periodo_year": today.year,
+            "periodo_month": today.month,
+            "ya_solicitado": adelanto_mes_actual is not None,
+            "adelanto_mes_actual": _adelanto_to_dict(adelanto_mes_actual) if adelanto_mes_actual else None,
+            "ultimo_adelanto": _adelanto_to_dict(ultimo_adelanto) if ultimo_adelanto else None,
+            "total_historial": total_historial,
+            "pendientes_total": pendientes_total,
+        }
+    )
+
+
+@mobile_v1_bp.route("/me/adelantos", methods=["GET"])
+@mobile_auth_required
+def me_adelantos_list():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = max(1, min(request.args.get("per_page", 20, type=int) or 20, 100))
+    estado = (request.args.get("estado") or "").strip() or None
+
+    if estado and estado not in {"pendiente", "aprobado", "rechazado", "cancelado"}:
+        return jsonify({"error": "estado invalido. Valores: pendiente, aprobado, rechazado, cancelado"}), 400
+
+    rows, total = get_adelantos_page_by_empleado(
+        int(empleado["id"]),
+        page,
+        per_page,
+        estado=estado,
+    )
+    return jsonify(
+        {
+            "items": [_adelanto_to_dict(r) for r in rows],
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+        }
+    )
+
+
+@mobile_v1_bp.route("/me/adelantos/<int:adelanto_id>", methods=["GET"])
+@mobile_auth_required
+def me_adelantos_detail(adelanto_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    adelanto = get_adelanto_by_id(adelanto_id)
+    if not adelanto or int(adelanto.get("empleado_id") or 0) != int(empleado["id"]):
+        return jsonify({"error": "Adelanto no encontrado"}), 404
+
+    return jsonify(_adelanto_to_dict(adelanto))
 
 
 @mobile_v1_bp.route("/me/adelantos/estado", methods=["GET"])
@@ -1546,6 +1642,264 @@ def me_adelantos_create():
     create_audit(int(empleado["id"]), "create", "adelantos", adelanto_id)
     adelanto = get_adelanto_by_id(adelanto_id)
     return jsonify(_adelanto_to_dict(adelanto)), 201
+
+
+# ---------------------------------------------------------------------------
+# Pedidos de mercaderia
+# ---------------------------------------------------------------------------
+
+def _pedido_mercaderia_item_to_dict(item: dict) -> dict:
+    return {
+        "id": item.get("id"),
+        "articulo_id": item.get("articulo_id"),
+        "codigo_articulo": item.get("codigo_articulo_snapshot"),
+        "descripcion": item.get("descripcion_snapshot"),
+        "unidades_por_bulto": int(item.get("unidades_por_bulto_snapshot") or 0),
+        "cantidad_bultos": int(item.get("cantidad_bultos") or 0),
+    }
+
+
+def _pedido_mercaderia_to_dict(pedido: dict) -> dict:
+    periodo_year = int(pedido.get("periodo_year") or 0)
+    periodo_month = int(pedido.get("periodo_month") or 0)
+    resolved_at = pedido.get("resuelto_at")
+    return {
+        "id": pedido.get("id"),
+        "periodo": f"{periodo_year:04d}-{periodo_month:02d}",
+        "periodo_year": periodo_year,
+        "periodo_month": periodo_month,
+        "fecha_pedido": _to_date_str(pedido.get("fecha_pedido")),
+        "estado": pedido.get("estado") or "pendiente",
+        "cantidad_items": int(pedido.get("cantidad_items") or 0),
+        "total_bultos": int(pedido.get("total_bultos") or 0),
+        "motivo_rechazo": pedido.get("motivo_rechazo") or None,
+        "created_at": pedido["created_at"].isoformat() if hasattr(pedido.get("created_at"), "isoformat") else str(pedido.get("created_at") or ""),
+        "resuelto_at": resolved_at.isoformat() if hasattr(resolved_at, "isoformat") else (str(resolved_at) if resolved_at else None),
+        "resuelto_by_usuario": pedido.get("resuelto_by_usuario") or None,
+        "items": [_pedido_mercaderia_item_to_dict(item) for item in pedido.get("items") or []],
+    }
+
+
+def _articulo_catalogo_pedido_to_dict(row: dict) -> dict:
+    return {
+        "id": row.get("id"),
+        "codigo_articulo": row.get("codigo_articulo"),
+        "descripcion": row.get("descripcion"),
+        "unidades_por_bulto": int(row.get("unidades_por_bulto") or 0),
+        "bultos_por_pallet": int(row.get("bultos_por_pallet") or 0) if row.get("bultos_por_pallet") is not None else None,
+        "marca": row.get("marca") or None,
+        "familia": row.get("familia") or None,
+        "sabor": row.get("sabor") or None,
+        "division": row.get("division") or None,
+    }
+
+
+@mobile_v1_bp.route("/me/pedidos-mercaderia/resumen", methods=["GET"])
+@mobile_auth_required
+def me_pedidos_mercaderia_resumen():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    empleado_id = int(empleado["id"])
+    today_iso = _today_iso()
+    today = datetime.date.fromisoformat(today_iso)
+    pedido_mes_actual = get_pedido_mercaderia_mes_actual_svc(
+        empleado_id,
+        fecha_pedido=today_iso,
+    )
+    latest_rows, total_historial = get_pedidos_mercaderia_page_by_empleado(empleado_id, 1, 1)
+    aprobados_rows, historial_aprobados_total = get_pedidos_mercaderia_page_by_empleado(
+        empleado_id,
+        1,
+        1,
+        estado="aprobado",
+    )
+    _, pendientes_total = get_pedidos_mercaderia_page_by_empleado(empleado_id, 1, 1, estado="pendiente")
+
+    ultimo_pedido = latest_rows[0] if latest_rows else None
+    ultimo_aprobado = aprobados_rows[0] if aprobados_rows else None
+    return jsonify(
+        {
+            "periodo": f"{today.year:04d}-{today.month:02d}",
+            "periodo_year": today.year,
+            "periodo_month": today.month,
+            "ya_solicitado": pedido_mes_actual is not None,
+            "pedido_mes_actual": _pedido_mercaderia_to_dict(pedido_mes_actual) if pedido_mes_actual else None,
+            "ultimo_pedido": _pedido_mercaderia_to_dict(ultimo_pedido) if ultimo_pedido else None,
+            "ultimo_pedido_aprobado": _pedido_mercaderia_to_dict(ultimo_aprobado) if ultimo_aprobado else None,
+            "total_historial": total_historial,
+            "historial_aprobados_total": historial_aprobados_total,
+            "pendientes_total": pendientes_total,
+        }
+    )
+
+
+@mobile_v1_bp.route("/me/pedidos-mercaderia/estado", methods=["GET"])
+@mobile_auth_required
+def me_pedidos_mercaderia_estado():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    today_iso = _today_iso()
+    today = datetime.date.fromisoformat(today_iso)
+    pedido = get_pedido_mercaderia_mes_actual_svc(
+        int(empleado["id"]),
+        fecha_pedido=today_iso,
+    )
+    return jsonify(
+        {
+            "periodo": f"{today.year:04d}-{today.month:02d}",
+            "periodo_year": today.year,
+            "periodo_month": today.month,
+            "ya_solicitado": pedido is not None,
+            "pedido": _pedido_mercaderia_to_dict(pedido) if pedido else None,
+        }
+    )
+
+
+@mobile_v1_bp.route("/me/pedidos-mercaderia/articulos", methods=["GET"])
+@mobile_auth_required
+def me_pedidos_mercaderia_articulos():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = max(1, min(request.args.get("per_page", 20, type=int) or 20, 100))
+    search = (request.args.get("q") or "").strip() or None
+
+    rows, total = get_articulos_catalogo_pedidos_page(
+        page,
+        per_page,
+        search=search,
+        habilitado_only=True,
+    )
+    return jsonify(
+        {
+            "items": [_articulo_catalogo_pedido_to_dict(row) for row in rows],
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+        }
+    )
+
+
+@mobile_v1_bp.route("/me/pedidos-mercaderia", methods=["GET"])
+@mobile_auth_required
+def me_pedidos_mercaderia_list():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = max(1, min(request.args.get("per_page", 20, type=int) or 20, 100))
+    estado = (request.args.get("estado") or "").strip() or None
+
+    if estado and estado not in {"pendiente", "aprobado", "rechazado", "cancelado"}:
+        return jsonify({"error": "estado invalido. Valores: pendiente, aprobado, rechazado, cancelado"}), 400
+
+    rows, total = get_pedidos_mercaderia_page_by_empleado(
+        int(empleado["id"]),
+        page,
+        per_page,
+        estado=estado,
+    )
+    return jsonify(
+        {
+            "items": [_pedido_mercaderia_to_dict(row) for row in rows],
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+        }
+    )
+
+
+@mobile_v1_bp.route("/me/pedidos-mercaderia/<int:pedido_id>", methods=["GET"])
+@mobile_auth_required
+def me_pedidos_mercaderia_detail(pedido_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    pedido = get_pedido_mercaderia_by_id(pedido_id)
+    if not pedido or int(pedido.get("empleado_id") or 0) != int(empleado["id"]):
+        return jsonify({"error": "Pedido no encontrado"}), 404
+
+    return jsonify(_pedido_mercaderia_to_dict(pedido))
+
+
+@mobile_v1_bp.route("/me/pedidos-mercaderia", methods=["POST"])
+@mobile_auth_required
+def me_pedidos_mercaderia_create():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    today_iso = _today_iso()
+    try:
+        pedido_id = solicitar_pedido_mercaderia_svc(
+            empleado_id=int(empleado["id"]),
+            empresa_id=empleado.get("empresa_id"),
+            fecha_pedido=today_iso,
+            items=payload.get("items"),
+        )
+    except PedidoMercaderiaAlreadyRequestedError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    create_audit(int(empleado["id"]), "create", "pedidos_mercaderia", pedido_id)
+    pedido = get_pedido_mercaderia_by_id(pedido_id)
+    return jsonify(_pedido_mercaderia_to_dict(pedido)), 201
+
+
+@mobile_v1_bp.route("/me/pedidos-mercaderia/<int:pedido_id>", methods=["PUT"])
+@mobile_auth_required
+def me_pedidos_mercaderia_update(pedido_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        editar_pedido_mercaderia_svc(
+            pedido_id,
+            empleado_id=int(empleado["id"]),
+            items=payload.get("items"),
+        )
+    except ValueError as exc:
+        message = str(exc)
+        status = 404 if "no encontrado" in message.lower() else 400
+        return jsonify({"error": message}), status
+
+    create_audit(int(empleado["id"]), "update", "pedidos_mercaderia", pedido_id)
+    pedido = get_pedido_mercaderia_by_id(pedido_id)
+    return jsonify(_pedido_mercaderia_to_dict(pedido))
+
+
+@mobile_v1_bp.route("/me/pedidos-mercaderia/<int:pedido_id>", methods=["DELETE"])
+@mobile_auth_required
+def me_pedidos_mercaderia_cancel(pedido_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    try:
+        cancelar_pedido_mercaderia_svc(
+            pedido_id,
+            empleado_id=int(empleado["id"]),
+        )
+    except ValueError as exc:
+        message = str(exc)
+        status = 404 if "no encontrado" in message.lower() else 400
+        return jsonify({"error": message}), status
+
+    create_audit(int(empleado["id"]), "cancel", "pedidos_mercaderia", pedido_id)
+    pedido = get_pedido_mercaderia_by_id(pedido_id)
+    return jsonify(_pedido_mercaderia_to_dict(pedido))
 
 
 # ---------------------------------------------------------------------------

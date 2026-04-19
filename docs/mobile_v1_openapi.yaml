@@ -418,6 +418,27 @@ components:
         created_at:
           type: string
           format: date-time
+        resuelto_at:
+          type: string
+          format: date-time
+          nullable: true
+        resuelto_by_usuario:
+          type: string
+          nullable: true
+
+    PaginatedAdelantos:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdelantoItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
 
     AdelantoEstadoResponse:
       type: object
@@ -435,6 +456,209 @@ components:
           allOf:
             - $ref: '#/components/schemas/AdelantoItem'
           nullable: true
+
+    AdelantoResumenResponse:
+      type: object
+      properties:
+        periodo:
+          type: string
+          example: "2026-04"
+        periodo_year:
+          type: integer
+        periodo_month:
+          type: integer
+        ya_solicitado:
+          type: boolean
+        adelanto_mes_actual:
+          allOf:
+            - $ref: '#/components/schemas/AdelantoItem'
+          nullable: true
+        ultimo_adelanto:
+          allOf:
+            - $ref: '#/components/schemas/AdelantoItem'
+          nullable: true
+        total_historial:
+          type: integer
+        pendientes_total:
+          type: integer
+
+    # --- Pedidos de mercaderia ---
+    PedidoMercaderiaLinea:
+      type: object
+      properties:
+        id:
+          type: integer
+          nullable: true
+        articulo_id:
+          type: integer
+        codigo_articulo:
+          type: string
+        descripcion:
+          type: string
+        unidades_por_bulto:
+          type: integer
+        cantidad_bultos:
+          type: integer
+
+    PedidoMercaderiaItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        periodo:
+          type: string
+          example: "2026-04"
+        periodo_year:
+          type: integer
+        periodo_month:
+          type: integer
+        fecha_pedido:
+          type: string
+          format: date
+        estado:
+          type: string
+          enum: [pendiente, aprobado, rechazado, cancelado]
+          default: pendiente
+        cantidad_items:
+          type: integer
+        total_bultos:
+          type: integer
+        motivo_rechazo:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        resuelto_at:
+          type: string
+          format: date-time
+          nullable: true
+        resuelto_by_usuario:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PedidoMercaderiaLinea'
+
+    PaginatedPedidosMercaderia:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PedidoMercaderiaItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+
+    PedidoMercaderiaEstadoResponse:
+      type: object
+      properties:
+        periodo:
+          type: string
+          example: "2026-04"
+        periodo_year:
+          type: integer
+        periodo_month:
+          type: integer
+        ya_solicitado:
+          type: boolean
+        pedido:
+          allOf:
+            - $ref: '#/components/schemas/PedidoMercaderiaItem'
+          nullable: true
+
+    PedidoMercaderiaResumenResponse:
+      type: object
+      properties:
+        periodo:
+          type: string
+          example: "2026-04"
+        periodo_year:
+          type: integer
+        periodo_month:
+          type: integer
+        ya_solicitado:
+          type: boolean
+        pedido_mes_actual:
+          allOf:
+            - $ref: '#/components/schemas/PedidoMercaderiaItem'
+          nullable: true
+        ultimo_pedido:
+          allOf:
+            - $ref: '#/components/schemas/PedidoMercaderiaItem'
+          nullable: true
+        ultimo_pedido_aprobado:
+          allOf:
+            - $ref: '#/components/schemas/PedidoMercaderiaItem'
+          nullable: true
+        total_historial:
+          type: integer
+        historial_aprobados_total:
+          type: integer
+        pendientes_total:
+          type: integer
+
+    CatalogoPedidoMercaderiaItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        codigo_articulo:
+          type: string
+        descripcion:
+          type: string
+        unidades_por_bulto:
+          type: integer
+        bultos_por_pallet:
+          type: integer
+          nullable: true
+        marca:
+          type: string
+          nullable: true
+        familia:
+          type: string
+          nullable: true
+        sabor:
+          type: string
+          nullable: true
+        division:
+          type: string
+          nullable: true
+
+    PaginatedCatalogoPedidoMercaderia:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogoPedidoMercaderiaItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+
+    PedidoMercaderiaUpsertRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [articulo_id, cantidad_bultos]
+            properties:
+              articulo_id:
+                type: integer
+              cantidad_bultos:
+                type: integer
 
     # --- Horario ---
     AsignacionHorario:
@@ -1563,6 +1787,18 @@ paths:
           description: No encontrada
 
   # ---- Adelantos ----
+  /me/adelantos/resumen:
+    get:
+      tags: [Adelantos]
+      summary: Resumen para la pantalla inicial de adelantos
+      responses:
+        '200':
+          description: Resumen de adelantos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdelantoResumenResponse'
+
   /me/adelantos/estado:
     get:
       tags: [Adelantos]
@@ -1576,6 +1812,39 @@ paths:
                 $ref: '#/components/schemas/AdelantoEstadoResponse'
 
   /me/adelantos:
+    get:
+      tags: [Adelantos]
+      summary: Historial paginado de adelantos del empleado
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: estado
+          in: query
+          schema:
+            type: string
+            enum: [pendiente, aprobado, rechazado, cancelado]
+      responses:
+        '200':
+          description: Historial paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdelantos'
+        '400':
+          description: Parametro de estado invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
     post:
       tags: [Adelantos]
       summary: Solicita el adelanto del mes actual (solo uno por mes)
@@ -1594,6 +1863,232 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Ya existe una solicitud en el mes actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me/adelantos/{id}:
+    get:
+      tags: [Adelantos]
+      summary: Detalle de un adelanto propio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detalle del adelanto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdelantoItem'
+        '404':
+          description: Adelanto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---- Pedidos de mercaderia ----
+  /me/pedidos-mercaderia/resumen:
+    get:
+      tags: [Pedidos mercaderia]
+      summary: Resumen para la pantalla inicial de pedidos de mercaderia
+      responses:
+        '200':
+          description: Resumen del pedido del mes e historial
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedidoMercaderiaResumenResponse'
+
+  /me/pedidos-mercaderia/estado:
+    get:
+      tags: [Pedidos mercaderia]
+      summary: Estado del pedido de mercaderia del mes actual
+      responses:
+        '200':
+          description: Estado del mes actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedidoMercaderiaEstadoResponse'
+
+  /me/pedidos-mercaderia/articulos:
+    get:
+      tags: [Pedidos mercaderia]
+      summary: Catalogo paginado de articulos habilitados para pedido
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Catalogo paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCatalogoPedidoMercaderia'
+
+  /me/pedidos-mercaderia:
+    get:
+      tags: [Pedidos mercaderia]
+      summary: Historial paginado de pedidos de mercaderia del empleado
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: estado
+          in: query
+          schema:
+            type: string
+            enum: [pendiente, aprobado, rechazado, cancelado]
+      responses:
+        '200':
+          description: Historial paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPedidosMercaderia'
+        '400':
+          description: Parametro de estado invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [Pedidos mercaderia]
+      summary: Crea el pedido del mes actual de mercaderia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedidoMercaderiaUpsertRequest'
+      responses:
+        '201':
+          description: Pedido creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedidoMercaderiaItem'
+        '400':
+          description: Validacion fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Ya existe un pedido en el mes actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me/pedidos-mercaderia/{id}:
+    get:
+      tags: [Pedidos mercaderia]
+      summary: Detalle de un pedido propio de mercaderia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detalle del pedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedidoMercaderiaItem'
+        '404':
+          description: Pedido no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [Pedidos mercaderia]
+      summary: Actualiza los items de un pedido pendiente propio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PedidoMercaderiaUpsertRequest'
+      responses:
+        '200':
+          description: Pedido actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedidoMercaderiaItem'
+        '400':
+          description: Validacion fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Pedido no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Pedidos mercaderia]
+      summary: Cancela un pedido pendiente propio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pedido cancelado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PedidoMercaderiaItem'
+        '400':
+          description: Validacion fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Pedido no encontrado
           content:
             application/json:
               schema:

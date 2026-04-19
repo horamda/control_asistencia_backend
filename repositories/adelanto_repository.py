@@ -87,6 +87,59 @@ def get_by_empleado_periodo(empleado_id: int, periodo_year: int, periodo_month: 
         db.close()
 
 
+def get_page_by_empleado(
+    empleado_id: int,
+    page: int,
+    per_page: int,
+    *,
+    estado: str | None = None,
+):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        has_resolved_by, has_resolved_at = _adelantos_resolution_support(cursor)
+        offset = max(0, (int(page) - 1) * int(per_page))
+        where = ["a.empleado_id = %s"]
+        params = [int(empleado_id)]
+        if estado:
+            where.append("a.estado = %s")
+            params.append(estado)
+        where_sql = "WHERE " + " AND ".join(where)
+        extra_select = ["NULL AS resuelto_by_usuario"] if not has_resolved_by else ["u.usuario AS resuelto_by_usuario"]
+        if not has_resolved_at:
+            extra_select.append("NULL AS resuelto_at")
+        join_sql = "LEFT JOIN usuarios u ON u.id = a.resuelto_by_usuario_id" if has_resolved_by else ""
+
+        cursor.execute(
+            f"""
+            SELECT
+                a.*,
+                {", ".join(extra_select)}
+            FROM adelantos a
+            {join_sql}
+            {where_sql}
+            ORDER BY a.periodo_year DESC, a.periodo_month DESC, a.created_at DESC, a.id DESC
+            LIMIT %s OFFSET %s
+            """,
+            (*params, int(per_page), offset),
+        )
+        rows = cursor.fetchall()
+
+        cursor.execute(
+            f"""
+            SELECT COUNT(*) AS total
+            FROM adelantos a
+            {where_sql}
+            """,
+            tuple(params),
+        )
+        total = int((cursor.fetchone() or {}).get("total") or 0)
+        return rows, total
+    finally:
+        cursor.close()
+        db.close()
+
+
 def _build_admin_filters(
     *,
     empleado_id: int | None = None,

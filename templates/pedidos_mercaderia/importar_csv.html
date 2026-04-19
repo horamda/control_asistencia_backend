@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Importar articulos{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Catalogo</div>
+      <h2>Importar articulos para pedidos</h2>
+      <p class="module-intro">
+        Se importan solo filas con Activo = SI, Anulado = NO, Usado en dispositivo movil = SI y Tipo de producto = MERCADERIA.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">CSV separado por ;</span>
+      <span class="chip">Upsert por Articulo</span>
+      <span class="chip">Deshabilita faltantes</span>
+    </div>
+  </div>
+
+  {% if resultado and resultado.error %}
+    <div class="errors"><p>{{ resultado.error }}</p></div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row span-2">
+        <label>Archivo CSV</label>
+        <input type="file" name="archivo_csv" accept=".csv" required>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Importar</button>
+      <a class="btn btn-secondary" href="{{ url_for('pedidos_mercaderia.listado') }}">Volver al reporte</a>
+    </div>
+  </form>
+
+  {% if resultado and not resultado.error %}
+    <div class="chip-row">
+      <span class="chip">Filas leidas: {{ resultado.total_filas }}</span>
+      <span class="chip">Importables: {{ resultado.importables }}</span>
+      <span class="chip">Creados: {{ resultado.creados }}</span>
+      <span class="chip">Actualizados: {{ resultado.actualizados }}</span>
+      <span class="chip">Deshabilitados: {{ resultado.deshabilitados }}</span>
+      <span class="chip">Ignorados: {{ resultado.ignorados }}</span>
+    </div>
+
+    {% if resultado.errores %}
+      <div class="table-responsive table-cards">
+        <table>
+          <thead>
+            <tr>
+              <th>Fila</th>
+              <th>Articulo</th>
+              <th>Motivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for error in resultado.errores %}
+              <tr>
+                <td data-label="Fila">{{ error.fila }}</td>
+                <td data-label="Articulo">{{ error.codigo_articulo or "-" }}</td>
+                <td data-label="Motivo">{{ error.motivo }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert-ok"><p>Importacion completada sin errores.</p></div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

@@ -2148,6 +2148,21 @@ _FAKE_ADELANTO_ROW = {
     "fecha_solicitud": "2026-04-17",
     "estado": "pendiente",
     "created_at": datetime.datetime(2026, 4, 17, 9, 30, 0),
+    "resuelto_at": None,
+    "resuelto_by_usuario": None,
+}
+
+_FAKE_ADELANTO_OLD_ROW = {
+    "id": 71,
+    "empleado_id": 10,
+    "empresa_id": 3,
+    "periodo_year": 2026,
+    "periodo_month": 3,
+    "fecha_solicitud": "2026-03-14",
+    "estado": "aprobado",
+    "created_at": datetime.datetime(2026, 3, 14, 8, 45, 0),
+    "resuelto_at": datetime.datetime(2026, 3, 15, 11, 0, 0),
+    "resuelto_by_usuario": "rrhh",
 }
 
 
@@ -2167,6 +2182,125 @@ def test_mobile_adelantos_estado_sin_solicitud(monkeypatch):
     assert body["periodo"] == "2026-04"
     assert body["ya_solicitado"] is False
     assert body["adelanto"] is None
+
+
+def test_mobile_adelantos_resumen_sin_historial(monkeypatch):
+    _setup_adelanto_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "_today_iso", lambda: "2026-04-18")
+    monkeypatch.setattr(mobile_routes, "get_adelanto_mes_actual_svc", lambda empleado_id, **kw: None)
+    monkeypatch.setattr(mobile_routes, "get_adelantos_page_by_empleado", lambda *args, **kw: ([], 0))
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/adelantos/resumen", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["periodo"] == "2026-04"
+    assert body["ya_solicitado"] is False
+    assert body["adelanto_mes_actual"] is None
+    assert body["ultimo_adelanto"] is None
+    assert body["total_historial"] == 0
+    assert body["pendientes_total"] == 0
+
+
+def test_mobile_adelantos_resumen_con_historial(monkeypatch):
+    _setup_adelanto_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "_today_iso", lambda: "2026-04-18")
+    monkeypatch.setattr(mobile_routes, "get_adelanto_mes_actual_svc", lambda empleado_id, **kw: _FAKE_ADELANTO_ROW)
+    captured = []
+
+    def _fake_get_adelantos_page_by_empleado(empleado_id, page, per_page, **kw):
+        captured.append({"empleado_id": empleado_id, "page": page, "per_page": per_page, "estado": kw.get("estado")})
+        if kw.get("estado") == "pendiente":
+            return ([_FAKE_ADELANTO_ROW], 1)
+        return ([_FAKE_ADELANTO_OLD_ROW], 2)
+
+    monkeypatch.setattr(mobile_routes, "get_adelantos_page_by_empleado", _fake_get_adelantos_page_by_empleado)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/adelantos/resumen", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["ya_solicitado"] is True
+    assert body["adelanto_mes_actual"]["id"] == 81
+    assert body["ultimo_adelanto"]["id"] == 71
+    assert body["ultimo_adelanto"]["resuelto_by_usuario"] == "rrhh"
+    assert body["total_historial"] == 2
+    assert body["pendientes_total"] == 1
+    assert captured == [
+        {"empleado_id": 10, "page": 1, "per_page": 1, "estado": None},
+        {"empleado_id": 10, "page": 1, "per_page": 1, "estado": "pendiente"},
+    ]
+
+
+def test_mobile_adelantos_list_ok(monkeypatch):
+    _setup_adelanto_auth(monkeypatch)
+    captured = {}
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_adelantos_page_by_empleado",
+        lambda empleado_id, page, per_page, **kw: (
+            captured.update(
+                {
+                    "empleado_id": empleado_id,
+                    "page": page,
+                    "per_page": per_page,
+                    "estado": kw.get("estado"),
+                }
+            )
+            or ([_FAKE_ADELANTO_ROW], 1)
+        ),
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get(
+        "/api/v1/mobile/me/adelantos?page=2&per_page=5&estado=pendiente",
+        headers=_auth_headers(),
+    )
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["total"] == 1
+    assert body["page"] == 2
+    assert body["per_page"] == 5
+    assert body["items"][0]["id"] == 81
+    assert body["items"][0]["resuelto_at"] is None
+    assert captured == {
+        "empleado_id": 10,
+        "page": 2,
+        "per_page": 5,
+        "estado": "pendiente",
+    }
+
+
+def test_mobile_adelantos_list_estado_invalido(monkeypatch):
+    _setup_adelanto_auth(monkeypatch)
+    client = _build_client(monkeypatch)
+    resp = client.get(
+        "/api/v1/mobile/me/adelantos?estado=en_revision",
+        headers=_auth_headers(),
+    )
+    assert resp.status_code == 400
+    assert "estado invalido" in resp.get_json()["error"]
+
+
+def test_mobile_adelantos_detail_ok(monkeypatch):
+    _setup_adelanto_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_adelanto_by_id", lambda _: _FAKE_ADELANTO_ROW)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/adelantos/81", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["id"] == 81
+    assert body["periodo"] == "2026-04"
+
+
+def test_mobile_adelantos_detail_ajeno_retorna_404(monkeypatch):
+    _setup_adelanto_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_adelanto_by_id",
+        lambda _: {**_FAKE_ADELANTO_ROW, "empleado_id": 999},
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/adelantos/81", headers=_auth_headers())
+    assert resp.status_code == 404
+    assert "Adelanto no encontrado" in resp.get_json()["error"]
 
 
 def test_mobile_adelantos_estado_con_solicitud(monkeypatch):
@@ -2229,6 +2363,211 @@ def test_mobile_adelantos_create_mes_duplicado_retorna_409(monkeypatch):
     )
     assert resp.status_code == 409
     assert "este mes" in resp.get_json()["error"]
+
+
+# ---------------------------------------------------------------------------
+# Pedidos de mercaderia
+# ---------------------------------------------------------------------------
+
+_FAKE_PEDIDO_MERCADERIA_ROW = {
+    "id": 91,
+    "empleado_id": 10,
+    "periodo_year": 2026,
+    "periodo_month": 4,
+    "fecha_pedido": "2026-04-18",
+    "estado": "pendiente",
+    "cantidad_items": 2,
+    "total_bultos": 3,
+    "created_at": datetime.datetime(2026, 4, 18, 9, 30, 0),
+    "resuelto_at": None,
+    "resuelto_by_usuario": None,
+    "motivo_rechazo": None,
+    "items": [
+        {
+            "id": 1,
+            "articulo_id": 5,
+            "cantidad_bultos": 2,
+            "codigo_articulo_snapshot": "A1",
+            "descripcion_snapshot": "Gaseosa",
+            "unidades_por_bulto_snapshot": 8,
+        },
+        {
+            "id": 2,
+            "articulo_id": 6,
+            "cantidad_bultos": 1,
+            "codigo_articulo_snapshot": "A2",
+            "descripcion_snapshot": "Agua",
+            "unidades_por_bulto_snapshot": 12,
+        },
+    ],
+}
+
+_FAKE_PEDIDO_MERCADERIA_OLD_ROW = {
+    **_FAKE_PEDIDO_MERCADERIA_ROW,
+    "id": 81,
+    "periodo_year": 2026,
+    "periodo_month": 3,
+    "fecha_pedido": "2026-03-14",
+    "estado": "aprobado",
+    "created_at": datetime.datetime(2026, 3, 14, 8, 45, 0),
+    "resuelto_at": datetime.datetime(2026, 3, 15, 11, 0, 0),
+    "resuelto_by_usuario": "rrhh",
+}
+
+
+def _setup_pedidos_mercaderia_auth(monkeypatch):
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 10})
+    monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda eid: _FAKE_EMPLEADO_JUST)
+
+
+def test_mobile_pedidos_mercaderia_resumen_con_historial(monkeypatch):
+    _setup_pedidos_mercaderia_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "_today_iso", lambda: "2026-04-18")
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_pedido_mercaderia_mes_actual_svc",
+        lambda empleado_id, **kw: _FAKE_PEDIDO_MERCADERIA_ROW,
+    )
+
+    def _fake_get_pedidos(empleado_id, page, per_page, **kw):
+        if kw.get("estado") == "pendiente":
+            return ([_FAKE_PEDIDO_MERCADERIA_ROW], 1)
+        if kw.get("estado") == "aprobado":
+            return ([_FAKE_PEDIDO_MERCADERIA_OLD_ROW], 1)
+        return ([_FAKE_PEDIDO_MERCADERIA_ROW], 2)
+
+    monkeypatch.setattr(mobile_routes, "get_pedidos_mercaderia_page_by_empleado", _fake_get_pedidos)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/pedidos-mercaderia/resumen", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["ya_solicitado"] is True
+    assert body["pedido_mes_actual"]["id"] == 91
+    assert body["ultimo_pedido_aprobado"]["id"] == 81
+    assert body["historial_aprobados_total"] == 1
+    assert body["pendientes_total"] == 1
+
+
+def test_mobile_pedidos_mercaderia_articulos_ok(monkeypatch):
+    _setup_pedidos_mercaderia_auth(monkeypatch)
+    captured = {}
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_articulos_catalogo_pedidos_page",
+        lambda page, per_page, **kw: (
+            captured.update({"page": page, "per_page": per_page, "search": kw.get("search")})
+            or ([
+                {
+                    "id": 5,
+                    "codigo_articulo": "A1",
+                    "descripcion": "Gaseosa",
+                    "unidades_por_bulto": 8,
+                    "bultos_por_pallet": 72,
+                    "marca": "Marca",
+                    "familia": "Familia",
+                    "sabor": "Cola",
+                    "division": "Bebidas",
+                }
+            ], 1)
+        ),
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/pedidos-mercaderia/articulos?q=gas&page=2&per_page=5", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["items"][0]["codigo_articulo"] == "A1"
+    assert captured == {"page": 2, "per_page": 5, "search": "gas"}
+
+
+def test_mobile_pedidos_mercaderia_list_ok(monkeypatch):
+    _setup_pedidos_mercaderia_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_pedidos_mercaderia_page_by_empleado",
+        lambda empleado_id, page, per_page, **kw: ([_FAKE_PEDIDO_MERCADERIA_ROW], 1),
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/pedidos-mercaderia?estado=pendiente", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["items"][0]["id"] == 91
+    assert body["items"][0]["items"][0]["codigo_articulo"] == "A1"
+
+
+def test_mobile_pedidos_mercaderia_detail_ok(monkeypatch):
+    _setup_pedidos_mercaderia_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_pedido_mercaderia_by_id", lambda _: _FAKE_PEDIDO_MERCADERIA_ROW)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/pedidos-mercaderia/91", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["id"] == 91
+    assert body["items"][1]["descripcion"] == "Agua"
+
+
+def test_mobile_pedidos_mercaderia_create_ok(monkeypatch):
+    _setup_pedidos_mercaderia_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "_today_iso", lambda: "2026-04-18")
+    created = {}
+    monkeypatch.setattr(
+        mobile_routes,
+        "solicitar_pedido_mercaderia_svc",
+        lambda **kw: created.update(kw) or 91,
+    )
+    monkeypatch.setattr(mobile_routes, "get_pedido_mercaderia_by_id", lambda _: _FAKE_PEDIDO_MERCADERIA_ROW)
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/pedidos-mercaderia",
+        json={"items": [{"articulo_id": 5, "cantidad_bultos": 2}]},
+        headers=_auth_headers(),
+    )
+    body = resp.get_json()
+    assert resp.status_code == 201
+    assert body["id"] == 91
+    assert created["items"] == [{"articulo_id": 5, "cantidad_bultos": 2}]
+
+
+def test_mobile_pedidos_mercaderia_update_ok(monkeypatch):
+    _setup_pedidos_mercaderia_auth(monkeypatch)
+    captured = {}
+    monkeypatch.setattr(
+        mobile_routes,
+        "editar_pedido_mercaderia_svc",
+        lambda pedido_id, **kw: captured.update({"pedido_id": pedido_id, "empleado_id": kw.get("empleado_id"), "items": kw.get("items")}),
+    )
+    monkeypatch.setattr(mobile_routes, "get_pedido_mercaderia_by_id", lambda _: _FAKE_PEDIDO_MERCADERIA_ROW)
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+    client = _build_client(monkeypatch)
+    resp = client.put(
+        "/api/v1/mobile/me/pedidos-mercaderia/91",
+        json={"items": [{"articulo_id": 5, "cantidad_bultos": 4}]},
+        headers=_auth_headers(),
+    )
+    assert resp.status_code == 200
+    assert captured == {"pedido_id": 91, "empleado_id": 10, "items": [{"articulo_id": 5, "cantidad_bultos": 4}]}
+
+
+def test_mobile_pedidos_mercaderia_cancel_ok(monkeypatch):
+    _setup_pedidos_mercaderia_auth(monkeypatch)
+    captured = {}
+    monkeypatch.setattr(
+        mobile_routes,
+        "cancelar_pedido_mercaderia_svc",
+        lambda pedido_id, **kw: captured.update({"pedido_id": pedido_id, "empleado_id": kw.get("empleado_id")}),
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_pedido_mercaderia_by_id",
+        lambda _: {**_FAKE_PEDIDO_MERCADERIA_ROW, "estado": "cancelado"},
+    )
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+    client = _build_client(monkeypatch)
+    resp = client.delete("/api/v1/mobile/me/pedidos-mercaderia/91", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["estado"] == "cancelado"
+    assert captured == {"pedido_id": 91, "empleado_id": 10}
 
 
 # ---------------------------------------------------------------------------

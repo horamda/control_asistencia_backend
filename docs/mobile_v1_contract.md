@@ -1,7 +1,7 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.11.0
-Fecha de corte: 2026-03-26
+Version de contrato: 1.13.0
+Fecha de corte: 2026-04-18
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
@@ -521,8 +521,46 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ### Adelantos
 
-#### 27A. `GET /api/v1/mobile/me/adelantos/estado`
+#### 27A. `GET /api/v1/mobile/me/adelantos/resumen`
+- Resumen para la pantalla inicial de adelantos.
+- Devuelve estado del mes actual, ultimo adelanto y contadores del historial.
+- Response 200:
+```json
+{
+  "periodo":"2026-04",
+  "periodo_year":2026,
+  "periodo_month":4,
+  "ya_solicitado":true,
+  "adelanto_mes_actual":{
+    "id":81,
+    "periodo":"2026-04",
+    "periodo_year":2026,
+    "periodo_month":4,
+    "fecha_solicitud":"2026-04-17",
+    "estado":"pendiente",
+    "created_at":"2026-04-17T09:30:00",
+    "resuelto_at":null,
+    "resuelto_by_usuario":null
+  },
+  "ultimo_adelanto":{
+    "id":71,
+    "periodo":"2026-03",
+    "periodo_year":2026,
+    "periodo_month":3,
+    "fecha_solicitud":"2026-03-14",
+    "estado":"aprobado",
+    "created_at":"2026-03-14T08:45:00",
+    "resuelto_at":"2026-03-15T11:00:00",
+    "resuelto_by_usuario":"rrhh"
+  },
+  "total_historial":2,
+  "pendientes_total":1
+}
+```
+
+#### 27B. `GET /api/v1/mobile/me/adelantos/estado`
 - Devuelve el estado del adelanto para el mes calendario actual del servidor.
+- `adelanto` usa el mismo esquema que los endpoints de historial, detalle y alta.
 - Response 200:
 ```json
 {
@@ -537,18 +575,350 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
     "periodo_month":4,
     "fecha_solicitud":"2026-04-17",
     "estado":"pendiente",
-    "created_at":"2026-04-17T09:30:00"
+    "created_at":"2026-04-17T09:30:00",
+    "resuelto_at":null,
+    "resuelto_by_usuario":null
   }
 }
 ```
 - Si todavia no hubo solicitud en el mes: `ya_solicitado=false` y `adelanto=null`.
 
-#### 27B. `POST /api/v1/mobile/me/adelantos`
+#### 27C. `GET /api/v1/mobile/me/adelantos?page=&per_page=&estado=`
+- Lista paginada del historial de adelantos del empleado autenticado.
+- `estado`: `pendiente` | `aprobado` | `rechazado` | `cancelado` (opcional)
+- Response 200:
+```json
+{
+  "items":[
+    {
+      "id":81,
+      "periodo":"2026-04",
+      "periodo_year":2026,
+      "periodo_month":4,
+      "fecha_solicitud":"2026-04-17",
+      "estado":"aprobado",
+      "created_at":"2026-04-17T09:30:00",
+      "resuelto_at":"2026-04-18T11:10:00",
+      "resuelto_by_usuario":"rrhh"
+    }
+  ],
+  "total":1,
+  "page":1,
+  "per_page":20
+}
+```
+- Response 400: `{"error":"estado invalido. Valores: pendiente, aprobado, rechazado, cancelado"}`
+
+#### 27D. `GET /api/v1/mobile/me/adelantos/<id>`
+- Devuelve el detalle de un adelanto propio.
+- Response 200:
+```json
+{
+  "id":81,
+  "periodo":"2026-04",
+  "periodo_year":2026,
+  "periodo_month":4,
+  "fecha_solicitud":"2026-04-17",
+  "estado":"aprobado",
+  "created_at":"2026-04-17T09:30:00",
+  "resuelto_at":"2026-04-18T11:10:00",
+  "resuelto_by_usuario":"rrhh"
+}
+```
+- Response 404: `{"error":"Adelanto no encontrado"}`
+
+#### 27E. `POST /api/v1/mobile/me/adelantos`
 - No requiere body.
 - Crea una solicitud de adelanto para el mes calendario actual.
 - Estado inicial siempre: `pendiente`.
-- Response 201: objeto adelanto.
+- Response 201:
+```json
+{
+  "id":81,
+  "periodo":"2026-04",
+  "periodo_year":2026,
+  "periodo_month":4,
+  "fecha_solicitud":"2026-04-17",
+  "estado":"pendiente",
+  "created_at":"2026-04-17T09:30:00",
+  "resuelto_at":null,
+  "resuelto_by_usuario":null
+}
+```
 - Response 409: `{"error":"Ya solicitaste un adelanto en este mes."}`
+
+---
+
+### Pedidos de mercaderia
+
+#### 27F. `GET /api/v1/mobile/me/pedidos-mercaderia/resumen`
+- Resumen para la pantalla inicial de pedidos de mercaderia.
+- Devuelve estado del mes actual, ultimo pedido, ultimo aprobado y contadores.
+- Response 200:
+```json
+{
+  "periodo":"2026-04",
+  "periodo_year":2026,
+  "periodo_month":4,
+  "ya_solicitado":true,
+  "pedido_mes_actual":{
+    "id":91,
+    "periodo":"2026-04",
+    "periodo_year":2026,
+    "periodo_month":4,
+    "fecha_pedido":"2026-04-18",
+    "estado":"pendiente",
+    "cantidad_items":2,
+    "total_bultos":3,
+    "motivo_rechazo":null,
+    "created_at":"2026-04-18T09:30:00",
+    "resuelto_at":null,
+    "resuelto_by_usuario":null,
+    "items":[
+      {
+        "id":1,
+        "articulo_id":5,
+        "codigo_articulo":"A1",
+        "descripcion":"Gaseosa",
+        "unidades_por_bulto":8,
+        "cantidad_bultos":2
+      }
+    ]
+  },
+  "ultimo_pedido":{
+    "id":91,
+    "periodo":"2026-04",
+    "periodo_year":2026,
+    "periodo_month":4,
+    "fecha_pedido":"2026-04-18",
+    "estado":"pendiente",
+    "cantidad_items":2,
+    "total_bultos":3,
+    "motivo_rechazo":null,
+    "created_at":"2026-04-18T09:30:00",
+    "resuelto_at":null,
+    "resuelto_by_usuario":null,
+    "items":[]
+  },
+  "ultimo_pedido_aprobado":{
+    "id":81,
+    "periodo":"2026-03",
+    "periodo_year":2026,
+    "periodo_month":3,
+    "fecha_pedido":"2026-03-14",
+    "estado":"aprobado",
+    "cantidad_items":1,
+    "total_bultos":2,
+    "motivo_rechazo":null,
+    "created_at":"2026-03-14T08:45:00",
+    "resuelto_at":"2026-03-15T11:00:00",
+    "resuelto_by_usuario":"rrhh",
+    "items":[]
+  },
+  "total_historial":2,
+  "historial_aprobados_total":1,
+  "pendientes_total":1
+}
+```
+
+#### 27G. `GET /api/v1/mobile/me/pedidos-mercaderia/estado`
+- Devuelve el estado del pedido del mes calendario actual del servidor.
+- `pedido` usa el mismo esquema que detalle, alta y actualizacion.
+- Response 200:
+```json
+{
+  "periodo":"2026-04",
+  "periodo_year":2026,
+  "periodo_month":4,
+  "ya_solicitado":true,
+  "pedido":{
+    "id":91,
+    "periodo":"2026-04",
+    "periodo_year":2026,
+    "periodo_month":4,
+    "fecha_pedido":"2026-04-18",
+    "estado":"pendiente",
+    "cantidad_items":2,
+    "total_bultos":3,
+    "motivo_rechazo":null,
+    "created_at":"2026-04-18T09:30:00",
+    "resuelto_at":null,
+    "resuelto_by_usuario":null,
+    "items":[
+      {
+        "id":1,
+        "articulo_id":5,
+        "codigo_articulo":"A1",
+        "descripcion":"Gaseosa",
+        "unidades_por_bulto":8,
+        "cantidad_bultos":2
+      }
+    ]
+  }
+}
+```
+
+#### 27H. `GET /api/v1/mobile/me/pedidos-mercaderia/articulos?q=&page=&per_page=`
+- Catalogo paginado de articulos habilitados para pedido.
+- Solo expone articulos importados desde CSV con:
+  - `Activo = SI`
+  - `Anulado = NO`
+  - `Usado en dispositivo movil = SI`
+  - `TIPO DE PRODUCTO = MERCADERIA`
+- Response 200:
+```json
+{
+  "items":[
+    {
+      "id":5,
+      "codigo_articulo":"A1",
+      "descripcion":"Gaseosa",
+      "unidades_por_bulto":8,
+      "bultos_por_pallet":72,
+      "marca":"Marca",
+      "familia":"Familia",
+      "sabor":"Cola",
+      "division":"Bebidas"
+    }
+  ],
+  "total":1,
+  "page":1,
+  "per_page":20
+}
+```
+
+#### 27I. `GET /api/v1/mobile/me/pedidos-mercaderia?page=&per_page=&estado=`
+- Lista paginada del historial de pedidos del empleado autenticado.
+- `estado`: `pendiente` | `aprobado` | `rechazado` | `cancelado` (opcional)
+- Para historial de aprobados usar `estado=aprobado`.
+- Response 200:
+```json
+{
+  "items":[
+    {
+      "id":91,
+      "periodo":"2026-04",
+      "periodo_year":2026,
+      "periodo_month":4,
+      "fecha_pedido":"2026-04-18",
+      "estado":"pendiente",
+      "cantidad_items":2,
+      "total_bultos":3,
+      "motivo_rechazo":null,
+      "created_at":"2026-04-18T09:30:00",
+      "resuelto_at":null,
+      "resuelto_by_usuario":null,
+      "items":[
+        {
+          "id":1,
+          "articulo_id":5,
+          "codigo_articulo":"A1",
+          "descripcion":"Gaseosa",
+          "unidades_por_bulto":8,
+          "cantidad_bultos":2
+        }
+      ]
+    }
+  ],
+  "total":1,
+  "page":1,
+  "per_page":20
+}
+```
+- Response 400: `{"error":"estado invalido. Valores: pendiente, aprobado, rechazado, cancelado"}`
+
+#### 27J. `GET /api/v1/mobile/me/pedidos-mercaderia/<id>`
+- Devuelve el detalle de un pedido propio.
+- Response 200:
+```json
+{
+  "id":91,
+  "periodo":"2026-04",
+  "periodo_year":2026,
+  "periodo_month":4,
+  "fecha_pedido":"2026-04-18",
+  "estado":"aprobado",
+  "cantidad_items":2,
+  "total_bultos":3,
+  "motivo_rechazo":null,
+  "created_at":"2026-04-18T09:30:00",
+  "resuelto_at":"2026-04-19T11:10:00",
+  "resuelto_by_usuario":"rrhh",
+  "items":[
+    {
+      "id":1,
+      "articulo_id":5,
+      "codigo_articulo":"A1",
+      "descripcion":"Gaseosa",
+      "unidades_por_bulto":8,
+      "cantidad_bultos":2
+    }
+  ]
+}
+```
+- Response 404: `{"error":"Pedido no encontrado"}`
+
+#### 27K. `POST /api/v1/mobile/me/pedidos-mercaderia`
+- Crea el pedido del mes actual.
+- Solo se permite un pedido por empleado por mes.
+- Request body:
+```json
+{
+  "items":[
+    {"articulo_id":5, "cantidad_bultos":2},
+    {"articulo_id":6, "cantidad_bultos":1}
+  ]
+}
+```
+- Response 201:
+```json
+{
+  "id":91,
+  "periodo":"2026-04",
+  "periodo_year":2026,
+  "periodo_month":4,
+  "fecha_pedido":"2026-04-18",
+  "estado":"pendiente",
+  "cantidad_items":2,
+  "total_bultos":3,
+  "motivo_rechazo":null,
+  "created_at":"2026-04-18T09:30:00",
+  "resuelto_at":null,
+  "resuelto_by_usuario":null,
+  "items":[
+    {
+      "id":1,
+      "articulo_id":5,
+      "codigo_articulo":"A1",
+      "descripcion":"Gaseosa",
+      "unidades_por_bulto":8,
+      "cantidad_bultos":2
+    }
+  ]
+}
+```
+- Response 400: `{"error":"Debe enviar al menos un articulo."}`
+- Response 409: `{"error":"Ya registraste un pedido de mercaderia en este mes."}`
+
+#### 27L. `PUT /api/v1/mobile/me/pedidos-mercaderia/<id>`
+- Reemplaza los items de un pedido propio.
+- Solo disponible en estado `pendiente`.
+- Request body:
+```json
+{
+  "items":[
+    {"articulo_id":5, "cantidad_bultos":4}
+  ]
+}
+```
+- Response 200: mismo esquema que `GET /api/v1/mobile/me/pedidos-mercaderia/<id>`
+- Response 400: `{"error":"No se puede editar un pedido en estado 'aprobado'."}`
+
+#### 27M. `DELETE /api/v1/mobile/me/pedidos-mercaderia/<id>`
+- Cancela el pedido del mes.
+- No elimina fisicamente el registro.
+- Solo disponible en estado `pendiente`.
+- Response 200: mismo esquema que `GET /api/v1/mobile/me/pedidos-mercaderia/<id>`, con `estado="cancelado"`.
 
 ---
 
@@ -704,6 +1074,46 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.13.0 (2026-04-18)
+- Nuevos endpoints de pedidos de mercaderia para mobile:
+  - `GET /me/pedidos-mercaderia/resumen`
+  - `GET /me/pedidos-mercaderia/estado`
+  - `GET /me/pedidos-mercaderia/articulos`
+  - `GET /me/pedidos-mercaderia`
+  - `GET /me/pedidos-mercaderia/<id>`
+  - `POST /me/pedidos-mercaderia`
+  - `PUT /me/pedidos-mercaderia/<id>`
+  - `DELETE /me/pedidos-mercaderia/<id>`
+- Reglas nuevas de negocio:
+  - solo se permite un pedido de mercaderia por empleado por mes calendario
+  - un pedido `pendiente` puede editarse o cancelarse
+  - las cantidades se informan solo en `bultos`
+- `GET /me/pedidos-mercaderia/articulos` expone solo articulos importados con:
+  - `Activo = SI`
+  - `Anulado = NO`
+  - `Usado en dispositivo movil = SI`
+  - `TIPO DE PRODUCTO = MERCADERIA`
+
+### 1.12.3 (2026-04-18)
+- Nuevo endpoint mobile de resumen para la pantalla inicial:
+  - `GET /me/adelantos/resumen`
+- Devuelve:
+  - `adelanto_mes_actual`
+  - `ultimo_adelanto`
+  - `total_historial`
+  - `pendientes_total`
+
+### 1.12.2 (2026-04-18)
+- Nuevo endpoint mobile de detalle de adelanto:
+  - `GET /me/adelantos/<id>`
+
+### 1.12.1 (2026-04-18)
+- Nuevo endpoint mobile de historial de adelantos:
+  - `GET /me/adelantos` (lista paginada con filtro opcional `estado`)
+- `AdelantoItem` ahora puede incluir:
+  - `resuelto_at`
+  - `resuelto_by_usuario`
 
 ### 1.12.0 (2026-04-17)
 - Nuevos endpoints de adelantos para mobile:

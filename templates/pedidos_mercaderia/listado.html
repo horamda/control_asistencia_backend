@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Pedidos mercaderia{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Reporte</div>
+      <h2>Pedidos de mercaderia</h2>
+      <p class="module-intro">
+        Revise los pedidos enviados desde la app mobile, con aprobacion por RRHH y exportacion CSV provisional.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Catalogo mobile</span>
+      <span class="chip">1 pedido por mes</span>
+      <span class="chip">Items por bulto</span>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="errors"><p>{{ error }}</p></div>
+  {% endif %}
+  {% if msg %}
+    <div class="alert-ok"><p>{{ msg }}</p></div>
+  {% endif %}
+
+  <div class="toolbar">
+    <a class="btn btn-secondary" href="{{ url_for('pedidos_mercaderia.importar_csv') }}">Importar articulos CSV</a>
+    <a
+      class="btn btn-secondary"
+      href="{{ url_for('pedidos_mercaderia.export_csv', empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None) }}"
+    >
+      Exportar CSV
+    </a>
+  </div>
+
+  <form method="get" action="{{ url_for('pedidos_mercaderia.listado') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id">
+          <option value="">Todos</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Año</label>
+        <select name="anio">
+          <option value="">Todos</option>
+          {% for year in years %}
+            <option value="{{ year }}" {% if anio == year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Mes</label>
+        <select name="mes">
+          <option value="">Todos</option>
+          {% for value, label in months %}
+            <option value="{{ value }}" {% if mes == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="">Todos</option>
+          <option value="pendiente" {% if estado == "pendiente" %}selected{% endif %}>Pendiente</option>
+          <option value="aprobado" {% if estado == "aprobado" %}selected{% endif %}>Aprobado</option>
+          <option value="rechazado" {% if estado == "rechazado" %}selected{% endif %}>Rechazado</option>
+          <option value="cancelado" {% if estado == "cancelado" %}selected{% endif %}>Cancelado</option>
+        </select>
+      </div>
+
+      <div class="row span-2">
+        <label>Buscar</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Apellido, nombre, DNI o articulo">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('pedidos_mercaderia.listado') }}">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <div class="summary">Resultados: {{ pedidos|length }} registro(s) en esta pagina</div>
+    <div class="summary">Total general: {{ total }}</div>
+  </div>
+
+  <div class="chip-row">
+    <span class="chip">Total: {{ summary.total }}</span>
+    <span class="chip">Pendientes: {{ summary.pendientes }}</span>
+    <span class="chip">Aprobados: {{ summary.aprobados }}</span>
+    <span class="chip">Rechazados: {{ summary.rechazados }}</span>
+    <span class="chip">Cancelados: {{ summary.cancelados }}</span>
+  </div>
+
+  {% if pedidos %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Empleado</th>
+            <th>Periodo</th>
+            <th>Estado</th>
+            <th>Detalle</th>
+            <th>Resolucion</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pedidos %}
+            {% set estado_actual = (p.estado or "")|lower %}
+            <tr>
+              <td data-label="Empresa">{{ p.empresa_nombre or "-" }}</td>
+              <td data-label="Empleado">
+                <div>{{ p.apellido }} {{ p.nombre }}</div>
+                <small>{{ p.dni or "-" }}</small>
+              </td>
+              <td data-label="Periodo">
+                <div>{{ "%04d-%02d"|format(p.periodo_year or 0, p.periodo_month or 0) }}</div>
+                <small>{{ p.fecha_pedido or "-" }}</small>
+              </td>
+              <td data-label="Estado">
+                {% if estado_actual == "aprobado" %}
+                  <span class="badge ok">Aprobado</span>
+                {% elif estado_actual == "rechazado" %}
+                  <span class="badge danger">Rechazado</span>
+                {% elif estado_actual == "cancelado" %}
+                  <span class="badge">Cancelado</span>
+                {% else %}
+                  <span class="badge warning">Pendiente</span>
+                {% endif %}
+              </td>
+              <td data-label="Detalle">
+                <div>{{ p.cantidad_items or 0 }} item(s)</div>
+                <small>{{ p.total_bultos or 0 }} bulto(s)</small>
+                {% if p.motivo_rechazo %}
+                  <div><small>Motivo: {{ p.motivo_rechazo }}</small></div>
+                {% endif %}
+              </td>
+              <td data-label="Resolucion">
+                {% if p.resuelto_by_usuario or p.resuelto_at %}
+                  <div>{{ p.resuelto_by_usuario or "-" }}</div>
+                  <small>{{ p.resuelto_at or "-" }}</small>
+                {% else %}
+                  <span class="helper-text">Pendiente</span>
+                {% endif %}
+              </td>
+              <td data-label="Acciones">
+                {% if estado_actual == "pendiente" %}
+                  <div class="inline-actions">
+                    <form method="post" action="{{ url_for('pedidos_mercaderia.aprobar', pedido_id=p.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn" type="submit">Aprobar</button>
+                    </form>
+                    <form method="post" action="{{ url_for('pedidos_mercaderia.rechazar', pedido_id=p.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn-danger" type="submit">Rechazar</button>
+                    </form>
+                  </div>
+                {% else %}
+                  <span class="helper-text">Ya resuelto</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay pedidos para los filtros seleccionados.</div>
+  {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a
+        class="btn btn-secondary"
+        href="{{ url_for('pedidos_mercaderia.listado', page=page - 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None) }}"
+      >
+        Anterior
+      </a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a
+        class="btn btn-secondary"
+        href="{{ url_for('pedidos_mercaderia.listado', page=page + 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None) }}"
+      >
+        Siguiente
+      </a>
+    {% endif %}
+    <span class="summary">Pagina {{ page }}</span>
+  </div>
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
+{% endblock %}

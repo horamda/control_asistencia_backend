@@ -28,6 +28,11 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/adelantos/export.csv` | sesion web | admin, rrhh | `web/adelantos/adelantos_routes.py:export_csv` |
 | `POST` | `/adelantos/aprobar/<int:adelanto_id>` | sesion web | admin, rrhh | `web/adelantos/adelantos_routes.py:aprobar` |
 | `POST` | `/adelantos/rechazar/<int:adelanto_id>` | sesion web | admin, rrhh | `web/adelantos/adelantos_routes.py:rechazar` |
+| `GET` | `/pedidos-mercaderia/` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:listado` |
+| `GET` | `/pedidos-mercaderia/export.csv` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:export_csv` |
+| `POST` | `/pedidos-mercaderia/aprobar/<int:pedido_id>` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:aprobar` |
+| `POST` | `/pedidos-mercaderia/rechazar/<int:pedido_id>` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:rechazar` |
+| `GET,POST` | `/pedidos-mercaderia/articulos/importar-csv` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:importar_csv` |
 | `GET` | `/empleado-excepciones/` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:listado` |
 | `POST` | `/empleado-excepciones/api` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:api_create` |
 | `GET` | `/empleado-excepciones/api/<int:excepcion_id>` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:api_get` |
@@ -131,8 +136,19 @@ Documento generado automaticamente desde rutas activas del backend.
 | `PUT` | `/api/v1/mobile/me/password` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_update_password` |
 | `PUT` | `/api/v1/mobile/me/perfil` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_update_profile` |
 | `DELETE` | `/api/v1/mobile/me/perfil/foto` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_delete_profile_photo` |
+| `GET` | `/api/v1/mobile/me/adelantos/resumen` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_adelantos_resumen` |
+| `GET` | `/api/v1/mobile/me/adelantos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_adelantos_list` |
+| `GET` | `/api/v1/mobile/me/adelantos/<int:adelanto_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_adelantos_detail` |
 | `GET` | `/api/v1/mobile/me/adelantos/estado` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_adelantos_estado` |
 | `POST` | `/api/v1/mobile/me/adelantos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_adelantos_create` |
+| `GET` | `/api/v1/mobile/me/pedidos-mercaderia/resumen` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_resumen` |
+| `GET` | `/api/v1/mobile/me/pedidos-mercaderia/estado` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_estado` |
+| `GET` | `/api/v1/mobile/me/pedidos-mercaderia/articulos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_articulos` |
+| `GET` | `/api/v1/mobile/me/pedidos-mercaderia` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_list` |
+| `GET` | `/api/v1/mobile/me/pedidos-mercaderia/<int:pedido_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_detail` |
+| `POST` | `/api/v1/mobile/me/pedidos-mercaderia` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_create` |
+| `PUT` | `/api/v1/mobile/me/pedidos-mercaderia/<int:pedido_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_update` |
+| `DELETE` | `/api/v1/mobile/me/pedidos-mercaderia/<int:pedido_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_cancel` |
 | `POST` | `/api/v1/mobile/me/qr` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_generar_qr` |
 | `POST` | `/auth/login` | publico | - | `routes/auth_routes.py:login` |
 | `GET` | `/media/empleados/foto/<dni>` | publico | - | `routes/media_routes.py:empleado_foto` |
