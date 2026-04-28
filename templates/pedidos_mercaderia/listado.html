@@ -158,8 +158,9 @@
                 {% endif %}
               </td>
               <td data-label="Acciones">
-                {% if estado_actual == "pendiente" %}
-                  <div class="inline-actions">
+                <div class="inline-actions">
+                  <a class="btn btn-secondary" href="{{ url_for('pedidos_mercaderia.detalle', pedido_id=p.id) }}">Ver detalle</a>
+                  {% if estado_actual == "pendiente" %}
                     <form method="post" action="{{ url_for('pedidos_mercaderia.aprobar', pedido_id=p.id) }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button class="btn" type="submit">Aprobar</button>
@@ -168,10 +169,8 @@
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button class="btn-danger" type="submit">Rechazar</button>
                     </form>
-                  </div>
-                {% else %}
-                  <span class="helper-text">Ya resuelto</span>
-                {% endif %}
+                  {% endif %}
+                </div>
               </td>
             </tr>
           {% endfor %}

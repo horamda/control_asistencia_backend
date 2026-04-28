@@ -139,6 +139,23 @@
               </div>
             </div>
 
+            {% if current_role in ["admin", "rrhh"] %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-kpis">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                    <span class="nav-label">KPIs</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-kpis">
+                  <a class="nav-link" href="/kpis-sectoriales/">Indicadores</a>
+                  <a class="nav-link" href="/kpis-sectoriales/objetivos">Objetivos</a>
+                  <a class="nav-link" href="/kpis-sectoriales/importar-resultados">Importar resultados</a>
+                </div>
+              </div>
+            {% endif %}
+
             {% if current_role == "admin" %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-sistema">

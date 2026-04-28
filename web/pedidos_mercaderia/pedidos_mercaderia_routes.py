@@ -5,7 +5,7 @@ import io
 from flask import Blueprint, Response, current_app, redirect, render_template, request, session, url_for
 
 from repositories.empleado_repository import get_all as get_empleados
-from repositories.pedido_mercaderia_repository import get_export, get_page, get_summary
+from repositories.pedido_mercaderia_repository import get_by_id, get_export, get_page, get_summary
 from services.articulo_pedido_import_service import importar_articulos_desde_csv
 from services.pedido_mercaderia_service import aprobar_pedido, rechazar_pedido
 from utils.audit import log_audit
@@ -109,6 +109,18 @@ def listado():
     )
 
 
+@pedidos_mercaderia_bp.route("/<int:pedido_id>")
+@role_required("admin", "rrhh")
+def detalle(pedido_id):
+    pedido = get_by_id(pedido_id)
+    if not pedido:
+        return redirect(url_for("pedidos_mercaderia.listado", error="Pedido no encontrado."))
+    error = (request.args.get("error") or "").strip() or None
+    msg = (request.args.get("msg") or "").strip() or None
+    items = pedido.pop("items", [])
+    return render_template("pedidos_mercaderia/detalle.html", pedido=pedido, items=items, error=error, msg=msg)
+
+
 @pedidos_mercaderia_bp.route("/export.csv")
 @role_required("admin", "rrhh")
 def export_csv():
@@ -179,11 +191,16 @@ def export_csv():
 @pedidos_mercaderia_bp.route("/aprobar/<int:pedido_id>", methods=["POST"])
 @role_required("admin", "rrhh")
 def aprobar(pedido_id):
+    origin = (request.form.get("origin") or "").strip()
     try:
         aprobar_pedido(pedido_id, actor_id=session.get("user_id"))
     except ValueError as exc:
+        if origin == "detalle":
+            return redirect(url_for("pedidos_mercaderia.detalle", pedido_id=pedido_id, error=str(exc)))
         return redirect(url_for("pedidos_mercaderia.listado", error=str(exc)))
     log_audit(session, "aprobar", "pedidos_mercaderia", pedido_id)
+    if origin == "detalle":
+        return redirect(url_for("pedidos_mercaderia.detalle", pedido_id=pedido_id, msg="Pedido aprobado."))
     return redirect(url_for("pedidos_mercaderia.listado", msg="Pedido aprobado."))
 
 
@@ -191,6 +208,7 @@ def aprobar(pedido_id):
 @role_required("admin", "rrhh")
 def rechazar(pedido_id):
     motivo_rechazo = (request.form.get("motivo_rechazo") or "").strip() or None
+    origin = (request.form.get("origin") or "").strip()
     try:
         rechazar_pedido(
             pedido_id,
@@ -198,8 +216,12 @@ def rechazar(pedido_id):
             motivo_rechazo=motivo_rechazo,
         )
     except ValueError as exc:
+        if origin == "detalle":
+            return redirect(url_for("pedidos_mercaderia.detalle", pedido_id=pedido_id, error=str(exc)))
         return redirect(url_for("pedidos_mercaderia.listado", error=str(exc)))
     log_audit(session, "rechazar", "pedidos_mercaderia", pedido_id)
+    if origin == "detalle":
+        return redirect(url_for("pedidos_mercaderia.detalle", pedido_id=pedido_id, msg="Pedido rechazado."))
     return redirect(url_for("pedidos_mercaderia.listado", msg="Pedido rechazado."))
 
 

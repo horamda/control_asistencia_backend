@@ -19,7 +19,8 @@
       "Bash(py -m pytest tests/test_mobile_v1_api.py --tb=short)",
       "Bash(grep -n '\\\\\\\\me\\\\\\\\' \"/c/Users/horac/Desktop/Proyectos WEB/control_asistencia/backend/routes/mobile_v1_routes.py\")",
       "Bash(py -m pytest --tb=short)",
-      "Bash(py -m pytest tests/ --tb=short)"
+      "Bash(py -m pytest tests/ --tb=short)",
+      "Bash(find \"/c/Users/horac/Desktop/Proyectos WEB/control_asistencia/backend/migrations\" -name \"*.sql\" -exec basename {} \\\\;)"
     ]
   }
 }

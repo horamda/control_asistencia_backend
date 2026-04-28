@@ -1,7 +1,7 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.13.0
-Fecha de corte: 2026-04-18
+Version de contrato: 1.15.0
+Fecha de corte: 2026-04-20
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
@@ -651,6 +651,34 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ### Pedidos de mercaderia
 
+#### Esquema `PedidoMercaderiaItem`
+- Campos principales:
+  - `id`
+  - `periodo`, `periodo_year`, `periodo_month`
+  - `fecha_pedido`
+  - `estado`: `pendiente` | `aprobado` | `rechazado` | `cancelado`
+  - `cantidad_items`
+  - `total_bultos`
+  - `motivo_rechazo`
+  - `created_at`
+  - `resuelto_at`
+  - `resuelto_by_usuario`
+  - `items[]`
+- Cada item dentro de `items[]` expone:
+  - `id`
+  - `articulo_id`
+  - `codigo_articulo`
+  - `descripcion`
+  - `unidades_por_bulto`
+  - `cantidad_bultos`
+
+#### Flujo recomendado para Flutter
+1. Llamar `GET /api/v1/mobile/me/pedidos-mercaderia/resumen` al abrir la pantalla.
+2. Si `ya_solicitado=false`, cargar el catalogo con `GET /api/v1/mobile/me/pedidos-mercaderia/articulos`.
+3. Crear con `POST /api/v1/mobile/me/pedidos-mercaderia`.
+4. Si el pedido sigue `pendiente`, actualizar con `PUT /api/v1/mobile/me/pedidos-mercaderia/<id>` o cancelar con `DELETE /api/v1/mobile/me/pedidos-mercaderia/<id>`.
+5. Para historial aprobado, usar `GET /api/v1/mobile/me/pedidos-mercaderia?estado=aprobado`.
+
 #### 27F. `GET /api/v1/mobile/me/pedidos-mercaderia/resumen`
 - Resumen para la pantalla inicial de pedidos de mercaderia.
 - Devuelve estado del mes actual, ultimo pedido, ultimo aprobado y contadores.
@@ -757,9 +785,11 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
   }
 }
 ```
+- Si todavia no hubo pedido en el mes: `ya_solicitado=false` y `pedido=null`.
 
 #### 27H. `GET /api/v1/mobile/me/pedidos-mercaderia/articulos?q=&page=&per_page=`
 - Catalogo paginado de articulos habilitados para pedido.
+- `q` es opcional y busca por codigo, descripcion, marca, familia o sabor.
 - Solo expone articulos importados desde CSV con:
   - `Activo = SI`
   - `Anulado = NO`
@@ -861,6 +891,11 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 #### 27K. `POST /api/v1/mobile/me/pedidos-mercaderia`
 - Crea el pedido del mes actual.
 - Solo se permite un pedido por empleado por mes.
+- Validaciones:
+  - `items` es obligatorio
+  - no se permite repetir el mismo `articulo_id` dentro del mismo pedido
+  - `cantidad_bultos` debe ser entero mayor a cero
+  - el articulo debe existir y estar habilitado para pedido
 - Request body:
 ```json
 {
@@ -913,12 +948,15 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```
 - Response 200: mismo esquema que `GET /api/v1/mobile/me/pedidos-mercaderia/<id>`
 - Response 400: `{"error":"No se puede editar un pedido en estado 'aprobado'."}`
+- Response 404: `{"error":"Pedido no encontrado"}`
 
 #### 27M. `DELETE /api/v1/mobile/me/pedidos-mercaderia/<id>`
 - Cancela el pedido del mes.
 - No elimina fisicamente el registro.
 - Solo disponible en estado `pendiente`.
 - Response 200: mismo esquema que `GET /api/v1/mobile/me/pedidos-mercaderia/<id>`, con `estado="cancelado"`.
+- Response 400: `{"error":"No se puede cancelar un pedido en estado 'aprobado'."}`
+- Response 404: `{"error":"Pedido no encontrado"}`
 
 ---
 
@@ -1015,6 +1053,83 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ---
 
+### KPIs Sectoriales
+
+#### 35. `GET /api/v1/mobile/me/kpis-sector?anio=YYYY`
+- KPIs del sector del empleado autenticado para el año solicitado.
+- `anio`: año a consultar (opcional, default = año actual del servidor).
+- Para cada KPI muestra resultado acumulado vs objetivo anual del sector, con semaforo y recomendacion.
+- Response 200:
+```json
+{
+  "anio": 2026,
+  "sector": {
+    "id": 3,
+    "nombre": "Entrega"
+  },
+  "kpis": [
+    {
+      "kpi_id": 1,
+      "codigo": "BULTOS_ENT",
+      "nombre": "Bultos entregados",
+      "unidad": "bultos",
+      "tipo_acumulacion": "suma",
+      "mayor_es_mejor": true,
+      "condicion": "gte",
+      "condicion_simbolo": "≥",
+      "objetivo_anual": 1200.0,
+      "valor_min": null,
+      "valor_max": null,
+      "resultado_acumulado": 450.0,
+      "progreso_pct": 37.5,
+      "progreso_esperado_pct": 30.0,
+      "semaforo": "verde",
+      "recomendacion": "En camino al objetivo anual."
+    },
+    {
+      "kpi_id": 2,
+      "codigo": "DISPERSION_KM",
+      "nombre": "Dispersion de recorrido",
+      "unidad": "km",
+      "tipo_acumulacion": "promedio",
+      "mayor_es_mejor": false,
+      "condicion": "between",
+      "condicion_simbolo": "entre",
+      "objetivo_anual": 0.0,
+      "valor_min": 8.0,
+      "valor_max": 12.0,
+      "resultado_acumulado": 10.3,
+      "progreso_pct": 0.0,
+      "progreso_esperado_pct": 100.0,
+      "semaforo": "verde",
+      "recomendacion": "Dentro del rango objetivo (8.0 – 12.0)."
+    }
+  ]
+}
+```
+- Campos del KPI:
+  - `tipo_acumulacion`: `suma` | `promedio` | `ultimo`
+  - `mayor_es_mejor`: `true` si mayor valor es mejor resultado
+  - `condicion`: `gte` | `lte` | `eq` | `between`
+  - `condicion_simbolo`: `≥` | `≤` | `=` | `entre`
+  - `objetivo_anual`: objetivo simple del sector (0 si condicion es `between` o no configurado)
+  - `valor_min` / `valor_max`: limites del rango (`null` salvo condicion `between`)
+  - `resultado_acumulado`: valor acumulado del empleado en el año segun tipo_acumulacion
+  - `progreso_pct`: porcentaje del objetivo cubierto (`resultado / objetivo * 100`); 0 para `between`
+  - `progreso_esperado_pct`: porcentaje del año transcurrido (ritmo lineal); 100 para `promedio`/`ultimo`/`between`
+  - `semaforo`: `verde` | `amarillo` | `rojo` | `gris`
+    - `gris`: sin objetivo definido
+    - Condicion `gte`: verde ≥90% ritmo, amarillo 70-90%, rojo <70%
+    - Condicion `lte`: verde ≤110% del limite, amarillo ≤130%, rojo >130%
+    - Condicion `eq`: verde ±10%, amarillo ±25%, rojo fuera
+    - Condicion `between`: verde dentro del rango, amarillo ≤10% del margen exterior, rojo fuera
+  - `recomendacion`: texto corto para mostrar al empleado
+- Si el empleado no tiene sector asignado, `sector.id` es `null` y `kpis` es `[]`.
+- Response 400: `{"error":"Ano invalido."}`
+- Response 500: `{"error":"No se pudieron obtener los KPIs."}`
+
+---
+
 ### Seguridad
 
 #### 34. `GET /api/v1/mobile/me/eventos-seguridad?page=&per=&tipo_evento=`
@@ -1074,6 +1189,26 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.15.0 (2026-04-20)
+- `GET /me/kpis-sector`: nuevos campos por KPI: `condicion`, `condicion_simbolo`, `valor_min`, `valor_max`.
+- Soporte condicion `between`: el semaforo evalua si el resultado cae dentro del rango [valor_min, valor_max].
+- Semaforo `between`: verde=dentro del rango, amarillo=dentro del 10% del margen exterior, rojo=fuera.
+- Para KPIs `promedio`/`ultimo`, el ritmo esperado ya no aplica fraccion anual (siempre compara contra el objetivo completo).
+
+### 1.14.0 (2026-04-19)
+- Nuevo endpoint KPIs sectoriales:
+  - `GET /me/kpis-sector?anio=YYYY`
+- Devuelve por KPI: objetivo anual del sector, resultado acumulado del empleado, semaforo y recomendacion.
+- Semaforo: `verde` / `amarillo` / `rojo` basado en ritmo esperado lineal vs real.
+- Los resultados se cargan diariamente via CSV en el panel web.
+
+### 1.13.1 (2026-04-19)
+- Se completa el contrato mobile de pedidos de mercaderia con:
+  - esquema explicito de `PedidoMercaderiaItem`
+  - flujo recomendado para Flutter
+  - validaciones de alta
+  - respuestas de error para edicion y cancelacion
 
 ### 1.13.0 (2026-04-18)
 - Nuevos endpoints de pedidos de mercaderia para mobile:

@@ -29,10 +29,19 @@ Documento generado automaticamente desde rutas activas del backend.
 | `POST` | `/adelantos/aprobar/<int:adelanto_id>` | sesion web | admin, rrhh | `web/adelantos/adelantos_routes.py:aprobar` |
 | `POST` | `/adelantos/rechazar/<int:adelanto_id>` | sesion web | admin, rrhh | `web/adelantos/adelantos_routes.py:rechazar` |
 | `GET` | `/pedidos-mercaderia/` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:listado` |
+| `GET` | `/pedidos-mercaderia/<int:pedido_id>` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:detalle` |
 | `GET` | `/pedidos-mercaderia/export.csv` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:export_csv` |
 | `POST` | `/pedidos-mercaderia/aprobar/<int:pedido_id>` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:aprobar` |
 | `POST` | `/pedidos-mercaderia/rechazar/<int:pedido_id>` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:rechazar` |
 | `GET,POST` | `/pedidos-mercaderia/articulos/importar-csv` | sesion web | admin, rrhh | `web/pedidos_mercaderia/pedidos_mercaderia_routes.py:importar_csv` |
+| `GET` | `/kpis-sectoriales/` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:listado` |
+| `GET,POST` | `/kpis-sectoriales/nuevo` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:nuevo` |
+| `GET,POST` | `/kpis-sectoriales/<int:kpi_id>/editar` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:editar` |
+| `POST` | `/kpis-sectoriales/<int:kpi_id>/toggle` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:toggle` |
+| `GET` | `/kpis-sectoriales/objetivos` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:objetivos` |
+| `POST` | `/kpis-sectoriales/objetivos/guardar` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:guardar_objetivo` |
+| `POST` | `/kpis-sectoriales/objetivos/copiar-anio-anterior` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:copiar_objetivos_anio_anterior` |
+| `GET,POST` | `/kpis-sectoriales/importar-resultados` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:importar_resultados` |
 | `GET` | `/empleado-excepciones/` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:listado` |
 | `POST` | `/empleado-excepciones/api` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:api_create` |
 | `GET` | `/empleado-excepciones/api/<int:excepcion_id>` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:api_get` |
@@ -127,6 +136,7 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/api/v1/mobile/me/asistencias` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_asistencias` |
 | `GET` | `/api/v1/mobile/me/estadisticas` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_estadisticas` |
 | `GET` | `/api/v1/mobile/me/config-asistencia` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_config_asistencia` |
+| `GET` | `/api/v1/mobile/me/kpis-sector` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_kpis_sector` |
 | `GET` | `/api/v1/mobile/me/eventos-seguridad` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_eventos_seguridad` |
 | `POST` | `/api/v1/mobile/me/fichadas/entrada` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:fichar_entrada` |
 | `POST` | `/api/v1/mobile/me/fichadas/salida` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:fichar_salida` |

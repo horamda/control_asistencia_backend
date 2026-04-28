@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Pedido #{{ pedido.id }}{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Pedido #{{ pedido.id }}</div>
+      <h2>{{ pedido.apellido }} {{ pedido.nombre }}</h2>
+      <p class="module-intro">
+        Periodo {{ "%04d-%02d"|format(pedido.periodo_year or 0, pedido.periodo_month or 0) }}
+        &mdash; {{ pedido.empresa_nombre or "-" }}
+      </p>
+    </div>
+    <div class="chip-row">
+      {% set estado_actual = (pedido.estado or "")|lower %}
+      {% if estado_actual == "aprobado" %}
+        <span class="chip chip-ok">Aprobado</span>
+      {% elif estado_actual == "rechazado" %}
+        <span class="chip chip-danger">Rechazado</span>
+      {% elif estado_actual == "cancelado" %}
+        <span class="chip">Cancelado</span>
+      {% else %}
+        <span class="chip chip-warning">Pendiente</span>
+      {% endif %}
+      <span class="chip">{{ pedido.cantidad_items or 0 }} item(s)</span>
+      <span class="chip">{{ pedido.total_bultos or 0 }} bulto(s)</span>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="errors"><p>{{ error }}</p></div>
+  {% endif %}
+  {% if msg %}
+    <div class="alert-ok"><p>{{ msg }}</p></div>
+  {% endif %}
+
+  <div class="form-grid">
+    <div class="row">
+      <label>DNI</label>
+      <div class="field-value">{{ pedido.dni or "-" }}</div>
+    </div>
+    <div class="row">
+      <label>Fecha del pedido</label>
+      <div class="field-value">{{ pedido.fecha_pedido or "-" }}</div>
+    </div>
+    {% if pedido.resuelto_by_usuario or pedido.resuelto_at %}
+      <div class="row">
+        <label>Resuelto por</label>
+        <div class="field-value">{{ pedido.resuelto_by_usuario or "-" }}</div>
+      </div>
+      <div class="row">
+        <label>Resuelto el</label>
+        <div class="field-value">{{ pedido.resuelto_at or "-" }}</div>
+      </div>
+    {% endif %}
+    {% if pedido.motivo_rechazo %}
+      <div class="row span-2">
+        <label>Motivo de rechazo</label>
+        <div class="field-value">{{ pedido.motivo_rechazo }}</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <h3>Items del pedido</h3>
+
+  {% if items %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Codigo</th>
+            <th>Descripcion</th>
+            <th>Bultos</th>
+            <th>Unid./bulto</th>
+            <th>Total unidades</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+            <tr>
+              <td data-label="#">{{ loop.index }}</td>
+              <td data-label="Codigo">
+                <code>{{ item.codigo_articulo_snapshot or "-" }}</code>
+              </td>
+              <td data-label="Descripcion">{{ item.descripcion_snapshot or "-" }}</td>
+              <td data-label="Bultos"><strong>{{ item.cantidad_bultos or 0 }}</strong></td>
+              <td data-label="Unid./bulto">{{ item.unidades_por_bulto_snapshot or "-" }}</td>
+              <td data-label="Total unidades">
+                {% if item.cantidad_bultos and item.unidades_por_bulto_snapshot %}
+                  {{ item.cantidad_bultos * item.unidades_por_bulto_snapshot }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3"><strong>Total</strong></td>
+            <td><strong>{{ pedido.total_bultos or 0 }} bultos</strong></td>
+            <td></td>
+            <td>
+              <strong>
+                {% set total_unidades = namespace(v=0) %}
+                {% for item in items %}
+                  {% if item.cantidad_bultos and item.unidades_por_bulto_snapshot %}
+                    {% set total_unidades.v = total_unidades.v + item.cantidad_bultos * item.unidades_por_bulto_snapshot %}
+                  {% endif %}
+                {% endfor %}
+                {{ total_unidades.v }} unidades
+              </strong>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">Este pedido no tiene items.</div>
+  {% endif %}
+
+  {% if estado_actual == "pendiente" %}
+    <div class="actions">
+      <form method="post" action="{{ url_for('pedidos_mercaderia.aprobar', pedido_id=pedido.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="origin" value="detalle">
+        <button class="btn" type="submit">Aprobar pedido</button>
+      </form>
+
+      <form method="post" action="{{ url_for('pedidos_mercaderia.rechazar', pedido_id=pedido.id) }}" style="display:flex;gap:.5rem;align-items:center">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="origin" value="detalle">
+        <input type="text" name="motivo_rechazo" placeholder="Motivo de rechazo (opcional)" style="width:260px">
+        <button class="btn-danger" type="submit">Rechazar pedido</button>
+      </form>
+    </div>
+  {% endif %}
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="{{ url_for('pedidos_mercaderia.listado') }}">Volver al listado</a>
+  </div>
+</div>
+{% endblock %}

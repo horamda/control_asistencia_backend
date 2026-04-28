@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Objetivos KPI — {{ sector_nombre or 'Sector' }}{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Objetivos anuales</div>
+      <h2>{% if sector_nombre %}{{ sector_nombre }}{% else %}Objetivos por sector{% endif %}</h2>
+      <p class="module-intro">
+        Defina el objetivo anual de cada KPI del sector. Puede elegir condicion ≥, ≤, = o un rango de valores.
+      </p>
+    </div>
+    {% if sector_nombre %}
+      {% set configurados = [] %}
+      {% for k in kpis_con_objetivo %}
+        {% set cond = k.condicion or 'gte' %}
+        {% if (cond == 'between' and k.valor_min is not none and k.valor_max is not none) or (cond != 'between' and k.objetivo_valor is not none) %}
+          {% set _ = configurados.append(k) %}
+        {% endif %}
+      {% endfor %}
+      <div class="chip-row">
+        <span class="chip">{{ sector_nombre }}</span>
+        <span class="chip">{{ anio }}</span>
+        <span class="chip {% if configurados | length == kpis_con_objetivo | length and kpis_con_objetivo %}chip-ok{% endif %}">
+          {{ configurados | length }} / {{ kpis_con_objetivo | length }} configurados
+        </span>
+      </div>
+    {% endif %}
+  </div>
+
+  {% if error %}<div class="errors"><p>{{ error }}</p></div>{% endif %}
+  {% if msg %}<div class="alert-ok"><p>{{ msg }}</p></div>{% endif %}
+
+  <form method="get" action="{{ url_for('kpis_sectoriales.objetivos') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id" onchange="this.form.submit()">
+          <option value="">Seleccione empresa</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if empresa_id %}
+        <div class="row">
+          <label>Sector</label>
+          <select name="sector_id" onchange="this.form.submit()">
+            <option value="">Seleccione sector</option>
+            {% for s in sectores %}
+              <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
+      <div class="row">
+        <label>Año</label>
+        <select name="anio" onchange="this.form.submit()">
+          {% for y in years %}
+            <option value="{{ y }}" {% if anio == y %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </form>
+
+  {% if sector_id %}
+    {% if not kpis_con_objetivo %}
+      <div class="empty-state">
+        Este sector no tiene KPIs definidos.
+        <a href="{{ url_for('kpis_sectoriales.nuevo', empresa_id=empresa_id, sector_id=sector_id) }}">Crear el primero</a>.
+      </div>
+    {% else %}
+
+      {% if puede_copiar_anio_anterior %}
+        <div class="toolbar">
+          <form method="post" action="{{ url_for('kpis_sectoriales.copiar_objetivos_anio_anterior') }}"
+                onsubmit="return confirm('Copiar todos los objetivos de {{ anio - 1 }} a {{ anio }}? Se sobreescriben los existentes.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
+            <input type="hidden" name="sector_id" value="{{ sector_id }}">
+            <input type="hidden" name="anio" value="{{ anio }}">
+            <button class="btn btn-secondary" type="submit">
+              Copiar objetivos de {{ anio - 1 }}
+            </button>
+          </form>
+        </div>
+      {% endif %}
+
+      <div class="table-responsive table-cards">
+        <table>
+          <thead>
+            <tr>
+              <th>Indicador</th>
+              <th>Condicion</th>
+              <th>Objetivo {{ anio }}</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for k in kpis_con_objetivo %}
+              {% set condicion_actual = k.condicion or ('lte' if not k.mayor_es_mejor else 'gte') %}
+              {% set simbolo_map = {'gte': '≥', 'lte': '≤', 'eq': '=', 'between': 'entre'} %}
+              {% set simbolo = simbolo_map.get(condicion_actual, '≥') %}
+              {% set tiene_objetivo = (condicion_actual == 'between' and k.valor_min is not none and k.valor_max is not none) or (condicion_actual != 'between' and k.objetivo_valor is not none) %}
+              <tr>
+                <td data-label="Indicador">
+                  <div><strong>{{ k.kpi_nombre }}</strong></div>
+                  <small>
+                    <code>{{ k.codigo }}</code> &middot; {{ k.tipo_acumulacion }}
+                  </small>
+                </td>
+                <td data-label="Condicion">
+                  {% if condicion_actual == 'between' and k.valor_min is not none and k.valor_max is not none %}
+                    <strong style="font-size:1.05rem">
+                      {{ k.valor_min | float | round(2) }} – {{ k.valor_max | float | round(2) }} {{ k.unidad }}
+                    </strong>
+                  {% elif condicion_actual != 'between' and k.objetivo_valor is not none %}
+                    <strong style="font-size:1.05rem">
+                      {{ simbolo }} {{ k.objetivo_valor | float | round(2) }} {{ k.unidad }}
+                    </strong>
+                  {% else %}
+                    <span class="helper-text">Sin definir</span>
+                  {% endif %}
+                </td>
+                <td data-label="Objetivo {{ anio }}">
+                  <form method="post" action="{{ url_for('kpis_sectoriales.guardar_objetivo') }}"
+                        style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"
+                        onsubmit="prepararFormObjetivo(this)">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
+                    <input type="hidden" name="sector_id" value="{{ sector_id }}">
+                    <input type="hidden" name="kpi_id" value="{{ k.kpi_id }}">
+                    <input type="hidden" name="anio" value="{{ anio }}">
+                    <select name="condicion" style="width:80px;font-weight:700" onchange="toggleRangoInputs(this)">
+                      <option value="gte" {% if condicion_actual == 'gte' %}selected{% endif %}>≥</option>
+                      <option value="lte" {% if condicion_actual == 'lte' %}selected{% endif %}>≤</option>
+                      <option value="eq"  {% if condicion_actual == 'eq'  %}selected{% endif %}>=</option>
+                      <option value="between" {% if condicion_actual == 'between' %}selected{% endif %}>entre</option>
+                    </select>
+                    <span class="campo-valor-simple" {% if condicion_actual == 'between' %}style="display:none"{% endif %}>
+                      <input
+                        type="number"
+                        name="objetivo_valor"
+                        value="{{ k.objetivo_valor | float | round(2) if k.objetivo_valor is not none else '' }}"
+                        step="0.01"
+                        min="0"
+                        placeholder="—"
+                        style="width:90px"
+                      >
+                    </span>
+                    <span class="campo-rango" style="display:{% if condicion_actual == 'between' %}flex{% else %}none{% endif %};gap:.3rem;align-items:center">
+                      <input
+                        type="number"
+                        name="valor_min"
+                        value="{{ k.valor_min | float | round(2) if k.valor_min is not none else '' }}"
+                        step="0.01"
+                        placeholder="mín"
+                        style="width:75px"
+                      >
+                      <span style="color:var(--text-muted)">–</span>
+                      <input
+                        type="number"
+                        name="valor_max"
+                        value="{{ k.valor_max | float | round(2) if k.valor_max is not none else '' }}"
+                        step="0.01"
+                        placeholder="máx"
+                        style="width:75px"
+                      >
+                    </span>
+                    <span style="color:var(--text-muted)">{{ k.unidad }}</span>
+                    <button class="btn" type="submit" name="action" value="guardar">Guardar</button>
+                    {% if tiene_objetivo %}
+                      <button class="btn-danger" type="submit" name="action" value="eliminar"
+                        onclick="return confirm('Quitar objetivo de {{ k.kpi_nombre }} para {{ anio }}?')">✕</button>
+                    {% endif %}
+                  </form>
+                </td>
+                <td data-label="Estado">
+                  {% if tiene_objetivo %}
+                    <span class="badge ok">Configurado</span>
+                  {% else %}
+                    <span class="badge warning">Sin objetivo</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  {% elif empresa_id %}
+    <div class="empty-state">Seleccione un sector para ver sus objetivos.</div>
+  {% else %}
+    <div class="empty-state">Seleccione una empresa y un sector.</div>
+  {% endif %}
+
+  <div class="actions">
+    {% if sector_id %}
+      <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.listado', empresa_id=empresa_id, sector_id=sector_id) }}">KPIs del sector</a>
+    {% endif %}
+    <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.listado') }}">Volver</a>
+  </div>
+</div>
+<script>
+function toggleRangoInputs(select) {
+  var form = select.closest('form');
+  var esBetween = select.value === 'between';
+  form.querySelector('.campo-valor-simple').style.display = esBetween ? 'none' : '';
+  form.querySelector('.campo-rango').style.display = esBetween ? '' : 'none';
+}
+function prepararFormObjetivo(form) {
+  var condicion = form.querySelector('[name=condicion]').value;
+  if (condicion !== 'between') {
+    ['valor_min', 'valor_max'].forEach(function(n) {
+      var el = form.querySelector('[name=' + n + ']');
+      if (el) el.disabled = true;
+    });
+  } else {
+    var el = form.querySelector('[name=objetivo_valor]');
+    if (el) el.disabled = true;
+  }
+}
+</script>
+{% endblock %}

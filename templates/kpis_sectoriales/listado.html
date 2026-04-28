@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}KPIs Sectoriales{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Configuracion</div>
+      <h2>KPIs Sectoriales</h2>
+      <p class="module-intro">
+        Cada sector tiene sus propios indicadores. Seleccione empresa y sector para ver y gestionar sus KPIs.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Por sector</span>
+      <span class="chip">Objetivos anuales</span>
+      <span class="chip">Semaforo mobile</span>
+    </div>
+  </div>
+
+  {% if error %}<div class="errors"><p>{{ error }}</p></div>{% endif %}
+  {% if msg %}<div class="alert-ok"><p>{{ msg }}</p></div>{% endif %}
+
+  <form method="get" action="{{ url_for('kpis_sectoriales.listado') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id" onchange="this.form.submit()">
+          <option value="">Seleccione empresa</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if empresa_id %}
+        <div class="row">
+          <label>Sector</label>
+          <select name="sector_id" onchange="this.form.submit()">
+            <option value="">Seleccione sector</option>
+            {% for s in sectores %}
+              <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if sector_id %}
+    <div class="toolbar">
+      <a class="btn" href="{{ url_for('kpis_sectoriales.nuevo', empresa_id=empresa_id, sector_id=sector_id) }}">+ Nuevo KPI</a>
+      <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.objetivos', empresa_id=empresa_id, sector_id=sector_id) }}">Objetivos {{ anio if anio else '' }}</a>
+      <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.importar_resultados') }}">Importar resultados CSV</a>
+    </div>
+
+    {% if kpis %}
+      <div class="table-responsive table-cards">
+        <table>
+          <thead>
+            <tr>
+              <th>Indicador</th>
+              <th>Unidad · Acumulacion</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for k in kpis %}
+              <tr {% if not k.activo %}style="opacity:.55"{% endif %}>
+                <td data-label="Indicador">
+                  <div><strong>{{ k.nombre }}</strong></div>
+                  <small>
+                    <code>{{ k.codigo }}</code>
+                    &middot;
+                    {% if k.mayor_es_mejor %}
+                      <span title="Mayor valor = mejor resultado">&#8593; mejor</span>
+                    {% else %}
+                      <span title="Menor valor = mejor resultado">&#8595; mejor</span>
+                    {% endif %}
+                  </small>
+                  {% if k.descripcion %}<small style="display:block;color:var(--muted)">{{ k.descripcion }}</small>{% endif %}
+                </td>
+                <td data-label="Unidad · Acumulacion">
+                  <span class="badge">{{ k.unidad }}</span>
+                  <span style="color:var(--muted);font-size:.8rem">{{ k.tipo_acumulacion }}</span>
+                </td>
+                <td data-label="Estado">
+                  {% if k.activo %}
+                    <span class="badge ok">Activo</span>
+                  {% else %}
+                    <span class="badge">Inactivo</span>
+                  {% endif %}
+                </td>
+                <td data-label="Acciones">
+                  <div class="inline-actions">
+                    <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.editar', kpi_id=k.id) }}">Editar</a>
+                    <form method="post" action="{{ url_for('kpis_sectoriales.toggle', kpi_id=k.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn btn-secondary" type="submit">
+                        {% if k.activo %}Desactivar{% else %}Activar{% endif %}
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">No hay KPIs para este sector. Cree el primero.</div>
+    {% endif %}
+  {% elif empresa_id %}
+    <div class="empty-state">Seleccione un sector para ver sus KPIs.</div>
+  {% else %}
+    <div class="empty-state">Seleccione una empresa para comenzar.</div>
+  {% endif %}
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="/dashboard">Volver</a>
+  </div>
+</div>
+{% endblock %}

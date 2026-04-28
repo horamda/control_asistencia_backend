@@ -2247,3 +2247,42 @@ def me_dashboard():
         "francos_proximos": francos_proximos,
         "horario_actual": horario_actual,
     })
+
+
+# ---------------------------------------------------------------------------
+# KPIs Sectoriales
+# ---------------------------------------------------------------------------
+
+@mobile_v1_bp.route("/me/kpis-sector", methods=["GET"])
+@mobile_auth_required
+def me_kpis_sector():
+    from repositories.kpi_sectorial_repository import get_resultados_empleado_anio
+
+    empleado = g.empleado
+    emp_id = int(empleado["id"])
+
+    raw_anio = (request.args.get("anio") or "").strip()
+    if raw_anio:
+        try:
+            anio = int(raw_anio)
+            if anio < 2020 or anio > 2100:
+                raise ValueError
+        except ValueError:
+            return jsonify({"error": "Ano invalido."}), 400
+    else:
+        anio = datetime.date.today().year
+
+    try:
+        data = get_resultados_empleado_anio(emp_id, anio)
+    except Exception:
+        current_app.logger.exception("me_kpis_sector_error", extra={"extra": {"empleado_id": emp_id}})
+        return jsonify({"error": "No se pudieron obtener los KPIs."}), 500
+
+    return jsonify({
+        "anio": anio,
+        "sector": {
+            "id": data.get("sector_id"),
+            "nombre": data.get("sector_nombre"),
+        },
+        "kpis": data.get("kpis", []),
+    })

@@ -1,7 +1,7 @@
 """
 Servicio de importación masiva de empleados desde CSV.
 
-Formato esperado del CSV (separado por comas, primera fila = encabezados):
+Formato esperado del CSV (separado por comas o punto y coma, con encabezados):
 legajo, dni, cuil, apellido, nombre, sexo, fecha_nacimiento, email, telefono,
 direccion, codigo_postal, fecha_ingreso, tipo_contrato, modalidad, categoria,
 obra_social, cod_chess_erp, banco, cbu, numero_emergencia, estado,
@@ -12,6 +12,7 @@ Password: si viene vacío se usa el DNI como contraseña inicial.
 """
 
 import csv
+import datetime
 import io
 from werkzeug.security import generate_password_hash
 
@@ -23,6 +24,37 @@ _SEXOS = {"masculino", "femenino", "no_binario", "no_informa"}
 _ESTADOS = {"activo", "inactivo", "suspendido"}
 _TIPO_CONTRATO = {"efectivo", "temporal", "pasantia", "otro"}
 _MODALIDAD = {"presencial", "remoto", "hibrido"}
+_EXPECTED_COLUMNS = {
+    "legajo",
+    "dni",
+    "cuil",
+    "apellido",
+    "nombre",
+    "sexo",
+    "fecha_nacimiento",
+    "email",
+    "telefono",
+    "direccion",
+    "codigo_postal",
+    "fecha_ingreso",
+    "tipo_contrato",
+    "modalidad",
+    "fecha_baja",
+    "categoria",
+    "obra_social",
+    "cod_chess_erp",
+    "banco",
+    "cbu",
+    "numero_emergencia",
+    "estado",
+    "sucursal_nombre",
+    "sector_nombre",
+    "puesto_nombre",
+    "password",
+}
+_REQUIRED_COLUMNS = {"legajo", "dni", "apellido", "nombre"}
+_DATE_FIELDS = ("fecha_nacimiento", "fecha_ingreso", "fecha_baja")
+_DELIMITERS = (",", ";", "\t")
 
 
 def _lookup_sucursal(cursor, empresa_id: int, nombre: str):
@@ -60,6 +92,112 @@ def _lookup_puesto(cursor, empresa_id: int, nombre: str):
 
 def _clean(row: dict, key: str, default=None):
     return (row.get(key) or "").strip() or default
+
+
+def _normalize_key(key) -> str:
+    return str(key or "").strip().lower().lstrip("\ufeff")
+
+
+def _parse_csv_line(line: str, delimiter: str) -> list[str]:
+    return next(csv.reader([line], delimiter=delimiter), [])
+
+
+def _find_header(lines: list[str]) -> tuple[int, str]:
+    best = None
+    for idx, line in enumerate(lines):
+        if not str(line or "").strip():
+            continue
+        for delimiter in _DELIMITERS:
+            headers = [_normalize_key(value) for value in _parse_csv_line(line, delimiter)]
+            header_set = set(headers)
+            required_matches = len(header_set & _REQUIRED_COLUMNS)
+            expected_matches = len(header_set & _EXPECTED_COLUMNS)
+            score = (required_matches, expected_matches)
+            if best is None or score > best[0]:
+                best = (score, idx, delimiter, headers)
+            if _REQUIRED_COLUMNS.issubset(header_set):
+                return idx, delimiter
+
+    if best and best[0][1]:
+        missing = sorted(_REQUIRED_COLUMNS - set(best[3]))
+        raise ValueError(f"Columnas obligatorias faltantes: {', '.join(missing)}")
+    raise ValueError(
+        "No se encontraron encabezados CSV validos. "
+        "El archivo debe incluir columnas: legajo, dni, apellido, nombre."
+    )
+
+
+def _build_reader(stream):
+    raw = stream.read()
+    if isinstance(raw, bytes):
+        text = raw.decode("utf-8-sig", errors="replace")
+    else:
+        text = str(raw or "")
+
+    lines = text.splitlines()
+    if not any(line.strip() for line in lines):
+        raise ValueError("El archivo CSV esta vacio.")
+
+    header_idx, delimiter = _find_header(lines)
+    csv_text = "\n".join(lines[header_idx:])
+    return csv.DictReader(io.StringIO(csv_text), delimiter=delimiter), header_idx
+
+
+def _normalize_row(row: dict) -> dict:
+    normalized = {}
+    for key, value in row.items():
+        if key is None:
+            continue
+        normalized[_normalize_key(key)] = (value or "").strip()
+    return normalized
+
+
+def _is_template_label_row(row: dict) -> bool:
+    legajo = _clean(row, "legajo", "").lower()
+    dni = _clean(row, "dni", "").lower()
+    apellido = _clean(row, "apellido", "").lower()
+    nombre = _clean(row, "nombre", "").lower()
+    return (
+        legajo.startswith("legajo")
+        and dni.startswith("dni")
+        and apellido.startswith("apellido")
+        and nombre.startswith("nombre")
+    )
+
+
+def _is_template_example_row(row: dict) -> bool:
+    return (
+        _clean(row, "legajo") == "001"
+        and _clean(row, "dni") == "12345678"
+        and _clean(row, "apellido") == "Perez"
+        and _clean(row, "nombre") == "Juan"
+    )
+
+
+def _parse_date(value: str):
+    value = (value or "").strip()
+    if not value:
+        return None
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.datetime.strptime(value, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def _normalize_dates(row: dict) -> list[str]:
+    errors = []
+    for field in _DATE_FIELDS:
+        value = _clean(row, field)
+        if not value:
+            continue
+        normalized = _parse_date(value)
+        if not normalized:
+            errors.append(f"{field} invalida '{value}'")
+        else:
+            row[field] = normalized
+    return errors
 
 
 def _validate_row(row: dict, fila_num: int):
@@ -111,8 +249,7 @@ def importar_desde_csv(stream, empresa_id: int) -> dict:
       - omitidos: int (dni/legajo duplicados)
       - errores: list[dict(fila, dni, motivo)]
     """
-    text_stream = io.TextIOWrapper(stream, encoding="utf-8-sig", errors="replace")
-    reader = csv.DictReader(text_stream)
+    reader, header_idx = _build_reader(stream)
 
     creados = 0
     omitidos = 0
@@ -122,15 +259,17 @@ def importar_desde_csv(stream, empresa_id: int) -> dict:
     cursor = db.cursor(dictionary=True)
 
     try:
-        for fila_num, row in enumerate(reader, start=2):  # fila 1 = encabezados
-            # Normalizar claves a lowercase sin espacios
-            row = {k.strip().lower(): v for k, v in row.items()}
+        for fila_num, row in enumerate(reader, start=header_idx + 2):
+            row = _normalize_row(row)
+            if not any(row.values()) or _is_template_label_row(row) or _is_template_example_row(row):
+                continue
 
             dni = _clean(row, "dni", "")
             legajo = _clean(row, "legajo", "")
 
             # Validar campos
-            row_errors = _validate_row(row, fila_num)
+            row_errors = _normalize_dates(row)
+            row_errors.extend(_validate_row(row, fila_num))
             if row_errors:
                 errores.append({
                     "fila": fila_num,

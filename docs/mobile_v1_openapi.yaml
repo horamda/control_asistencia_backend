@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Control Asistencia — Mobile API v1
-  version: 1.12.0
+  version: 1.15.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -928,6 +928,82 @@ components:
       properties:
         error:
           type: string
+
+    KpisSectorResponse:
+      type: object
+      properties:
+        anio:
+          type: integer
+          example: 2026
+        sector:
+          type: object
+          properties:
+            id:
+              type: integer
+              nullable: true
+            nombre:
+              type: string
+              nullable: true
+        kpis:
+          type: array
+          items:
+            $ref: '#/components/schemas/KpiSectorialItem'
+
+    KpiSectorialItem:
+      type: object
+      properties:
+        kpi_id:
+          type: integer
+        codigo:
+          type: string
+          example: BULTOS_ENT
+        nombre:
+          type: string
+          example: Bultos entregados
+        unidad:
+          type: string
+          example: bultos
+        tipo_acumulacion:
+          type: string
+          enum: [suma, promedio, ultimo]
+        mayor_es_mejor:
+          type: boolean
+        condicion:
+          type: string
+          enum: [gte, lte, eq, between]
+          description: "gte=≥  lte=≤  eq==  between=rango [valor_min, valor_max]"
+        condicion_simbolo:
+          type: string
+          example: "≥"
+        objetivo_anual:
+          type: number
+          description: "Objetivo simple del sector (0 si condicion=between o sin configurar)"
+        valor_min:
+          type: number
+          nullable: true
+          description: "Limite inferior del rango (solo condicion=between)"
+        valor_max:
+          type: number
+          nullable: true
+          description: "Limite superior del rango (solo condicion=between)"
+        resultado_acumulado:
+          type: number
+          description: "Acumulado del empleado en el año segun tipo_acumulacion"
+        progreso_pct:
+          type: number
+          description: "resultado_acumulado / objetivo_anual * 100 (0 para between)"
+        progreso_esperado_pct:
+          type: number
+          description: "Fraccion del año transcurrida * 100 (100 para promedio/ultimo/between)"
+        semaforo:
+          type: string
+          enum: [verde, amarillo, rojo, gris]
+          description: |
+            gris=sin objetivo, verde=en ritmo, amarillo=levemente fuera, rojo=fuera.
+            Para between: verde=dentro del rango, amarillo=dentro del 10% del margen, rojo=fuera.
+        recomendacion:
+          type: string
+          description: "Texto corto para mostrar al empleado"
 
 security:
   - BearerAuth: []
@@ -2272,3 +2348,41 @@ paths:
                     type: integer
         '500':
           description: Error interno
+
+  # ---- KPIs Sectoriales ----
+  /me/kpis-sector:
+    get:
+      tags: [KPIs]
+      summary: KPIs del sector del empleado autenticado
+      description: |
+        Devuelve los KPIs del sector al que pertenece el empleado, con resultado acumulado
+        en el año solicitado y semaforo de progreso vs objetivo del sector.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: anio
+          in: query
+          required: false
+          schema:
+            type: integer
+            example: 2026
+          description: "Año a consultar (default: año actual del servidor)"
+      responses:
+        '200':
+          description: KPIs del sector con semaforo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpisSectorResponse'
+        '400':
+          description: Año invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

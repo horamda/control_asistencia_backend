@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Importar Resultados KPI{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Carga diaria</div>
+      <h2>Importar Resultados de KPIs</h2>
+      <p class="module-intro">
+        Suba un archivo CSV con los resultados diarios por empleado. Los registros existentes para la misma fecha y KPI se actualizan automaticamente.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:1rem">
+    <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.6rem">Formato del archivo CSV</div>
+    <pre style="font-size:.82rem;background:var(--surface-soft);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;overflow-x:auto;margin:0 0 .6rem">fecha,legajo,codigo_kpi,valor
+2026-04-21,1042,BULTOS_ENT,38
+2026-04-21,1042,RECHAZO_PCT,1.5
+2026-04-21,1087,BULTOS_ENT,42</pre>
+    <ul style="font-size:.82rem;color:var(--muted);margin:0;padding-left:1.2rem;line-height:1.8">
+      <li><strong>fecha</strong>: formato YYYY-MM-DD, no puede ser futura</li>
+      <li><strong>legajo</strong>: legajo del empleado activo en la empresa seleccionada</li>
+      <li><strong>codigo_kpi</strong>: codigo exacto del KPI (ver <a href="{{ url_for('kpis_sectoriales.listado') }}">listado de KPIs</a>)</li>
+      <li><strong>valor</strong>: numero decimal — se admite punto o coma como separador</li>
+    </ul>
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa <span class="required">*</span></label>
+        <select name="empresa_id" required>
+          <option value="">Seleccione empresa</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}"
+              {% if resultado and request.form.get('empresa_id') == e.id|string %}selected{% endif %}>
+              {{ e.razon_social }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Archivo CSV <span class="required">*</span></label>
+        <input type="file" name="archivo_csv" accept=".csv" required>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Importar</button>
+    </div>
+  </form>
+
+  {% if resultado %}
+    {% if resultado.error %}
+      <div class="errors"><p>{{ resultado.error }}</p></div>
+    {% else %}
+      <div class="alert-ok">
+        <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center">
+          <div>
+            <strong>Importacion completada</strong>
+            <div style="font-size:.85rem;margin-top:2px">
+              <strong>{{ resultado.importadas }}</strong> filas importadas de <strong>{{ resultado.total_filas }}</strong> totales
+              {% if resultado.errores > 0 %}
+                &mdash; <span style="color:var(--danger,#c53a4d)"><strong>{{ resultado.errores }}</strong> con error</span>
+              {% endif %}
+            </div>
+          </div>
+          {% if resultado.errores == 0 %}
+            <span class="badge ok">Sin errores</span>
+          {% else %}
+            <span class="badge warning">{{ resultado.errores }} error(es)</span>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if resultado.detalle_errores %}
+        <div class="table-responsive" style="margin-top:.5rem">
+          <table>
+            <thead>
+              <tr><th style="width:80px">Linea</th><th>Detalle del error</th></tr>
+            </thead>
+            <tbody>
+              {% for e in resultado.detalle_errores %}
+                <tr>
+                  <td><code>{{ e.linea }}</code></td>
+                  <td style="color:var(--danger,#c53a4d)">{{ e.error }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.listado') }}">Volver a KPIs</a>
+  </div>
+</div>
+{% endblock %}
