@@ -25,6 +25,23 @@ def test_build_uri_rejects_placeholder_db_name(monkeypatch):
         db._build_uri()
 
 
+def test_build_uri_accepts_railway_mysql_env_aliases(monkeypatch):
+    for name in ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"]:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MYSQLHOST", "mysql.railway.internal")
+    monkeypatch.setenv("MYSQLPORT", "3306")
+    monkeypatch.setenv("MYSQLUSER", "railway")
+    monkeypatch.setenv("MYSQLPASSWORD", "secret with spaces")
+    monkeypatch.setenv("MYSQLDATABASE", "railway")
+
+    uri = db._build_uri()
+
+    assert uri == (
+        "mysql+mysqlconnector://railway:secret+with+spaces"
+        "@mysql.railway.internal:3306/railway"
+    )
+
+
 def test_get_raw_connection_wraps_mysql_access_denied(monkeypatch):
     monkeypatch.setenv("DB_HOST", "localhost")
     monkeypatch.setenv("DB_PORT", "3306")

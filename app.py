@@ -9,6 +9,7 @@ import json
 import time
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
 from utils.limiter import limiter
 
 from extensions import init_db
@@ -170,6 +171,7 @@ def create_app():
         template_folder="templates",
         static_folder="static"
     )
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
     app.config.update(_build_security_config())
 
@@ -265,6 +267,10 @@ def create_app():
     @app.route("/")
     def index():
         return redirect(url_for("web_auth.login"))
+
+    @app.route("/healthz")
+    def healthz():
+        return jsonify({"status": "ok"}), 200
 
     @app.errorhandler(CSRFError)
     def handle_csrf_error(err):

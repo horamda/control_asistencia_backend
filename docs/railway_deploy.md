@@ -1,0 +1,89 @@
+# Deploy en Railway
+
+## Backend
+
+Crear un servicio para `backend` y configurar el archivo de Railway como
+`/backend/railway.toml` si el repositorio se despliega como monorepo.
+
+Variables requeridas:
+
+```env
+APP_ENV=production
+SECRET_KEY=<clave-aleatoria-minimo-32-caracteres>
+JWT_SECRET=<clave-aleatoria-minimo-32-caracteres>
+JWT_EXPIRE_MINUTES=720
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_SAMESITE=Lax
+CORS_ALLOWED_ORIGINS=https://<frontend>
+```
+
+Para MySQL de Railway se pueden usar directamente las variables que expone el
+servicio de base:
+
+```env
+MYSQLHOST=${{MySQL.MYSQLHOST}}
+MYSQLPORT=${{MySQL.MYSQLPORT}}
+MYSQLUSER=${{MySQL.MYSQLUSER}}
+MYSQLPASSWORD=${{MySQL.MYSQLPASSWORD}}
+MYSQLDATABASE=${{MySQL.MYSQLDATABASE}}
+```
+
+Tambien siguen funcionando las variables historicas `DB_HOST`, `DB_PORT`,
+`DB_USER`, `DB_PASSWORD` y `DB_NAME`.
+
+El contenedor arranca con Gunicorn y escucha en `0.0.0.0:$PORT`, que Railway
+inyecta automaticamente. El healthcheck publico queda en `/healthz`.
+
+Si se usan adjuntos o fotos en almacenamiento local, crear un volumen y montar
+el directorio persistente en la ruta que use `FOTO_LOCAL_DIR` o
+`LEGAJO_LOCAL_DIR`. Para evitar depender del filesystem efimero, el default de
+fotos y legajos es guardar en base de datos.
+
+## Frontend Flutter
+
+Hay dos formas de usar el frontend:
+
+### App mobile
+
+Para mobile no se despliega la app en Railway: se compila apuntando al dominio
+publico del backend.
+
+```bash
+flutter build apk --release \
+  --dart-define=APP_FLAVOR=PROD \
+  --dart-define=APP_PROD=true \
+  --dart-define=API_BASE_URL=https://<backend>.up.railway.app
+```
+
+### Flutter Web en Railway
+
+Crear otro servicio para `frontend_flutter` y configurar el archivo de Railway
+como `/frontend_flutter/railway.toml` si el repositorio se despliega como
+monorepo.
+
+Variable requerida en el servicio frontend:
+
+```env
+API_BASE_URL=https://${{Backend.RAILWAY_PUBLIC_DOMAIN}}
+```
+
+Variables opcionales:
+
+```env
+APP_FLAVOR=PROD
+APP_PROD=true
+MOBILE_API_PREFIX=/api/v1/mobile
+MOBILE_CONTRACT_VERSION=1.15.0
+SESSION_IDLE_TIMEOUT_MINUTES=20
+SESSION_MAX_AGE_HOURS=10
+SESSION_PROACTIVE_REFRESH_MINUTES=8
+```
+
+En el backend, restringir CORS al dominio del frontend:
+
+```env
+CORS_ALLOWED_ORIGINS=https://${{Frontend.RAILWAY_PUBLIC_DOMAIN}}
+```
+
+El frontend usa Docker multi-stage: compila Flutter Web y sirve `build/web` con
+Nginx escuchando en el `PORT` que Railway inyecta.

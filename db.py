@@ -16,6 +16,13 @@ _PLACEHOLDER_ENV_VALUES = {
     "DB_USER": {"usuario_db"},
     "DB_NAME": {"nombre_db"},
 }
+_RAILWAY_MYSQL_ENV_ALIASES = {
+    "DB_HOST": "MYSQLHOST",
+    "DB_PORT": "MYSQLPORT",
+    "DB_USER": "MYSQLUSER",
+    "DB_PASSWORD": "MYSQLPASSWORD",
+    "DB_NAME": "MYSQLDATABASE",
+}
 
 
 class DatabaseConfigError(RuntimeError):
@@ -23,7 +30,7 @@ class DatabaseConfigError(RuntimeError):
 
 
 def _require_env(name: str) -> str:
-    value = os.getenv(name)
+    value = os.getenv(name) or os.getenv(_RAILWAY_MYSQL_ENV_ALIASES.get(name, ""))
     if not value:
         raise DatabaseConfigError(f"{name} no configurada")
     return value
@@ -39,9 +46,9 @@ def _validate_env_value(name: str, value: str) -> None:
 
 def _load_db_settings() -> dict[str, str]:
     host = _require_env("DB_HOST")
-    port = os.getenv("DB_PORT", "3306")
+    port = os.getenv("DB_PORT") or os.getenv("MYSQLPORT") or "3306"
     user = _require_env("DB_USER")
-    password = os.getenv("DB_PASSWORD") or ""
+    password = os.getenv("DB_PASSWORD") or os.getenv("MYSQLPASSWORD") or ""
     db = _require_env("DB_NAME")
     _validate_env_value("DB_USER", user)
     _validate_env_value("DB_NAME", db)

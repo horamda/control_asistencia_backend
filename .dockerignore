@@ -1,0 +1,14 @@
+.git
+.pytest_cache
+.pytest_tmp
+.pytest_tmp_codex
+__pycache__
+*.pyc
+.env
+.env.*
+venv
+uploads
+testtmp
+ptmp2
+docs
+tests

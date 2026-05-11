@@ -3,12 +3,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _env(name, default=None):
+    railway_mysql_aliases = {
+        "DB_HOST": "MYSQLHOST",
+        "DB_PORT": "MYSQLPORT",
+        "DB_USER": "MYSQLUSER",
+        "DB_PASSWORD": "MYSQLPASSWORD",
+        "DB_NAME": "MYSQLDATABASE",
+    }
+    return os.getenv(name) or os.getenv(railway_mysql_aliases.get(name, "")) or default
+
+
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST"),
-    "port": int(os.getenv("DB_PORT", 3306)),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "database": os.getenv("DB_NAME")
+    "host": _env("DB_HOST"),
+    "port": int(_env("DB_PORT", 3306)),
+    "user": _env("DB_USER"),
+    "password": _env("DB_PASSWORD"),
+    "database": _env("DB_NAME")
 }
 
 JWT_SECRET = os.getenv("JWT_SECRET")
