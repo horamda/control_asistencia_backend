@@ -31,6 +31,14 @@ MYSQLDATABASE=${{MySQL.MYSQLDATABASE}}
 Tambien siguen funcionando las variables historicas `DB_HOST`, `DB_PORT`,
 `DB_USER`, `DB_PASSWORD` y `DB_NAME`.
 
+Antes del primer deploy, la base MySQL debe tener el esquema inicial del sistema.
+El arranque de la app inicializa el ORM y asegura indices sobre tablas existentes
+como `empleado_horarios` y `asistencias`; si la base esta vacia, el contenedor
+puede fallar al iniciar. Para una base nueva de Railway, importar primero un dump
+del esquema/datos actuales y luego aplicar las migraciones pendientes de
+`migrations/` o los scripts idempotentes de `scripts/migrate_*.py` que
+correspondan.
+
 El contenedor arranca con Gunicorn y escucha en `0.0.0.0:$PORT`, que Railway
 inyecta automaticamente. El healthcheck publico queda en `/healthz`.
 
