@@ -43,6 +43,7 @@ from web.qr_puerta.qr_puerta_routes import qr_puerta_bp
 from web.legajos.legajos_routes import legajos_bp
 from web.legajos.legajo_tipos_evento_routes import legajo_tipos_evento_bp
 from web.kpis_sectoriales.kpis_sectoriales_routes import kpis_sectoriales_bp
+from web.premios_concursos.premios_concursos_routes import premios_concursos_bp
 
 load_dotenv("/etc/secrets/.env", override=False)
 load_dotenv(override=False)
@@ -263,6 +264,7 @@ def create_app():
     app.register_blueprint(legajos_bp)
     app.register_blueprint(legajo_tipos_evento_bp)
     app.register_blueprint(kpis_sectoriales_bp)
+    app.register_blueprint(premios_concursos_bp)
 
     @app.route("/")
     def index():

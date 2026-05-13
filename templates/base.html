@@ -156,6 +156,23 @@
               </div>
             {% endif %}
 
+            {% if current_role in ["admin", "rrhh"] %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-premios">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M5 5H3v2a4 4 0 0 0 4 4"/><path d="M19 5h2v2a4 4 0 0 1-4 4"/></svg>
+                    <span class="nav-label">Premios</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-premios">
+                  <a class="nav-link" href="/premios-concursos/">Concursos</a>
+                  <a class="nav-link" href="/premios-concursos/resultados">Resultados</a>
+                  <a class="nav-link" href="/premios-concursos/resultados/importar">Importar resultados</a>
+                </div>
+              </div>
+            {% endif %}
+
             {% if current_role == "admin" %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-sistema">

@@ -1,7 +1,7 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.15.0
-Fecha de corte: 2026-04-20
+Version de contrato: 1.16.0
+Fecha de corte: 2026-05-12
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
@@ -1127,6 +1127,71 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 - Si el empleado no tiene sector asignado, `sector.id` es `null` y `kpis` es `[]`.
 - Response 400: `{"error":"Ano invalido."}`
 - Response 500: `{"error":"No se pudieron obtener los KPIs."}`
+
+---
+
+### Premios y concursos
+
+#### 36. `GET /api/v1/mobile/me/premios?anio=YYYY`
+- Premios/rankings mensuales obtenidos por el empleado autenticado.
+- `anio`: ano a consultar (opcional, default = ano actual del servidor).
+- Devuelve siempre los 12 meses del ano para que Flutter pueda pintar tarjetas mes por mes.
+- Response 200:
+```json
+{
+  "anio": 2026,
+  "sector": {
+    "id": 3,
+    "nombre": "Logistica"
+  },
+  "resumen": {
+    "total_premios": 3,
+    "mejor_ranking": 1,
+    "primeros_puestos": 1,
+    "podios": 2
+  },
+  "meses": [
+    {
+      "mes": 1,
+      "nombre": "Enero",
+      "premios": [
+        {
+          "id": 15,
+          "periodo": "2026-01",
+          "periodo_year": 2026,
+          "periodo_month": 1,
+          "mes_nombre": "Enero",
+          "ranking": 1,
+          "observaciones": null,
+          "concurso": {
+            "id": 2,
+            "codigo": "SEGURIDAD",
+            "nombre": "Premio de seguridad",
+            "descripcion": null,
+            "alcance": "global",
+            "sector": null
+          },
+          "sector_empleado": {
+            "id": 3,
+            "nombre": "Logistica"
+          }
+        }
+      ]
+    },
+    {
+      "mes": 2,
+      "nombre": "Febrero",
+      "premios": []
+    }
+  ]
+}
+```
+- `concurso.alcance`:
+  - `global`: concurso comun a todos los sectores, por ejemplo Seguridad.
+  - `sector`: concurso propio de un sector.
+- Si el empleado salio 1ro en enero, 3ro en marzo y 4to en abril, esos tres meses tienen un item en `premios`; los meses sin premio devuelven `premios: []`.
+- Response 400: `{"error":"Ano invalido."}`
+- Response 500: `{"error":"No se pudieron obtener los premios."}`
 
 ---
 

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Resultados de premios{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Ranking mensual</div>
+      <h2>Resultados de premios</h2>
+      <p class="module-intro">
+        Administre los puestos obtenidos por empleado en cada concurso y periodo mensual.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Mensual</span>
+      <span class="chip">Ranking</span>
+      <span class="chip">Visible mobile</span>
+    </div>
+  </div>
+
+  {% if error %}<div class="errors"><p>{{ error }}</p></div>{% endif %}
+  {% if msg %}<div class="alert-ok"><p>{{ msg }}</p></div>{% endif %}
+
+  <div class="toolbar">
+    <a class="btn" href="{{ url_for('premios_concursos.resultado_nuevo', empresa_id=empresa_id or None) }}">+ Nuevo resultado</a>
+    <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados_importar') }}">Importar CSV/XLSX</a>
+    <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados_export_csv', empresa_id=empresa_id or None, sector_id=sector_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Exportar CSV</a>
+    <a class="btn btn-secondary" href="{{ url_for('premios_concursos.listado', empresa_id=empresa_id or None) }}">Concursos</a>
+  </div>
+
+  <form method="get" action="{{ url_for('premios_concursos.resultados') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id" onchange="this.form.submit()">
+          <option value="">Todas</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Sector</label>
+        <select name="sector_id" {% if not empresa_id %}disabled{% endif %}>
+          <option value="">Todos</option>
+          {% for s in sectores %}
+            <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Concurso</label>
+        <select name="concurso_id" {% if not empresa_id %}disabled{% endif %}>
+          <option value="">Todos</option>
+          {% for c in concursos %}
+            <option value="{{ c.id }}" {% if concurso_id == c.id %}selected{% endif %}>
+              {{ c.codigo }} - {{ c.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id">
+          <option value="">Todos</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }}{% if e.legajo %} - {{ e.legajo }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Ano</label>
+        <select name="anio">
+          <option value="">Todos</option>
+          {% for year in years %}
+            <option value="{{ year }}" {% if anio == year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Mes</label>
+        <select name="mes">
+          <option value="">Todos</option>
+          {% for value, label in months %}
+            <option value="{{ value }}" {% if mes == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row span-2">
+        <label>Buscar</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Empleado, DNI, legajo o concurso">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados') }}">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <div class="summary">Resultados: {{ resultados|length }} registro(s) en esta pagina</div>
+    <div class="summary">Total general: {{ total }}</div>
+  </div>
+
+  <div class="chip-row">
+    <span class="chip">Total: {{ summary.total }}</span>
+    <span class="chip">Primeros puestos: {{ summary.primeros }}</span>
+    <span class="chip">Podios: {{ summary.podios }}</span>
+    <span class="chip">Empleados: {{ summary.empleados }}</span>
+    <span class="chip">Concursos: {{ summary.concursos }}</span>
+  </div>
+
+  {% if resultados %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead>
+          <tr>
+            <th>Periodo</th>
+            <th>Empleado</th>
+            <th>Concurso</th>
+            <th>Sector</th>
+            <th>Ranking</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in resultados %}
+            <tr>
+              <td data-label="Periodo">{{ r.periodo_label or "-" }}</td>
+              <td data-label="Empleado">
+                <div>{{ r.apellido }} {{ r.nombre }}</div>
+                <small>Legajo {{ r.legajo or r.legajo_snapshot or "-" }}{% if r.dni %} - DNI {{ r.dni }}{% endif %}</small>
+              </td>
+              <td data-label="Concurso">
+                <div>{{ r.concurso_nombre or r.concurso_nombre_snapshot }}</div>
+                <small><code>{{ r.concurso_codigo or r.concurso_codigo_snapshot }}</code> - {{ r.concurso_alcance }}</small>
+              </td>
+              <td data-label="Sector">{{ r.sector_nombre or r.concurso_sector_nombre or "-" }}</td>
+              <td data-label="Ranking">
+                {% if r.ranking == 1 %}
+                  <span class="badge ok">1</span>
+                {% elif r.ranking and r.ranking <= 3 %}
+                  <span class="badge warning">{{ r.ranking }}</span>
+                {% else %}
+                  <span class="badge">{{ r.ranking }}</span>
+                {% endif %}
+                {% if r.observaciones %}
+                  <small style="display:block;color:var(--muted)">{{ r.observaciones }}</small>
+                {% endif %}
+              </td>
+              <td data-label="Acciones">
+                <div class="inline-actions">
+                  <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultado_editar', resultado_id=r.id) }}">Editar</a>
+                  <form method="post" action="{{ url_for('premios_concursos.resultado_eliminar', resultado_id=r.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn-danger" type="submit">Eliminar</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay resultados para los filtros seleccionados.</div>
+  {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados', page=page - 1, per=per_page, empresa_id=empresa_id or None, sector_id=sector_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados', page=page + 1, per=per_page, empresa_id=empresa_id or None, sector_id=sector_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Siguiente</a>
+    {% endif %}
+    <span class="summary">Pagina {{ page }}</span>
+  </div>
+</div>
+{% endblock %}

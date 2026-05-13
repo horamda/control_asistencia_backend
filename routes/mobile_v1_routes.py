@@ -75,6 +75,10 @@ from repositories.pedido_mercaderia_repository import (
     get_page_by_empleado as get_pedidos_mercaderia_page_by_empleado,
 )
 from repositories.mobile_stats_repository import get_by_empleado as get_mobile_stats_by_empleado
+from repositories.premio_concurso_repository import (
+    MONTH_NAMES as PREMIO_MONTH_NAMES,
+    get_resultados_empleado_anio as get_premios_resultados_empleado_anio,
+)
 from repositories.auditoria_repository import create as create_audit
 from repositories.security_event_repository import (
     create_geo_qr_rechazo,
@@ -2258,7 +2262,9 @@ def me_dashboard():
 def me_kpis_sector():
     from repositories.kpi_sectorial_repository import get_resultados_empleado_anio
 
-    empleado = g.empleado
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": INVALID_SESSION_MESSAGE}), 401
     emp_id = int(empleado["id"])
 
     raw_anio = (request.args.get("anio") or "").strip()
@@ -2285,4 +2291,97 @@ def me_kpis_sector():
             "nombre": data.get("sector_nombre"),
         },
         "kpis": data.get("kpis", []),
+    })
+
+
+# ---------------------------------------------------------------------------
+# Premios y concursos
+# ---------------------------------------------------------------------------
+
+def _premio_resultado_to_dict(row: dict) -> dict:
+    periodo_year = int(row.get("periodo_year") or 0)
+    periodo_month = int(row.get("periodo_month") or 0)
+    periodo = row.get("periodo_label") or (f"{periodo_year:04d}-{periodo_month:02d}" if periodo_year and periodo_month else None)
+    concurso_sector_id = row.get("concurso_sector_id")
+    return {
+        "id": row.get("id"),
+        "periodo": periodo,
+        "periodo_year": periodo_year,
+        "periodo_month": periodo_month,
+        "mes_nombre": PREMIO_MONTH_NAMES.get(periodo_month),
+        "ranking": int(row.get("ranking") or 0),
+        "observaciones": row.get("observaciones"),
+        "concurso": {
+            "id": row.get("concurso_id"),
+            "codigo": row.get("concurso_codigo"),
+            "nombre": row.get("concurso_nombre"),
+            "descripcion": row.get("concurso_descripcion"),
+            "alcance": row.get("concurso_alcance"),
+            "sector": {
+                "id": concurso_sector_id,
+                "nombre": row.get("concurso_sector_nombre"),
+            } if concurso_sector_id else None,
+        },
+        "sector_empleado": {
+            "id": row.get("empleado_sector_id"),
+            "nombre": row.get("empleado_sector_nombre"),
+        } if row.get("empleado_sector_id") else None,
+    }
+
+
+@mobile_v1_bp.route("/me/premios", methods=["GET"])
+@mobile_auth_required
+def me_premios():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": INVALID_SESSION_MESSAGE}), 401
+    emp_id = int(empleado["id"])
+
+    raw_anio = (request.args.get("anio") or "").strip()
+    if raw_anio:
+        try:
+            anio = int(raw_anio)
+            if anio < 2020 or anio > 2100:
+                raise ValueError
+        except ValueError:
+            return jsonify({"error": "Ano invalido."}), 400
+    else:
+        anio = datetime.date.today().year
+
+    try:
+        data = get_premios_resultados_empleado_anio(emp_id, anio)
+    except Exception:
+        current_app.logger.exception("me_premios_error", extra={"extra": {"empleado_id": emp_id}})
+        return jsonify({"error": "No se pudieron obtener los premios."}), 500
+
+    meses = [
+        {
+            "mes": month,
+            "nombre": PREMIO_MONTH_NAMES[month],
+            "premios": [],
+        }
+        for month in range(1, 13)
+    ]
+    rankings = []
+    for row in data.get("premios", []):
+        item = _premio_resultado_to_dict(row)
+        month = int(item.get("periodo_month") or 0)
+        if 1 <= month <= 12:
+            meses[month - 1]["premios"].append(item)
+        if item.get("ranking"):
+            rankings.append(int(item["ranking"]))
+
+    return jsonify({
+        "anio": anio,
+        "sector": {
+            "id": data.get("sector_id"),
+            "nombre": data.get("sector_nombre"),
+        },
+        "resumen": {
+            "total_premios": len(rankings),
+            "mejor_ranking": min(rankings) if rankings else None,
+            "primeros_puestos": sum(1 for ranking in rankings if ranking == 1),
+            "podios": sum(1 for ranking in rankings if ranking <= 3),
+        },
+        "meses": meses,
     })

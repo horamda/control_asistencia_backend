@@ -42,6 +42,17 @@ Documento generado automaticamente desde rutas activas del backend.
 | `POST` | `/kpis-sectoriales/objetivos/guardar` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:guardar_objetivo` |
 | `POST` | `/kpis-sectoriales/objetivos/copiar-anio-anterior` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:copiar_objetivos_anio_anterior` |
 | `GET,POST` | `/kpis-sectoriales/importar-resultados` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:importar_resultados` |
+| `GET` | `/premios-concursos/` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:listado` |
+| `GET,POST` | `/premios-concursos/nuevo` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:nuevo` |
+| `GET,POST` | `/premios-concursos/<int:concurso_id>/editar` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:editar` |
+| `POST` | `/premios-concursos/<int:concurso_id>/activar` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:activar` |
+| `POST` | `/premios-concursos/<int:concurso_id>/desactivar` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:desactivar` |
+| `GET` | `/premios-concursos/resultados` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:resultados` |
+| `GET,POST` | `/premios-concursos/resultados/nuevo` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:resultado_nuevo` |
+| `GET,POST` | `/premios-concursos/resultados/<int:resultado_id>/editar` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:resultado_editar` |
+| `POST` | `/premios-concursos/resultados/<int:resultado_id>/eliminar` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:resultado_eliminar` |
+| `GET` | `/premios-concursos/resultados/export.csv` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:resultados_export_csv` |
+| `GET,POST` | `/premios-concursos/resultados/importar` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:resultados_importar` |
 | `GET` | `/empleado-excepciones/` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:listado` |
 | `POST` | `/empleado-excepciones/api` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:api_create` |
 | `GET` | `/empleado-excepciones/api/<int:excepcion_id>` | sesion web | admin, rrhh | `web/empleado_excepciones/empleado_excepciones_routes.py:api_get` |
@@ -137,6 +148,7 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/api/v1/mobile/me/estadisticas` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_estadisticas` |
 | `GET` | `/api/v1/mobile/me/config-asistencia` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_config_asistencia` |
 | `GET` | `/api/v1/mobile/me/kpis-sector` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_kpis_sector` |
+| `GET` | `/api/v1/mobile/me/premios` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_premios` |
 | `GET` | `/api/v1/mobile/me/eventos-seguridad` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_eventos_seguridad` |
 | `POST` | `/api/v1/mobile/me/fichadas/entrada` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:fichar_entrada` |
 | `POST` | `/api/v1/mobile/me/fichadas/salida` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:fichar_salida` |

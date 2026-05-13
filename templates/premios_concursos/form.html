@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{% if concurso %}Editar concurso{% else %}Nuevo concurso{% endif %}{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">{% if concurso %}Editar{% else %}Nuevo{% endif %}</div>
+      <h2>{% if concurso %}{{ concurso.nombre }}{% else %}Nuevo concurso{% endif %}</h2>
+    </div>
+  </div>
+
+  {% if error %}<div class="errors"><p>{{ error }}</p></div>{% endif %}
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa <span class="required">*</span></label>
+        <select
+          name="empresa_id"
+          required
+          {% if not concurso %}onchange="if(this.value){window.location='{{ url_for('premios_concursos.nuevo') }}?empresa_id='+this.value}"{% endif %}
+        >
+          <option value="">Seleccione empresa</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if data.empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+        {% if not concurso %}<small class="helper-text">Al cambiar la empresa se cargan sus sectores.</small>{% endif %}
+      </div>
+
+      <div class="row">
+        <label>Alcance <span class="required">*</span></label>
+        <select name="alcance" required>
+          <option value="sector" {% if data.alcance != "global" %}selected{% endif %}>Sector</option>
+          <option value="global" {% if data.alcance == "global" %}selected{% endif %}>Global</option>
+        </select>
+        <small class="helper-text">Use global para Seguridad u otro premio comun a todos.</small>
+      </div>
+
+      <div class="row">
+        <label>Sector</label>
+        <select name="sector_id" {% if not sectores %}disabled{% endif %}>
+          <option value="">Sin sector</option>
+          {% for s in sectores %}
+            <option value="{{ s.id }}" {% if data.sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Codigo <span class="required">*</span></label>
+        <input name="codigo" value="{{ data.codigo or '' }}" placeholder="Ej: SEGURIDAD" required maxlength="64">
+        <small class="helper-text">Se usa en la importacion masiva. Debe ser unico por empresa.</small>
+      </div>
+
+      <div class="row span-2">
+        <label>Nombre <span class="required">*</span></label>
+        <input name="nombre" value="{{ data.nombre or '' }}" placeholder="Ej: Premio de seguridad" required maxlength="120">
+      </div>
+
+      <div class="row span-2">
+        <label>Descripcion</label>
+        <input name="descripcion" value="{{ data.descripcion or '' }}" placeholder="Descripcion opcional" maxlength="255">
+      </div>
+
+      <div class="row">
+        <label>Estado</label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="activo" value="1" {% if data.activo is not defined or data.activo %}checked{% endif %}>
+          Activo
+        </label>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" type="submit">{% if concurso %}Guardar cambios{% else %}Crear concurso{% endif %}</button>
+      <a class="btn btn-secondary" href="{{ url_for('premios_concursos.listado', empresa_id=data.empresa_id or None) }}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

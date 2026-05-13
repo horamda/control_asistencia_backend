@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Importar premios{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Carga masiva</div>
+      <h2>Importar resultados de premios</h2>
+      <p class="module-intro">
+        Suba un archivo CSV o XLSX con el ranking mensual por empleado y concurso.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:1rem">
+    <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.6rem">Formato del archivo</div>
+    <pre style="font-size:.82rem;background:var(--surface-soft);border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem;overflow-x:auto;margin:0 0 .6rem">periodo,legajo,codigo_concurso,ranking,observaciones
+2026-01,L001,SEGURIDAD,1,
+2026-03,L001,SEGURIDAD,3,
+2026-04,L001,SEGURIDAD,4,</pre>
+    <ul style="font-size:.82rem;color:var(--muted);margin:0;padding-left:1.2rem;line-height:1.8">
+      <li><strong>periodo</strong>: formato YYYY-MM</li>
+      <li><strong>legajo</strong>: legajo del empleado dentro de la empresa seleccionada</li>
+      <li><strong>codigo_concurso</strong>: codigo del concurso configurado</li>
+      <li><strong>ranking</strong>: posicion mensual, numero entero mayor o igual a 1</li>
+    </ul>
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa <span class="required">*</span></label>
+        <select name="empresa_id" required>
+          <option value="">Seleccione empresa</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if request.form.get('empresa_id') == e.id|string %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Archivo CSV o XLSX <span class="required">*</span></label>
+        <input type="file" name="archivo" accept=".csv,.xlsx" required>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Importar</button>
+      <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados') }}">Volver</a>
+    </div>
+  </form>
+
+  {% if resultado %}
+    {% if resultado.error %}
+      <div class="errors"><p>{{ resultado.error }}</p></div>
+    {% else %}
+      <div class="alert-ok">
+        <strong>Importacion completada</strong>
+        <div style="font-size:.85rem;margin-top:2px">
+          <strong>{{ resultado.importadas }}</strong> filas importadas de <strong>{{ resultado.total_filas }}</strong> totales.
+          Creados: <strong>{{ resultado.creados }}</strong>.
+          Actualizados: <strong>{{ resultado.actualizados }}</strong>.
+          {% if resultado.errores > 0 %}
+            Errores: <strong>{{ resultado.errores }}</strong>.
+          {% endif %}
+        </div>
+      </div>
+
+      {% if resultado.detalle_errores %}
+        <div class="table-responsive" style="margin-top:.5rem">
+          <table>
+            <thead>
+              <tr><th style="width:80px">Linea</th><th>Detalle del error</th></tr>
+            </thead>
+            <tbody>
+              {% for e in resultado.detalle_errores %}
+                <tr>
+                  <td><code>{{ e.linea }}</code></td>
+                  <td style="color:var(--danger,#c53a4d)">{{ e.error }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

@@ -2816,3 +2816,76 @@ def test_mobile_legajo_eventos_detail_ajeno_retorna_404(monkeypatch):
     client = _build_client(monkeypatch)
     resp = client.get("/api/v1/mobile/me/legajo/eventos/20", headers=_auth_headers())
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Premios
+# ---------------------------------------------------------------------------
+
+def test_mobile_premios_agrupa_por_mes(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_premios_resultados_empleado_anio",
+        lambda empleado_id, anio: {
+            "sector_id": 3,
+            "sector_nombre": "Logistica",
+            "premios": [
+                {
+                    "id": 1,
+                    "periodo_label": "2026-01",
+                    "periodo_year": 2026,
+                    "periodo_month": 1,
+                    "ranking": 1,
+                    "observaciones": None,
+                    "concurso_id": 9,
+                    "concurso_codigo": "SEGURIDAD",
+                    "concurso_nombre": "Premio de seguridad",
+                    "concurso_descripcion": None,
+                    "concurso_alcance": "global",
+                    "concurso_sector_id": None,
+                    "concurso_sector_nombre": None,
+                    "empleado_sector_id": 3,
+                    "empleado_sector_nombre": "Logistica",
+                },
+                {
+                    "id": 2,
+                    "periodo_label": "2026-03",
+                    "periodo_year": 2026,
+                    "periodo_month": 3,
+                    "ranking": 3,
+                    "observaciones": "Podio",
+                    "concurso_id": 9,
+                    "concurso_codigo": "SEGURIDAD",
+                    "concurso_nombre": "Premio de seguridad",
+                    "concurso_descripcion": None,
+                    "concurso_alcance": "global",
+                    "concurso_sector_id": None,
+                    "concurso_sector_nombre": None,
+                    "empleado_sector_id": 3,
+                    "empleado_sector_nombre": "Logistica",
+                },
+            ],
+        },
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/premios?anio=2026", headers=_auth_headers())
+    body = resp.get_json()
+
+    assert resp.status_code == 200
+    assert body["anio"] == 2026
+    assert body["sector"]["nombre"] == "Logistica"
+    assert len(body["meses"]) == 12
+    assert body["meses"][0]["premios"][0]["ranking"] == 1
+    assert body["meses"][1]["premios"] == []
+    assert body["meses"][2]["premios"][0]["ranking"] == 3
+    assert body["resumen"]["total_premios"] == 2
+    assert body["resumen"]["mejor_ranking"] == 1
+
+
+def test_mobile_premios_anio_invalido(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/premios?anio=abc", headers=_auth_headers())
+    assert resp.status_code == 400
+    assert "Ano invalido" in resp.get_json()["error"]
