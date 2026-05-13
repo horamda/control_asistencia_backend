@@ -112,6 +112,7 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET,POST` | `/puestos/nuevo` | sesion web | admin | `web/puestos/puestos_routes.py:nuevo` |
 | `GET,POST` | `/qr-puerta/` | sesion web | admin, rrhh | `web/qr_puerta/qr_puerta_routes.py:generar` |
 | `GET` | `/qr-puerta/imprimir/<int:empresa_id>` | sesion web | admin, rrhh | `web/qr_puerta/qr_puerta_routes.py:imprimir` |
+| `POST` | `/qr-puerta/inactivar/<int:historial_id>` | sesion web | admin, rrhh | `web/qr_puerta/qr_puerta_routes.py:inactivar` |
 | `GET` | `/qr-puerta/reimprimir/<int:historial_id>` | sesion web | admin, rrhh | `web/qr_puerta/qr_puerta_routes.py:reimprimir` |
 | `GET` | `/roles/` | sesion web | admin | `web/roles/roles_routes.py:listado` |
 | `GET,POST` | `/roles/editar/<int:rol_id>` | sesion web | admin | `web/roles/roles_routes.py:editar` |

@@ -238,6 +238,45 @@ def test_mobile_generar_qr_ok(monkeypatch):
     assert body["accion"] == "ingreso"
 
 
+def test_mobile_generar_qr_default_vigencia_matches_contract(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 8})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 2,
+            "dni": "2",
+            "nombre": "Emp",
+            "apellido": "Two",
+        },
+    )
+    captured = {}
+
+    def _fake_generar_token_qr(payload, vigencia_segundos=120):
+        captured["vigencia_segundos"] = vigencia_segundos
+        return "qr-token-demo"
+
+    monkeypatch.setattr(mobile_routes, "generar_token_qr", _fake_generar_token_qr)
+    monkeypatch.setattr(
+        mobile_routes,
+        "build_qr_png_base64",
+        lambda content: "data:image/png;base64,AAA",
+    )
+
+    resp = client.post(
+        "/api/v1/mobile/me/qr",
+        headers={"Authorization": "Bearer abc"},
+        json={},
+    )
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["vigencia_segundos"] == mobile_routes.DEFAULT_QR_TTL_SECONDS
+    assert captured["vigencia_segundos"] == mobile_routes.DEFAULT_QR_TTL_SECONDS
+
+
 def test_mobile_fichada_entrada_qr_token_requerido(monkeypatch):
     client = _build_client(monkeypatch)
     monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 5})
@@ -271,6 +310,100 @@ def test_mobile_fichada_entrada_qr_token_requerido(monkeypatch):
     )
     assert resp.status_code == 400
     assert "qr_token requerido" in resp.get_json()["error"]
+
+
+def test_mobile_fichada_scan_qr_invalid_signature_code(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 6})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 1,
+            "dni": "6",
+            "nombre": "Emp",
+            "apellido": "Six",
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empresa_id",
+        lambda empresa_id: {
+            "requiere_qr": 1,
+            "requiere_foto": 0,
+            "requiere_geo": 0,
+        },
+    )
+
+    def _invalid_qr(token, accion_esperada=None):
+        raise mobile_routes.QRTokenValidationError(
+            "QR invalido o generado en otro ambiente. Genere un QR nuevo desde este sistema.",
+            "qr_token_invalid_signature",
+        )
+
+    monkeypatch.setattr(mobile_routes, "verificar_token_qr", _invalid_qr)
+
+    resp = client.post(
+        "/api/v1/mobile/me/fichadas/scan",
+        headers={"Authorization": "Bearer abc"},
+        json={"qr_token": "abc.def.ghi", "lat": -34.6037, "lon": -58.3816},
+    )
+    body = resp.get_json()
+
+    assert resp.status_code == 400
+    assert body["code"] == "qr_token_invalid_signature"
+    assert "otro ambiente" in body["error"]
+
+
+def test_mobile_fichada_scan_qr_puerta_inactivo(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 6})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 1,
+            "dni": "6",
+            "nombre": "Emp",
+            "apellido": "Six",
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_by_empresa_id",
+        lambda empresa_id: {
+            "requiere_qr": 1,
+            "requiere_foto": 0,
+            "requiere_geo": 0,
+        },
+    )
+    monkeypatch.setattr(
+        mobile_routes,
+        "verificar_token_qr",
+        lambda token, accion_esperada=None: {
+            "type": "asistencia_qr",
+            "accion": "auto",
+            "empresa_id": 1,
+            "scope": "empresa",
+            "origen": "web_admin_puerta",
+        },
+    )
+    monkeypatch.setattr(mobile_routes, "get_qr_puerta_by_token", lambda token: {"id": 55, "activo": 0})
+
+    resp = client.post(
+        "/api/v1/mobile/me/fichadas/scan",
+        headers={"Authorization": "Bearer abc"},
+        json={"qr_token": "abc.def.ghi", "lat": -34.6037, "lon": -58.3816},
+    )
+    body = resp.get_json()
+
+    assert resp.status_code == 403
+    assert body["code"] == "qr_inactive"
+    assert "inactivo" in body["error"].lower()
 
 
 def test_mobile_fichada_entrada_permite_reingreso_despues_egreso(monkeypatch):

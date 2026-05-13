@@ -1,10 +1,10 @@
 ﻿import datetime
-
-from flask import Blueprint, abort, render_template, request, session
+from flask import Blueprint, abort, redirect, render_template, request, session, url_for
 from utils.forms import parse_int as _parse_int
 
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.qr_puerta_repository import create as create_qr_historial
+from repositories.qr_puerta_repository import deactivate as deactivate_qr_historial
 from repositories.qr_puerta_repository import get_by_id as get_qr_historial_by_id
 from repositories.qr_puerta_repository import get_recent as get_qr_historial_recent
 from repositories.sucursal_repository import get_all as get_sucursales
@@ -31,6 +31,18 @@ def _normalize_tipo_marca(value):
     if not raw:
         return "jornada"
     return raw if raw in TIPO_MARCA_ALLOWED else None
+
+
+def _qr_activo(row):
+    if not row:
+        return False
+    value = row.get("activo", 1)
+    if value is None:
+        return True
+    try:
+        return bool(int(value))
+    except (TypeError, ValueError):
+        return bool(value)
 
 
 @qr_puerta_bp.route("/", methods=["GET", "POST"])
@@ -209,6 +221,25 @@ def imprimir(empresa_id):
         },
     }
     qr_token = generar_token_qr(payload, vigencia_segundos=vigencia_segundos)
+    expira_dt = (
+        datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=vigencia_segundos)
+    ).replace(microsecond=0)
+    historial_id = create_qr_historial(
+        empresa_id=int(empresa_id),
+        empresa_nombre=str(empresa.get("razon_social") or f"Empresa {empresa_id}"),
+        sucursal_id=int(sucursal["id"]),
+        sucursal_nombre=str(sucursal.get("nombre") or f"Sucursal {sucursal['id']}"),
+        tipo_marca=tipo_marca,
+        geo_lat=float(sucursal["latitud"]),
+        geo_lon=float(sucursal["longitud"]),
+        tolerancia_m=int(tolerancia_m),
+        vigencia_dias=30,
+        vigencia_segundos=vigencia_segundos,
+        expira_at=expira_dt.replace(tzinfo=None),
+        qr_token=qr_token,
+        usuario_id=session.get("user_id"),
+    )
+    log_audit(session, "create", "qr_puerta", int(empresa_id))
     try:
         qr_png_base64 = build_qr_png_base64(qr_token)
     except RuntimeError as exc:
@@ -222,7 +253,7 @@ def imprimir(empresa_id):
         tolerancia_m=tolerancia_m,
         qr_png_base64=qr_png_base64,
         qr_token=qr_token,
-        historial=None,
+        historial={"id": historial_id, "activo": 1, "expira_at": expira_dt},
     )
 
 
@@ -232,6 +263,8 @@ def reimprimir(historial_id):
     row = get_qr_historial_by_id(historial_id)
     if not row:
         abort(404)
+    if not _qr_activo(row):
+        abort(409, description="QR inactivo.")
 
     try:
         qr_png_base64 = build_qr_png_base64(row["qr_token"])
@@ -252,3 +285,18 @@ def reimprimir(historial_id):
         historial=row,
     )
 
+
+@qr_puerta_bp.route("/inactivar/<int:historial_id>", methods=["POST"])
+@role_required("admin", "rrhh")
+def inactivar(historial_id):
+    row = get_qr_historial_by_id(historial_id)
+    if not row:
+        abort(404)
+    if _qr_activo(row):
+        deactivate_qr_historial(
+            historial_id,
+            usuario_id=session.get("user_id"),
+            motivo="Inactivado desde panel QR puerta",
+        )
+        log_audit(session, "deactivate", "qr_puerta", historial_id)
+    return redirect(url_for("qr_puerta.generar"))

@@ -1,7 +1,7 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.16.0
-Fecha de corte: 2026-05-12
+Version de contrato: 1.16.1
+Fecha de corte: 2026-05-13
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
@@ -127,7 +127,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
   - `empresa`: QR general para todos los empleados de la empresa (default)
   - `empleado`: QR exclusivo para el empleado autenticado
 - `tipo_marca`: `jornada` (default), `desayuno`, `almuerzo`, `merienda`, `otro`
-- `vigencia_segundos`: 30 a 315360000 (hasta 10 anios)
+- `vigencia_segundos`: 30 a 315360000 (hasta 10 anios). Default: `2592000` (30 dias).
 - Response 200:
 ```json
 {
@@ -159,6 +159,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 - `lat` y `lon` son obligatorios.
+- `qr_token` acepta JWT directo, `Bearer <jwt>`, URL con query `qr_token`/`token` o JSON con `qr_token`.
 - `tipo_marca` es opcional; si el QR lo incluye, prevalece el del QR.
 - Response 201 (ingreso):
 ```json
@@ -187,6 +188,11 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
   "cooldown_segundos_restantes":42
 }
 ```
+- Response 400 (QR invalido, vencido o de otro ambiente):
+```json
+{"error":"QR invalido o generado en otro ambiente. Genere un QR nuevo desde este sistema.","code":"qr_token_invalid_signature"}
+```
+- Codigos QR posibles: `qr_token_required`, `qr_token_malformed`, `qr_token_invalid`, `qr_token_invalid_signature`, `qr_token_expired`, `qr_token_wrong_type`, `qr_token_missing_empresa`, `qr_token_wrong_action`, `qr_not_registered`, `qr_inactive`, `qr_wrong_empresa`, `qr_wrong_empleado`.
 
 #### 11. `POST /api/v1/mobile/me/fichadas/entrada` (deprecated)
 - Para nuevas integraciones usar `POST /api/v1/mobile/me/fichadas/scan`.
@@ -1254,6 +1260,12 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.16.1 (2026-05-13)
+- `POST /me/fichadas/scan`: `qr_token` acepta JWT directo, `Bearer`, URL con query o JSON con `qr_token`.
+- `POST /me/fichadas/scan`: errores QR devuelven `code` especifico (`qr_token_invalid_signature`, `qr_token_expired`, `qr_inactive`, etc.).
+- `POST /me/qr`: default real de `vigencia_segundos` alineado al contrato (`2592000`, 30 dias).
+- QR puerta: los QRs generados desde el panel quedan registrados y pueden inactivarse; un QR inactivo se rechaza en mobile.
 
 ### 1.15.0 (2026-04-20)
 - `GET /me/kpis-sector`: nuevos campos por KPI: `condicion`, `condicion_simbolo`, `valor_min`, `valor_max`.

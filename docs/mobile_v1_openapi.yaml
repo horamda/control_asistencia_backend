@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Control Asistencia — Mobile API v1
-  version: 1.15.0
+  version: 1.16.1
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -1286,6 +1286,7 @@ paths:
               properties:
                 qr_token:
                   type: string
+                  description: JWT QR directo, Bearer JWT, URL con qr_token/token o JSON con qr_token.
                 fecha:
                   type: string
                   format: date
@@ -1335,6 +1336,31 @@ paths:
                     type: integer
         '200':
           description: Egreso registrado (mismo esquema con accion=egreso)
+        '400':
+          description: QR invalido, vencido o de otro ambiente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - qr_token_required
+                      - qr_token_malformed
+                      - qr_token_invalid
+                      - qr_token_invalid_signature
+                      - qr_token_expired
+                      - qr_token_wrong_type
+                      - qr_token_missing_empresa
+                      - qr_token_wrong_action
+                      - qr_not_registered
+                      - qr_inactive
+                      - qr_wrong_empresa
+                      - qr_wrong_empleado
+                    example: qr_token_invalid_signature
         '403':
           description: Fuera de geocerca
           content:

@@ -105,6 +105,7 @@ def test_qr_puerta_post_ok(monkeypatch):
                 "sucursal_nombre": "Casa Central",
                 "tolerancia_m": 80,
                 "vigencia_dias": 30,
+                "activo": 1,
                 "expira_at": "2026-03-20 12:00:00",
                 "fecha": "2026-02-18 12:00:00",
             }
@@ -129,6 +130,7 @@ def test_qr_puerta_post_ok(monkeypatch):
     assert b"data:image/png;base64,AAA" in resp.data
     assert b"Historial de QRs generados" in resp.data
     assert b"Reimprimir" in resp.data
+    assert b"Inactivar" in resp.data
     assert captured_payload["tipo_marca"] == "almuerzo"
     assert captured_historial["tipo_marca"] == "almuerzo"
 
@@ -150,6 +152,7 @@ def test_qr_puerta_reimprimir_ok(monkeypatch):
             "tolerancia_m": 80,
             "fecha": "2026-02-18 12:00:00",
             "qr_token": "qr-token-demo",
+            "activo": 1,
         },
     )
     monkeypatch.setattr(qr_routes, "build_qr_png_base64", lambda content: "data:image/png;base64,AAA")
@@ -161,3 +164,51 @@ def test_qr_puerta_reimprimir_ok(monkeypatch):
     assert b"almuerzo" in resp.data
     assert b"80 m" in resp.data
     assert b"data:image/png;base64,AAA" in resp.data
+
+
+def test_qr_puerta_inactivar_ok(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(
+        qr_routes,
+        "get_qr_historial_by_id",
+        lambda historial_id: {"id": historial_id, "activo": 1},
+    )
+    captured = {}
+
+    def _fake_deactivate(historial_id, usuario_id, motivo=None):
+        captured["historial_id"] = historial_id
+        captured["usuario_id"] = usuario_id
+        captured["motivo"] = motivo
+        return 1
+
+    monkeypatch.setattr(qr_routes, "deactivate_qr_historial", _fake_deactivate)
+    monkeypatch.setattr(qr_routes, "log_audit", lambda *args, **kwargs: captured.setdefault("audit", args))
+
+    resp = client.post("/qr-puerta/inactivar/55")
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/qr-puerta/")
+    assert captured["historial_id"] == 55
+    assert captured["usuario_id"] == 99
+    assert "Inactivado" in captured["motivo"]
+
+
+def test_qr_puerta_reimprimir_inactivo_bloquea(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(
+        qr_routes,
+        "get_qr_historial_by_id",
+        lambda historial_id: {
+            "id": historial_id,
+            "activo": 0,
+            "qr_token": "qr-token-demo",
+        },
+    )
+
+    resp = client.get("/qr-puerta/reimprimir/55")
+
+    assert resp.status_code == 409

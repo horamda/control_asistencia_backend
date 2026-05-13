@@ -1518,6 +1518,16 @@ tbody tr:hover {
   font-size: 0.8rem;
 }
 
+.chip-muted {
+  border-color: var(--border);
+  background: var(--surface-alt);
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
 .table-responsive {
   width: 100%;
   overflow-x: auto;

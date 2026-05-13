@@ -79,6 +79,7 @@ from repositories.premio_concurso_repository import (
     MONTH_NAMES as PREMIO_MONTH_NAMES,
     get_resultados_empleado_anio as get_premios_resultados_empleado_anio,
 )
+from repositories.qr_puerta_repository import get_by_token as get_qr_puerta_by_token
 from repositories.auditoria_repository import create as create_audit
 from repositories.security_event_repository import (
     create_geo_qr_rechazo,
@@ -92,7 +93,14 @@ from services.profile_photo_service import (
     upload_profile_photo,
 )
 from utils.asistencia import get_horario_esperado, validar_asistencia
-from utils.jwt import generar_token, generar_token_qr, verificar_token_qr
+from utils.jwt import (
+    DEFAULT_QR_TTL_SECONDS,
+    QRTokenValidationError,
+    extract_qr_token,
+    generar_token,
+    generar_token_qr,
+    verificar_token_qr,
+)
 from utils.jwt_guard import INVALID_SESSION_MESSAGE, mobile_auth_required
 from utils.qr import build_qr_png_base64
 from routes.mobile_v1_helpers import (
@@ -127,6 +135,14 @@ mobile_v1_bp = Blueprint("mobile_v1", __name__, url_prefix="/api/v1/mobile")
 # Helpers con acceso a repositorios/servicios
 # (permanecen aquí para que los tests puedan hacer monkeypatch sobre este módulo)
 # ---------------------------------------------------------------------------
+
+def _api_error_body(message: str, exc: Exception | None = None) -> dict:
+    body = {"error": message}
+    code = getattr(exc, "code", None)
+    if code:
+        body["code"] = code
+    return body
+
 
 def _mobile_user():
     empleado_id = int(g.mobile_empleado_id)
@@ -210,15 +226,53 @@ def _validar_geo_scan_qr(empleado, qr_payload, lat, lon):
 def _validar_qr_fichada(empleado, qr_token: str | None, accion: str | None):
     token = (qr_token or "").strip()
     if not token:
-        raise ValueError("qr_token requerido para metodo qr.")
+        raise QRTokenValidationError(
+            "qr_token requerido para metodo qr.",
+            "qr_token_required",
+        )
     payload = verificar_token_qr(token, accion_esperada=accion)
+    _validar_qr_puerta_activo(token, payload)
     token_empresa = int(payload.get("empresa_id"))
     if token_empresa != int(empleado["empresa_id"]):
-        raise ValueError("QR no corresponde a la empresa del empleado.")
+        raise QRTokenValidationError(
+            "QR no corresponde a la empresa del empleado.",
+            "qr_wrong_empresa",
+            status_code=403,
+        )
     token_empleado = payload.get("empleado_id")
     if token_empleado is not None and int(token_empleado) != int(empleado["id"]):
-        raise ValueError("QR no corresponde al empleado autenticado.")
+        raise QRTokenValidationError(
+            "QR no corresponde al empleado autenticado.",
+            "qr_wrong_empleado",
+            status_code=403,
+        )
     return payload
+
+
+def _validar_qr_puerta_activo(qr_token: str, qr_payload: dict):
+    if str(qr_payload.get("origen") or "").strip().lower() != "web_admin_puerta":
+        return
+
+    row = get_qr_puerta_by_token(extract_qr_token(qr_token))
+    if not row:
+        raise QRTokenValidationError(
+            "QR no registrado. Genere un QR nuevo desde el panel.",
+            "qr_not_registered",
+            status_code=403,
+        )
+    activo = row.get("activo")
+    if activo is None:
+        activo = 1
+    try:
+        activo_bool = bool(int(activo))
+    except (TypeError, ValueError):
+        activo_bool = bool(activo)
+    if not activo_bool:
+        raise QRTokenValidationError(
+            "QR inactivo. Genere un QR nuevo desde el panel.",
+            "qr_inactive",
+            status_code=403,
+        )
 
 
 def _registrar_intento_fraude_geo(
@@ -407,7 +461,11 @@ def me_generar_qr():
         return jsonify({"error": "scope invalido. Use empresa o empleado."}), 400
 
     try:
-        vigencia_segundos = _parse_int(payload.get("vigencia_segundos"), "vigencia_segundos", 120)
+        vigencia_segundos = _parse_int(
+            payload.get("vigencia_segundos"),
+            "vigencia_segundos",
+            DEFAULT_QR_TTL_SECONDS,
+        )
         if vigencia_segundos < 30 or vigencia_segundos > 315360000:
             return jsonify({"error": "vigencia_segundos fuera de rango (30-315360000)."}), 400
         tipo_marca = _parse_tipo_marca(payload.get("tipo_marca"), default="jornada")
@@ -624,7 +682,7 @@ def fichar_scan_qr():
                 ),
                 409,
             )
-        code = 400
+        code = getattr(exc, "status_code", 400) or 400
         if (
             "secuencia invalida" in lowered
             or "ya registrada" in lowered
@@ -635,7 +693,7 @@ def fichar_scan_qr():
             code = 409
         if "no hay fichada de entrada" in lowered:
             code = 404
-        return jsonify({"error": message}), code
+        return jsonify(_api_error_body(message, exc)), code
 
 
 @mobile_v1_bp.route("/me/marcas", methods=["GET"])
@@ -975,7 +1033,7 @@ def fichar_entrada():
     except ValueError as exc:
         message = str(exc)
         lowered = message.lower()
-        code = 400
+        code = getattr(exc, "status_code", 400) or 400
         if (
             "secuencia invalida" in lowered
             or "ya registrada" in lowered
@@ -985,7 +1043,7 @@ def fichar_entrada():
             code = 409
         if "no hay fichada de entrada" in lowered:
             code = 404
-        return jsonify({"error": message}), code
+        return jsonify(_api_error_body(message, exc)), code
 
 
 @mobile_v1_bp.route("/me/fichadas/salida", methods=["POST"])
@@ -1071,7 +1129,7 @@ def fichar_salida():
     except ValueError as exc:
         message = str(exc)
         lowered = message.lower()
-        code = 400
+        code = getattr(exc, "status_code", 400) or 400
         if (
             "secuencia invalida" in lowered
             or "ya registrada" in lowered
@@ -1081,7 +1139,7 @@ def fichar_salida():
             code = 409
         if "no hay fichada de entrada" in lowered:
             code = 404
-        return jsonify({"error": message}), code
+        return jsonify(_api_error_body(message, exc)), code
 
 
 @mobile_v1_bp.route("/me/perfil", methods=["PUT"])

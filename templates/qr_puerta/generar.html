@@ -106,9 +106,8 @@
     </div>
 
     <div class="actions">
-      <a class="btn btn-secondary" href="{{ url_for('qr_puerta.imprimir', empresa_id=result.empresa_id, sucursal_id=result.sucursal_id, tolerancia_m=result.tolerancia_m, tipo_marca=result.tipo_marca) }}" target="_blank" rel="noopener">Abrir version para imprimir</a>
       {% if result.historial_id %}
-        <a class="btn btn-secondary" href="{{ url_for('qr_puerta.reimprimir', historial_id=result.historial_id) }}" target="_blank" rel="noopener">Reimprimir desde historial</a>
+        <a class="btn btn-secondary" href="{{ url_for('qr_puerta.reimprimir', historial_id=result.historial_id) }}" target="_blank" rel="noopener">Abrir version para imprimir</a>
       {% endif %}
     </div>
   {% endif %}
@@ -125,6 +124,7 @@
             <th>Tipo</th>
             <th>Tolerancia (m)</th>
             <th>Vigencia (dias)</th>
+            <th>Estado</th>
             <th>Expira</th>
             <th>Generado</th>
             <th>Acciones</th>
@@ -132,6 +132,7 @@
         </thead>
         <tbody>
           {% for h in historial %}
+            {% set activo = h.activo is not defined or h.activo %}
             <tr>
               <td data-label="ID">{{ h.id }}</td>
               <td data-label="Empresa">{{ h.empresa_nombre }}</td>
@@ -139,10 +140,25 @@
               <td data-label="Tipo">{{ h.tipo_marca or 'jornada' }}</td>
               <td data-label="Tolerancia (m)">{{ h.tolerancia_m }}</td>
               <td data-label="Vigencia (dias)">{{ h.vigencia_dias }}</td>
+              <td data-label="Estado">
+                {% if activo %}
+                  <span class="chip">Activo</span>
+                {% else %}
+                  <span class="chip chip-muted">Inactivo</span>
+                {% endif %}
+              </td>
               <td data-label="Expira">{{ h.expira_at }}</td>
               <td data-label="Generado">{{ h.fecha }}</td>
               <td data-label="Acciones">
-                <a href="{{ url_for('qr_puerta.reimprimir', historial_id=h.id) }}" target="_blank" rel="noopener">Reimprimir</a>
+                {% if activo %}
+                  <a href="{{ url_for('qr_puerta.reimprimir', historial_id=h.id) }}" target="_blank" rel="noopener">Reimprimir</a>
+                  <form method="post" action="{{ url_for('qr_puerta.inactivar', historial_id=h.id) }}" style="display:inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-secondary" onclick="return confirm('Inactivar este QR? Los escaneos futuros seran rechazados.');">Inactivar</button>
+                  </form>
+                {% else %}
+                  <span class="muted">Sin acciones</span>
+                {% endif %}
               </td>
             </tr>
           {% endfor %}
