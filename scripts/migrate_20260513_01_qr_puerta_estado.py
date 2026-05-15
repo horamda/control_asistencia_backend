@@ -10,7 +10,7 @@ from extensions import get_db, init_db
 
 COLUMNS = {
     "qr_token_hash": "CHAR(64) NULL AFTER qr_token",
-    "activo": "TINYINT(1) NOT NULL DEFAULT 1 AFTER usuario_id",
+    "activo": "TINYINT NOT NULL DEFAULT 1 AFTER usuario_id",
     "inactivado_at": "DATETIME NULL AFTER activo",
     "inactivado_by_usuario": "INT NULL AFTER inactivado_at",
     "inactivado_motivo": "VARCHAR(255) NULL AFTER inactivado_by_usuario",
@@ -37,7 +37,8 @@ def migrate():
             """
             UPDATE qr_puerta_historial
             SET qr_token_hash = SHA2(qr_token, 256)
-            WHERE qr_token_hash IS NULL OR qr_token_hash = ''
+            WHERE id > 0
+              AND (qr_token_hash IS NULL OR qr_token_hash = '')
             """
         )
 

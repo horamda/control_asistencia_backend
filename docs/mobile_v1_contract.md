@@ -1,7 +1,7 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.16.1
-Fecha de corte: 2026-05-13
+Version de contrato: 1.17.0
+Fecha de corte: 2026-05-15
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
@@ -487,6 +487,8 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ### Vacaciones
 
+> Nota: `/me/vacaciones*` mantiene el CRUD historico de periodos. Para el flujo mobile con saldo LCT, dias pendientes y validacion de disponibilidad, usar `/vacaciones/resumen`, `/vacaciones/movimientos` y `/vacaciones/solicitar`.
+
 #### 23. `GET /api/v1/mobile/me/vacaciones?desde=&hasta=&page=&per_page=`
 - Lista paginada de periodos de vacaciones.
 - Response 200:
@@ -523,11 +525,116 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 - Response 200: `{"ok":true}`
 - Response 404: `{"error":"Vacacion no encontrada"}`
 
+#### 27A. `GET /api/v1/mobile/vacaciones/resumen?anio=YYYY`
+- Resumen de saldo de vacaciones del empleado autenticado para el anio solicitado.
+- `anio`: opcional; default = anio actual del servidor.
+- Validacion de `anio`: entero entre 2000 y 2100.
+- Calcula dias segun antiguedad al 31/12, proporcionalidad por dias trabajados, compensatorios, ajustes, tomados y pendientes.
+- Response 200:
+```json
+{
+  "ok":true,
+  "anio":2026,
+  "empleado":{"id":12,"dni":"30111222","nombre":"Ana Lopez"},
+  "vacaciones":{
+    "fecha_ingreso":"2020-08-10",
+    "antiguedad_al_31_12":6,
+    "dias_habiles_anio":261,
+    "dias_trabajados_anio":220,
+    "calculo_proporcional":false,
+    "dias_base":21,
+    "dias_compensatorios":2,
+    "dias_ajustes":0,
+    "dias_tomados":5,
+    "dias_pendientes":3,
+    "dias_corresponden":23,
+    "dias_disponibles":18,
+    "dias_disponibles_con_pendientes":15
+  }
+}
+```
+- Response 400:
+```json
+{"ok":false,"error":"Anio invalido."}
+```
+- Response 500:
+```json
+{"ok":false,"error":"No se pudo calcular el resumen de vacaciones."}
+```
+
+#### 27B. `GET /api/v1/mobile/vacaciones/movimientos?anio=YYYY`
+- Lista movimientos de vacaciones del empleado autenticado para un anio.
+- `anio`: opcional; default = anio actual del servidor.
+- `tipo`: `tomado` | `compensatorio` | `ajuste`.
+- `estado`: `pendiente` | `aprobado` | `rechazado`.
+- Response 200:
+```json
+{
+  "ok":true,
+  "anio":2026,
+  "movimientos":[
+    {
+      "id":1,
+      "tipo":"tomado",
+      "dias":5,
+      "fecha_desde":"2026-01-10",
+      "fecha_hasta":"2026-01-14",
+      "estado":"aprobado",
+      "observacion":"Vacaciones enero"
+    }
+  ]
+}
+```
+- Response 400:
+```json
+{"ok":false,"error":"Anio invalido."}
+```
+- Response 500:
+```json
+{"ok":false,"error":"No se pudieron obtener los movimientos de vacaciones."}
+```
+
+#### 27C. `POST /api/v1/mobile/vacaciones/solicitar`
+- Crea una solicitud de vacaciones como movimiento `tipo="tomado"` en estado `pendiente`.
+- Valida saldo disponible usando `dias_disponibles_con_pendientes`.
+- `fecha_desde` y `fecha_hasta` deben pertenecer al mismo anio.
+- `dias_solicitados` se calcula como dias calendario inclusivos (`fecha_hasta - fecha_desde + 1`).
+- Request:
+```json
+{"fecha_desde":"2026-01-10","fecha_hasta":"2026-01-14","observacion":"Solicitud vacaciones"}
+```
+- Response 201:
+```json
+{
+  "ok":true,
+  "message":"Solicitud de vacaciones registrada correctamente",
+  "solicitud":{
+    "id":33,
+    "dias_solicitados":5,
+    "estado":"pendiente",
+    "fecha_desde":"2026-01-10",
+    "fecha_hasta":"2026-01-14"
+  }
+}
+```
+- Response 400:
+```json
+{"ok":false,"error":"fecha_desde es requerida."}
+```
+- Response 409:
+```json
+{"ok":false,"error":"Saldo de vacaciones insuficiente."}
+```
+- Response 500:
+```json
+{"ok":false,"error":"No se pudo registrar la solicitud de vacaciones."}
+```
+
 ---
 
 ### Adelantos
 
-#### 27A. `GET /api/v1/mobile/me/adelantos/resumen`
+#### 27D. `GET /api/v1/mobile/me/adelantos/resumen`
 - Resumen para la pantalla inicial de adelantos.
 - Devuelve estado del mes actual, ultimo adelanto y contadores del historial.
 - Response 200:
@@ -564,7 +671,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-#### 27B. `GET /api/v1/mobile/me/adelantos/estado`
+#### 27E. `GET /api/v1/mobile/me/adelantos/estado`
 - Devuelve el estado del adelanto para el mes calendario actual del servidor.
 - `adelanto` usa el mismo esquema que los endpoints de historial, detalle y alta.
 - Response 200:
@@ -589,7 +696,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```
 - Si todavia no hubo solicitud en el mes: `ya_solicitado=false` y `adelanto=null`.
 
-#### 27C. `GET /api/v1/mobile/me/adelantos?page=&per_page=&estado=`
+#### 27F. `GET /api/v1/mobile/me/adelantos?page=&per_page=&estado=`
 - Lista paginada del historial de adelantos del empleado autenticado.
 - `estado`: `pendiente` | `aprobado` | `rechazado` | `cancelado` (opcional)
 - Response 200:
@@ -615,7 +722,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```
 - Response 400: `{"error":"estado invalido. Valores: pendiente, aprobado, rechazado, cancelado"}`
 
-#### 27D. `GET /api/v1/mobile/me/adelantos/<id>`
+#### 27G. `GET /api/v1/mobile/me/adelantos/<id>`
 - Devuelve el detalle de un adelanto propio.
 - Response 200:
 ```json
@@ -633,7 +740,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```
 - Response 404: `{"error":"Adelanto no encontrado"}`
 
-#### 27E. `POST /api/v1/mobile/me/adelantos`
+#### 27H. `POST /api/v1/mobile/me/adelantos`
 - No requiere body.
 - Crea una solicitud de adelanto para el mes calendario actual.
 - Estado inicial siempre: `pendiente`.
@@ -685,7 +792,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 4. Si el pedido sigue `pendiente`, actualizar con `PUT /api/v1/mobile/me/pedidos-mercaderia/<id>` o cancelar con `DELETE /api/v1/mobile/me/pedidos-mercaderia/<id>`.
 5. Para historial aprobado, usar `GET /api/v1/mobile/me/pedidos-mercaderia?estado=aprobado`.
 
-#### 27F. `GET /api/v1/mobile/me/pedidos-mercaderia/resumen`
+#### 27I. `GET /api/v1/mobile/me/pedidos-mercaderia/resumen`
 - Resumen para la pantalla inicial de pedidos de mercaderia.
 - Devuelve estado del mes actual, ultimo pedido, ultimo aprobado y contadores.
 - Response 200:
@@ -755,7 +862,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-#### 27G. `GET /api/v1/mobile/me/pedidos-mercaderia/estado`
+#### 27J. `GET /api/v1/mobile/me/pedidos-mercaderia/estado`
 - Devuelve el estado del pedido del mes calendario actual del servidor.
 - `pedido` usa el mismo esquema que detalle, alta y actualizacion.
 - Response 200:
@@ -793,7 +900,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```
 - Si todavia no hubo pedido en el mes: `ya_solicitado=false` y `pedido=null`.
 
-#### 27H. `GET /api/v1/mobile/me/pedidos-mercaderia/articulos?q=&page=&per_page=`
+#### 27K. `GET /api/v1/mobile/me/pedidos-mercaderia/articulos?q=&page=&per_page=`
 - Catalogo paginado de articulos habilitados para pedido.
 - `q` es opcional y busca por codigo, descripcion, marca, familia o sabor.
 - Solo expone articulos importados desde CSV con:
@@ -823,7 +930,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 }
 ```
 
-#### 27I. `GET /api/v1/mobile/me/pedidos-mercaderia?page=&per_page=&estado=`
+#### 27L. `GET /api/v1/mobile/me/pedidos-mercaderia?page=&per_page=&estado=`
 - Lista paginada del historial de pedidos del empleado autenticado.
 - `estado`: `pendiente` | `aprobado` | `rechazado` | `cancelado` (opcional)
 - Para historial de aprobados usar `estado=aprobado`.
@@ -863,7 +970,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```
 - Response 400: `{"error":"estado invalido. Valores: pendiente, aprobado, rechazado, cancelado"}`
 
-#### 27J. `GET /api/v1/mobile/me/pedidos-mercaderia/<id>`
+#### 27M. `GET /api/v1/mobile/me/pedidos-mercaderia/<id>`
 - Devuelve el detalle de un pedido propio.
 - Response 200:
 ```json
@@ -894,7 +1001,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ```
 - Response 404: `{"error":"Pedido no encontrado"}`
 
-#### 27K. `POST /api/v1/mobile/me/pedidos-mercaderia`
+#### 27N. `POST /api/v1/mobile/me/pedidos-mercaderia`
 - Crea el pedido del mes actual.
 - Solo se permite un pedido por empleado por mes.
 - Validaciones:
@@ -941,7 +1048,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 - Response 400: `{"error":"Debe enviar al menos un articulo."}`
 - Response 409: `{"error":"Ya registraste un pedido de mercaderia en este mes."}`
 
-#### 27L. `PUT /api/v1/mobile/me/pedidos-mercaderia/<id>`
+#### 27O. `PUT /api/v1/mobile/me/pedidos-mercaderia/<id>`
 - Reemplaza los items de un pedido propio.
 - Solo disponible en estado `pendiente`.
 - Request body:
@@ -956,7 +1063,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 - Response 400: `{"error":"No se puede editar un pedido en estado 'aprobado'."}`
 - Response 404: `{"error":"Pedido no encontrado"}`
 
-#### 27M. `DELETE /api/v1/mobile/me/pedidos-mercaderia/<id>`
+#### 27P. `DELETE /api/v1/mobile/me/pedidos-mercaderia/<id>`
 - Cancela el pedido del mes.
 - No elimina fisicamente el registro.
 - Solo disponible en estado `pendiente`.
@@ -1260,6 +1367,14 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.17.0 (2026-05-15)
+- Nuevos endpoints mobile para vacaciones con saldo LCT:
+  - `GET /vacaciones/resumen?anio=YYYY`
+  - `GET /vacaciones/movimientos?anio=YYYY`
+  - `POST /vacaciones/solicitar`
+- `POST /vacaciones/solicitar` valida saldo disponible contra `dias_disponibles_con_pendientes` y crea un movimiento `tomado` en estado `pendiente`.
+- Se documenta que `/me/vacaciones*` queda como CRUD historico, mientras el flujo mobile recomendado usa los endpoints de saldo/movimientos.
 
 ### 1.16.1 (2026-05-13)
 - `POST /me/fichadas/scan`: `qr_token` acepta JWT directo, `Bearer`, URL con query o JSON con `qr_token`.

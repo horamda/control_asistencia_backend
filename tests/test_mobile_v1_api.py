@@ -2268,6 +2268,123 @@ def test_mobile_vacaciones_delete_ajena_retorna_404(monkeypatch):
     assert resp.status_code == 404
 
 
+def test_mobile_vacaciones_resumen_lct_ok(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "calcular_resumen_vacaciones",
+        lambda empleado_id, anio: {
+            "anio": anio,
+            "empleado": {"id": empleado_id, "dni": "123", "nombre": "Ana Lopez"},
+            "vacaciones": {
+                "fecha_ingreso": "2020-08-10",
+                "antiguedad_al_31_12": 6,
+                "dias_base": 21,
+                "dias_compensatorios": 2,
+                "dias_tomados": 5,
+                "dias_pendientes": 0,
+                "dias_corresponden": 23,
+                "dias_disponibles": 18,
+            },
+        },
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/vacaciones/resumen?anio=2026", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["ok"] is True
+    assert body["anio"] == 2026
+    assert body["vacaciones"]["dias_disponibles"] == 18
+
+
+def test_mobile_vacaciones_resumen_anio_invalido(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/vacaciones/resumen?anio=abc", headers=_auth_headers())
+    assert resp.status_code == 400
+    assert resp.get_json()["ok"] is False
+
+
+def test_mobile_vacaciones_movimientos_ok(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "listar_movimientos_vacaciones",
+        lambda empleado_id, anio: {
+            "anio": anio,
+            "movimientos": [
+                {
+                    "id": 1,
+                    "tipo": "tomado",
+                    "dias": 5,
+                    "fecha_desde": "2026-01-10",
+                    "fecha_hasta": "2026-01-14",
+                    "estado": "aprobado",
+                    "observacion": "Vacaciones enero",
+                }
+            ],
+        },
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/vacaciones/movimientos?anio=2026", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["ok"] is True
+    assert body["movimientos"][0]["tipo"] == "tomado"
+
+
+def test_mobile_vacaciones_solicitar_ok(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    captured = {}
+
+    def _fake_solicitar(**kwargs):
+        captured.update(kwargs)
+        return {
+            "id": 33,
+            "dias_solicitados": 5,
+            "estado": "pendiente",
+            "fecha_desde": kwargs["fecha_desde"],
+            "fecha_hasta": kwargs["fecha_hasta"],
+        }
+
+    monkeypatch.setattr(mobile_routes, "solicitar_vacaciones_svc", _fake_solicitar)
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *args, **kwargs: True)
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/vacaciones/solicitar",
+        json={
+            "fecha_desde": "2026-01-10",
+            "fecha_hasta": "2026-01-14",
+            "observacion": "Solicitud vacaciones",
+        },
+        headers=_auth_headers(),
+    )
+    body = resp.get_json()
+    assert resp.status_code == 201
+    assert body["ok"] is True
+    assert body["solicitud"]["dias_solicitados"] == 5
+    assert captured["empleado_id"] == 10
+
+
+def test_mobile_vacaciones_solicitar_saldo_insuficiente(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "solicitar_vacaciones_svc",
+        lambda **kwargs: (_ for _ in ()).throw(
+            mobile_routes.VacacionesSaldoInsuficienteError("Saldo de vacaciones insuficiente.")
+        ),
+    )
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/vacaciones/solicitar",
+        json={"fecha_desde": "2026-01-10", "fecha_hasta": "2026-01-14"},
+        headers=_auth_headers(),
+    )
+    assert resp.status_code == 409
+    assert "Saldo" in resp.get_json()["error"]
+
+
 # ---------------------------------------------------------------------------
 # Adelantos
 # ---------------------------------------------------------------------------

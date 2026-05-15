@@ -374,9 +374,7 @@ else:
 
 # ======================
 # Desarrollo local
-# ======================
-
-
+# =================
 if __name__ == "__main__":
     try:
         os.environ.setdefault("APP_ENV", "development")

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Control Asistencia — Mobile API v1
-  version: 1.16.1
+  version: 1.17.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -394,6 +394,151 @@ components:
           type: integer
         per_page:
           type: integer
+
+    VacacionesEmpleadoResumen:
+      type: object
+      properties:
+        id:
+          type: integer
+        dni:
+          type: string
+        nombre:
+          type: string
+
+    VacacionesSaldoResumen:
+      type: object
+      properties:
+        fecha_ingreso:
+          type: string
+          format: date
+        antiguedad_al_31_12:
+          type: integer
+        dias_habiles_anio:
+          type: integer
+        dias_trabajados_anio:
+          type: integer
+        calculo_proporcional:
+          type: boolean
+        dias_base:
+          type: number
+        dias_compensatorios:
+          type: number
+        dias_ajustes:
+          type: number
+        dias_tomados:
+          type: number
+        dias_pendientes:
+          type: number
+        dias_corresponden:
+          type: number
+        dias_disponibles:
+          type: number
+        dias_disponibles_con_pendientes:
+          type: number
+
+    VacacionesResumenResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        anio:
+          type: integer
+          example: 2026
+        empleado:
+          $ref: '#/components/schemas/VacacionesEmpleadoResumen'
+        vacaciones:
+          $ref: '#/components/schemas/VacacionesSaldoResumen'
+
+    VacacionesMovimiento:
+      type: object
+      properties:
+        id:
+          type: integer
+        tipo:
+          type: string
+          enum: [tomado, compensatorio, ajuste]
+        dias:
+          type: number
+        fecha_desde:
+          type: string
+          format: date
+          nullable: true
+        fecha_hasta:
+          type: string
+          format: date
+          nullable: true
+        estado:
+          type: string
+          enum: [pendiente, aprobado, rechazado]
+        observacion:
+          type: string
+          nullable: true
+
+    VacacionesMovimientosResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        anio:
+          type: integer
+          example: 2026
+        movimientos:
+          type: array
+          items:
+            $ref: '#/components/schemas/VacacionesMovimiento'
+
+    VacacionesSolicitudRequest:
+      type: object
+      required: [fecha_desde, fecha_hasta]
+      properties:
+        fecha_desde:
+          type: string
+          format: date
+        fecha_hasta:
+          type: string
+          format: date
+        observacion:
+          type: string
+          nullable: true
+
+    VacacionesSolicitud:
+      type: object
+      properties:
+        id:
+          type: integer
+        dias_solicitados:
+          type: integer
+        estado:
+          type: string
+          enum: [pendiente]
+        fecha_desde:
+          type: string
+          format: date
+        fecha_hasta:
+          type: string
+          format: date
+
+    VacacionesSolicitudResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        message:
+          type: string
+        solicitud:
+          $ref: '#/components/schemas/VacacionesSolicitud'
+
+    OkErrorResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: false
+        error:
+          type: string
 
     # --- Adelanto ---
     AdelantoItem:
@@ -1770,6 +1915,111 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   # ---- Vacaciones ----
+  /vacaciones/resumen:
+    get:
+      tags: [Vacaciones]
+      summary: Resumen de saldo de vacaciones LCT
+      description: Calcula dias base, ajustes, tomados, pendientes y saldo disponible para el empleado autenticado.
+      parameters:
+        - name: anio
+          in: query
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 2100
+            example: 2026
+          description: Anio a consultar. Si se omite, usa el anio actual del servidor.
+      responses:
+        '200':
+          description: Resumen de vacaciones
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacacionesResumenResponse'
+        '400':
+          description: Anio invalido o empleado sin datos validos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+
+  /vacaciones/movimientos:
+    get:
+      tags: [Vacaciones]
+      summary: Movimientos de vacaciones por anio
+      description: Lista movimientos `tomado`, `compensatorio` y `ajuste` del empleado autenticado.
+      parameters:
+        - name: anio
+          in: query
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 2100
+            example: 2026
+          description: Anio a consultar. Si se omite, usa el anio actual del servidor.
+      responses:
+        '200':
+          description: Movimientos de vacaciones
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacacionesMovimientosResponse'
+        '400':
+          description: Anio invalido o empleado sin datos validos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+
+  /vacaciones/solicitar:
+    post:
+      tags: [Vacaciones]
+      summary: Solicita vacaciones con validacion de saldo
+      description: Crea un movimiento `tomado` en estado `pendiente` si hay saldo disponible.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VacacionesSolicitudRequest'
+      responses:
+        '201':
+          description: Solicitud registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VacacionesSolicitudResponse'
+        '400':
+          description: Validacion fallida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+        '409':
+          description: Saldo insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+
   /me/vacaciones:
     get:
       tags: [Vacaciones]

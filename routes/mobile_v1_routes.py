@@ -70,6 +70,13 @@ from services.justificacion_service import (
     create_justificacion as create_justificacion_svc,
     update_justificacion as update_justificacion_svc,
 )
+from services.vacaciones_service import (
+    VacacionesError,
+    VacacionesSaldoInsuficienteError,
+    calcular_resumen_vacaciones,
+    listar_movimientos_vacaciones,
+    solicitar_vacaciones as solicitar_vacaciones_svc,
+)
 from repositories.pedido_mercaderia_repository import (
     get_by_id as get_pedido_mercaderia_by_id,
     get_page_by_empleado as get_pedidos_mercaderia_page_by_empleado,
@@ -1559,6 +1566,119 @@ def me_vacaciones_delete(vacacion_id):
 
     delete_vacacion_row(vacacion_id)
     return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Vacaciones movimientos / saldo LCT
+# ---------------------------------------------------------------------------
+
+def _parse_vacaciones_anio():
+    raw = (request.args.get("anio") or "").strip()
+    if not raw:
+        return datetime.date.today().year, None
+    try:
+        anio = int(raw)
+        if anio < 2000 or anio > 2100:
+            raise ValueError
+        return anio, None
+    except ValueError:
+        return None, jsonify({"ok": False, "error": "Anio invalido."}), 400
+
+
+@mobile_v1_bp.route("/vacaciones/resumen", methods=["GET"])
+@mobile_auth_required
+def vacaciones_resumen():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
+
+    parsed = _parse_vacaciones_anio()
+    if len(parsed) == 3:
+        return parsed[1], parsed[2]
+    anio, _ = parsed
+
+    try:
+        data = calcular_resumen_vacaciones(int(empleado["id"]), int(anio))
+    except VacacionesError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception(
+            "mobile_vacaciones_resumen_error",
+            extra={"extra": {"empleado_id": empleado.get("id"), "anio": anio}},
+        )
+        return jsonify({"ok": False, "error": "No se pudo calcular el resumen de vacaciones."}), 500
+
+    data["ok"] = True
+    return jsonify(data)
+
+
+@mobile_v1_bp.route("/vacaciones/movimientos", methods=["GET"])
+@mobile_auth_required
+def vacaciones_movimientos():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
+
+    parsed = _parse_vacaciones_anio()
+    if len(parsed) == 3:
+        return parsed[1], parsed[2]
+    anio, _ = parsed
+
+    try:
+        data = listar_movimientos_vacaciones(int(empleado["id"]), int(anio))
+    except VacacionesError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception(
+            "mobile_vacaciones_movimientos_error",
+            extra={"extra": {"empleado_id": empleado.get("id"), "anio": anio}},
+        )
+        return jsonify({"ok": False, "error": "No se pudieron obtener los movimientos de vacaciones."}), 500
+
+    data["ok"] = True
+    return jsonify(data)
+
+
+@mobile_v1_bp.route("/vacaciones/solicitar", methods=["POST"])
+@mobile_auth_required
+def vacaciones_solicitar():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        solicitud = solicitar_vacaciones_svc(
+            empleado_id=int(empleado["id"]),
+            fecha_desde=payload.get("fecha_desde"),
+            fecha_hasta=payload.get("fecha_hasta"),
+            observacion=payload.get("observacion"),
+        )
+    except VacacionesSaldoInsuficienteError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 409
+    except VacacionesError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception(
+            "mobile_vacaciones_solicitar_error",
+            extra={"extra": {"empleado_id": empleado.get("id")}},
+        )
+        return jsonify({"ok": False, "error": "No se pudo registrar la solicitud de vacaciones."}), 500
+
+    create_audit(int(empleado["id"]), "create", "vacaciones_movimientos", solicitud.get("id"))
+    return jsonify(
+        {
+            "ok": True,
+            "message": "Solicitud de vacaciones registrada correctamente",
+            "solicitud": {
+                "id": solicitud.get("id"),
+                "dias_solicitados": solicitud.get("dias_solicitados"),
+                "estado": solicitud.get("estado"),
+                "fecha_desde": solicitud.get("fecha_desde"),
+                "fecha_hasta": solicitud.get("fecha_hasta"),
+            },
+        }
+    ), 201
 
 
 # ---------------------------------------------------------------------------
