@@ -14,6 +14,7 @@ def get_empleado_for_vacaciones(empleado_id: int):
                 nombre,
                 apellido,
                 fecha_ingreso,
+                fecha_baja,
                 activo
             FROM empleados
             WHERE id = %s

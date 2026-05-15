@@ -17,6 +17,7 @@ def _empleado(fecha_ingreso="2020-08-10"):
 
 
 def test_calcular_resumen_vacaciones_lct_regular(monkeypatch):
+    monkeypatch.setattr(vacaciones_service, "_today", lambda: datetime.date(2027, 1, 1))
     monkeypatch.setattr(
         vacaciones_service,
         "get_empleado_for_vacaciones",
@@ -51,6 +52,7 @@ def test_calcular_resumen_vacaciones_lct_regular(monkeypatch):
 
 
 def test_calcular_resumen_vacaciones_proporcional(monkeypatch):
+    monkeypatch.setattr(vacaciones_service, "_today", lambda: datetime.date(2027, 1, 1))
     monkeypatch.setattr(
         vacaciones_service,
         "get_empleado_for_vacaciones",
@@ -65,12 +67,63 @@ def test_calcular_resumen_vacaciones_proporcional(monkeypatch):
 
     resumen = vacaciones_service.calcular_resumen_vacaciones(10, 2026)
 
+    assert resumen["vacaciones"]["aplica_control_proporcional"] is True
     assert resumen["vacaciones"]["calculo_proporcional"] is True
     assert resumen["vacaciones"]["dias_base"] == 4
     assert resumen["vacaciones"]["dias_corresponden"] == 4
 
 
+def test_calcular_resumen_vacaciones_empleado_antiguo_ignora_asistencias_incompletas(monkeypatch):
+    monkeypatch.setattr(vacaciones_service, "_today", lambda: datetime.date(2027, 1, 1))
+    monkeypatch.setattr(
+        vacaciones_service,
+        "get_empleado_for_vacaciones",
+        lambda empleado_id: _empleado("2001-01-01"),
+    )
+    monkeypatch.setattr(
+        vacaciones_service,
+        "count_dias_efectivamente_trabajados",
+        lambda **kwargs: 0,
+    )
+    monkeypatch.setattr(vacaciones_service, "get_movimientos_by_empleado_anio", lambda **kwargs: [])
+
+    resumen = vacaciones_service.calcular_resumen_vacaciones(10, 2026)
+
+    vacaciones = resumen["vacaciones"]
+    assert vacaciones["antiguedad_al_31_12"] == 25
+    assert vacaciones["aplica_control_proporcional"] is False
+    assert vacaciones["calculo_proporcional"] is False
+    assert vacaciones["dias_base"] == 35
+    assert vacaciones["dias_corresponden"] == 35
+
+
+def test_calcular_resumen_vacaciones_anio_en_curso_no_penaliza_dias_futuros(monkeypatch):
+    monkeypatch.setattr(vacaciones_service, "_today", lambda: datetime.date(2026, 5, 15))
+    monkeypatch.setattr(
+        vacaciones_service,
+        "get_empleado_for_vacaciones",
+        lambda empleado_id: _empleado("2001-01-01"),
+    )
+    monkeypatch.setattr(
+        vacaciones_service,
+        "count_dias_efectivamente_trabajados",
+        lambda **kwargs: 60,
+    )
+    monkeypatch.setattr(vacaciones_service, "get_movimientos_by_empleado_anio", lambda **kwargs: [])
+
+    resumen = vacaciones_service.calcular_resumen_vacaciones(10, 2026)
+
+    vacaciones = resumen["vacaciones"]
+    assert vacaciones["antiguedad_al_31_12"] == 25
+    assert vacaciones["calculo_proporcional"] is False
+    assert vacaciones["dias_base"] == 35
+    assert vacaciones["dias_habiles_anio"] == vacaciones["dias_habiles_evaluados"]
+    assert vacaciones["dias_habiles_anio_total"] > vacaciones["dias_habiles_evaluados"]
+    assert vacaciones["fecha_evaluacion_trabajo"] == "2026-05-15"
+
+
 def test_solicitar_vacaciones_registra_pendiente(monkeypatch):
+    monkeypatch.setattr(vacaciones_service, "_today", lambda: datetime.date(2027, 1, 1))
     monkeypatch.setattr(
         vacaciones_service,
         "get_empleado_for_vacaciones",

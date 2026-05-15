@@ -58,6 +58,10 @@ def _count_workdays(desde: datetime.date, hasta: datetime.date) -> int:
     return total
 
 
+def _today() -> datetime.date:
+    return datetime.date.today()
+
+
 def _antiguedad_al_31_12(fecha_ingreso: datetime.date, anio: int) -> int:
     cierre = datetime.date(int(anio), 12, 31)
     if fecha_ingreso > cierre:
@@ -120,23 +124,54 @@ def _get_empleado_activo(empleado_id: int) -> dict:
 def calcular_resumen_vacaciones(empleado_id: int, anio: int) -> dict:
     empleado = _get_empleado_activo(empleado_id)
     fecha_ingreso = _parse_date(empleado.get("fecha_ingreso"), "fecha_ingreso")
+    fecha_baja = (
+        _parse_date(empleado.get("fecha_baja"), "fecha_baja")
+        if empleado.get("fecha_baja")
+        else None
+    )
     empresa_id = int(empleado["empresa_id"])
     anio = int(anio)
 
     inicio_anio = datetime.date(anio, 1, 1)
     fin_anio = datetime.date(anio, 12, 31)
     desde_trabajado = max(inicio_anio, fecha_ingreso)
-    dias_habiles_anio = _count_workdays(inicio_anio, fin_anio)
+    today = _today()
+    fin_laboral = min(fin_anio, fecha_baja) if fecha_baja else fin_anio
+    if anio > today.year and not fecha_baja:
+        fin_evaluacion = None
+    elif anio == today.year and (fecha_baja is None or fecha_baja > today):
+        fin_evaluacion = min(fin_laboral, today)
+    else:
+        fin_evaluacion = fin_laboral
+
+    dias_habiles_anio_total = _count_workdays(inicio_anio, fin_anio)
+    dias_habiles_evaluados = (
+        _count_workdays(inicio_anio, fin_evaluacion)
+        if fin_evaluacion is not None and fin_evaluacion >= inicio_anio
+        else 0
+    )
+    dias_habiles_para_proporcional = (
+        dias_habiles_evaluados
+        if fin_evaluacion is not None and fin_evaluacion < fin_anio
+        else dias_habiles_anio_total
+    )
+    hasta_trabajado = fin_evaluacion or fin_anio
     dias_trabajados_anio = count_dias_efectivamente_trabajados(
         empleado_id=int(empleado_id),
         empresa_id=empresa_id,
         fecha_desde=desde_trabajado.isoformat(),
-        fecha_hasta=fin_anio.isoformat(),
-    )
+        fecha_hasta=hasta_trabajado.isoformat(),
+    ) if desde_trabajado <= hasta_trabajado else 0
 
     antiguedad = _antiguedad_al_31_12(fecha_ingreso, anio)
     dias_base = _dias_base_por_antiguedad(antiguedad)
-    calculo_proporcional = dias_trabajados_anio < (dias_habiles_anio / 2)
+    # Solo empleados con menos de un anio al 31/12 pasan a proporcional.
+    aplica_control_proporcional = antiguedad < 1
+    calculo_proporcional = (
+        aplica_control_proporcional
+        and dias_habiles_para_proporcional > 0
+        and dias_trabajados_anio < (dias_habiles_para_proporcional / 2)
+    )
     if calculo_proporcional:
         dias_base = dias_trabajados_anio // 20
 
@@ -180,8 +215,12 @@ def calcular_resumen_vacaciones(empleado_id: int, anio: int) -> dict:
         "vacaciones": {
             "fecha_ingreso": fecha_ingreso.isoformat(),
             "antiguedad_al_31_12": antiguedad,
-            "dias_habiles_anio": dias_habiles_anio,
+            "dias_habiles_anio": dias_habiles_para_proporcional,
+            "dias_habiles_anio_total": dias_habiles_anio_total,
+            "dias_habiles_evaluados": dias_habiles_evaluados,
             "dias_trabajados_anio": dias_trabajados_anio,
+            "fecha_evaluacion_trabajo": _to_date_str(hasta_trabajado),
+            "aplica_control_proporcional": aplica_control_proporcional,
             "calculo_proporcional": calculo_proporcional,
             "dias_base": _days_number(dias_base),
             "dias_compensatorios": _days_number(dias_compensatorios),
