@@ -4,62 +4,289 @@
 <div class="content-stack">
   <div class="section-head">
     <div>
-      <div class="section-kicker">Asistencia</div>
+      <div class="section-kicker">RRHH</div>
       <h2>Vacaciones</h2>
       <p class="module-intro">
-        Administre periodos de vacaciones para mantener calculo de asistencia consistente.
+        Consulte saldos por empleado, resuelva solicitudes mobile y registre compensatorios o ajustes.
       </p>
     </div>
     <div class="chip-row">
-      <span class="chip">RRHH</span>
-      <span class="chip">Rango de fechas</span>
+      <span class="chip">Saldos LCT</span>
+      <span class="chip">Movimientos</span>
+      <span class="chip">Mobile</span>
     </div>
   </div>
 
+  {% if error %}
+    <div class="errors"><p>{{ error }}</p></div>
+  {% endif %}
+  {% if msg %}
+    <div class="alert-ok"><p>{{ msg }}</p></div>
+  {% endif %}
+
   <div class="toolbar">
-    <a class="btn" href="/vacaciones/nuevo">Nueva vacacion</a>
+    <a class="btn" href="{{ url_for('vacaciones.movimiento_nuevo') }}">Nuevo movimiento</a>
+    <a class="btn btn-secondary" href="{{ url_for('vacaciones.nuevo') }}">Registrar periodo</a>
+    <a
+      class="btn btn-secondary"
+      href="{{ url_for('vacaciones.movimientos_export_csv', empleado_id=empleado_id or None, q=q or None, estado=estado or None, tipo=tipo or None, anio=anio or None) }}"
+    >
+      Exportar CSV
+    </a>
   </div>
+
+  <form method="get" action="{{ url_for('vacaciones.listado') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id">
+          <option value="">Todos</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }}{% if e.dni %} - {{ e.dni }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Año</label>
+        <select name="anio">
+          {% for year in years %}
+            <option value="{{ year }}" {% if anio == year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Tipo</label>
+        <select name="tipo">
+          <option value="">Todos</option>
+          <option value="tomado" {% if tipo == "tomado" %}selected{% endif %}>Tomado</option>
+          <option value="compensatorio" {% if tipo == "compensatorio" %}selected{% endif %}>Compensatorio</option>
+          <option value="ajuste" {% if tipo == "ajuste" %}selected{% endif %}>Ajuste</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Estado</label>
+        <select name="estado">
+          <option value="">Todos</option>
+          <option value="pendiente" {% if estado == "pendiente" %}selected{% endif %}>Pendiente</option>
+          <option value="aprobado" {% if estado == "aprobado" %}selected{% endif %}>Aprobado</option>
+          <option value="rechazado" {% if estado == "rechazado" %}selected{% endif %}>Rechazado</option>
+        </select>
+      </div>
+
+      <div class="row span-2">
+        <label>Buscar</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Apellido, nombre o DNI">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('vacaciones.listado') }}">Limpiar</a>
+    </div>
+  </form>
+
+  {% if saldo %}
+    {% set empleado = saldo.empleado %}
+    {% set vac = saldo.vacaciones %}
+    <section class="grid-kpis dashboard-kpis">
+      <article class="kpi-card tone-ok">
+        <div class="kpi-label">Disponible</div>
+        <div class="kpi-value">{{ "%.2f"|format(vac.dias_disponibles_con_pendientes) }}</div>
+        <div class="kpi-desc">dias netos con pendientes</div>
+      </article>
+      <article class="kpi-card">
+        <div class="kpi-label">Corresponde</div>
+        <div class="kpi-value">{{ "%.2f"|format(vac.dias_corresponden) }}</div>
+        <div class="kpi-desc">base + compensatorios + ajustes</div>
+      </article>
+      <article class="kpi-card">
+        <div class="kpi-label">Tomados</div>
+        <div class="kpi-value">{{ "%.2f"|format(vac.dias_tomados) }}</div>
+        <div class="kpi-desc">aprobados</div>
+      </article>
+      <article class="kpi-card {% if vac.dias_pendientes > 0 %}tone-warn{% endif %}">
+        <div class="kpi-label">Pendientes</div>
+        <div class="kpi-value">{{ "%.2f"|format(vac.dias_pendientes) }}</div>
+        <div class="kpi-desc">solicitudes sin resolver</div>
+      </article>
+    </section>
+
+    <div class="results-bar">
+      <div class="summary">
+        {{ empleado.nombre }}{% if empleado.dni %} | DNI {{ empleado.dni }}{% endif %}
+      </div>
+      <div class="summary">
+        Ingreso: {{ vac.fecha_ingreso }} | Antigüedad: {{ vac.antiguedad_al_31_12 }} años | Base: {{ "%.2f"|format(vac.dias_base) }} días
+      </div>
+      <div class="summary">
+        Trabajados evaluados: {{ vac.dias_trabajados_anio }}/{{ vac.dias_habiles_anio }}
+        {% if vac.calculo_proporcional %}
+          <span class="badge warning">Proporcional</span>
+        {% elif vac.aplica_control_proporcional %}
+          <span class="badge">Control proporcional</span>
+        {% else %}
+          <span class="badge ok">Base por antigüedad</span>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="empty-state">Seleccione un empleado para ver el saldo calculado del año.</div>
+  {% endif %}
 
   <div class="results-bar">
-    <div class="summary">Total: {{ vacaciones|length }} registro(s)</div>
+    <div class="summary">Movimientos: {{ movimientos|length }} registro(s) en esta pagina</div>
+    <div class="summary">Total filtrado: {{ total }}</div>
   </div>
 
-  {% if vacaciones %}
+  <div class="chip-row">
+    <span class="chip">Total: {{ summary.total }}</span>
+    <span class="chip">Pendientes: {{ summary.pendientes }}</span>
+    <span class="chip">Aprobados: {{ summary.aprobados }}</span>
+    <span class="chip">Rechazados: {{ summary.rechazados }}</span>
+    <span class="chip">Tomados: {{ "%.2f"|format(summary.dias_tomados) }}</span>
+    <span class="chip">Comp./ajustes: {{ "%.2f"|format(summary.dias_compensatorios + summary.dias_ajustes) }}</span>
+  </div>
+
+  {% if movimientos %}
     <div class="table-responsive table-cards">
       <table>
         <thead>
           <tr>
             <th>Empleado</th>
-            <th>Desde</th>
-            <th>Hasta</th>
-            <th>Observaciones</th>
+            <th>Año</th>
+            <th>Tipo</th>
+            <th>Días</th>
+            <th>Rango</th>
+            <th>Estado</th>
+            <th>Observación</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
-          {% for v in vacaciones %}
-          <tr>
-            <td data-label="Empleado">{{ v.apellido }} {{ v.nombre }}</td>
-            <td data-label="Desde">{{ v.fecha_desde }}</td>
-            <td data-label="Hasta">{{ v.fecha_hasta }}</td>
-            <td data-label="Observaciones">{{ v.observaciones or "-" }}</td>
-            <td data-label="Acciones">
-              <div class="inline-actions">
-                <a class="btn btn-secondary" href="/vacaciones/editar/{{ v.id }}">Editar</a>
-                <form method="post" action="/vacaciones/eliminar/{{ v.id }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button class="btn-danger" type="submit">Eliminar</button>
-                </form>
-              </div>
-            </td>
-          </tr>
+          {% for m in movimientos %}
+            {% set estado_actual = (m.estado or "aprobado")|lower %}
+            <tr>
+              <td data-label="Empleado">
+                <strong>{{ m.apellido }} {{ m.nombre }}</strong>
+                <div class="helper-text">{{ m.empresa_nombre or "-" }}{% if m.dni %} | DNI {{ m.dni }}{% endif %}</div>
+              </td>
+              <td data-label="Año">{{ m.anio }}</td>
+              <td data-label="Tipo">
+                {% if m.tipo == "tomado" %}
+                  <span class="badge">Tomado</span>
+                {% elif m.tipo == "compensatorio" %}
+                  <span class="badge ok">Compensatorio</span>
+                {% else %}
+                  <span class="badge warning">Ajuste</span>
+                {% endif %}
+              </td>
+              <td data-label="Días">{{ "%.2f"|format(m.dias) }}</td>
+              <td data-label="Rango">
+                {% if m.fecha_desde or m.fecha_hasta %}
+                  {{ m.fecha_desde or "-" }} al {{ m.fecha_hasta or "-" }}
+                {% else %}
+                  <span class="helper-text">Sin rango</span>
+                {% endif %}
+              </td>
+              <td data-label="Estado">
+                {% if estado_actual == "aprobado" %}
+                  <span class="badge ok">Aprobado</span>
+                {% elif estado_actual == "rechazado" %}
+                  <span class="badge danger">Rechazado</span>
+                {% else %}
+                  <span class="badge warning">Pendiente</span>
+                {% endif %}
+              </td>
+              <td data-label="Observación">{{ m.observacion or "-" }}</td>
+              <td data-label="Acciones">
+                {% if estado_actual == "pendiente" %}
+                  <div class="inline-actions">
+                    <form method="post" action="{{ url_for('vacaciones.movimiento_aprobar', movimiento_id=m.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn" type="submit">Aprobar</button>
+                    </form>
+                    <form method="post" action="{{ url_for('vacaciones.movimiento_rechazar', movimiento_id=m.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn-danger" type="submit">Rechazar</button>
+                    </form>
+                  </div>
+                {% else %}
+                  <span class="helper-text">Ya resuelto</span>
+                {% endif %}
+              </td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   {% else %}
-    <div class="empty-state">No hay vacaciones cargadas.</div>
+    <div class="empty-state">No hay movimientos para los filtros seleccionados.</div>
   {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a
+        class="btn btn-secondary"
+        href="{{ url_for('vacaciones.listado', page=page - 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, tipo=tipo or None, anio=anio or None) }}"
+      >
+        Anterior
+      </a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a
+        class="btn btn-secondary"
+        href="{{ url_for('vacaciones.listado', page=page + 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, tipo=tipo or None, anio=anio or None) }}"
+      >
+        Siguiente
+      </a>
+    {% endif %}
+    <span class="summary">Pagina {{ page }}</span>
+  </div>
+
+  <details>
+    <summary>Periodos registrados para asistencia</summary>
+    {% if vacaciones %}
+      <div class="table-responsive table-cards">
+        <table>
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>Desde</th>
+              <th>Hasta</th>
+              <th>Observaciones</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in vacaciones %}
+              <tr>
+                <td data-label="Empleado">{{ v.apellido }} {{ v.nombre }}</td>
+                <td data-label="Desde">{{ v.fecha_desde }}</td>
+                <td data-label="Hasta">{{ v.fecha_hasta }}</td>
+                <td data-label="Observaciones">{{ v.observaciones or "-" }}</td>
+                <td data-label="Acciones">
+                  <div class="inline-actions">
+                    <a class="btn btn-secondary" href="{{ url_for('vacaciones.editar', vacacion_id=v.id) }}">Editar</a>
+                    <form method="post" action="{{ url_for('vacaciones.eliminar', vacacion_id=v.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn-danger" type="submit">Eliminar</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">No hay periodos registrados para asistencia.</div>
+    {% endif %}
+  </details>
 
   <div class="actions">
     <a class="btn btn-secondary" href="/dashboard">Volver</a>

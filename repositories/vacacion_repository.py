@@ -137,6 +137,24 @@ def get_page_by_empleado(empleado_id: int, page: int, per_page: int, fecha_desde
         db.close()
 
 
+def exists_by_empleado_rango(empleado_id: int, fecha_desde: str, fecha_hasta: str):
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute("""
+            SELECT 1
+            FROM vacaciones
+            WHERE empleado_id = %s
+              AND fecha_desde = %s
+              AND fecha_hasta = %s
+            LIMIT 1
+        """, (empleado_id, fecha_desde, fecha_hasta))
+        return cursor.fetchone() is not None
+    finally:
+        cursor.close()
+        db.close()
+
+
 def delete(vacacion_id: int):
     db = get_db()
     cursor = db.cursor()

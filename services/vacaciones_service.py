@@ -5,7 +5,13 @@ from repositories.vacaciones_repository import (
     count_dias_efectivamente_trabajados,
     create_movimiento,
     get_empleado_for_vacaciones,
+    get_movimiento_by_id,
     get_movimientos_by_empleado_anio,
+    update_movimiento_estado,
+)
+from repositories.vacacion_repository import (
+    create as create_legacy_vacacion,
+    exists_by_empleado_rango as exists_legacy_vacacion_rango,
 )
 
 
@@ -278,3 +284,147 @@ def solicitar_vacaciones(
         "fecha_desde": desde.isoformat(),
         "fecha_hasta": hasta.isoformat(),
     }
+
+
+TIPOS_MOVIMIENTO = {"tomado", "compensatorio", "ajuste"}
+ESTADOS_MOVIMIENTO = {"pendiente", "aprobado", "rechazado"}
+
+
+def _normalize_movimiento_tipo(value: str | None) -> str:
+    tipo = str(value or "").strip().lower()
+    if tipo not in TIPOS_MOVIMIENTO:
+        raise VacacionesError("Tipo de movimiento invalido.")
+    return tipo
+
+
+def _normalize_movimiento_estado(value: str | None, *, default: str = "aprobado") -> str:
+    estado = str(value or default).strip().lower()
+    if estado not in ESTADOS_MOVIMIENTO:
+        raise VacacionesError("Estado de movimiento invalido.")
+    return estado
+
+
+def _parse_dias(value, *, required: bool = True, allow_negative: bool = False):
+    raw = str(value or "").strip()
+    if not raw:
+        if required:
+            raise VacacionesError("Dias es requerido.")
+        return None
+    try:
+        dias = Decimal(raw.replace(",", "."))
+    except Exception as exc:
+        raise VacacionesError("Dias invalido.") from exc
+    if dias == 0 or (dias < 0 and not allow_negative):
+        raise VacacionesError("Dias debe ser mayor a cero.")
+    return dias
+
+
+def _ensure_legacy_vacacion_for_movimiento(row: dict):
+    if str(row.get("tipo") or "").lower() != "tomado":
+        return
+    fecha_desde = _to_date_str(row.get("fecha_desde"))
+    fecha_hasta = _to_date_str(row.get("fecha_hasta"))
+    if not fecha_desde or not fecha_hasta:
+        return
+    empleado_id = int(row["empleado_id"])
+    if exists_legacy_vacacion_rango(empleado_id, fecha_desde, fecha_hasta):
+        return
+    create_legacy_vacacion(
+        {
+            "empleado_id": empleado_id,
+            "empresa_id": row.get("empresa_id"),
+            "fecha_desde": fecha_desde,
+            "fecha_hasta": fecha_hasta,
+            "observaciones": row.get("observacion") or "Vacaciones aprobadas desde movimientos",
+        }
+    )
+
+
+def crear_movimiento_vacaciones_admin(data: dict) -> int:
+    empleado_id = int(data.get("empleado_id") or 0)
+    if not empleado_id:
+        raise VacacionesError("Empleado es requerido.")
+
+    empleado = _get_empleado_activo(empleado_id)
+    anio = int(data.get("anio") or 0)
+    if anio < 2000 or anio > 2100:
+        raise VacacionesError("Anio invalido.")
+
+    tipo = _normalize_movimiento_tipo(data.get("tipo"))
+    estado = _normalize_movimiento_estado(data.get("estado"))
+    observacion = str(data.get("observacion") or "").strip() or None
+    fecha_desde = None
+    fecha_hasta = None
+
+    if tipo == "tomado":
+        desde = _parse_date(data.get("fecha_desde"), "fecha_desde")
+        hasta = _parse_date(data.get("fecha_hasta"), "fecha_hasta")
+        if desde > hasta:
+            raise VacacionesError("fecha_desde no puede ser posterior a fecha_hasta.")
+        if desde.year != anio or hasta.year != anio:
+            raise VacacionesError("Las fechas deben pertenecer al anio del movimiento.")
+        fecha_desde = desde.isoformat()
+        fecha_hasta = hasta.isoformat()
+        dias = _parse_dias(data.get("dias"), required=False)
+        if dias is None:
+            dias = Decimal(str((hasta - desde).days + 1))
+    else:
+        dias = _parse_dias(data.get("dias"), allow_negative=(tipo == "ajuste"))
+
+    if tipo == "tomado" and estado != "rechazado":
+        resumen = calcular_resumen_vacaciones(empleado_id, anio)["vacaciones"]
+        saldo_key = "dias_disponibles" if estado == "aprobado" else "dias_disponibles_con_pendientes"
+        saldo = Decimal(str(resumen.get(saldo_key) or 0))
+        if dias > saldo:
+            raise VacacionesSaldoInsuficienteError("Saldo de vacaciones insuficiente.")
+
+    movimiento_id = create_movimiento(
+        {
+            "empleado_id": empleado_id,
+            "empresa_id": int(empleado["empresa_id"]),
+            "anio": anio,
+            "tipo": tipo,
+            "dias": dias,
+            "observacion": observacion,
+            "fecha_desde": fecha_desde,
+            "fecha_hasta": fecha_hasta,
+            "estado": estado,
+        }
+    )
+
+    if estado == "aprobado":
+        row = get_movimiento_by_id(movimiento_id)
+        if row:
+            _ensure_legacy_vacacion_for_movimiento(row)
+    return movimiento_id
+
+
+def aprobar_movimiento_vacaciones(movimiento_id: int, *, actor_id: int | None = None) -> None:
+    row = get_movimiento_by_id(movimiento_id)
+    if not row:
+        raise VacacionesError("Movimiento de vacaciones no encontrado.")
+    estado_actual = str(row.get("estado") or "aprobado").lower()
+    if estado_actual != "pendiente":
+        raise VacacionesError(f"No se puede aprobar un movimiento en estado '{estado_actual}'.")
+
+    if str(row.get("tipo") or "").lower() == "tomado":
+        resumen = calcular_resumen_vacaciones(int(row["empleado_id"]), int(row["anio"]))["vacaciones"]
+        saldo = Decimal(str(resumen.get("dias_disponibles") or 0))
+        dias = Decimal(str(row.get("dias") or 0))
+        if dias > saldo:
+            raise VacacionesSaldoInsuficienteError("Saldo de vacaciones insuficiente.")
+
+    update_movimiento_estado(movimiento_id, "aprobado")
+    row = get_movimiento_by_id(movimiento_id)
+    if row:
+        _ensure_legacy_vacacion_for_movimiento(row)
+
+
+def rechazar_movimiento_vacaciones(movimiento_id: int, *, actor_id: int | None = None) -> None:
+    row = get_movimiento_by_id(movimiento_id)
+    if not row:
+        raise VacacionesError("Movimiento de vacaciones no encontrado.")
+    estado_actual = str(row.get("estado") or "aprobado").lower()
+    if estado_actual != "pendiente":
+        raise VacacionesError(f"No se puede rechazar un movimiento en estado '{estado_actual}'.")
+    update_movimiento_estado(movimiento_id, "rechazado")

@@ -169,6 +169,65 @@ def test_solicitar_vacaciones_rechaza_rango_invertido():
         raise AssertionError("Expected VacacionesError")
 
 
+def test_aprobar_movimiento_vacaciones_crea_periodo_legacy(monkeypatch):
+    rows = {
+        "before": {
+            "id": 55,
+            "empleado_id": 10,
+            "empresa_id": 3,
+            "anio": 2026,
+            "tipo": "tomado",
+            "dias": Decimal("5.00"),
+            "estado": "pendiente",
+            "fecha_desde": "2026-01-10",
+            "fecha_hasta": "2026-01-14",
+            "observacion": "Solicitud mobile",
+        },
+        "after": {
+            "id": 55,
+            "empleado_id": 10,
+            "empresa_id": 3,
+            "anio": 2026,
+            "tipo": "tomado",
+            "dias": Decimal("5.00"),
+            "estado": "aprobado",
+            "fecha_desde": "2026-01-10",
+            "fecha_hasta": "2026-01-14",
+            "observacion": "Solicitud mobile",
+        },
+    }
+    calls = {"updated": None, "legacy": None}
+
+    monkeypatch.setattr(
+        vacaciones_service,
+        "get_movimiento_by_id",
+        lambda movimiento_id: rows["after"] if calls["updated"] else rows["before"],
+    )
+    monkeypatch.setattr(
+        vacaciones_service,
+        "calcular_resumen_vacaciones",
+        lambda empleado_id, anio: {"vacaciones": {"dias_disponibles": 10}},
+    )
+    monkeypatch.setattr(
+        vacaciones_service,
+        "update_movimiento_estado",
+        lambda movimiento_id, estado: calls.update({"updated": (movimiento_id, estado)}),
+    )
+    monkeypatch.setattr(vacaciones_service, "exists_legacy_vacacion_rango", lambda *args: False)
+    monkeypatch.setattr(
+        vacaciones_service,
+        "create_legacy_vacacion",
+        lambda data: calls.update({"legacy": data}) or 99,
+    )
+
+    vacaciones_service.aprobar_movimiento_vacaciones(55)
+
+    assert calls["updated"] == (55, "aprobado")
+    assert calls["legacy"]["empleado_id"] == 10
+    assert calls["legacy"]["fecha_desde"] == "2026-01-10"
+    assert calls["legacy"]["fecha_hasta"] == "2026-01-14"
+
+
 def test_count_workdays_excluye_fin_de_semana():
     assert vacaciones_service._count_workdays(
         datetime.date(2026, 1, 1),
