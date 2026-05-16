@@ -80,6 +80,20 @@
           {% endfor %}
         </select>
       </div>
+      <div class="row span-2">
+        <label>Puestos adicionales que cubre</label>
+        {% set puestos_adicionales_ids = data.puestos_adicionales_ids or [] %}
+        <select name="puestos_adicionales_ids" multiple size="5">
+          {% for p in puestos %}
+            <option value="{{ p.id }}" {% if p.id in puestos_adicionales_ids %}selected{% endif %}>
+              {{ p.empresa_nombre }} - {{ p.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+        <div class="helper-text">
+          Mantiene un puesto principal y permite marcar coberturas adicionales dentro del sector.
+        </div>
+      </div>
       <div class="row">
         <label>Codigo postal</label>
         <select name="codigo_postal" required>

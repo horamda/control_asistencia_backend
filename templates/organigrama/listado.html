@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Organigrama{% endblock %}
+
+{% macro empleado_item(emp) %}
+  <li>
+    <span class="org-employee-name">{{ emp.nombre_completo }}</span>
+    {% if emp.puesto_nombre %}
+      <span class="org-employee-role">
+        {{ emp.puesto_nombre }}
+        {% if emp.asignacion_adicional %}(adicional){% endif %}
+      </span>
+    {% endif %}
+    {% if emp.puestos_adicionales %}
+      <span class="org-extra-roles">
+        Tambien: {{ emp.puestos_adicionales|map(attribute="puesto_nombre")|join(", ") }}
+      </span>
+    {% endif %}
+  </li>
+{% endmacro %}
+
+{% macro sector_node(node) %}
+  <li class="org-node">
+    <div class="org-node-body">
+      <div class="org-node-main">
+        <div>
+          <div class="org-sector-title">{{ node.nombre }}</div>
+          <div class="org-sector-meta">
+            <span>{{ node.dotacion_total }} personas</span>
+            {% if node.children %}
+              <span>{{ node.children|length }} subsectores</span>
+            {% endif %}
+          </div>
+        </div>
+        {% if node.activo %}
+          <span class="badge activo">Activo</span>
+        {% else %}
+          <span class="badge inactivo">Inactivo</span>
+        {% endif %}
+      </div>
+
+      <div class="org-responsable">
+        {% if node.responsable_nombre_completo %}
+          {% set inicial = ((node.responsable_apellido or node.responsable_nombre or '?')|string)[:1]|upper %}
+          <div class="org-avatar" aria-hidden="true">{{ inicial }}</div>
+          <div>
+            <div class="org-responsable-name">{{ node.responsable_nombre_completo }}</div>
+            <div class="org-responsable-role">
+              {{ node.responsable_puesto_nombre or "Responsable del sector" }}
+            </div>
+            <div class="org-coverage-note">Cubre todos los puestos del sector.</div>
+          </div>
+        {% else %}
+          <div class="org-avatar muted-avatar" aria-hidden="true">?</div>
+          <div>
+            <div class="org-responsable-name">Sin responsable</div>
+            <div class="org-responsable-role">Pendiente de asignacion</div>
+          </div>
+        {% endif %}
+      </div>
+
+      {% if node.empleados %}
+        <ul class="org-employee-list">
+          {% for emp in node.empleados %}
+            {{ empleado_item(emp) }}
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="org-empty-line">Sin empleados directos.</div>
+      {% endif %}
+    </div>
+
+    {% if node.children %}
+      <ol class="org-children">
+        {% for child in node.children %}
+          {{ sector_node(child) }}
+        {% endfor %}
+      </ol>
+    {% endif %}
+  </li>
+{% endmacro %}
+
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Organizacion</div>
+      <h2>Organigrama</h2>
+      <p class="module-intro">
+        Estructura de sectores, responsables y dotacion activa por empresa.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Sectores</span>
+      <span class="chip">Responsables</span>
+      <span class="chip">Dotacion</span>
+    </div>
+  </div>
+
+  <form method="get" action="{{ url_for('organigrama.listado') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id">
+          <option value="">Todas</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Estado sectores</label>
+        <select name="activo">
+          <option value="1" {% if activo == "1" %}selected{% endif %}>Activos</option>
+          <option value="0" {% if activo == "0" %}selected{% endif %}>Inactivos</option>
+          <option value="all" {% if activo == "all" %}selected{% endif %}>Todos</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('organigrama.listado') }}">Limpiar</a>
+      <a class="btn btn-secondary" href="{{ url_for('sectores.listado') }}">Administrar sectores</a>
+    </div>
+  </form>
+
+  {% if organigramas %}
+    {% for org in organigramas %}
+      <section class="org-company">
+        <div class="org-company-head">
+          <div>
+            <h3>{{ org.empresa_nombre }}</h3>
+            <div class="org-company-meta">
+              {{ org.total_sectores }} sectores &middot; {{ org.total_empleados }} personas &middot; {{ org.responsables_asignados }} responsables
+            </div>
+          </div>
+        </div>
+
+        {% if org.roots %}
+          <ol class="org-tree">
+            {% for root in org.roots %}
+              {{ sector_node(root) }}
+            {% endfor %}
+          </ol>
+        {% else %}
+          <div class="empty-state">No hay sectores para esta empresa.</div>
+        {% endif %}
+
+        {% if org.empleados_sin_sector %}
+          <div class="org-unassigned">
+            <h4>Sin sector asignado</h4>
+            <ul class="org-employee-list compact">
+              {% for emp in org.empleados_sin_sector %}
+                {{ empleado_item(emp) }}
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+      </section>
+    {% endfor %}
+  {% else %}
+    <div class="empty-state">No hay datos de organigrama para los filtros seleccionados.</div>
+  {% endif %}
+</div>
+{% endblock %}

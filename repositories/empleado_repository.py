@@ -76,13 +76,22 @@ def get_page(
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         cursor.execute(f"""
             SELECT e.*, emp.razon_social AS empresa_nombre, s.nombre AS sucursal_nombre,
-                   sec.nombre AS sector_nombre, p.nombre AS puesto_nombre, l.localidad AS localidad_nombre
+                   sec.nombre AS sector_nombre, p.nombre AS puesto_nombre, l.localidad AS localidad_nombre,
+                   extras.puestos_adicionales_nombres
             FROM empleados e
             JOIN empresas emp ON emp.id = e.empresa_id
             LEFT JOIN sucursales s ON s.id = e.sucursal_id
             LEFT JOIN sectores sec ON sec.id = e.sector_id
             LEFT JOIN puestos p ON p.id = e.puesto_id
             LEFT JOIN localidades l ON l.codigo_postal = e.codigo_postal
+            LEFT JOIN (
+                SELECT ep.empleado_id,
+                       GROUP_CONCAT(DISTINCT pa.nombre ORDER BY pa.nombre SEPARATOR ', ') AS puestos_adicionales_nombres
+                FROM empleado_puestos ep
+                JOIN puestos pa ON pa.id = ep.puesto_id
+                WHERE ep.activo = 1
+                GROUP BY ep.empleado_id
+            ) extras ON extras.empleado_id = e.id
             {where_sql}
             ORDER BY e.apellido, e.nombre
             LIMIT %s OFFSET %s

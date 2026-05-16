@@ -3014,6 +3014,7 @@ def test_mobile_legajo_eventos_list_ok(monkeypatch):
     resp = client.get("/api/v1/mobile/me/legajo/eventos", headers=_auth_headers())
     assert resp.status_code == 200
     data = resp.get_json()
+    assert data["ok"] is True
     assert data["total"] == 1
     assert data["items"][0]["tipo_codigo"] == "SANCION"
     assert data["items"][0]["titulo"] == "Llegada tarde reiterada"
@@ -3045,26 +3046,140 @@ def test_mobile_legajo_eventos_list_filtro_estado_valido(monkeypatch):
     assert resp.status_code == 200
     assert captured["estado"] == "vigente"
     assert captured["empleado_id"] == 10
+    assert captured["empresa_id"] == 3
+
+
+def test_mobile_legajo_eventos_list_filtros_fecha_severidad_y_busqueda(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    captured = {}
+    def _fake_page(page, per_page, **kw):
+        captured.update(kw)
+        return [], 0
+    monkeypatch.setattr(mobile_routes, "get_eventos_page", _fake_page)
+    client = _build_client(monkeypatch)
+    resp = client.get(
+        "/api/v1/mobile/me/legajo/eventos?desde=2026-01-01&hasta=2026-12-31&severidad=leve&q=tarde",
+        headers=_auth_headers(),
+    )
+    assert resp.status_code == 200
+    assert captured["fecha_desde"] == "2026-01-01"
+    assert captured["fecha_hasta"] == "2026-12-31"
+    assert captured["severidad"] == "leve"
+    assert captured["search"] == "tarde"
 
 
 def test_mobile_legajo_eventos_detail_ok(monkeypatch):
     _setup_evento_auth(monkeypatch)
-    monkeypatch.setattr(mobile_routes, "get_evento_by_id", lambda _: _FAKE_EVENTO_ROW)
+    monkeypatch.setattr(mobile_routes, "get_evento_by_id_for_empleado", lambda *args: _FAKE_EVENTO_ROW)
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_adjuntos_by_evento_for_empleado",
+        lambda *args, **kw: [
+            {
+                "id": 99,
+                "evento_id": 20,
+                "nombre_original": "certificado.pdf",
+                "mime_type": "application/pdf",
+                "extension": "pdf",
+                "tamano_bytes": 100,
+                "estado": "activo",
+            }
+        ],
+    )
     client = _build_client(monkeypatch)
     resp = client.get("/api/v1/mobile/me/legajo/eventos/20", headers=_auth_headers())
     assert resp.status_code == 200
     assert resp.get_json()["id"] == 20
     assert resp.get_json()["fecha_desde"] is None
+    assert resp.get_json()["adjuntos_count"] == 1
+    assert resp.get_json()["adjuntos"][0]["download_url"].endswith("/api/v1/mobile/me/legajo/adjuntos/99")
 
 
 def test_mobile_legajo_eventos_detail_ajeno_retorna_404(monkeypatch):
     _setup_evento_auth(monkeypatch)
-    monkeypatch.setattr(
-        mobile_routes, "get_evento_by_id",
-        lambda _: {**_FAKE_EVENTO_ROW, "empleado_id": 999}
-    )
+    monkeypatch.setattr(mobile_routes, "get_evento_by_id_for_empleado", lambda *args: None)
     client = _build_client(monkeypatch)
     resp = client.get("/api/v1/mobile/me/legajo/eventos/20", headers=_auth_headers())
+    assert resp.status_code == 404
+
+
+def test_mobile_legajo_resumen_ok(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "calcular_resumen_legajo",
+        lambda empleado_id, desde, hasta: {
+            "historico": {"total": 1, "vigentes": 1, "anulados": 0},
+            "periodo": {"total": 1, "graves": 0, "media": 0, "leve": 1},
+            "por_tipo": [],
+            "por_severidad": [],
+            "recientes": [],
+        },
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get(
+        "/api/v1/mobile/me/legajo/resumen?desde=2026-01-01&hasta=2026-12-31",
+        headers=_auth_headers(),
+    )
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["ok"] is True
+    assert body["periodo"]["desde"] == "2026-01-01"
+    assert body["resumen"]["historico"]["total"] == 1
+
+
+def test_mobile_legajo_tipos_evento_ok(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_tipos_evento",
+        lambda include_inactive=False: [
+            {
+                "id": 2,
+                "codigo": "SANCION",
+                "nombre": "Sancion",
+                "requiere_rango_fechas": 0,
+                "permite_adjuntos": 1,
+                "activo": 1,
+            }
+        ],
+    )
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/legajo/tipos-evento", headers=_auth_headers())
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert body["ok"] is True
+    assert body["items"][0]["codigo"] == "SANCION"
+    assert body["items"][0]["permite_adjuntos"] is True
+
+
+def test_mobile_legajo_adjunto_ok_db(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_adjunto_by_id_for_empleado",
+        lambda *args: {
+            "id": 99,
+            "estado": "activo",
+            "evento_estado": "vigente",
+            "storage_backend": "db",
+            "mime_type": "application/pdf",
+            "nombre_original": "certificado.pdf",
+        },
+    )
+    monkeypatch.setattr(mobile_routes, "get_adjunto_data_by_id", lambda _: b"%PDF mobile")
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/legajo/adjuntos/99", headers=_auth_headers())
+    assert resp.status_code == 200
+    assert b"%PDF mobile" in resp.data
+    assert "application/pdf" in resp.headers.get("Content-Type", "")
+
+
+def test_mobile_legajo_adjunto_ajeno_retorna_404(monkeypatch):
+    _setup_evento_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_adjunto_by_id_for_empleado", lambda *args: None)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/legajo/adjuntos/99", headers=_auth_headers())
     assert resp.status_code == 404
 
 

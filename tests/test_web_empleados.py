@@ -26,6 +26,8 @@ def _patch_catalogs(monkeypatch):
     monkeypatch.setattr(empleados_routes, "get_localidades", lambda *args, **kwargs: [])
     monkeypatch.setattr(empleados_routes, "exists_codigo", lambda _codigo: True)
     monkeypatch.setattr(empleados_routes, "exists_unique", lambda *args, **kwargs: False)
+    monkeypatch.setattr(empleados_routes, "get_puestos_ids_by_empleado", lambda *args, **kwargs: [])
+    monkeypatch.setattr(empleados_routes, "replace_puestos_adicionales", lambda *args, **kwargs: None)
 
 
 def _base_form_data():
@@ -147,6 +149,46 @@ def test_empleados_nuevo_sube_foto_file(monkeypatch):
     assert captured["uploaded_name"] == "perfil.jpg"
     assert captured["uploaded_dni"] == "30123456"
     assert captured["create_data"]["foto"] == "https://cdn.example.com/fotos/30123456.jpg"
+
+
+def test_empleados_nuevo_guarda_puestos_adicionales(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    _patch_catalogs(monkeypatch)
+    monkeypatch.setattr(
+        empleados_routes,
+        "get_puestos",
+        lambda *args, **kwargs: [
+            {"id": 1, "empresa_id": 1, "empresa_nombre": "Empresa A", "nombre": "Gerente"},
+            {"id": 2, "empresa_id": 1, "empresa_nombre": "Empresa A", "nombre": "Supervisor"},
+            {"id": 3, "empresa_id": 1, "empresa_nombre": "Empresa A", "nombre": "Operario"},
+        ],
+    )
+    monkeypatch.setattr(empleados_routes, "log_audit", lambda *args, **kwargs: None)
+
+    captured = {}
+    monkeypatch.setattr(empleados_routes, "upload_profile_photo", lambda *args, **kwargs: None)
+    monkeypatch.setattr(empleados_routes, "create", lambda data: 88)
+    monkeypatch.setattr(
+        empleados_routes,
+        "replace_puestos_adicionales",
+        lambda emp_id, **kwargs: captured.update({"emp_id": emp_id, **kwargs}),
+    )
+
+    form_data = _base_form_data()
+    form_data["password"] = "secret123"
+    form_data["puesto_id"] = "1"
+    form_data["puestos_adicionales_ids"] = ["2", "3"]
+
+    resp = client.post("/empleados/nuevo", data=form_data, follow_redirects=False)
+
+    assert resp.status_code == 302
+    assert captured["emp_id"] == 88
+    assert captured["empresa_id"] == 1
+    assert captured["sector_id"] == 1
+    assert captured["puesto_principal_id"] == 1
+    assert captured["puesto_ids"] == [2, 3]
 
 
 def test_empleados_editar_elimina_foto(monkeypatch):

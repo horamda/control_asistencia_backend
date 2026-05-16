@@ -14,6 +14,10 @@ from repositories.empleado_repository import (
     update,
     update_password,
 )
+from repositories.empleado_puesto_repository import (
+    get_puestos_ids_by_empleado,
+    replace_for_empleado as replace_puestos_adicionales,
+)
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.localidad_repository import exists_codigo, get_all as get_localidades
 from repositories.puesto_repository import get_all as get_puestos
@@ -60,7 +64,20 @@ def _extract_form_data(form):
         "banco": (form.get("banco") or "").strip() or None,
         "cbu": (form.get("cbu") or "").strip() or None,
         "numero_emergencia": (form.get("numero_emergencia") or "").strip() or None,
+        "puestos_adicionales_ids": _parse_int_list(form.getlist("puestos_adicionales_ids")),
     }
+
+
+def _parse_int_list(values):
+    ids = []
+    seen = set()
+    for value in values or []:
+        parsed = _parse_int(value)
+        if not parsed or parsed in seen:
+            continue
+        seen.add(parsed)
+        ids.append(parsed)
+    return ids
 
 
 def _is_checked(value):
@@ -107,6 +124,40 @@ def _resolve_photo_from_request(data, emp_actual=None):
             )
 
     return foto
+
+
+def _validate_puestos_adicionales(data, puestos):
+    errors = []
+    empresa_id = data.get("empresa_id")
+    puesto_principal_id = data.get("puesto_id")
+    puestos_adicionales_ids = data.get("puestos_adicionales_ids") or []
+    puestos_by_id = {
+        int(p.get("id")): p
+        for p in puestos
+        if p.get("id") is not None
+    }
+
+    for puesto_id in puestos_adicionales_ids:
+        if puesto_principal_id and int(puesto_id) == int(puesto_principal_id):
+            errors.append("El puesto principal no debe repetirse como puesto adicional.")
+            continue
+        puesto = puestos_by_id.get(int(puesto_id))
+        if not puesto:
+            errors.append("Puesto adicional invalido.")
+            continue
+        if empresa_id and int(puesto.get("empresa_id") or 0) != int(empresa_id):
+            errors.append("Los puestos adicionales deben pertenecer a la misma empresa.")
+    return errors
+
+
+def _save_puestos_adicionales(emp_id, data):
+    replace_puestos_adicionales(
+        emp_id,
+        empresa_id=data.get("empresa_id"),
+        sector_id=data.get("sector_id"),
+        puesto_ids=data.get("puestos_adicionales_ids") or [],
+        puesto_principal_id=data.get("puesto_id"),
+    )
 
 
 @empleados_bp.route("/")
@@ -176,6 +227,7 @@ def nuevo():
             exists_codigo=exists_codigo,
         )
         data = _extract_form_data(request.form)
+        errors.extend(_validate_puestos_adicionales(data, puestos))
 
         try:
             data["foto"] = _resolve_photo_from_request(data, emp_actual=None)
@@ -208,6 +260,7 @@ def nuevo():
         data["password_hash"] = generate_password_hash(password)
 
         emp_id = create(data)
+        _save_puestos_adicionales(emp_id, data)
         log_audit(session, "create", "empleados", emp_id)
         return redirect(url_for("empleados.listado"))
 
@@ -233,6 +286,7 @@ def editar(emp_id):
     if not emp:
         abort(404)
     next_url = _safe_next_url(request.values.get("next"))
+    emp["puestos_adicionales_ids"] = get_puestos_ids_by_empleado(emp_id)
 
     empresas = get_empresas(include_inactive=True)
     sucursales = get_sucursales(include_inactive=True)
@@ -250,6 +304,7 @@ def editar(emp_id):
             exists_codigo=exists_codigo,
         )
         data = _extract_form_data(request.form)
+        errors.extend(_validate_puestos_adicionales(data, puestos))
         try:
             data["foto"] = _resolve_photo_from_request(data, emp_actual=emp)
         except ValueError as exc:
@@ -285,6 +340,7 @@ def editar(emp_id):
             )
 
         update(emp_id, data)
+        _save_puestos_adicionales(emp_id, data)
         log_audit(session, "update", "empleados", emp_id)
 
         if password_change_requested:

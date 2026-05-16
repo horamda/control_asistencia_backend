@@ -18,6 +18,7 @@
 
   <div class="toolbar">
     <a class="btn" href="/sectores/nuevo">Nuevo sector</a>
+    <a class="btn btn-secondary" href="{{ url_for('organigrama.listado', empresa_id=empresa_id or None) }}">Ver organigrama</a>
   </div>
 
   <form method="get" action="/sectores/">
@@ -62,6 +63,8 @@
           <tr>
             <th>Empresa</th>
             <th>Nombre</th>
+            <th>Sector superior</th>
+            <th>Responsable</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
@@ -71,6 +74,17 @@
           <tr>
             <td data-label="Empresa">{{ s.empresa_nombre or s.empresa_id }}</td>
             <td data-label="Nombre">{{ s.nombre }}</td>
+            <td data-label="Sector superior">{{ s.sector_padre_nombre or "Raiz" }}</td>
+            <td data-label="Responsable">
+              {% if s.responsable_nombre or s.responsable_apellido %}
+                {{ s.responsable_apellido }} {{ s.responsable_nombre }}
+                {% if s.responsable_puesto_nombre %}
+                  <small class="helper-text">{{ s.responsable_puesto_nombre }}</small>
+                {% endif %}
+              {% else %}
+                <span class="muted">Sin responsable</span>
+              {% endif %}
+            </td>
             <td data-label="Estado">
               {% if s.activo %}
                 <span class="badge activo">Activo</span>

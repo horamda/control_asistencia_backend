@@ -11,6 +11,7 @@ from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.empleado_repository import get_page as _get_empleados_page
 from repositories.asistencia_repository import get_page as _get_asistencias_page
 from repositories.justificacion_repository import get_page as _get_justificaciones_page
+from repositories.justificacion_repository import get_by_id as get_justificacion_by_id
 from repositories.vacacion_repository import get_page_by_empleado as _get_vacaciones_page
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.legajo_adjunto_repository import (
@@ -73,7 +74,25 @@ def _evento_to_form_data(evento: dict):
     }
 
 
-def _validate_evento_data(data: dict, tipo: dict | None):
+def _has_uploaded_files(archivos) -> bool:
+    return any(file_storage and str(file_storage.filename or "").strip() for file_storage in archivos)
+
+
+def _tipo_permite_adjuntos(tipo: dict | None) -> bool:
+    if not tipo:
+        return False
+    if tipo.get("permite_adjuntos") is None:
+        return True
+    return bool(tipo.get("permite_adjuntos"))
+
+
+def _validate_evento_data(
+    data: dict,
+    tipo: dict | None,
+    *,
+    empleado_id: int | None = None,
+    has_adjuntos: bool = False,
+):
     errors = []
     if not data.get("tipo_id"):
         errors.append("Tipo de evento es requerido.")
@@ -108,6 +127,17 @@ def _validate_evento_data(data: dict, tipo: dict | None):
     if tipo and tipo.get("requiere_rango_fechas"):
         if not data.get("fecha_desde") or not data.get("fecha_hasta"):
             errors.append("Este tipo requiere fecha desde y fecha hasta.")
+
+    if has_adjuntos and not _tipo_permite_adjuntos(tipo):
+        errors.append("Este tipo de evento no permite adjuntos.")
+
+    justificacion_id = data.get("justificacion_id")
+    if justificacion_id:
+        justificacion = get_justificacion_by_id(justificacion_id)
+        if not justificacion:
+            errors.append("Justificacion no encontrada.")
+        elif empleado_id is not None and int(justificacion.get("empleado_id") or 0) != int(empleado_id):
+            errors.append("La justificacion no pertenece al empleado.")
 
     return errors
 
@@ -250,7 +280,13 @@ def crear_evento(emp_id):
 
     data = _extract_evento_form(request.form)
     tipo = get_tipo_evento_by_id(data.get("tipo_id")) if data.get("tipo_id") else None
-    errors = _validate_evento_data(data, tipo)
+    adjuntos = request.files.getlist("adjuntos")
+    errors = _validate_evento_data(
+        data,
+        tipo,
+        empleado_id=emp_id,
+        has_adjuntos=_has_uploaded_files(adjuntos),
+    )
 
     if errors:
         _, eventos, tipos, adjuntos_by_evento = _load_empleado_context(emp_id)
@@ -276,7 +312,7 @@ def crear_evento(emp_id):
     log_audit(session, "create", "legajo_eventos", evento_id)
 
     _save_adjuntos(
-        request.files.getlist("adjuntos"),
+        adjuntos,
         empresa_id=int(empleado_data["empresa_id"]),
         empleado_id=int(emp_id),
         evento_id=int(evento_id),
@@ -306,7 +342,7 @@ def editar_evento(emp_id, evento_id):
     if request.method == "POST":
         form_data = _extract_evento_form(request.form)
         tipo = get_tipo_evento_by_id(form_data.get("tipo_id")) if form_data.get("tipo_id") else None
-        errors = _validate_evento_data(form_data, tipo)
+        errors = _validate_evento_data(form_data, tipo, empleado_id=emp_id)
         if not errors:
             actor_id = session.get("user_id")
             payload = _build_evento_payload(
@@ -360,6 +396,9 @@ def agregar_adjuntos(emp_id, evento_id):
         abort(404)
     if str(evento.get("estado") or "").lower() == "anulado":
         abort(400, description="No se pueden adjuntar archivos a un evento anulado.")
+    tipo = get_tipo_evento_by_id(evento.get("tipo_id"))
+    if not _tipo_permite_adjuntos(tipo):
+        abort(400, description="Este tipo de evento no permite adjuntos.")
 
     actor_id = session.get("user_id")
     _save_adjuntos(

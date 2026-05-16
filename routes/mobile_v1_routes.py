@@ -1,7 +1,7 @@
 import datetime
 import re
 
-from flask import Blueprint, current_app, g, jsonify, request
+from flask import Blueprint, Response, current_app, g, jsonify, request, send_file
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from repositories.asistencia_repository import (
@@ -22,9 +22,14 @@ from repositories.empleado_repository import (
     update_password as update_empleado_password,
 )
 from repositories.legajo_evento_repository import (
+    get_tipos_evento,
     get_eventos_page,
-    get_evento_by_id,
-    get_eventos_by_empleado as get_todos_eventos_by_empleado,
+    get_evento_by_id_for_empleado,
+)
+from repositories.legajo_adjunto_repository import (
+    get_adjunto_by_id_for_empleado,
+    get_adjunto_data_by_id,
+    get_adjuntos_by_evento_for_empleado,
 )
 from repositories.franco_repository import (
     get_page_by_empleado as get_francos_page_by_empleado,
@@ -76,6 +81,12 @@ from services.vacaciones_service import (
     calcular_resumen_vacaciones,
     listar_movimientos_vacaciones,
     solicitar_vacaciones as solicitar_vacaciones_svc,
+)
+from services.legajo_attachment_service import resolve_legajo_storage_path
+from services.legajo_service import (
+    calcular_resumen_legajo,
+    legajo_evento_to_mobile_dict,
+    legajo_tipo_evento_to_mobile_dict,
 )
 from repositories.pedido_mercaderia_repository import (
     get_by_id as get_pedido_mercaderia_by_id,
@@ -1379,7 +1390,10 @@ def me_justificaciones_create():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    create_audit(int(empleado["id"]), "create", "justificaciones", just_id)
+    try:
+        create_audit(int(empleado["id"]), "create", "justificaciones", just_id)
+    except Exception:
+        current_app.logger.warning("create_audit failed for justificaciones create", exc_info=True)
     j = get_justificacion_by_id(just_id)
     return jsonify(_justificacion_to_dict(j)), 201
 
@@ -1413,7 +1427,10 @@ def me_justificaciones_update(justificacion_id):
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    create_audit(int(empleado["id"]), "update", "justificaciones", justificacion_id)
+    try:
+        create_audit(int(empleado["id"]), "update", "justificaciones", justificacion_id)
+    except Exception:
+        current_app.logger.warning("create_audit failed for justificaciones update", exc_info=True)
     j = get_justificacion_by_id(justificacion_id)
     return jsonify(_justificacion_to_dict(j))
 
@@ -1433,7 +1450,10 @@ def me_justificaciones_delete(justificacion_id):
         return jsonify({"error": f"Solo se puede retirar una justificacion pendiente (estado actual: '{j.get('estado')}')"}), 409
 
     delete_justificacion_row(justificacion_id)
-    create_audit(int(empleado["id"]), "delete", "justificaciones", justificacion_id)
+    try:
+        create_audit(int(empleado["id"]), "delete", "justificaciones", justificacion_id)
+    except Exception:
+        current_app.logger.warning("create_audit failed for justificaciones delete", exc_info=True)
     return jsonify({"ok": True})
 
 
@@ -1665,7 +1685,14 @@ def vacaciones_solicitar():
         )
         return jsonify({"ok": False, "error": "No se pudo registrar la solicitud de vacaciones."}), 500
 
-    create_audit(int(empleado["id"]), "create", "vacaciones_movimientos", solicitud.get("id"))
+    try:
+        create_audit(int(empleado["id"]), "create", "vacaciones_movimientos", solicitud.get("id"))
+    except Exception:
+        current_app.logger.warning(
+            "create_audit failed for vacaciones_solicitar",
+            exc_info=True,
+            extra={"extra": {"empleado_id": empleado.get("id")}},
+        )
     return jsonify(
         {
             "ok": True,
@@ -1821,7 +1848,10 @@ def me_adelantos_create():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    create_audit(int(empleado["id"]), "create", "adelantos", adelanto_id)
+    try:
+        create_audit(int(empleado["id"]), "create", "adelantos", adelanto_id)
+    except Exception:
+        current_app.logger.warning("create_audit failed for adelantos create", exc_info=True)
     adelanto = get_adelanto_by_id(adelanto_id)
     return jsonify(_adelanto_to_dict(adelanto)), 201
 
@@ -2033,7 +2063,10 @@ def me_pedidos_mercaderia_create():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    create_audit(int(empleado["id"]), "create", "pedidos_mercaderia", pedido_id)
+    try:
+        create_audit(int(empleado["id"]), "create", "pedidos_mercaderia", pedido_id)
+    except Exception:
+        current_app.logger.warning("create_audit failed for pedidos_mercaderia create", exc_info=True)
     pedido = get_pedido_mercaderia_by_id(pedido_id)
     return jsonify(_pedido_mercaderia_to_dict(pedido)), 201
 
@@ -2057,7 +2090,10 @@ def me_pedidos_mercaderia_update(pedido_id):
         status = 404 if "no encontrado" in message.lower() else 400
         return jsonify({"error": message}), status
 
-    create_audit(int(empleado["id"]), "update", "pedidos_mercaderia", pedido_id)
+    try:
+        create_audit(int(empleado["id"]), "update", "pedidos_mercaderia", pedido_id)
+    except Exception:
+        current_app.logger.warning("create_audit failed for pedidos_mercaderia update", exc_info=True)
     pedido = get_pedido_mercaderia_by_id(pedido_id)
     return jsonify(_pedido_mercaderia_to_dict(pedido))
 
@@ -2079,7 +2115,10 @@ def me_pedidos_mercaderia_cancel(pedido_id):
         status = 404 if "no encontrado" in message.lower() else 400
         return jsonify({"error": message}), status
 
-    create_audit(int(empleado["id"]), "cancel", "pedidos_mercaderia", pedido_id)
+    try:
+        create_audit(int(empleado["id"]), "cancel", "pedidos_mercaderia", pedido_id)
+    except Exception:
+        current_app.logger.warning("create_audit failed for pedidos_mercaderia cancel", exc_info=True)
     pedido = get_pedido_mercaderia_by_id(pedido_id)
     return jsonify(_pedido_mercaderia_to_dict(pedido))
 
@@ -2183,22 +2222,110 @@ def me_francos_detail(franco_id):
 # Legajo eventos
 # ---------------------------------------------------------------------------
 
-def _evento_to_dict(e: dict) -> dict:
-    fh = e.get("fecha_hasta")
-    fd = e.get("fecha_desde")
-    return {
-        "id": e.get("id"),
-        "tipo_id": e.get("tipo_id"),
-        "tipo_codigo": e.get("tipo_codigo") or "",
-        "tipo_nombre": e.get("tipo_nombre") or "",
-        "fecha_evento": _to_date_str(e.get("fecha_evento")),
-        "fecha_desde": _to_date_str(fd) if fd is not None else None,
-        "fecha_hasta": _to_date_str(fh) if fh is not None else None,
-        "titulo": e.get("titulo") or "",
-        "descripcion": e.get("descripcion") or "",
-        "estado": e.get("estado") or "vigente",
-        "severidad": e.get("severidad"),
-    }
+def _evento_to_dict(e: dict, adjuntos: list[dict] | None = None) -> dict:
+    return legajo_evento_to_mobile_dict(e, adjuntos=adjuntos)
+
+
+def _parse_legajo_date_filter(value, label: str):
+    try:
+        return _parse_date(value)
+    except ValueError as exc:
+        raise ValueError(f"{label} invalida. Use YYYY-MM-DD.") from exc
+
+
+def _parse_legajo_period(default_periodo: str = "anio_actual"):
+    today_dt = datetime.date.today()
+    periodo = (request.args.get("periodo") or default_periodo).strip().lower()
+    if periodo == "7d":
+        desde_dt = today_dt - datetime.timedelta(days=6)
+        hasta_dt = today_dt
+    elif periodo == "30d":
+        desde_dt = today_dt - datetime.timedelta(days=29)
+        hasta_dt = today_dt
+    elif periodo == "90d":
+        desde_dt = today_dt - datetime.timedelta(days=89)
+        hasta_dt = today_dt
+    elif periodo == "mes_actual":
+        desde_dt = today_dt.replace(day=1)
+        hasta_dt = today_dt
+    elif periodo == "anio_actual":
+        desde_dt = today_dt.replace(month=1, day=1)
+        hasta_dt = today_dt
+    elif periodo == "custom":
+        desde_dt = today_dt.replace(month=1, day=1)
+        hasta_dt = today_dt
+    else:
+        raise ValueError("periodo invalido.")
+
+    raw_desde = (request.args.get("desde") or "").strip()
+    raw_hasta = (request.args.get("hasta") or "").strip()
+    if raw_desde or raw_hasta:
+        if raw_desde:
+            desde_dt = datetime.date.fromisoformat(_parse_legajo_date_filter(raw_desde, "desde"))
+        if raw_hasta:
+            hasta_dt = datetime.date.fromisoformat(_parse_legajo_date_filter(raw_hasta, "hasta"))
+        periodo = "custom"
+
+    if desde_dt > hasta_dt:
+        raise ValueError("El rango de fechas es invalido (desde > hasta).")
+    if (hasta_dt - desde_dt).days > 366:
+        raise ValueError("El rango maximo permitido es 366 dias.")
+    return periodo, desde_dt, hasta_dt
+
+
+@mobile_v1_bp.route("/me/legajo/resumen", methods=["GET"])
+@mobile_auth_required
+def me_legajo_resumen():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
+
+    try:
+        periodo, desde_dt, hasta_dt = _parse_legajo_period()
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    try:
+        resumen = calcular_resumen_legajo(int(empleado["id"]), desde_dt, hasta_dt)
+    except Exception:
+        current_app.logger.exception(
+            "mobile_legajo_resumen_error",
+            extra={"extra": {"empleado_id": empleado.get("id")}},
+        )
+        return jsonify({"ok": False, "error": "No se pudo calcular el resumen de legajo."}), 500
+
+    return jsonify({
+        "ok": True,
+        "periodo": {
+            "desde": desde_dt.isoformat(),
+            "hasta": hasta_dt.isoformat(),
+            "preset": periodo,
+        },
+        "resumen": resumen,
+    })
+
+
+@mobile_v1_bp.route("/me/legajo/tipos-evento", methods=["GET"])
+@mobile_auth_required
+def me_legajo_tipos_evento():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
+
+    try:
+        tipos = get_tipos_evento(include_inactive=False)
+    except Exception:
+        current_app.logger.exception(
+            "mobile_legajo_tipos_error",
+            extra={"extra": {"empleado_id": empleado.get("id")}},
+        )
+        return jsonify({"ok": False, "error": "No se pudieron obtener los tipos de evento."}), 500
+
+    return jsonify({
+        "ok": True,
+        "items": [legajo_tipo_evento_to_mobile_dict(tipo) for tipo in tipos],
+        "total": len(tipos),
+    })
 
 
 @mobile_v1_bp.route("/me/legajo/eventos", methods=["GET"])
@@ -2206,27 +2333,56 @@ def _evento_to_dict(e: dict) -> dict:
 def me_legajo_eventos_list():
     empleado = _mobile_user()
     if not empleado:
-        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
 
     page = max(1, request.args.get("page", 1, type=int) or 1)
     per_page = max(1, min(request.args.get("per_page", 20, type=int) or 20, 100))
-    tipo_id_raw = request.args.get("tipo_id")
-    tipo_id = int(tipo_id_raw) if tipo_id_raw else None
-    estado = request.args.get("estado") or None
+
+    try:
+        tipo_id = _parse_int(request.args.get("tipo_id"), "tipo_id", default=None)
+        fecha_desde = _parse_legajo_date_filter(request.args.get("desde"), "desde")
+        fecha_hasta = _parse_legajo_date_filter(request.args.get("hasta"), "hasta")
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    if fecha_desde and fecha_hasta and fecha_desde > fecha_hasta:
+        return jsonify({"ok": False, "error": "El rango de fechas es invalido (desde > hasta)."}), 400
+
+    estado_raw = (request.args.get("estado") or "").strip().lower()
+    estado = None if estado_raw in {"", "all", "todos"} else estado_raw
     if estado and estado not in {"vigente", "anulado"}:
-        return jsonify({"error": "estado debe ser 'vigente' o 'anulado'"}), 400
+        return jsonify({"ok": False, "error": "estado debe ser 'vigente' o 'anulado'"}), 400
+
+    severidad_raw = (request.args.get("severidad") or "").strip().lower()
+    severidad = None if severidad_raw in {"", "all", "todos"} else severidad_raw
+    if severidad and severidad not in {"leve", "media", "grave"}:
+        return jsonify({"ok": False, "error": "severidad debe ser 'leve', 'media' o 'grave'"}), 400
+
+    search = (request.args.get("q") or request.args.get("search") or "").strip() or None
 
     rows, total = get_eventos_page(
         page, per_page,
+        search=search,
         empleado_id=int(empleado["id"]),
+        empresa_id=int(empleado["empresa_id"]) if empleado.get("empresa_id") else None,
         tipo_id=tipo_id,
         estado=estado,
+        severidad=severidad,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
     )
     return jsonify({
+        "ok": True,
         "items": [_evento_to_dict(e) for e in rows],
         "total": total,
         "page": page,
         "per_page": per_page,
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "has_more": page * per_page < total,
+        },
     })
 
 
@@ -2235,13 +2391,70 @@ def me_legajo_eventos_list():
 def me_legajo_eventos_detail(evento_id):
     empleado = _mobile_user()
     if not empleado:
-        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
 
-    e = get_evento_by_id(evento_id)
-    if not e or e.get("empleado_id") != int(empleado["id"]):
-        return jsonify({"error": "Evento no encontrado"}), 404
+    e = get_evento_by_id_for_empleado(
+        int(evento_id),
+        int(empleado["id"]),
+        int(empleado["empresa_id"]) if empleado.get("empresa_id") else None,
+    )
+    if not e:
+        return jsonify({"ok": False, "error": "Evento no encontrado"}), 404
 
-    return jsonify(_evento_to_dict(e))
+    adjuntos = get_adjuntos_by_evento_for_empleado(int(evento_id), int(empleado["id"]), include_deleted=False)
+    body = _evento_to_dict(e, adjuntos=adjuntos)
+    body["ok"] = True
+    return jsonify(body)
+
+
+@mobile_v1_bp.route("/me/legajo/adjuntos/<int:adjunto_id>", methods=["GET"])
+@mobile_auth_required
+def me_legajo_adjunto(adjunto_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
+
+    row = get_adjunto_by_id_for_empleado(
+        int(adjunto_id),
+        int(empleado["id"]),
+        int(empleado["empresa_id"]) if empleado.get("empresa_id") else None,
+    )
+    if not row:
+        return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
+    if str(row.get("estado") or "").strip().lower() != "activo":
+        return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
+    if str(row.get("evento_estado") or "").strip().lower() != "vigente":
+        return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
+
+    backend = str(row.get("storage_backend") or "").strip().lower()
+    if backend not in {"local", "db"}:
+        return jsonify({"ok": False, "error": "Adjunto no disponible"}), 404
+
+    download = str(request.args.get("download") or "").strip().lower() in {"1", "true", "yes"}
+    filename = str(row.get("nombre_original") or f"adjunto_{adjunto_id}.pdf").replace('"', "")
+    if backend == "db":
+        payload = get_adjunto_data_by_id(int(adjunto_id))
+        if not payload:
+            return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
+        response = Response(payload, mimetype=row.get("mime_type") or "application/octet-stream")
+        response.headers["Cache-Control"] = "private, max-age=300"
+        if download:
+            response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+    try:
+        path = resolve_legajo_storage_path(row.get("storage_ruta"))
+    except RuntimeError:
+        return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
+    if not path.exists() or not path.is_file():
+        return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
+    return send_file(
+        str(path),
+        mimetype=row.get("mime_type") or "application/octet-stream",
+        as_attachment=download,
+        download_name=filename,
+        max_age=300,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2250,70 +2463,7 @@ def me_legajo_eventos_detail(evento_id):
 
 def _legajo_stats_for_mobile(empleado_id: int, desde_dt: datetime.date, hasta_dt: datetime.date):
     """Aggregate legajo events for the dashboard endpoint."""
-    from collections import defaultdict
-    all_events = get_todos_eventos_by_empleado(empleado_id, include_anulados=True)
-
-    hist_vigentes = sum(1 for e in all_events if str(e.get("estado") or "").lower() == "vigente")
-    hist_anulados = len(all_events) - hist_vigentes
-
-    def _fe_date(ev):
-        fe = ev.get("fecha_evento")
-        if fe is None:
-            return None
-        if hasattr(fe, "date"):
-            return fe.date()
-        if isinstance(fe, datetime.date):
-            return fe
-        try:
-            return datetime.date.fromisoformat(str(fe)[:10])
-        except ValueError:
-            return None
-
-    periodo_vigentes = [
-        e for e in all_events
-        if str(e.get("estado") or "").lower() == "vigente"
-        and (lambda d: d is not None and desde_dt <= d <= hasta_dt)(_fe_date(e))
-    ]
-
-    tipo_counts = defaultdict(lambda: {"label": "", "total": 0})
-    sev_counts = defaultdict(int)
-    for e in periodo_vigentes:
-        tid = e.get("tipo_id")
-        tipo_counts[tid]["label"] = e.get("tipo_nombre") or e.get("tipo_codigo") or str(tid)
-        tipo_counts[tid]["total"] += 1
-        sev_counts[str(e.get("severidad") or "").lower() or "sin_severidad"] += 1
-
-    tipo_total = sum(d["total"] for d in tipo_counts.values()) or 1
-    por_tipo = sorted(
-        [{"label": d["label"], "total": d["total"], "pct": round(d["total"] * 100 / tipo_total, 1)}
-         for d in tipo_counts.values()],
-        key=lambda x: -x["total"],
-    )
-
-    sev_total = sum(sev_counts.values()) or 1
-    por_severidad = [
-        {"severidad": sev, "total": cnt, "pct": round(cnt * 100 / sev_total, 1)}
-        for sev, cnt in sorted(sev_counts.items(), key=lambda x: -x[1])
-    ]
-
-    recientes = sorted(periodo_vigentes, key=lambda e: str(e.get("fecha_evento") or ""), reverse=True)[:5]
-
-    return {
-        "historico": {
-            "total": len(all_events),
-            "vigentes": hist_vigentes,
-            "anulados": hist_anulados,
-        },
-        "periodo": {
-            "total": len(periodo_vigentes),
-            "graves": sum(1 for e in periodo_vigentes if str(e.get("severidad") or "").lower() == "grave"),
-            "media": sum(1 for e in periodo_vigentes if str(e.get("severidad") or "").lower() == "media"),
-            "leve": sum(1 for e in periodo_vigentes if str(e.get("severidad") or "").lower() == "leve"),
-        },
-        "por_tipo": por_tipo,
-        "por_severidad": por_severidad,
-        "recientes": [_evento_to_dict(e) for e in recientes],
-    }
+    return calcular_resumen_legajo(int(empleado_id), desde_dt, hasta_dt)
 
 
 @mobile_v1_bp.route("/me/dashboard", methods=["GET"])

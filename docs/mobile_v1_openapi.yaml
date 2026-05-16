@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Control Asistencia — Mobile API v1
-  version: 1.17.0
+  version: 1.18.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -871,11 +871,45 @@ components:
           type: integer
 
     # --- Legajo evento ---
+    LegajoAdjuntoItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        evento_id:
+          type: integer
+        nombre_original:
+          type: string
+        mime_type:
+          type: string
+          example: application/pdf
+        extension:
+          type: string
+          nullable: true
+        tamano_bytes:
+          type: integer
+        estado:
+          type: string
+          enum: [activo, eliminado]
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        download_url:
+          type: string
+          example: /api/v1/mobile/me/legajo/adjuntos/99
+
     LegajoEventoItem:
       type: object
       properties:
         id:
           type: integer
+        empresa_id:
+          type: integer
+          nullable: true
+        empleado_id:
+          type: integer
+          nullable: true
         tipo_id:
           type: integer
         tipo_codigo:
@@ -905,10 +939,81 @@ components:
           type: string
           nullable: true
           enum: [grave, media, leve]
+        justificacion_id:
+          type: integer
+          nullable: true
+        adjuntos_count:
+          type: integer
+        adjuntos:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LegajoAdjuntoItem'
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    LegajoTipoEventoItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        codigo:
+          type: string
+        nombre:
+          type: string
+        requiere_rango_fechas:
+          type: boolean
+        permite_adjuntos:
+          type: boolean
+        activo:
+          type: boolean
+
+    LegajoTiposEventoResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LegajoTipoEventoItem'
+        total:
+          type: integer
+
+    LegajoResumenResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        periodo:
+          type: object
+          properties:
+            desde:
+              type: string
+              format: date
+            hasta:
+              type: string
+              format: date
+            preset:
+              type: string
+              enum: [7d, 30d, 90d, mes_actual, anio_actual, custom]
+        resumen:
+          $ref: '#/components/schemas/LegajoStats'
 
     PaginatedLegajoEventos:
       type: object
       properties:
+        ok:
+          type: boolean
+          example: true
         items:
           type: array
           items:
@@ -919,6 +1024,17 @@ components:
           type: integer
         per_page:
           type: integer
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            per_page:
+              type: integer
+            total:
+              type: integer
+            has_more:
+              type: boolean
 
     # --- Seguridad ---
     EventoSeguridadItem:
@@ -988,6 +1104,8 @@ components:
             media:
               type: integer
             leve:
+              type: integer
+            sin_severidad:
               type: integer
         por_tipo:
           type: array
@@ -2529,6 +2647,65 @@ paths:
           description: No encontrado
 
   # ---- Legajo ----
+  /me/legajo/resumen:
+    get:
+      tags: [Legajo]
+      summary: Resumen del legajo del empleado autenticado
+      parameters:
+        - name: periodo
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, mes_actual, anio_actual, custom]
+            default: anio_actual
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Resumen de legajo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegajoResumenResponse'
+        '400':
+          description: Rango invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+
+  /me/legajo/tipos-evento:
+    get:
+      tags: [Legajo]
+      summary: Tipos de evento activos para legajo
+      responses:
+        '200':
+          description: Tipos de evento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegajoTiposEventoResponse'
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+
   /me/legajo/eventos:
     get:
       tags: [Legajo]
@@ -2542,7 +2719,26 @@ paths:
           in: query
           schema:
             type: string
-            enum: [vigente, anulado]
+            enum: [vigente, anulado, all]
+        - name: severidad
+          in: query
+          schema:
+            type: string
+            enum: [leve, media, grave, all]
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: q
+          in: query
+          schema:
+            type: string
         - name: page
           in: query
           schema:
@@ -2562,7 +2758,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedLegajoEventos'
         '400':
-          description: Parametro de estado invalido
+          description: Parametros invalidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
 
   /me/legajo/eventos/{id}:
     get:
@@ -2580,9 +2780,53 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LegajoEventoItem'
+                allOf:
+                  - $ref: '#/components/schemas/LegajoEventoItem'
+                  - type: object
+                    properties:
+                      ok:
+                        type: boolean
+                        example: true
         '404':
           description: No encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+
+  /me/legajo/adjuntos/{id}:
+    get:
+      tags: [Legajo]
+      summary: Descarga un adjunto del legajo del empleado autenticado
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: download
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Binario del adjunto
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
 
   # ---- Seguridad ----
   /me/eventos-seguridad:

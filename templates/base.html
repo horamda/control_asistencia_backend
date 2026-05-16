@@ -52,7 +52,7 @@
               </a>
             </div>
 
-            {% if current_role == "admin" %}
+            {% if current_role in ["admin", "rrhh", "supervisor"] %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-organizacion">
                   <span class="nav-toggle-label">
@@ -62,11 +62,14 @@
                   <span class="nav-caret" aria-hidden="true"></span>
                 </button>
                 <div class="nav-submenu" id="nav-submenu-organizacion">
-                  <a class="nav-link" href="/empresas/">Empresas</a>
-                  <a class="nav-link" href="/sucursales/">Sucursales</a>
-                  <a class="nav-link" href="/sectores/">Sectores</a>
-                  <a class="nav-link" href="/puestos/">Puestos</a>
-                  <a class="nav-link" href="/localidades/">Localidades</a>
+                  <a class="nav-link" href="/organigrama/">Organigrama</a>
+                  {% if current_role == "admin" %}
+                    <a class="nav-link" href="/empresas/">Empresas</a>
+                    <a class="nav-link" href="/sucursales/">Sucursales</a>
+                    <a class="nav-link" href="/sectores/">Sectores</a>
+                    <a class="nav-link" href="/puestos/">Puestos</a>
+                    <a class="nav-link" href="/localidades/">Localidades</a>
+                  {% endif %}
                 </div>
               </div>
             {% endif %}

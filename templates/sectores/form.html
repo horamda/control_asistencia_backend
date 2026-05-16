@@ -38,6 +38,33 @@
         <label>Nombre</label>
         <input name="nombre" value="{{ data.nombre or '' }}" required>
       </div>
+      <div class="row">
+        <label>Sector superior</label>
+        <select name="sector_padre_id">
+          <option value="">Sin sector superior</option>
+          {% for s in sectores_padre %}
+            {% if data.id is not defined or s.id != data.id %}
+              <option value="{{ s.id }}" {% if data.sector_padre_id == s.id %}selected{% endif %}>
+                {{ s.empresa_nombre }} - {{ s.nombre }}
+              </option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <small class="helper-text">Use este campo para armar niveles dentro del organigrama.</small>
+      </div>
+      <div class="row">
+        <label>Responsable</label>
+        <select name="responsable_empleado_id">
+          <option value="">Sin responsable asignado</option>
+          {% for emp in empleados_responsables %}
+            <option value="{{ emp.id }}" {% if data.responsable_empleado_id == emp.id %}selected{% endif %}>
+              {{ emp.empresa_nombre }} - {{ emp.apellido }} {{ emp.nombre }}
+              {% if emp.puesto_nombre %} ({{ emp.puesto_nombre }}){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+        <small class="helper-text">Debe pertenecer a la misma empresa del sector.</small>
+      </div>
       <div class="row span-3">
         <label class="check-inline">
           <input type="checkbox" name="activo" value="1" {% if data.activo is not defined or data.activo %}checked{% endif %}>

@@ -172,6 +172,11 @@ Documento generado automaticamente desde rutas activas del backend.
 | `POST` | `/api/v1/mobile/me/pedidos-mercaderia` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_create` |
 | `PUT` | `/api/v1/mobile/me/pedidos-mercaderia/<int:pedido_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_update` |
 | `DELETE` | `/api/v1/mobile/me/pedidos-mercaderia/<int:pedido_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_pedidos_mercaderia_cancel` |
+| `GET` | `/api/v1/mobile/me/legajo/resumen` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_resumen` |
+| `GET` | `/api/v1/mobile/me/legajo/tipos-evento` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_tipos_evento` |
+| `GET` | `/api/v1/mobile/me/legajo/eventos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_eventos_list` |
+| `GET` | `/api/v1/mobile/me/legajo/eventos/<int:evento_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_eventos_detail` |
+| `GET` | `/api/v1/mobile/me/legajo/adjuntos/<int:adjunto_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_adjunto` |
 | `POST` | `/api/v1/mobile/me/qr` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_generar_qr` |
 | `POST` | `/auth/login` | publico | - | `routes/auth_routes.py:login` |
 | `GET` | `/media/empleados/foto/<dni>` | publico | - | `routes/media_routes.py:empleado_foto` |

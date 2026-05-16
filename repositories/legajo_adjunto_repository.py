@@ -114,6 +114,48 @@ def get_adjuntos_by_evento(evento_id: int, include_deleted: bool = False):
         db.close()
 
 
+def get_adjuntos_by_evento_for_empleado(evento_id: int, empleado_id: int, include_deleted: bool = False):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        where_sql = "" if include_deleted else "AND a.estado = 'activo'"
+        cursor.execute(
+            f"""
+            SELECT
+                a.id,
+                a.evento_id,
+                a.empresa_id,
+                a.empleado_id,
+                a.nombre_original,
+                a.mime_type,
+                a.extension,
+                a.tamano_bytes,
+                a.sha256,
+                a.storage_backend,
+                a.storage_ruta,
+                a.estado,
+                a.created_by_usuario_id,
+                a.created_at,
+                a.deleted_by_usuario_id,
+                a.deleted_at,
+                u.usuario AS created_by_usuario
+            FROM legajo_evento_adjuntos a
+            JOIN legajo_eventos e ON e.id = a.evento_id
+            LEFT JOIN usuarios u ON u.id = a.created_by_usuario_id
+            WHERE a.evento_id = %s
+              AND a.empleado_id = %s
+              AND e.empleado_id = %s
+              {where_sql}
+            ORDER BY a.created_at DESC, a.id DESC
+            """,
+            (int(evento_id), int(empleado_id), int(empleado_id)),
+        )
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        db.close()
+
+
 def get_adjunto_by_id(adjunto_id: int):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -122,12 +164,47 @@ def get_adjunto_by_id(adjunto_id: int):
             """
             SELECT
                 a.*,
-                e.estado AS evento_estado
+                e.estado AS evento_estado,
+                e.empleado_id AS evento_empleado_id,
+                e.empresa_id AS evento_empresa_id
             FROM legajo_evento_adjuntos a
             JOIN legajo_eventos e ON e.id = a.evento_id
             WHERE a.id = %s
             """,
             (adjunto_id,),
+        )
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        db.close()
+
+
+def get_adjunto_by_id_for_empleado(adjunto_id: int, empleado_id: int, empresa_id: int | None = None):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        where = [
+            "a.id = %s",
+            "a.empleado_id = %s",
+            "e.empleado_id = %s",
+        ]
+        params = [int(adjunto_id), int(empleado_id), int(empleado_id)]
+        if empresa_id is not None:
+            where.append("a.empresa_id = %s")
+            where.append("e.empresa_id = %s")
+            params.extend([int(empresa_id), int(empresa_id)])
+        cursor.execute(
+            f"""
+            SELECT
+                a.*,
+                e.estado AS evento_estado,
+                e.empleado_id AS evento_empleado_id,
+                e.empresa_id AS evento_empresa_id
+            FROM legajo_evento_adjuntos a
+            JOIN legajo_eventos e ON e.id = a.evento_id
+            WHERE {" AND ".join(where)}
+            """,
+            tuple(params),
         )
         return cursor.fetchone()
     finally:

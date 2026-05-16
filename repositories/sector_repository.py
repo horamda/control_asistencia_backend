@@ -5,21 +5,23 @@ def get_all(include_inactive: bool = False):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
-        if include_inactive:
-            cursor.execute("""
-                SELECT s.*, e.razon_social AS empresa_nombre
-                FROM sectores s
-                JOIN empresas e ON e.id = s.empresa_id
-                ORDER BY e.razon_social, s.nombre
-            """)
-        else:
-            cursor.execute("""
-                SELECT s.*, e.razon_social AS empresa_nombre
-                FROM sectores s
-                JOIN empresas e ON e.id = s.empresa_id
-                WHERE s.activo = 1
-                ORDER BY e.razon_social, s.nombre
-            """)
+        where_sql = "" if include_inactive else "WHERE s.activo = 1"
+        cursor.execute(f"""
+            SELECT
+                s.*,
+                e.razon_social AS empresa_nombre,
+                sp.nombre AS sector_padre_nombre,
+                r.nombre AS responsable_nombre,
+                r.apellido AS responsable_apellido,
+                p.nombre AS responsable_puesto_nombre
+            FROM sectores s
+            JOIN empresas e ON e.id = s.empresa_id
+            LEFT JOIN sectores sp ON sp.id = s.sector_padre_id
+            LEFT JOIN empleados r ON r.id = s.responsable_empleado_id
+            LEFT JOIN puestos p ON p.id = r.puesto_id
+            {where_sql}
+            ORDER BY e.razon_social, s.nombre
+        """)
         return cursor.fetchall()
     finally:
         cursor.close()
@@ -45,9 +47,18 @@ def get_page(page: int, per_page: int, empresa_id: int | None = None, search: st
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
         cursor.execute(f"""
-            SELECT s.*, e.razon_social AS empresa_nombre
+            SELECT
+                s.*,
+                e.razon_social AS empresa_nombre,
+                sp.nombre AS sector_padre_nombre,
+                r.nombre AS responsable_nombre,
+                r.apellido AS responsable_apellido,
+                p.nombre AS responsable_puesto_nombre
             FROM sectores s
             JOIN empresas e ON e.id = s.empresa_id
+            LEFT JOIN sectores sp ON sp.id = s.sector_padre_id
+            LEFT JOIN empleados r ON r.id = s.responsable_empleado_id
+            LEFT JOIN puestos p ON p.id = r.puesto_id
             {where_sql}
             ORDER BY e.razon_social, s.nombre
             LIMIT %s OFFSET %s
@@ -82,10 +93,18 @@ def create(data: dict):
     cursor = db.cursor()
     try:
         cursor.execute("""
-            INSERT INTO sectores (empresa_id, nombre, activo)
-            VALUES (%s,%s,%s)
+            INSERT INTO sectores (
+                empresa_id,
+                sector_padre_id,
+                responsable_empleado_id,
+                nombre,
+                activo
+            )
+            VALUES (%s,%s,%s,%s,%s)
         """, (
             data.get("empresa_id"),
+            data.get("sector_padre_id"),
+            data.get("responsable_empleado_id"),
             data.get("nombre"),
             1 if data.get("activo") else 0
         ))
@@ -103,17 +122,51 @@ def update(sector_id: int, data: dict):
         cursor.execute("""
             UPDATE sectores
             SET empresa_id = %s,
+                sector_padre_id = %s,
+                responsable_empleado_id = %s,
                 nombre = %s,
                 activo = %s
             WHERE id = %s
         """, (
             data.get("empresa_id"),
+            data.get("sector_padre_id"),
+            data.get("responsable_empleado_id"),
             data.get("nombre"),
             1 if data.get("activo") else 0,
             sector_id
         ))
         db.commit()
         return True
+    finally:
+        cursor.close()
+        db.close()
+
+
+def would_create_cycle(sector_id: int, parent_id: int | None) -> bool:
+    if not sector_id or not parent_id:
+        return False
+    if int(sector_id) == int(parent_id):
+        return True
+
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        current_parent_id = int(parent_id)
+        visited = {int(sector_id)}
+        while current_parent_id:
+            if current_parent_id in visited:
+                return True
+            visited.add(current_parent_id)
+            cursor.execute(
+                "SELECT sector_padre_id FROM sectores WHERE id = %s",
+                (current_parent_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return False
+            current_parent_id = row.get("sector_padre_id")
+            current_parent_id = int(current_parent_id) if current_parent_id else None
+        return False
     finally:
         cursor.close()
         db.close()

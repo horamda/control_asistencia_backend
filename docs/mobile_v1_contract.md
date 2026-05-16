@@ -1,7 +1,7 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.17.0
-Fecha de corte: 2026-05-15
+Version de contrato: 1.18.0
+Fecha de corte: 2026-05-16
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
@@ -1131,15 +1131,65 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ### Legajo
 
-#### 32. `GET /api/v1/mobile/me/legajo/eventos?tipo_id=&estado=&page=&per_page=`
-- Lista paginada de eventos del legajo del empleado.
-- `estado`: `vigente` | `anulado` (opcional)
+#### 32. `GET /api/v1/mobile/me/legajo/resumen?periodo=&desde=&hasta=`
+- Resumen del legajo del empleado autenticado.
+- `periodo`: `7d` | `30d` | `90d` | `mes_actual` | `anio_actual` | `custom`. Default: `anio_actual`.
+- `desde` / `hasta`: fechas ISO `YYYY-MM-DD`. Si se informan, fuerzan `periodo=custom`.
 - Response 200:
 ```json
 {
+  "ok": true,
+  "periodo": {
+    "desde": "2026-01-01",
+    "hasta": "2026-05-16",
+    "preset": "anio_actual"
+  },
+  "resumen": {
+    "historico": {"total": 8, "vigentes": 7, "anulados": 1},
+    "periodo": {"total": 3, "graves": 0, "media": 1, "leve": 2, "sin_severidad": 0},
+    "por_tipo": [{"label": "Llamado de atencion", "total": 2, "pct": 66.7}],
+    "por_severidad": [{"severidad": "leve", "total": 2, "pct": 66.7}],
+    "recientes": []
+  }
+}
+```
+- Response 400: `{"ok":false,"error":"El rango de fechas es invalido (desde > hasta)."}`
+
+#### 33. `GET /api/v1/mobile/me/legajo/tipos-evento`
+- Tipos de evento activos para renderizar filtros/formularios mobile.
+- Response 200:
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "id": 3,
+      "codigo": "llamado_atencion",
+      "nombre": "Llamado de atencion",
+      "requiere_rango_fechas": false,
+      "permite_adjuntos": true,
+      "activo": true
+    }
+  ],
+  "total": 1
+}
+```
+
+#### 34. `GET /api/v1/mobile/me/legajo/eventos?tipo_id=&estado=&severidad=&desde=&hasta=&q=&page=&per_page=`
+- Lista paginada de eventos del legajo del empleado.
+- `estado`: `vigente` | `anulado` | `all` (opcional)
+- `severidad`: `leve` | `media` | `grave` | `all` (opcional)
+- `desde` / `hasta`: filtran por `fecha_evento`.
+- `q`: busca por titulo, descripcion o datos del empleado.
+- Response 200:
+```json
+{
+  "ok": true,
   "items":[
     {
       "id":45,
+      "empresa_id": 3,
+      "empleado_id": 12,
       "tipo_id":3,
       "tipo_codigo":"llamado_atencion",
       "tipo_nombre":"Llamado de atencion",
@@ -1149,26 +1199,67 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
       "titulo":"Llegada tarde reiterada",
       "descripcion":"Tercer llamado en el mes",
       "estado":"vigente",
-      "severidad":"grave"
+      "severidad":"grave",
+      "justificacion_id": null,
+      "adjuntos_count": 1,
+      "adjuntos": null,
+      "created_at": "2026-03-10T09:00:00",
+      "updated_at": "2026-03-10T09:00:00"
     }
   ],
   "total":1,
   "page":1,
-  "per_page":20
+  "per_page":20,
+  "pagination": {"page":1, "per_page":20, "total":1, "has_more":false}
 }
 ```
-- `severidad`: `grave` | `media` | `leve` | `null`
-- `estado`: `vigente` | `anulado`
+- Response 400: `{"ok":false,"error":"estado debe ser 'vigente' o 'anulado'"}`
 
-#### 33. `GET /api/v1/mobile/me/legajo/eventos/<id>`
-- Response 200: objeto evento (mismo esquema).
-- Response 404: `{"error":"Evento no encontrado"}`
+#### 35. `GET /api/v1/mobile/me/legajo/eventos/<id>`
+- Response 200: objeto evento con adjuntos activos.
+```json
+{
+  "ok": true,
+  "id": 45,
+  "tipo_id": 3,
+  "tipo_codigo": "llamado_atencion",
+  "tipo_nombre": "Llamado de atencion",
+  "fecha_evento": "2026-03-10",
+  "fecha_desde": null,
+  "fecha_hasta": null,
+  "titulo": "Llegada tarde reiterada",
+  "descripcion": "Tercer llamado en el mes",
+  "estado": "vigente",
+  "severidad": "grave",
+  "adjuntos_count": 1,
+  "adjuntos": [
+    {
+      "id": 99,
+      "evento_id": 45,
+      "nombre_original": "certificado.pdf",
+      "mime_type": "application/pdf",
+      "extension": "pdf",
+      "tamano_bytes": 123456,
+      "estado": "activo",
+      "created_at": "2026-03-10T09:00:00",
+      "download_url": "/api/v1/mobile/me/legajo/adjuntos/99"
+    }
+  ]
+}
+```
+- Response 404: `{"ok":false,"error":"Evento no encontrado"}`
+
+#### 36. `GET /api/v1/mobile/me/legajo/adjuntos/<id>?download=1`
+- Descarga/visualiza un adjunto activo del legajo del empleado autenticado.
+- Requiere Bearer JWT mobile. El empleado solo puede acceder a sus propios adjuntos.
+- Response 200: binario del archivo con `Content-Type` del adjunto.
+- Response 404: `{"ok":false,"error":"Adjunto no encontrado"}`
 
 ---
 
 ### KPIs Sectoriales
 
-#### 35. `GET /api/v1/mobile/me/kpis-sector?anio=YYYY`
+#### 37. `GET /api/v1/mobile/me/kpis-sector?anio=YYYY`
 - KPIs del sector del empleado autenticado para el año solicitado.
 - `anio`: año a consultar (opcional, default = año actual del servidor).
 - Para cada KPI muestra resultado acumulado vs objetivo anual del sector, con semaforo y recomendacion.
@@ -1245,7 +1336,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ### Premios y concursos
 
-#### 36. `GET /api/v1/mobile/me/premios?anio=YYYY`
+#### 38. `GET /api/v1/mobile/me/premios?anio=YYYY`
 - Premios/rankings mensuales obtenidos por el empleado autenticado.
 - `anio`: ano a consultar (opcional, default = ano actual del servidor).
 - Devuelve siempre los 12 meses del ano para que Flutter pueda pintar tarjetas mes por mes.
@@ -1310,7 +1401,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ### Seguridad
 
-#### 34. `GET /api/v1/mobile/me/eventos-seguridad?page=&per=&tipo_evento=`
+#### 39. `GET /api/v1/mobile/me/eventos-seguridad?page=&per=&tipo_evento=`
 - Lista paginada de eventos de seguridad (ej. QR fuera de geocerca).
 - Response 200:
 ```json
@@ -1367,6 +1458,16 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.18.0 (2026-05-16)
+- Se completa el contrato mobile de legajo:
+  - `GET /me/legajo/resumen`
+  - `GET /me/legajo/tipos-evento`
+  - `GET /me/legajo/eventos` con filtros `desde`, `hasta`, `severidad`, `q`, `tipo_id`, `estado`
+  - `GET /me/legajo/eventos/<id>` con adjuntos
+  - `GET /me/legajo/adjuntos/<id>` para descarga con Bearer JWT
+- Las respuestas nuevas de legajo usan `ok` y errores JSON con `ok=false`.
+- Los adjuntos mobile quedan scoped al empleado autenticado.
 
 ### 1.17.0 (2026-05-15)
 - Nuevos endpoints mobile para vacaciones con saldo LCT:

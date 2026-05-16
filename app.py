@@ -33,6 +33,7 @@ from web.usuarios.usuarios_routes import usuarios_bp
 from web.configuracion.configuracion_empresa_routes import configuracion_bp
 from web.sectores.sectores_routes import sectores_bp
 from web.puestos.puestos_routes import puestos_bp
+from web.organigrama.organigrama_routes import organigrama_bp
 from web.localidades.localidades_routes import localidades_bp
 from web.francos.francos_routes import francos_bp
 from web.vacaciones.vacaciones_routes import vacaciones_bp
@@ -254,6 +255,7 @@ def create_app():
     app.register_blueprint(configuracion_bp)
     app.register_blueprint(sectores_bp)
     app.register_blueprint(puestos_bp)
+    app.register_blueprint(organigrama_bp)
     app.register_blueprint(localidades_bp)
     app.register_blueprint(francos_bp)
     app.register_blueprint(vacaciones_bp)

@@ -223,12 +223,55 @@ def get_evento_by_id(evento_id: int):
             SELECT
                 e.*,
                 t.codigo AS tipo_codigo,
-                t.nombre AS tipo_nombre
+                t.nombre AS tipo_nombre,
+                t.requiere_rango_fechas AS tipo_requiere_rango_fechas,
+                t.permite_adjuntos AS tipo_permite_adjuntos,
+                (
+                    SELECT COUNT(*)
+                    FROM legajo_evento_adjuntos a
+                    WHERE a.evento_id = e.id
+                      AND a.estado = 'activo'
+                ) AS adjuntos_count
             FROM legajo_eventos e
             JOIN legajo_tipos_evento t ON t.id = e.tipo_id
             WHERE e.id = %s
             """,
             (evento_id,),
+        )
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        db.close()
+
+
+def get_evento_by_id_for_empleado(evento_id: int, empleado_id: int, empresa_id: int | None = None):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        where = ["e.id = %s", "e.empleado_id = %s"]
+        params = [int(evento_id), int(empleado_id)]
+        if empresa_id is not None:
+            where.append("e.empresa_id = %s")
+            params.append(int(empresa_id))
+        cursor.execute(
+            f"""
+            SELECT
+                e.*,
+                t.codigo AS tipo_codigo,
+                t.nombre AS tipo_nombre,
+                t.requiere_rango_fechas AS tipo_requiere_rango_fechas,
+                t.permite_adjuntos AS tipo_permite_adjuntos,
+                (
+                    SELECT COUNT(*)
+                    FROM legajo_evento_adjuntos a
+                    WHERE a.evento_id = e.id
+                      AND a.estado = 'activo'
+                ) AS adjuntos_count
+            FROM legajo_eventos e
+            JOIN legajo_tipos_evento t ON t.id = e.tipo_id
+            WHERE {" AND ".join(where)}
+            """,
+            tuple(params),
         )
         return cursor.fetchone()
     finally:
@@ -279,6 +322,9 @@ def get_eventos_page(
     empleado_id: int | None = None,
     tipo_id: int | None = None,
     estado: str | None = None,
+    severidad: str | None = None,
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -305,6 +351,15 @@ def get_eventos_page(
         if estado in {"vigente", "anulado"}:
             where.append("e.estado = %s")
             params.append(estado)
+        if severidad in {"leve", "media", "grave"}:
+            where.append("e.severidad = %s")
+            params.append(severidad)
+        if fecha_desde:
+            where.append("e.fecha_evento >= %s")
+            params.append(fecha_desde)
+        if fecha_hasta:
+            where.append("e.fecha_evento <= %s")
+            params.append(fecha_hasta)
 
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
@@ -332,7 +387,13 @@ def get_eventos_page(
                 emp.legajo AS empleado_legajo,
                 emp.dni AS empleado_dni,
                 emp.foto AS empleado_foto,
-                em.razon_social AS empresa_nombre
+                em.razon_social AS empresa_nombre,
+                (
+                    SELECT COUNT(*)
+                    FROM legajo_evento_adjuntos a
+                    WHERE a.evento_id = e.id
+                      AND a.estado = 'activo'
+                ) AS adjuntos_count
             FROM legajo_eventos e
             JOIN legajo_tipos_evento t ON t.id = e.tipo_id
             JOIN empleados emp ON emp.id = e.empleado_id

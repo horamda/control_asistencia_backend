@@ -129,7 +129,12 @@
           <td data-label="Empresa">{{ e.empresa_nombre or e.empresa_id }}</td>
           <td data-label="Sucursal">{{ e.sucursal_nombre or e.sucursal_id }}</td>
           <td data-label="Sector">{{ e.sector_nombre or e.sector_id }}</td>
-          <td data-label="Puesto">{{ e.puesto_nombre or e.puesto_id }}</td>
+          <td data-label="Puesto">
+            {{ e.puesto_nombre or e.puesto_id }}
+            {% if e.puestos_adicionales_nombres %}
+              <div class="helper-text">Tambien cubre: {{ e.puestos_adicionales_nombres }}</div>
+            {% endif %}
+          </td>
           <td data-label="Localidad">{{ e.localidad_nombre or e.codigo_postal }}</td>
           <td data-label="Empleado">
             <strong>{{ e.apellido }} {{ e.nombre }}</strong>
