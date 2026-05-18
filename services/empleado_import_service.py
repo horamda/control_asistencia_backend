@@ -17,7 +17,13 @@ import io
 from werkzeug.security import generate_password_hash
 
 from extensions import get_db
-from repositories.empleado_repository import create as _create_empleado, exists_unique
+from repositories.empleado_repository import (
+    create as _create_empleado,
+    exists_unique,
+    get_by_legajo as _get_by_legajo,
+    update as _update_empleado,
+    update_password as _update_password,
+)
 
 # Columnas válidas para enum en DB
 _SEXOS = {"masculino", "femenino", "no_binario", "no_informa"}
@@ -50,6 +56,7 @@ _EXPECTED_COLUMNS = {
     "sucursal_nombre",
     "sector_nombre",
     "puesto_nombre",
+    "reporta_a_legajo",
     "password",
 }
 _REQUIRED_COLUMNS = {"legajo", "dni", "apellido", "nombre"}
@@ -85,6 +92,17 @@ def _lookup_puesto(cursor, empresa_id: int, nombre: str):
     cursor.execute(
         "SELECT id FROM puestos WHERE empresa_id = %s AND nombre = %s AND activo = 1 LIMIT 1",
         (empresa_id, nombre.strip()),
+    )
+    row = cursor.fetchone()
+    return row["id"] if row else None
+
+
+def _lookup_manager(cursor, empresa_id: int, legajo: str):
+    if not legajo:
+        return None
+    cursor.execute(
+        "SELECT id FROM empleados WHERE empresa_id = %s AND legajo = %s LIMIT 1",
+        (empresa_id, legajo.strip()),
     )
     row = cursor.fetchone()
     return row["id"] if row else None
@@ -243,16 +261,18 @@ def _sexos_validos():
 
 def importar_desde_csv(stream, empresa_id: int) -> dict:
     """
-    Lee el stream del CSV, valida e inserta cada fila.
+    Lee el stream del CSV y hace upsert de cada fila usando legajo como clave.
+    - Si el legajo ya existe: actualiza todos los campos (password solo si viene en el CSV).
+    - Si el legajo no existe: crea el empleado.
     Devuelve un dict con:
       - creados: int
-      - omitidos: int (dni/legajo duplicados)
-      - errores: list[dict(fila, dni, motivo)]
+      - actualizados: int
+      - errores: list[dict(fila, legajo, motivo)]
     """
     reader, header_idx = _build_reader(stream)
 
     creados = 0
-    omitidos = 0
+    actualizados = 0
     errores = []
 
     db = get_db()
@@ -267,94 +287,111 @@ def importar_desde_csv(stream, empresa_id: int) -> dict:
             dni = _clean(row, "dni", "")
             legajo = _clean(row, "legajo", "")
 
-            # Validar campos
             row_errors = _normalize_dates(row)
             row_errors.extend(_validate_row(row, fila_num))
             if row_errors:
                 errores.append({
                     "fila": fila_num,
+                    "legajo": legajo,
                     "dni": dni,
                     "motivo": "; ".join(row_errors),
                 })
                 continue
 
-            # Verificar duplicados
-            if exists_unique("dni", dni):
-                omitidos += 1
-                errores.append({
-                    "fila": fila_num,
-                    "dni": dni,
-                    "motivo": f"DNI {dni} ya existe (omitido)",
-                })
-                continue
-
-            if exists_unique("legajo", legajo):
-                omitidos += 1
-                errores.append({
-                    "fila": fila_num,
-                    "dni": dni,
-                    "motivo": f"Legajo {legajo} ya existe (omitido)",
-                })
-                continue
-
-            # Resolver FK por nombre
-            sucursal_id = _lookup_sucursal(cursor, empresa_id, _clean(row, "sucursal_nombre"))
-            sector_id = _lookup_sector(cursor, empresa_id, _clean(row, "sector_nombre"))
-            puesto_id = _lookup_puesto(cursor, empresa_id, _clean(row, "puesto_nombre"))
-
-            # Password: usar DNI si no viene
-            raw_password = _clean(row, "password") or dni
-            password_hash = generate_password_hash(raw_password)
-
+            sucursal_id  = _lookup_sucursal(cursor, empresa_id, _clean(row, "sucursal_nombre"))
+            sector_id    = _lookup_sector(cursor, empresa_id, _clean(row, "sector_nombre"))
+            puesto_id    = _lookup_puesto(cursor, empresa_id, _clean(row, "puesto_nombre"))
+            manager_id   = _lookup_manager(cursor, empresa_id, _clean(row, "reporta_a_legajo"))
             cod_chess_raw = _clean(row, "cod_chess_erp")
 
             data = {
-                "empresa_id": empresa_id,
-                "sucursal_id": sucursal_id,
-                "sector_id": sector_id,
-                "puesto_id": puesto_id,
-                "legajo": legajo,
-                "dni": dni,
-                "cuil": _clean(row, "cuil"),
-                "nombre": _clean(row, "nombre"),
-                "apellido": _clean(row, "apellido"),
+                "empresa_id":              empresa_id,
+                "sucursal_id":             sucursal_id,
+                "sector_id":               sector_id,
+                "puesto_id":               puesto_id,
+                "reporta_a_empleado_id":   manager_id,
+                "legajo":           legajo,
+                "dni":              dni,
+                "cuil":             _clean(row, "cuil"),
+                "nombre":           _clean(row, "nombre"),
+                "apellido":         _clean(row, "apellido"),
                 "fecha_nacimiento": _clean(row, "fecha_nacimiento"),
-                "sexo": _clean(row, "sexo", "no_informa").lower(),
-                "email": _clean(row, "email"),
-                "telefono": _clean(row, "telefono"),
-                "direccion": _clean(row, "direccion"),
-                "codigo_postal": _clean(row, "codigo_postal"),
-                "fecha_ingreso": _clean(row, "fecha_ingreso"),
-                "tipo_contrato": _clean(row, "tipo_contrato", "").lower() or None,
-                "modalidad": _clean(row, "modalidad", "presencial").lower(),
-                "fecha_baja": _clean(row, "fecha_baja"),
-                "categoria": _clean(row, "categoria"),
-                "obra_social": _clean(row, "obra_social"),
-                "cod_chess_erp": int(cod_chess_raw) if cod_chess_raw else None,
-                "banco": _clean(row, "banco"),
-                "cbu": _clean(row, "cbu"),
-                "numero_emergencia": _clean(row, "numero_emergencia"),
-                "estado": _clean(row, "estado", "activo").lower(),
-                "password_hash": password_hash,
-                "foto": None,
+                "sexo":             _clean(row, "sexo", "no_informa").lower(),
+                "email":            _clean(row, "email"),
+                "telefono":         _clean(row, "telefono"),
+                "direccion":        _clean(row, "direccion"),
+                "codigo_postal":    _clean(row, "codigo_postal"),
+                "fecha_ingreso":    _clean(row, "fecha_ingreso"),
+                "tipo_contrato":    _clean(row, "tipo_contrato", "").lower() or None,
+                "modalidad":        _clean(row, "modalidad", "presencial").lower(),
+                "fecha_baja":       _clean(row, "fecha_baja"),
+                "categoria":        _clean(row, "categoria"),
+                "obra_social":      _clean(row, "obra_social"),
+                "cod_chess_erp":    int(cod_chess_raw) if cod_chess_raw else None,
+                "banco":            _clean(row, "banco"),
+                "cbu":              _clean(row, "cbu"),
+                "numero_emergencia":_clean(row, "numero_emergencia"),
+                "estado":           _clean(row, "estado", "activo").lower(),
+                "foto":             None,
             }
 
-            try:
-                _create_empleado(data)
-                creados += 1
-            except Exception as exc:
-                errores.append({
-                    "fila": fila_num,
-                    "dni": dni,
-                    "motivo": f"Error al insertar: {exc}",
-                })
+            existing = _get_by_legajo(legajo, empresa_id)
+
+            if existing:
+                emp_id = existing["id"]
+                # Verificar que el DNI no colisione con OTRO empleado
+                if dni and exists_unique("dni", dni, exclude_id=emp_id):
+                    errores.append({
+                        "fila": fila_num,
+                        "legajo": legajo,
+                        "dni": dni,
+                        "motivo": f"DNI {dni} pertenece a otro empleado.",
+                    })
+                    continue
+                try:
+                    # Mantener la foto existente si no viene en el CSV
+                    data["foto"] = existing.get("foto")
+                    _update_empleado(emp_id, data)
+                    raw_password = _clean(row, "password")
+                    if raw_password:
+                        _update_password(emp_id, generate_password_hash(raw_password))
+                    actualizados += 1
+                except Exception as exc:
+                    errores.append({
+                        "fila": fila_num,
+                        "legajo": legajo,
+                        "dni": dni,
+                        "motivo": f"Error al actualizar: {exc}",
+                    })
+            else:
+                # Empleado nuevo: verificar unicidad de DNI
+                if exists_unique("dni", dni):
+                    errores.append({
+                        "fila": fila_num,
+                        "legajo": legajo,
+                        "dni": dni,
+                        "motivo": f"DNI {dni} ya existe en otro empleado.",
+                    })
+                    continue
+                raw_password = _clean(row, "password") or dni
+                data["password_hash"] = generate_password_hash(raw_password)
+                try:
+                    _create_empleado(data)
+                    creados += 1
+                except Exception as exc:
+                    errores.append({
+                        "fila": fila_num,
+                        "legajo": legajo,
+                        "dni": dni,
+                        "motivo": f"Error al crear: {exc}",
+                    })
 
     finally:
         cursor.close()
         db.close()
 
     return {
-        "creados": creados,
-        "omitidos": omitidos,
-        "errores": errores,
+        "creados":      creados,
+        "actualizados": actualizados,
+        "errores":      errores,
     }

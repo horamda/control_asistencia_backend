@@ -194,6 +194,35 @@ def set_tipo_evento_activo(tipo_id: int, activo: int):
         db.close()
 
 
+def get_conteo_por_tipo_for_empleado(empleado_id: int):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT
+                t.id              AS tipo_id,
+                t.codigo,
+                t.nombre,
+                COUNT(e.id)                                         AS total,
+                SUM(e.estado = 'vigente')                           AS vigentes,
+                MAX(e.fecha_evento)                                 AS ultima_fecha
+            FROM legajo_tipos_evento t
+            LEFT JOIN legajo_eventos e
+                   ON e.tipo_id = t.id
+                  AND e.empleado_id = %s
+            WHERE t.activo = 1
+            GROUP BY t.id, t.codigo, t.nombre
+            ORDER BY total DESC, t.nombre
+            """,
+            (int(empleado_id),),
+        )
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        db.close()
+
+
 def count_eventos_vigentes_by_tipo(tipo_id: int):
     db = get_db()
     cursor = db.cursor(dictionary=True)

@@ -161,6 +161,26 @@ def get_by_id(empleado_id: int):
         db.close()
 
 
+def get_by_legajo(legajo: str, empresa_id: int | None = None):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        if empresa_id:
+            cursor.execute(
+                "SELECT * FROM empleados WHERE legajo = %s AND empresa_id = %s LIMIT 1",
+                (str(legajo).strip(), int(empresa_id)),
+            )
+        else:
+            cursor.execute(
+                "SELECT * FROM empleados WHERE legajo = %s LIMIT 1",
+                (str(legajo).strip(),),
+            )
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        db.close()
+
+
 def get_by_dni(dni: str):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -275,9 +295,10 @@ def create(data: dict):
                 activo,
                 sector_id,
                 puesto_id,
-                codigo_postal
+                codigo_postal,
+                reporta_a_empleado_id
             )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,1,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,1,%s,%s,%s,%s)
         """, (
             data.get("empresa_id"),
             data.get("sucursal_id"),
@@ -306,7 +327,8 @@ def create(data: dict):
             data.get("password_hash"),
             data.get("sector_id"),
             data.get("puesto_id"),
-            data.get("codigo_postal")
+            data.get("codigo_postal"),
+            data.get("reporta_a_empleado_id") or None,
         ))
 
         db.commit()
@@ -357,7 +379,8 @@ def update(empleado_id: int, data: dict):
                 foto = %s,
                 sector_id = %s,
                 puesto_id = %s,
-                codigo_postal = %s
+                codigo_postal = %s,
+                reporta_a_empleado_id = %s
             WHERE id = %s
         """, (
             data.get("empresa_id"),
@@ -388,6 +411,7 @@ def update(empleado_id: int, data: dict):
             data.get("sector_id"),
             data.get("puesto_id"),
             data.get("codigo_postal"),
+            data.get("reporta_a_empleado_id") or None,
             empleado_id
         ))
 

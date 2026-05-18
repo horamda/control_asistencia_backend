@@ -34,6 +34,7 @@
   <div class="toolbar">
     <a class="btn" href="{{ url_for('empleados.nuevo') }}">Nuevo empleado</a>
     <a class="btn btn-secondary" href="{{ url_for('empleados.importar_csv') }}">Importar CSV</a>
+    <a class="btn btn-secondary" href="{{ url_for('empleados.exportar', empresa_id=empresa_id or '', activo=activo if activo != 'all' else '') }}">Exportar Excel</a>
   </div>
 
   <form id="empleados-filter-form" method="get" action="{{ url_for('empleados.listado') }}">

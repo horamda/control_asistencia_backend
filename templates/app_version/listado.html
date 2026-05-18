@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Versiones de la App{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Configuración Mobile</div>
+      <h2>Versiones de la App</h2>
+      <p class="module-intro">
+        Configure la versión mínima requerida y la recomendada para Android e iOS.
+        La app mobile consulta este endpoint al iniciar y avisa al usuario si debe actualizar.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Android</span>
+      <span class="chip">iOS</span>
+      <span class="chip">Endpoint público</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn" href="{{ url_for('app_version.nuevo') }}">Nueva configuración</a>
+    <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver</a>
+  </div>
+
+  <div class="info-block" style="background:var(--surface-soft);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:0.82rem;color:var(--muted);">
+    <strong>Endpoint mobile:</strong> <code>GET /api/v1/version?platform=android</code>
+    &nbsp;|&nbsp;
+    Devuelve la configuración activa para la plataforma solicitada (si no hay específica, usa <code>all</code>).
+  </div>
+
+  {% if configs %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Plataforma</th>
+            <th>Versión mínima</th>
+            <th>Versión recomendada</th>
+            <th>URL descarga</th>
+            <th>Mensaje</th>
+            <th>Estado</th>
+            <th>Actualizado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in configs %}
+          <tr>
+            <td data-label="Plataforma">
+              <span class="chip">{{ c.platform }}</span>
+            </td>
+            <td data-label="Versión mínima">
+              <code>{{ c.version_minima }}</code>
+            </td>
+            <td data-label="Versión recomendada">
+              <code>{{ c.version_recomendada }}</code>
+            </td>
+            <td data-label="URL descarga">
+              {% if c.url_descarga %}
+                <a href="{{ c.url_descarga }}" target="_blank" rel="noopener noreferrer" class="link-text">Ver enlace</a>
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+            <td data-label="Mensaje">
+              <span title="{{ c.mensaje or '' }}">
+                {{ (c.mensaje or '—')[:60] }}{% if c.mensaje and c.mensaje|length > 60 %}…{% endif %}
+              </span>
+            </td>
+            <td data-label="Estado">
+              {% if c.activo %}
+                <span class="badge activo">Activo</span>
+              {% else %}
+                <span class="badge inactivo">Inactivo</span>
+              {% endif %}
+            </td>
+            <td data-label="Actualizado">
+              <span class="muted" style="font-size:0.8rem;">{{ c.updated_at.strftime('%d/%m/%Y %H:%M') if c.updated_at else '—' }}</span>
+            </td>
+            <td data-label="Acciones">
+              <div class="inline-actions">
+                <a href="{{ url_for('app_version.editar', config_id=c.id) }}">Editar</a>
+                <form method="post" action="{{ url_for('app_version.eliminar', config_id=c.id) }}"
+                      style="display:inline"
+                      onsubmit="return confirm('¿Eliminar esta configuración?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-secondary btn-danger-text">Eliminar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      No hay configuraciones de versión cargadas.
+      <div class="actions">
+        <a class="btn" href="{{ url_for('app_version.nuevo') }}">Agregar primera configuración</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

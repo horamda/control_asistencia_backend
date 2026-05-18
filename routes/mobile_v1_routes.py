@@ -25,6 +25,7 @@ from repositories.legajo_evento_repository import (
     get_tipos_evento,
     get_eventos_page,
     get_evento_by_id_for_empleado,
+    get_conteo_por_tipo_for_empleado,
 )
 from repositories.legajo_adjunto_repository import (
     get_adjunto_by_id_for_empleado,
@@ -99,6 +100,7 @@ from repositories.premio_concurso_repository import (
 )
 from repositories.qr_puerta_repository import get_by_token as get_qr_puerta_by_token
 from repositories.auditoria_repository import create as create_audit
+from repositories.app_version_repository import get_version_config
 from repositories.security_event_repository import (
     create_geo_qr_rechazo,
     get_page_by_empleado as get_security_events_page,
@@ -379,6 +381,33 @@ def _registrar_intento_fraude_geo(
             extra={"extra": {"evento_id": evento_id}},
         )
     return evento_id
+
+
+@mobile_v1_bp.route("/version", methods=["GET"])
+def app_version():
+    platform = (request.args.get("platform") or "android").strip().lower()
+    if platform not in ("android", "ios"):
+        platform = "android"
+
+    config = get_version_config(platform)
+    if not config:
+        return jsonify({
+            "ok": True,
+            "platform": platform,
+            "version_minima": "1.0.0",
+            "version_recomendada": "1.0.0",
+            "url_descarga": None,
+            "mensaje": None,
+        })
+
+    return jsonify({
+        "ok": True,
+        "platform": platform,
+        "version_minima": config.get("version_minima") or "1.0.0",
+        "version_recomendada": config.get("version_recomendada") or "1.0.0",
+        "url_descarga": config.get("url_descarga"),
+        "mensaje": config.get("mensaje"),
+    })
 
 
 @mobile_v1_bp.route("/auth/login", methods=["POST"])
@@ -2429,8 +2458,7 @@ def me_legajo_eventos_detail(evento_id):
     if not e:
         return jsonify({"ok": False, "error": "Evento no encontrado"}), 404
 
-    adjuntos = get_adjuntos_by_evento_for_empleado(int(evento_id), int(empleado["id"]), include_deleted=False)
-    body = _evento_to_dict(e, adjuntos=adjuntos)
+    body = _evento_to_dict(e)
     body["ok"] = True
     return jsonify(body)
 
@@ -2438,51 +2466,37 @@ def me_legajo_eventos_detail(evento_id):
 @mobile_v1_bp.route("/me/legajo/adjuntos/<int:adjunto_id>", methods=["GET"])
 @mobile_auth_required
 def me_legajo_adjunto(adjunto_id):
+    return jsonify({"ok": False, "error": "No autorizado"}), 403
+
+
+@mobile_v1_bp.route("/me/legajo/historial-por-tipo", methods=["GET"])
+@mobile_auth_required
+def me_legajo_historial_por_tipo():
     empleado = _mobile_user()
     if not empleado:
         return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
 
-    row = get_adjunto_by_id_for_empleado(
-        int(adjunto_id),
-        int(empleado["id"]),
-        int(empleado["empresa_id"]) if empleado.get("empresa_id") else None,
-    )
-    if not row:
-        return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
-    if str(row.get("estado") or "").strip().lower() != "activo":
-        return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
-    if str(row.get("evento_estado") or "").strip().lower() != "vigente":
-        return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
-
-    backend = str(row.get("storage_backend") or "").strip().lower()
-    if backend not in {"local", "db"}:
-        return jsonify({"ok": False, "error": "Adjunto no disponible"}), 404
-
-    download = str(request.args.get("download") or "").strip().lower() in {"1", "true", "yes"}
-    filename = str(row.get("nombre_original") or f"adjunto_{adjunto_id}.pdf").replace('"', "")
-    if backend == "db":
-        payload = get_adjunto_data_by_id(int(adjunto_id))
-        if not payload:
-            return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
-        response = Response(payload, mimetype=row.get("mime_type") or "application/octet-stream")
-        response.headers["Cache-Control"] = "private, max-age=300"
-        if download:
-            response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-        return response
-
     try:
-        path = resolve_legajo_storage_path(row.get("storage_ruta"))
-    except RuntimeError:
-        return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
-    if not path.exists() or not path.is_file():
-        return jsonify({"ok": False, "error": "Adjunto no encontrado"}), 404
-    return send_file(
-        str(path),
-        mimetype=row.get("mime_type") or "application/octet-stream",
-        as_attachment=download,
-        download_name=filename,
-        max_age=300,
-    )
+        filas = get_conteo_por_tipo_for_empleado(int(empleado["id"]))
+    except Exception:
+        current_app.logger.exception(
+            "mobile_legajo_historial_por_tipo_error",
+            extra={"extra": {"empleado_id": empleado.get("id")}},
+        )
+        return jsonify({"ok": False, "error": "No se pudo obtener el historial por tipo."}), 500
+
+    items = [
+        {
+            "tipo_id": int(f["tipo_id"]),
+            "codigo": f["codigo"] or "",
+            "nombre": f["nombre"] or "",
+            "total": int(f["total"] or 0),
+            "vigentes": int(f["vigentes"] or 0),
+            "ultima_fecha": f["ultima_fecha"].isoformat() if f.get("ultima_fecha") else None,
+        }
+        for f in filas
+    ]
+    return jsonify({"ok": True, "items": items, "total_tipos": len(items)})
 
 
 # ---------------------------------------------------------------------------

@@ -48,9 +48,6 @@ def legajo_adjunto_to_mobile_dict(row: dict) -> dict:
 
 
 def legajo_evento_to_mobile_dict(evento: dict, adjuntos: list[dict] | None = None) -> dict:
-    adjuntos_count = evento.get("adjuntos_count")
-    if adjuntos is not None:
-        adjuntos_count = len(adjuntos)
     return {
         "id": evento.get("id"),
         "empresa_id": evento.get("empresa_id"),
@@ -66,8 +63,6 @@ def legajo_evento_to_mobile_dict(evento: dict, adjuntos: list[dict] | None = Non
         "estado": evento.get("estado") or "vigente",
         "severidad": evento.get("severidad"),
         "justificacion_id": evento.get("justificacion_id"),
-        "adjuntos_count": int(adjuntos_count or 0),
-        "adjuntos": [legajo_adjunto_to_mobile_dict(a) for a in adjuntos] if adjuntos is not None else None,
         "created_at": _to_datetime_str(evento.get("created_at")),
         "updated_at": _to_datetime_str(evento.get("updated_at")),
     }

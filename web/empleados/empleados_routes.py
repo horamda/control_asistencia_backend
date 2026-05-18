@@ -2,12 +2,14 @@ from flask import Blueprint, render_template, redirect, url_for, request, abort,
 from werkzeug.security import generate_password_hash
 import time
 from utils.forms import parse_int as _parse_int, safe_next_url as _safe_next_url
+from services.empleado_export_service import exportar_empleados_excel
 from services.empleado_import_service import importar_desde_csv
 from services.empleado_template_service import generar_template_excel
 
 from repositories.empleado_repository import (
     create,
     exists_unique,
+    get_all as get_empleados_all,
     get_by_id,
     get_page,
     set_activo,
@@ -65,6 +67,7 @@ def _extract_form_data(form):
         "cbu": (form.get("cbu") or "").strip() or None,
         "numero_emergencia": (form.get("numero_emergencia") or "").strip() or None,
         "puestos_adicionales_ids": _parse_int_list(form.getlist("puestos_adicionales_ids")),
+        "reporta_a_empleado_id": _parse_int(form.get("reporta_a_empleado_id")),
     }
 
 
@@ -217,6 +220,7 @@ def nuevo():
     sectores = get_sectores(include_inactive=True)
     puestos = get_puestos(include_inactive=True)
     localidades = get_localidades()
+    empleados_lista = get_empleados_all(include_inactive=False)
     if request.method == "POST":
         validator = EmpleadoValidator()
         errors = validator.validate(
@@ -253,6 +257,7 @@ def nuevo():
                 sectores=sectores,
                 puestos=puestos,
                 localidades=localidades,
+                empleados_lista=empleados_lista,
                 photo_cache_buster=int(time.time()),
             )
 
@@ -275,6 +280,7 @@ def nuevo():
         sectores=sectores,
         puestos=puestos,
         localidades=localidades,
+        empleados_lista=empleados_lista,
         photo_cache_buster=int(time.time()),
     )
 
@@ -293,6 +299,7 @@ def editar(emp_id):
     sectores = get_sectores(include_inactive=True)
     puestos = get_puestos(include_inactive=True)
     localidades = get_localidades()
+    empleados_lista = get_empleados_all(include_inactive=False)
 
     if request.method == "POST":
         validator = EmpleadoValidator()
@@ -336,6 +343,7 @@ def editar(emp_id):
                 sectores=sectores,
                 puestos=puestos,
                 localidades=localidades,
+                empleados_lista=empleados_lista,
                 photo_cache_buster=int(time.time()),
             )
 
@@ -361,6 +369,7 @@ def editar(emp_id):
         sectores=sectores,
         puestos=puestos,
         localidades=localidades,
+        empleados_lista=empleados_lista,
         photo_cache_buster=int(time.time()),
     )
 
@@ -379,6 +388,34 @@ def desactivar(emp_id):
     set_activo(emp_id, 0)
     log_audit(session, "deactivate", "empleados", emp_id)
     return redirect(_safe_next_url(request.args.get("next")) or url_for("empleados.listado"))
+
+
+@empleados_bp.route("/exportar")
+@role_required("admin", "rrhh")
+def exportar():
+    empresa_id = request.args.get("empresa_id", type=int) or None
+    activo_raw = str(request.args.get("activo") or "all").strip().lower()
+    if activo_raw == "1":
+        activo = 1
+    elif activo_raw == "0":
+        activo = 0
+    else:
+        activo = None
+
+    try:
+        excel_bytes = exportar_empleados_excel(empresa_id=empresa_id, activo=activo)
+    except Exception as exc:
+        current_app.logger.exception("exportar_empleados_error")
+        return Response(f"Error al generar la exportacion: {exc}", status=500, mimetype="text/plain")
+
+    import datetime
+    fecha = datetime.date.today().strftime("%Y%m%d")
+    filename = f"empleados_{fecha}.xlsx"
+    return Response(
+        excel_bytes,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @empleados_bp.route("/importar-csv", methods=["GET", "POST"])

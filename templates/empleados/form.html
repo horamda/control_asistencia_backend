@@ -113,6 +113,20 @@
           <option value="suspendido" {% if data.estado == 'suspendido' %}selected{% endif %}>Suspendido</option>
         </select>
       </div>
+      <div class="row span-2">
+        <label>Reporta a (jefe / supervisor directo)</label>
+        <select name="reporta_a_empleado_id">
+          <option value="">Sin jefe directo asignado</option>
+          {% for emp in (empleados_lista or []) %}
+            {% if emp.id != data.id %}
+              <option value="{{ emp.id }}" {% if data.reporta_a_empleado_id == emp.id %}selected{% endif %}>
+                {{ emp.empresa_nombre }} — {{ emp.apellido }} {{ emp.nombre }}{% if emp.puesto_nombre %} ({{ emp.puesto_nombre }}){% endif %}
+              </option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <div class="helper-text">Empleado al que reporta directamente. Se refleja en el organigrama.</div>
+      </div>
     </div>
 
     <h3 class="section-title">Datos personales</h3>

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar configuración{% else %}Nueva configuración{% endif %} — App Version{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Configuración Mobile</div>
+      <h2>{% if mode == "edit" %}Editar configuración{% else %}Nueva configuración{% endif %}</h2>
+      <p class="module-intro">
+        Configure la versión mínima requerida y la recomendada para que la app mobile sepa si debe actualizarse.
+      </p>
+    </div>
+  </div>
+
+  {% if errors %}
+    <div class="errors">
+      <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+
+      <div class="row">
+        <label>Plataforma <span style="color:var(--danger)">*</span></label>
+        <select name="platform" required>
+          {% for p in platforms %}
+            <option value="{{ p }}" {% if (data.platform or 'android') == p %}selected{% endif %}>
+              {{ p|capitalize }}
+            </option>
+          {% endfor %}
+        </select>
+        <small class="helper-text">
+          <strong>android</strong> / <strong>ios</strong>: configuración específica.
+          <strong>all</strong>: fallback para ambas plataformas si no hay config específica.
+        </small>
+      </div>
+
+      <div class="row">
+        <label>Estado</label>
+        <label class="check-inline" style="margin-top:8px;">
+          <input type="checkbox" name="activo" value="1" {% if data.activo is not defined or data.activo %}checked{% endif %}>
+          Configuración activa
+        </label>
+        <small class="helper-text">Solo las activas son devueltas por el endpoint mobile.</small>
+      </div>
+
+      <div class="row">
+        <label>Versión mínima <span style="color:var(--danger)">*</span></label>
+        <input name="version_minima"
+               value="{{ data.version_minima or '1.0.0' }}"
+               placeholder="1.0.0"
+               pattern="\d+\.\d+\.\d+"
+               required>
+        <small class="helper-text">Si la app tiene una versión menor a esta, se bloquea el acceso.</small>
+      </div>
+
+      <div class="row">
+        <label>Versión recomendada <span style="color:var(--danger)">*</span></label>
+        <input name="version_recomendada"
+               value="{{ data.version_recomendada or '1.0.0' }}"
+               placeholder="1.0.0"
+               pattern="\d+\.\d+\.\d+"
+               required>
+        <small class="helper-text">Si la app es menor a esta pero mayor a la mínima, se muestra un aviso no bloqueante.</small>
+      </div>
+
+      <div class="row span-2">
+        <label>URL de descarga</label>
+        <input name="url_descarga"
+               type="url"
+               value="{{ data.url_descarga or '' }}"
+               placeholder="https://play.google.com/store/apps/details?id=...">
+        <small class="helper-text">Enlace a la tienda (Play Store / App Store). Opcional.</small>
+      </div>
+
+      <div class="row span-2">
+        <label>Mensaje para el usuario</label>
+        <textarea name="mensaje" rows="3" maxlength="500" placeholder="Hay una nueva versión disponible. Actualizá para seguir usando la app.">{{ data.mensaje or '' }}</textarea>
+        <small class="helper-text">Texto que se muestra al usuario cuando hay una actualización disponible. Máx. 500 caracteres.</small>
+      </div>
+
+    </div>
+
+    <div class="actions">
+      <button type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('app_version.listado') }}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

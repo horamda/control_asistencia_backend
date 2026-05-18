@@ -2133,6 +2133,127 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   .org-bkpi:last-child { border-bottom: none; }
 }
 
+/* ── Jerarquía de empleados (subordinados) ── */
+.org-member--sub { padding-left: 0; }
+
+.org-member-list--sub {
+  list-style: none;
+  padding: 0;
+  margin: 2px 0 0 12px;
+  border-left: 2px solid var(--org-line);
+}
+
+.org-member-list--sub > .org-member { padding-left: 10px; }
+
+/* ── Foto de avatar en lista de miembros ── */
+.org-person-avatar--photo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* ── Foto en avatar de responsable ── */
+.org-avatar--photo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* ── Botón agregar sub-sector ── */
+.org-add-sub {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.org-add-sub:hover { background: var(--surface-strong); color: var(--primary); }
+
+/* ── Botón editar sector ── */
+.org-edit-btn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.org-edit-btn:hover { background: var(--surface-strong); color: var(--primary); }
+
+/* ── Panel de posiciones por sector ── */
+.org-puestos { border-top: 1px solid var(--border); }
+
+.org-puestos > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--surface-soft);
+  list-style: none;
+  user-select: none;
+}
+.org-puestos > summary::-webkit-details-marker { display: none; }
+.org-puestos > summary:hover { background: var(--surface-strong); }
+.org-puestos > summary .org-team-arr { flex-shrink: 0; transition: transform 0.2s; }
+.org-puestos[open] > summary .org-team-arr { transform: rotate(180deg); }
+.org-puestos > summary .org-team-badge { margin-left: auto; }
+
+.org-puesto-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.org-puesto-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.org-puesto-item:first-child { border-top: none; }
+
+.org-puesto-name {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.org-puesto-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 0.67rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
 .check-inline {
   display: inline-flex;
   align-items: center;

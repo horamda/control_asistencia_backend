@@ -1,7 +1,7 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.18.0
-Fecha de corte: 2026-05-16
+Version de contrato: 1.19.0
+Fecha de corte: 2026-05-18
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
@@ -393,6 +393,8 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
     "recientes":[
       {
         "id":45,
+        "empresa_id":3,
+        "empleado_id":12,
         "tipo_id":3,
         "tipo_codigo":"llamado_atencion",
         "tipo_nombre":"Llamado de atencion",
@@ -402,7 +404,10 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
         "titulo":"Llegada tarde reiterada",
         "descripcion":"Tercer llamado en el mes",
         "estado":"vigente",
-        "severidad":"grave"
+        "severidad":"grave",
+        "justificacion_id":null,
+        "created_at":"2026-03-10T09:00:00",
+        "updated_at":"2026-03-10T09:00:00"
       }
     ]
   },
@@ -1201,8 +1206,6 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
       "estado":"vigente",
       "severidad":"grave",
       "justificacion_id": null,
-      "adjuntos_count": 1,
-      "adjuntos": null,
       "created_at": "2026-03-10T09:00:00",
       "updated_at": "2026-03-10T09:00:00"
     }
@@ -1216,11 +1219,14 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 - Response 400: `{"ok":false,"error":"estado debe ser 'vigente' o 'anulado'"}`
 
 #### 35. `GET /api/v1/mobile/me/legajo/eventos/<id>`
-- Response 200: objeto evento con adjuntos activos.
+- Detalle de un evento del legajo. No incluye documentacion adjunta.
+- Response 200:
 ```json
 {
   "ok": true,
   "id": 45,
+  "empresa_id": 3,
+  "empleado_id": 12,
   "tipo_id": 3,
   "tipo_codigo": "llamado_atencion",
   "tipo_nombre": "Llamado de atencion",
@@ -1231,29 +1237,60 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
   "descripcion": "Tercer llamado en el mes",
   "estado": "vigente",
   "severidad": "grave",
-  "adjuntos_count": 1,
-  "adjuntos": [
-    {
-      "id": 99,
-      "evento_id": 45,
-      "nombre_original": "certificado.pdf",
-      "mime_type": "application/pdf",
-      "extension": "pdf",
-      "tamano_bytes": 123456,
-      "estado": "activo",
-      "created_at": "2026-03-10T09:00:00",
-      "download_url": "/api/v1/mobile/me/legajo/adjuntos/99"
-    }
-  ]
+  "justificacion_id": null,
+  "created_at": "2026-03-10T09:00:00",
+  "updated_at": "2026-03-10T09:00:00"
 }
 ```
 - Response 404: `{"ok":false,"error":"Evento no encontrado"}`
 
-#### 36. `GET /api/v1/mobile/me/legajo/adjuntos/<id>?download=1`
-- Descarga/visualiza un adjunto activo del legajo del empleado autenticado.
-- Requiere Bearer JWT mobile. El empleado solo puede acceder a sus propios adjuntos.
-- Response 200: binario del archivo con `Content-Type` del adjunto.
-- Response 404: `{"ok":false,"error":"Adjunto no encontrado"}`
+#### 36. `GET /api/v1/mobile/me/legajo/adjuntos/<id>` — BLOQUEADO
+- Acceso a documentacion deshabilitado para empleados.
+- Response 403: `{"ok":false,"error":"No autorizado"}`
+
+#### 36A. `GET /api/v1/mobile/me/legajo/historial-por-tipo`
+- Devuelve todos los tipos de evento activos con la cantidad total de eventos y eventos vigentes del empleado autenticado.
+- Util para mostrar un resumen tipo tarjeta por categoria en la pantalla de legajo.
+- Incluye tipos con `total: 0` para que Flutter pueda pintar todas las categorias.
+- Ordenado por `total` descendente, luego nombre.
+- Response 200:
+```json
+{
+  "ok": true,
+  "total_tipos": 4,
+  "items": [
+    {
+      "tipo_id": 3,
+      "codigo": "llamado_atencion",
+      "nombre": "Llamado de atencion",
+      "total": 5,
+      "vigentes": 4,
+      "ultima_fecha": "2026-03-10"
+    },
+    {
+      "tipo_id": 1,
+      "codigo": "felicitacion",
+      "nombre": "Felicitacion",
+      "total": 2,
+      "vigentes": 2,
+      "ultima_fecha": "2025-08-01"
+    },
+    {
+      "tipo_id": 5,
+      "codigo": "capacitacion",
+      "nombre": "Capacitacion",
+      "total": 0,
+      "vigentes": 0,
+      "ultima_fecha": null
+    }
+  ]
+}
+```
+- Campos:
+  - `total`: eventos del empleado en este tipo (vigentes + anulados)
+  - `vigentes`: solo eventos en estado `vigente`
+  - `ultima_fecha`: fecha del evento mas reciente (`null` si no tiene ninguno)
+- Response 500: `{"ok":false,"error":"No se pudo obtener el historial por tipo."}`
 
 ---
 
@@ -1458,6 +1495,16 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.19.0 (2026-05-18)
+- **Legajo — documentacion bloqueada para empleados:**
+  - `GET /me/legajo/adjuntos/<id>` siempre devuelve `403 No autorizado`. Los empleados no pueden descargar documentacion.
+  - `GET /me/legajo/eventos` y `GET /me/legajo/eventos/<id>`: eliminados los campos `adjuntos_count` y `adjuntos` de todas las respuestas.
+  - `legajo.recientes` dentro de `GET /me/dashboard` actualizado con el mismo esquema reducido.
+- **Nuevo endpoint `GET /me/legajo/historial-por-tipo`:**
+  - Devuelve todos los tipos de evento activos con `total`, `vigentes` y `ultima_fecha` para el empleado autenticado.
+  - Incluye tipos con `total: 0`.
+  - Ordenado por total descendente, luego nombre.
 
 ### 1.18.0 (2026-05-16)
 - Se completa el contrato mobile de legajo:

@@ -72,6 +72,7 @@ _COLUMNS = [
     ("direccion",        "Direccion",        False, "Av. Corrientes 1234"),
     ("codigo_postal",    "Codigo postal",    False, "C1043AAZ"),
     ("fecha_ingreso",    "Fecha ingreso",    False, "2024-01-01"),
+    ("fecha_baja",       "Fecha baja",       False, ""),
     ("tipo_contrato",    "Tipo contrato",    False, "efectivo"),
     ("modalidad",        "Modalidad",        False, "presencial"),
     ("categoria",        "Categoria",        False, "Categoria A"),
@@ -83,8 +84,9 @@ _COLUMNS = [
     ("estado",           "Estado",           False, "activo"),
     ("sucursal_nombre",  "Sucursal nombre",  False, "Sucursal Centro"),
     ("sector_nombre",    "Sector nombre",    False, "Administracion"),
-    ("puesto_nombre",    "Puesto nombre",    False, "Analista"),
-    ("password",         "Password",         False, ""),
+    ("puesto_nombre",      "Puesto nombre",         False, "Analista"),
+    ("reporta_a_legajo",  "Legajo jefe directo",   False, ""),
+    ("password",          "Password",              False, ""),
 ]
 
 
@@ -184,8 +186,9 @@ def _build_valores_validos(wb: Workbook):
         ("modalidad",      "presencial | remoto | hibrido",                         "Default: presencial"),
         ("password",       "(cualquier texto)",                                      "Si se omite, se usa el DNI como contrasena inicial"),
         ("fecha_*",        "YYYY-MM-DD",                                            "Ejemplo: 2024-01-15"),
-        ("cbu",            "22 digitos numericos",                                  ""),
-        ("cod_chess_erp",  "Numero entero",                                         ""),
+        ("cbu",              "22 digitos numericos",                                ""),
+        ("cod_chess_erp",   "Numero entero",                                       ""),
+        ("reporta_a_legajo","Legajo del empleado jefe directo",                    "Debe existir en el sistema. Dejar vacio si no tiene jefe."),
     ]
     for r in rows:
         ws.append(list(r))

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, session
 
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.organigrama_repository import get_organigrama
@@ -23,10 +23,12 @@ def listado():
     activo, activo_raw = _parse_activo(request.args.get("activo"))
     empresas = get_empresas(include_inactive=False)
     organigramas = get_organigrama(empresa_id=empresa_id, activo=activo)
+    can_manage_sectors = str(session.get("rol") or "").lower() == "admin"
     return render_template(
         "organigrama/listado.html",
         organigramas=organigramas,
         empresas=empresas,
         empresa_id=empresa_id,
         activo=activo_raw,
+        can_manage_sectors=can_manage_sectors,
     )

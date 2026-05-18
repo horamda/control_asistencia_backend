@@ -116,12 +116,16 @@ def nuevo():
         )
         data = _extract(request.form)
         if errors:
-            return render_template("sectores/form.html", mode="new", data=data, errors=errors, **catalogos)
+            return render_template("sectores/form.html", mode="new", data=data, errors=errors, prefill={}, **catalogos)
         sec_id = create(data)
         log_audit(session, "create", "sectores", sec_id)
         return redirect(url_for("sectores.listado"))
 
-    return render_template("sectores/form.html", mode="new", data={}, **catalogos)
+    prefill = {
+        "sector_padre_id": request.args.get("sector_padre_id", type=int),
+        "empresa_id": request.args.get("empresa_id", type=int),
+    }
+    return render_template("sectores/form.html", mode="new", data={}, prefill=prefill, **catalogos)
 
 
 @sectores_bp.route("/editar/<int:sector_id>", methods=["GET", "POST"])
@@ -143,12 +147,12 @@ def editar(sector_id):
         if errors:
             merged = dict(sector)
             merged.update(data)
-            return render_template("sectores/form.html", mode="edit", data=merged, errors=errors, **catalogos)
+            return render_template("sectores/form.html", mode="edit", data=merged, errors=errors, prefill={}, **catalogos)
         update(sector_id, data)
         log_audit(session, "update", "sectores", sector_id)
         return redirect(url_for("sectores.listado"))
 
-    return render_template("sectores/form.html", mode="edit", data=sector, **catalogos)
+    return render_template("sectores/form.html", mode="edit", data=sector, prefill={}, **catalogos)
 
 
 @sectores_bp.route("/activar/<int:sector_id>")

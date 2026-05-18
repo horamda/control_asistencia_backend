@@ -1,3 +1,5 @@
+from collections import Counter
+
 from extensions import get_db
 
 
@@ -63,6 +65,28 @@ def _assign_totals(node: dict) -> int:
     return total
 
 
+def _build_employee_tree(employees: list) -> list:
+    sector_ids = {e["id"] for e in employees}
+    by_id = {e["id"]: {**e, "subordinados": []} for e in employees}
+    roots = []
+    for emp in by_id.values():
+        parent_id = emp.get("reporta_a_empleado_id")
+        if parent_id and parent_id in sector_ids and parent_id in by_id:
+            by_id[parent_id]["subordinados"].append(emp)
+        else:
+            roots.append(emp)
+    return roots
+
+
+def _compute_puestos_resumen(employees: list) -> list:
+    counter: Counter = Counter()
+    for emp in employees:
+        nombre = emp.get("puesto_nombre")
+        if nombre:
+            counter[nombre] += 1
+    return [{"nombre": k, "count": v} for k, v in counter.most_common()]
+
+
 def get_organigrama(empresa_id: int | None = None, activo: int | None = 1):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -104,6 +128,7 @@ def get_organigrama(empresa_id: int | None = None, activo: int | None = 1):
                 emp.apellido,
                 emp.email,
                 emp.foto,
+                emp.reporta_a_empleado_id,
                 puesto.nombre AS puesto_nombre
             FROM empleados emp
             JOIN empresas empresa ON empresa.id = emp.empresa_id
@@ -223,6 +248,10 @@ def get_organigrama(empresa_id: int | None = None, activo: int | None = 1):
         company["total_empleados"] = len(company["empleados_sin_sector"])
         for root in company["roots"]:
             company["total_empleados"] += _assign_totals(root)
+
+    for node in by_id.values():
+        node["empleados_tree"] = _build_employee_tree(node["empleados"])
+        node["puestos_resumen"] = _compute_puestos_resumen(node["empleados"])
 
     return sorted(
         companies.values(),

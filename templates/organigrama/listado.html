@@ -1,16 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Organigrama{% endblock %}
 
-{% macro empleado_item(emp) %}
-  <li class="org-member">
+{% macro empleado_node(emp, depth=0) %}
+  <li class="org-member {% if depth > 0 %}org-member--sub{% endif %}">
     {% set ini = ((emp.nombre_completo or '?')|string)[:1]|upper %}
-    <span class="org-person-avatar">{{ ini }}</span>
+    {% if emp.foto %}
+      <img class="org-person-avatar org-person-avatar--photo" src="{{ emp.foto }}" alt="{{ emp.nombre_completo }}" loading="lazy">
+    {% else %}
+      <span class="org-person-avatar">{{ ini }}</span>
+    {% endif %}
     <span class="org-member-info">
       <span class="org-member-name">{{ emp.nombre_completo }}</span>
       {% if emp.puesto_nombre %}
         <span class="org-member-role">{{ emp.puesto_nombre }}{% if emp.asignacion_adicional %} · adicional{% endif %}</span>
       {% endif %}
     </span>
+    {% if emp.subordinados %}
+      <ul class="org-member-list org-member-list--sub">
+        {% for sub in emp.subordinados %}{{ empleado_node(sub, depth + 1) }}{% endfor %}
+      </ul>
+    {% endif %}
   </li>
 {% endmacro %}
 
@@ -26,6 +35,16 @@
         <div class="org-card-ctrl">
           <span class="org-status {% if node.activo %}org-status--on{% else %}org-status--off{% endif %}"
                 title="{% if node.activo %}Activo{% else %}Inactivo{% endif %}"></span>
+          {% if can_manage_sectors %}
+            <a class="org-toggle org-add-sub"
+               href="{{ url_for('sectores.nuevo', empresa_id=node.empresa_id, sector_padre_id=node.id) }}"
+               title="Agregar sub-sector">+</a>
+            <a class="org-toggle org-edit-btn"
+               href="{{ url_for('sectores.editar', sector_id=node.id) }}"
+               title="Editar sector">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </a>
+          {% endif %}
           {% if node.children %}
             <button class="org-toggle" aria-expanded="true" aria-label="Expandir o colapsar">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -44,7 +63,7 @@
         {% if node.responsable_nombre_completo %}
           {% set ini = ((node.responsable_apellido or node.responsable_nombre or '?')|string)[:1]|upper %}
           {% if node.responsable_foto %}
-            <img class="org-avatar" src="{{ node.responsable_foto }}" alt="">
+            <img class="org-avatar org-avatar--photo" src="{{ node.responsable_foto }}" alt="{{ node.responsable_nombre_completo }}" loading="lazy">
           {% else %}
             <div class="org-avatar">{{ ini }}</div>
           {% endif %}
@@ -62,15 +81,33 @@
         {% endif %}
       </div>
 
-      {% if node.empleados %}
-        <details class="org-team">
+      {% if node.puestos_resumen %}
+        <details class="org-puestos">
+          <summary class="org-team-hd">
+            <svg class="org-team-arr" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <span>Posiciones</span>
+            <span class="org-team-badge">{{ node.puestos_resumen|length }}</span>
+          </summary>
+          <ul class="org-puesto-list">
+            {% for p in node.puestos_resumen %}
+              <li class="org-puesto-item">
+                <span class="org-puesto-name">{{ p.nombre }}</span>
+                <span class="org-puesto-count">{{ p.count }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </details>
+      {% endif %}
+
+      {% if node.empleados_tree %}
+        <details class="org-team" {% if node.dotacion_directa <= 5 %}open{% endif %}>
           <summary class="org-team-hd">
             <svg class="org-team-arr" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
             <span>Equipo directo</span>
             <span class="org-team-badge">{{ node.empleados|length }}</span>
           </summary>
           <ul class="org-member-list">
-            {% for emp in node.empleados %}{{ empleado_item(emp) }}{% endfor %}
+            {% for emp in node.empleados_tree %}{{ empleado_node(emp) }}{% endfor %}
           </ul>
         </details>
       {% endif %}
@@ -180,7 +217,7 @@
             </div>
             <ul class="org-member-list org-member-list--grid">
               {% for emp in org.empleados_sin_sector %}
-                {{ empleado_item(emp) }}
+                {{ empleado_node(emp) }}
               {% endfor %}
             </ul>
           </div>
@@ -195,7 +232,7 @@
 
 <script>
 (function () {
-  document.querySelectorAll('.org-toggle').forEach(function (btn) {
+  document.querySelectorAll('.org-toggle:not(.org-add-sub):not(.org-edit-btn)').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
       var node = btn.closest('.org-node');
