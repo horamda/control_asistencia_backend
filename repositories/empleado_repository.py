@@ -325,6 +325,8 @@ def update(empleado_id: int, data: dict):
     db = get_db()
     cursor = db.cursor()
     try:
+        estado = data.get("estado", "activo") or "activo"
+        activo = 1 if estado == "activo" else 0
         cursor.execute("""
             UPDATE empleados
             SET
@@ -351,6 +353,7 @@ def update(empleado_id: int, data: dict):
                 cbu = %s,
                 numero_emergencia = %s,
                 estado = %s,
+                activo = %s,
                 foto = %s,
                 sector_id = %s,
                 puesto_id = %s,
@@ -379,7 +382,8 @@ def update(empleado_id: int, data: dict):
             data.get("banco") or None,
             data.get("cbu") or None,
             data.get("numero_emergencia") or None,
-            data.get("estado", "activo"),
+            estado,
+            activo,
             data.get("foto"),
             data.get("sector_id"),
             data.get("puesto_id"),
