@@ -248,8 +248,22 @@ def _validar_qr_fichada(empleado, qr_token: str | None, accion: str | None):
             "qr_token requerido para metodo qr.",
             "qr_token_required",
         )
-    payload = verificar_token_qr(token, accion_esperada=accion)
-    _validar_qr_puerta_activo(token, payload)
+    try:
+        payload = verificar_token_qr(token, accion_esperada=accion)
+        _validar_qr_puerta_activo(token, payload)
+    except QRTokenValidationError as exc:
+        current_app.logger.warning(
+            "qr_fichada_validation_error",
+            extra={
+                "extra": {
+                    "code": getattr(exc, "code", None),
+                    "message": str(exc),
+                    "empleado_id": empleado.get("id") if empleado else None,
+                    "empresa_id": empleado.get("empresa_id") if empleado else None,
+                }
+            },
+        )
+        raise
     token_empresa = int(payload.get("empresa_id"))
     if token_empresa != int(empleado["empresa_id"]):
         raise QRTokenValidationError(
@@ -271,7 +285,21 @@ def _validar_qr_puerta_activo(qr_token: str, qr_payload: dict):
     if str(qr_payload.get("origen") or "").strip().lower() != "web_admin_puerta":
         return
 
-    row = get_qr_puerta_by_token(extract_qr_token(qr_token))
+    try:
+        row = get_qr_puerta_by_token(extract_qr_token(qr_token))
+    except QRTokenValidationError:
+        raise
+    except Exception as exc:
+        current_app.logger.error(
+            "qr_puerta_db_lookup_error",
+            extra={"extra": {"error": str(exc), "exc_type": type(exc).__name__}},
+            exc_info=True,
+        )
+        raise QRTokenValidationError(
+            "Error al verificar QR. Contacte al administrador.",
+            "qr_db_error",
+            status_code=500,
+        ) from exc
     if not row:
         raise QRTokenValidationError(
             "QR no registrado. Genere un QR nuevo desde el panel.",

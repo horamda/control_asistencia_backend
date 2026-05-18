@@ -2,77 +2,85 @@
 {% block title %}Organigrama{% endblock %}
 
 {% macro empleado_item(emp) %}
-  <li>
-    <span class="org-employee-name">{{ emp.nombre_completo }}</span>
-    {% if emp.puesto_nombre %}
-      <span class="org-employee-role">
-        {{ emp.puesto_nombre }}
-        {% if emp.asignacion_adicional %}(adicional){% endif %}
-      </span>
-    {% endif %}
-    {% if emp.puestos_adicionales %}
-      <span class="org-extra-roles">
-        Tambien: {{ emp.puestos_adicionales|map(attribute="puesto_nombre")|join(", ") }}
-      </span>
-    {% endif %}
+  <li class="org-member">
+    {% set ini = ((emp.nombre_completo or '?')|string)[:1]|upper %}
+    <span class="org-person-avatar">{{ ini }}</span>
+    <span class="org-member-info">
+      <span class="org-member-name">{{ emp.nombre_completo }}</span>
+      {% if emp.puesto_nombre %}
+        <span class="org-member-role">{{ emp.puesto_nombre }}{% if emp.asignacion_adicional %} · adicional{% endif %}</span>
+      {% endif %}
+    </span>
   </li>
 {% endmacro %}
 
-{% macro sector_node(node) %}
-  <li class="org-node">
-    <div class="org-node-body">
-      <div class="org-node-main">
-        <div>
-          <div class="org-sector-title">{{ node.nombre }}</div>
-          <div class="org-sector-meta">
-            <span>{{ node.dotacion_total }} personas</span>
-            {% if node.children %}
-              <span>{{ node.children|length }} subsectores</span>
-            {% endif %}
-          </div>
+{% macro sector_node(node, level=1) %}
+  {% set cap = level if level < 5 else 5 %}
+  <li class="org-node org-lv{{ cap }}" data-level="{{ level }}">
+    <div class="org-connector"></div>
+    <div class="org-card">
+
+      <div class="org-card-head">
+        <span class="org-lv-chip">N{{ level }}</span>
+        <span class="org-card-name" title="{{ node.nombre }}">{{ node.nombre }}</span>
+        <div class="org-card-ctrl">
+          <span class="org-status {% if node.activo %}org-status--on{% else %}org-status--off{% endif %}"
+                title="{% if node.activo %}Activo{% else %}Inactivo{% endif %}"></span>
+          {% if node.children %}
+            <button class="org-toggle" aria-expanded="true" aria-label="Expandir o colapsar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          {% endif %}
         </div>
-        {% if node.activo %}
-          <span class="badge activo">Activo</span>
-        {% else %}
-          <span class="badge inactivo">Inactivo</span>
-        {% endif %}
       </div>
 
-      <div class="org-responsable">
+      <div class="org-card-kpis">
+        <div class="org-kpi"><strong>{{ node.dotacion_total }}</strong><span>personas</span></div>
+        <div class="org-kpi"><strong>{{ node.dotacion_directa }}</strong><span>directas</span></div>
+        <div class="org-kpi"><strong>{{ node.children|length }}</strong><span>áreas</span></div>
+      </div>
+
+      <div class="org-card-resp">
         {% if node.responsable_nombre_completo %}
-          {% set inicial = ((node.responsable_apellido or node.responsable_nombre or '?')|string)[:1]|upper %}
-          <div class="org-avatar" aria-hidden="true">{{ inicial }}</div>
-          <div>
-            <div class="org-responsable-name">{{ node.responsable_nombre_completo }}</div>
-            <div class="org-responsable-role">
-              {{ node.responsable_puesto_nombre or "Responsable del sector" }}
-            </div>
-            <div class="org-coverage-note">Cubre todos los puestos del sector.</div>
+          {% set ini = ((node.responsable_apellido or node.responsable_nombre or '?')|string)[:1]|upper %}
+          {% if node.responsable_foto %}
+            <img class="org-avatar" src="{{ node.responsable_foto }}" alt="">
+          {% else %}
+            <div class="org-avatar">{{ ini }}</div>
+          {% endif %}
+          <div class="org-resp-data">
+            <div class="org-resp-label">Responsable</div>
+            <div class="org-resp-name" title="{{ node.responsable_nombre_completo }}">{{ node.responsable_nombre_completo }}</div>
+            <div class="org-resp-role">{{ node.responsable_puesto_nombre or "Responsable del sector" }}</div>
           </div>
         {% else %}
-          <div class="org-avatar muted-avatar" aria-hidden="true">?</div>
-          <div>
-            <div class="org-responsable-name">Sin responsable</div>
-            <div class="org-responsable-role">Pendiente de asignacion</div>
+          <div class="org-avatar org-avatar--void">?</div>
+          <div class="org-resp-data">
+            <div class="org-resp-label">Responsable</div>
+            <div class="org-resp-name org-resp-name--empty">Sin asignar</div>
           </div>
         {% endif %}
       </div>
 
       {% if node.empleados %}
-        <ul class="org-employee-list">
-          {% for emp in node.empleados %}
-            {{ empleado_item(emp) }}
-          {% endfor %}
-        </ul>
-      {% else %}
-        <div class="org-empty-line">Sin empleados directos.</div>
+        <details class="org-team">
+          <summary class="org-team-hd">
+            <svg class="org-team-arr" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <span>Equipo directo</span>
+            <span class="org-team-badge">{{ node.empleados|length }}</span>
+          </summary>
+          <ul class="org-member-list">
+            {% for emp in node.empleados %}{{ empleado_item(emp) }}{% endfor %}
+          </ul>
+        </details>
       {% endif %}
+
     </div>
 
     {% if node.children %}
       <ol class="org-children">
         {% for child in node.children %}
-          {{ sector_node(child) }}
+          {{ sector_node(child, level + 1) }}
         {% endfor %}
       </ol>
     {% endif %}
@@ -83,16 +91,14 @@
 <div class="content-stack">
   <div class="section-head">
     <div>
-      <div class="section-kicker">Organizacion</div>
+      <div class="section-kicker">Organización</div>
       <h2>Organigrama</h2>
-      <p class="module-intro">
-        Estructura de sectores, responsables y dotacion activa por empresa.
-      </p>
+      <p class="module-intro">Estructura de sectores, responsables y dotación activa por empresa.</p>
     </div>
     <div class="chip-row">
       <span class="chip">Sectores</span>
       <span class="chip">Responsables</span>
-      <span class="chip">Dotacion</span>
+      <span class="chip">Dotación</span>
     </div>
   </div>
 
@@ -126,39 +132,78 @@
   {% if organigramas %}
     {% for org in organigramas %}
       <section class="org-company">
-        <div class="org-company-head">
+
+        <div class="org-banner">
           <div>
-            <h3>{{ org.empresa_nombre }}</h3>
-            <div class="org-company-meta">
-              {{ org.total_sectores }} sectores &middot; {{ org.total_empleados }} personas &middot; {{ org.responsables_asignados }} responsables
+            <h3 class="org-banner-name">{{ org.empresa_nombre }}</h3>
+            <p class="org-banner-sub">Estructura jerárquica · sectores y dotación activa</p>
+          </div>
+          <div class="org-banner-kpis">
+            <div class="org-bkpi">
+              <span class="org-bkpi-num">{{ org.total_sectores }}</span>
+              <span class="org-bkpi-lbl">Sectores</span>
             </div>
+            <div class="org-bkpi">
+              <span class="org-bkpi-num">{{ org.total_empleados }}</span>
+              <span class="org-bkpi-lbl">Personas</span>
+            </div>
+            <div class="org-bkpi">
+              <span class="org-bkpi-num">{{ org.responsables_asignados }}</span>
+              <span class="org-bkpi-lbl">Responsables</span>
+            </div>
+            {% if org.total_sectores - org.responsables_asignados > 0 %}
+              <div class="org-bkpi org-bkpi--warn">
+                <span class="org-bkpi-num">{{ org.total_sectores - org.responsables_asignados }}</span>
+                <span class="org-bkpi-lbl">Pendientes</span>
+              </div>
+            {% endif %}
           </div>
         </div>
 
         {% if org.roots %}
-          <ol class="org-tree">
-            {% for root in org.roots %}
-              {{ sector_node(root) }}
-            {% endfor %}
-          </ol>
+          <div class="org-chart-scroll">
+            <ol class="org-tree">
+              {% for root in org.roots %}
+                {{ sector_node(root) }}
+              {% endfor %}
+            </ol>
+          </div>
         {% else %}
           <div class="empty-state">No hay sectores para esta empresa.</div>
         {% endif %}
 
         {% if org.empleados_sin_sector %}
           <div class="org-unassigned">
-            <h4>Sin sector asignado</h4>
-            <ul class="org-employee-list compact">
+            <div class="org-unassigned-hd">
+              <h4>Sin sector asignado</h4>
+              <span class="badge warning">{{ org.empleados_sin_sector|length }} personas</span>
+            </div>
+            <ul class="org-member-list org-member-list--grid">
               {% for emp in org.empleados_sin_sector %}
                 {{ empleado_item(emp) }}
               {% endfor %}
             </ul>
           </div>
         {% endif %}
+
       </section>
     {% endfor %}
   {% else %}
     <div class="empty-state">No hay datos de organigrama para los filtros seleccionados.</div>
   {% endif %}
 </div>
+
+<script>
+(function () {
+  document.querySelectorAll('.org-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var node = btn.closest('.org-node');
+      var isOpen = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!isOpen));
+      node.classList.toggle('org-node--closed', isOpen);
+    });
+  });
+}());
+</script>
 {% endblock %}
