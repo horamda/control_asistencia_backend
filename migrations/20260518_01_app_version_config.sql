@@ -22,6 +22,6 @@ VALUES (
   '1.0.0',
   '1.0.0',
   NULL,
-  'Hay una nueva versión disponible. Actualizá para seguir usando la app.'
+  'Hay una nueva versión de FichaYa disponible. Actualizá para seguir usando la app.'
 )
 ON DUPLICATE KEY UPDATE id = id;

@@ -2,19 +2,21 @@
 {% block title %}Organigrama{% endblock %}
 
 {% macro empleado_node(emp, depth=0) %}
-  <li class="org-member {% if depth > 0 %}org-member--sub{% endif %}">
-    {% set ini = ((emp.nombre_completo or '?')|string)[:1]|upper %}
-    {% if emp.foto %}
-      <img class="org-person-avatar org-person-avatar--photo" src="{{ emp.foto }}" alt="{{ emp.nombre_completo }}" loading="lazy">
-    {% else %}
-      <span class="org-person-avatar">{{ ini }}</span>
-    {% endif %}
-    <span class="org-member-info">
-      <span class="org-member-name">{{ emp.nombre_completo }}</span>
-      {% if emp.puesto_nombre %}
-        <span class="org-member-role">{{ emp.puesto_nombre }}{% if emp.asignacion_adicional %} · adicional{% endif %}</span>
+  <li class="org-member-item {% if depth > 0 %}org-member-item--sub{% endif %}">
+    <div class="org-member">
+      {% set ini = ((emp.nombre_completo or '?')|string)[:1]|upper %}
+      {% if emp.foto %}
+        <img class="org-person-avatar org-person-avatar--photo" src="{{ emp.foto }}" alt="{{ emp.nombre_completo }}" loading="lazy">
+      {% else %}
+        <span class="org-person-avatar">{{ ini }}</span>
       {% endif %}
-    </span>
+      <span class="org-member-info">
+        <span class="org-member-name">{{ emp.nombre_completo }}</span>
+        {% if emp.puesto_nombre %}
+          <span class="org-member-role">{{ emp.puesto_nombre }}{% if emp.asignacion_adicional %} · adicional{% endif %}</span>
+        {% endif %}
+      </span>
+    </div>
     {% if emp.subordinados %}
       <ul class="org-member-list org-member-list--sub">
         {% for sub in emp.subordinados %}{{ empleado_node(sub, depth + 1) }}{% endfor %}
