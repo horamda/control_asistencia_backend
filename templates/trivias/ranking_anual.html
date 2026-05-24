@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Ranking Anual Trivia {{ anio }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Ranking anual {{ anio }}</h1>
+    <p class="page-subtitle">Acumulado de todas las trivias del año</p>
+  </div>
+  <div class="page-actions">
+    <form method="get" style="display:flex;gap:.5rem;align-items:center">
+      <select name="anio" class="form-control" onchange="this.form.submit()" style="min-width:90px">
+        {% for a in anios %}
+          <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost">← Trivias</a>
+  </div>
+</div>
+
+{% if ranking %}
+
+{# Podio top 3 #}
+{% set top3 = ranking[:3] %}
+<div style="display:flex;justify-content:center;align-items:flex-end;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap">
+  {% for pos, emoji, height, bg in [(1,'🥇','120px','#fef3c7'),(2,'🥈','90px','#f1f5f9'),(3,'🥉','70px','#fef3c7')] %}
+    {% if loop.index0 < top3|length %}
+      {% set r = top3[loop.index0] %}
+      <div style="text-align:center;background:{{ bg }};border-radius:.75rem;padding:1rem .75rem;min-width:140px;max-width:180px;
+                  border:1.5px solid var(--border);height:{{ height }};display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:.2rem">
+        <div style="font-size:1.8rem">{{ emoji }}</div>
+        <div style="font-weight:700;font-size:.9rem;line-height:1.2">{{ r.empleado_nombre }}</div>
+        <div style="font-size:.8rem;color:var(--muted)">{{ r.puntos_anuales }} pts</div>
+        <div style="font-size:.75rem;color:var(--muted)">{{ r.trivias_participadas }} trivia{{ 's' if r.trivias_participadas != 1 else '' }}</div>
+      </div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+{# KPIs resumen #}
+<div class="grid-kpis" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:1.25rem">
+  <div class="kpi-card">
+    <span class="kpi-value">{{ ranking|length }}</span>
+    <span class="kpi-label">Participantes</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ ranking|sum(attribute='trivias_participadas') }}</span>
+    <span class="kpi-label">Participaciones</span>
+  </div>
+  <div class="kpi-card tone-ok">
+    <span class="kpi-value">{{ ranking|sum(attribute='correctas_totales') }}</span>
+    <span class="kpi-label">Resp. correctas</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ ranking[0].empleado_nombre.split()[0] if ranking else '—' }}</span>
+    <span class="kpi-label">Líder {{ anio }}</span>
+  </div>
+</div>
+
+{% endif %}
+
+<div class="card">
+  <div class="table-responsive table-cards">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Empleado</th>
+          <th>DNI</th>
+          <th>Puntos</th>
+          <th>Participaciones</th>
+          <th>Ganadas</th>
+          <th>Correctas</th>
+          <th>Incorrectas</th>
+          <th>Tiempo (s)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in ranking %}
+        <tr {% if r.es_ganador_anual %}style="background:linear-gradient(90deg,#fffbeb,transparent)"{% endif %}>
+          <td data-label="#">
+            {% if r.posicion == 1 %}🥇{% elif r.posicion == 2 %}🥈{% elif r.posicion == 3 %}🥉{% else %}{{ r.posicion }}{% endif %}
+          </td>
+          <td data-label="Empleado"><strong>{{ r.empleado_nombre }}</strong></td>
+          <td data-label="DNI">{{ r.empleado_dni }}</td>
+          <td data-label="Puntos"><strong style="color:var(--primary)">{{ r.puntos_anuales }}</strong></td>
+          <td data-label="Participaciones">{{ r.trivias_participadas }}</td>
+          <td data-label="Ganadas">
+            {% if r.trivias_ganadas > 0 %}
+              <span style="color:var(--warning,#f59e0b);font-weight:600">{{ r.trivias_ganadas }} 🏆</span>
+            {% else %}0{% endif %}
+          </td>
+          <td data-label="Correctas"><span style="color:var(--success,#16a34a)">✓ {{ r.correctas_totales }}</span></td>
+          <td data-label="Incorrectas"><span style="color:var(--danger,#dc2626)">✗ {{ r.incorrectas_totales }}</span></td>
+          <td data-label="Tiempo">{{ r.tiempo_total_anual }}s</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center;padding:2.5rem;color:var(--muted)">
+            No hay datos de ranking para {{ anio }} todavía.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

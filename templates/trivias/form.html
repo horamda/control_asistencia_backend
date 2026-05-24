@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if trivia else 'Nueva' }} Trivia{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ 'Editar trivia' if trivia else 'Nueva trivia' }}</h1>
+    {% if trivia %}
+      <p class="page-subtitle">
+        ID #{{ trivia.id }} ·
+        {% set badge_cls = 'ok' if trivia.estado == 'activa' else 'warning' if trivia.estado == 'programada' else 'inactivo' if trivia.estado == 'finalizada' else 'ghost' %}
+        <span class="badge {{ badge_cls }}">{{ trivia.estado|capitalize }}</span>
+      </p>
+    {% endif %}
+  </div>
+  <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost">← Volver</a>
+</div>
+
+{% if errors %}
+  <div class="alert alert-danger" style="margin-bottom:1rem">
+    <strong>Corregí los siguientes errores:</strong>
+    <ul class="mb-0" style="margin-top:.4rem;padding-left:1.2rem">
+      {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+<div class="card">
+  <form method="post" action="{{ action }}" id="trivia-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="form-grid" style="padding:1.25rem 1.25rem 0">
+
+      <div class="row span-2">
+        <label class="form-label">Título <span style="color:var(--danger)">*</span></label>
+        <input type="text" name="titulo" class="form-control" required maxlength="200"
+               value="{{ trivia.titulo if trivia else '' }}"
+               placeholder="Ej: Trivia de seguridad e higiene — Mayo 2026"
+               oninput="document.getElementById('titulo-count').textContent=this.value.length">
+        <span id="titulo-count" style="font-size:.78rem;color:var(--muted);display:block;text-align:right;margin-top:.2rem">{{ (trivia.titulo|length) if trivia else 0 }}</span>/200
+      </div>
+
+      <div class="row span-2">
+        <label class="form-label">Descripción</label>
+        <textarea name="descripcion" class="form-control" rows="3"
+                  placeholder="Descripción opcional visible para los participantes">{{ trivia.descripcion if trivia else '' }}</textarea>
+      </div>
+
+      <div class="row">
+        <label class="form-label">Fecha inicio <span style="color:var(--danger)">*</span></label>
+        <input type="datetime-local" name="fecha_inicio" class="form-control" required
+               value="{{ trivia.fecha_inicio.strftime('%Y-%m-%dT%H:%M') if trivia and trivia.fecha_inicio else '' }}">
+      </div>
+
+      <div class="row">
+        <label class="form-label">Fecha fin <span style="color:var(--danger)">*</span></label>
+        <input type="datetime-local" name="fecha_fin" class="form-control" required
+               value="{{ trivia.fecha_fin.strftime('%Y-%m-%dT%H:%M') if trivia and trivia.fecha_fin else '' }}">
+      </div>
+
+      <div class="row">
+        <label class="form-label">Estado</label>
+        <select name="estado" class="form-control">
+          {% for e in estados %}
+            <option value="{{ e }}" {% if trivia and trivia.estado == e %}selected{% elif not trivia and e == 'programada' %}selected{% endif %}>{{ e|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label class="form-label">Año</label>
+        <select name="anio" class="form-control">
+          {% for a in anios %}
+            <option value="{{ a }}" {% if trivia and trivia.anio == a %}selected{% elif not trivia and loop.index == 2 %}selected{% endif %}>{{ a }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label class="form-label">Premio</label>
+        <input type="text" name="premio" class="form-control" maxlength="300"
+               placeholder="Ej: Gift card $5.000"
+               value="{{ trivia.premio if trivia else '' }}">
+      </div>
+
+      <div class="row">
+        <label class="form-label">Mensaje para el ganador</label>
+        <textarea name="mensaje_ganador" class="form-control" rows="2"
+                  placeholder="Ej: ¡Felicitaciones! Pasá por RRHH para retirar tu premio.">{{ trivia.mensaje_ganador if trivia else '' }}</textarea>
+      </div>
+
+    </div>
+
+    {# Sectores – full-width fuera del form-grid #}
+    <div style="padding:.75rem 1.25rem 0">
+      <label class="form-label">Sectores participantes</label>
+      <p style="font-size:.84rem;color:var(--muted);margin:.2rem 0 .6rem">
+        Sin ninguno seleccionado → <strong>todos los sectores</strong> pueden participar.
+      </p>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem">
+        <button type="button" class="btn btn-ghost" id="btn-sel-todos-sec"
+                style="font-size:.8rem;padding:.25rem .7rem">Marcar todos</button>
+        <button type="button" class="btn btn-ghost" id="btn-desel-todos-sec"
+                style="font-size:.8rem;padding:.25rem .7rem">Desmarcar todos</button>
+        <span id="sec-count" style="font-size:.82rem;color:var(--muted);align-self:center;margin-left:.25rem"></span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:.4rem" id="sector-checkboxes">
+        {% for s in sectores %}
+          <label class="sector-pill {% if s.id in sector_ids %}selected{% endif %}">
+            <input type="checkbox" name="sector_ids" value="{{ s.id }}"
+                   {% if s.id in sector_ids %}checked{% endif %}
+                   onchange="actualizarContadorSectores()">
+            <span>{{ s.nombre }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      {% if not sectores %}
+        <p style="color:var(--muted);font-size:.85rem">No hay sectores configurados.</p>
+      {% endif %}
+    </div>
+
+    <div class="actions" style="padding:1.25rem;display:flex;gap:.75rem;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:1.25rem">
+      <button type="submit" class="btn btn-primary">{{ 'Guardar cambios' if trivia else 'Crear trivia' }}</button>
+      <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<style>
+.sector-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .3rem .7rem;
+  border: 1.5px solid var(--border, #ccc);
+  border-radius: 2rem;
+  cursor: pointer;
+  font-size: .875rem;
+  transition: border-color .15s, background .15s, color .15s;
+  user-select: none;
+}
+.sector-pill input[type="checkbox"] { display: none; }
+.sector-pill:hover { border-color: var(--primary); }
+.sector-pill.selected {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+</style>
+<script>
+(function () {
+  function pills()      { return document.querySelectorAll('#sector-checkboxes .sector-pill'); }
+  function checkboxes() { return document.querySelectorAll('#sector-checkboxes input[type="checkbox"]'); }
+
+  function syncPillState(cb) {
+    cb.closest('.sector-pill').classList.toggle('selected', cb.checked);
+  }
+
+  checkboxes().forEach(function (cb) {
+    syncPillState(cb);
+    cb.addEventListener('change', function () { syncPillState(this); actualizarContadorSectores(); });
+  });
+
+  document.getElementById('btn-sel-todos-sec').addEventListener('click', function () {
+    checkboxes().forEach(function (cb) { cb.checked = true; syncPillState(cb); });
+    actualizarContadorSectores();
+  });
+  document.getElementById('btn-desel-todos-sec').addEventListener('click', function () {
+    checkboxes().forEach(function (cb) { cb.checked = false; syncPillState(cb); });
+    actualizarContadorSectores();
+  });
+})();
+
+function actualizarContadorSectores() {
+  var total    = document.querySelectorAll('#sector-checkboxes input').length;
+  var checked  = document.querySelectorAll('#sector-checkboxes input:checked').length;
+  var el       = document.getElementById('sec-count');
+  el.textContent = checked === 0
+    ? 'Todos los sectores'
+    : checked + ' de ' + total + ' seleccionado' + (checked !== 1 ? 's' : '');
+}
+actualizarContadorSectores();
+</script>
+{% endblock %}

@@ -1668,6 +1668,104 @@ tbody tr:hover {
 
 .org-bkpi--warn .org-bkpi-num { color: var(--warning); }
 
+/* ── Filtro compacto ── */
+.org-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+}
+
+.org-filter-fields {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.org-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  flex: 1;
+}
+
+.org-filter-field label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+  margin: 0;
+}
+
+.org-filter-field select {
+  margin: 0;
+  height: 34px;
+  padding: 0 8px;
+  font-size: 0.85rem;
+}
+
+.org-filter-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: flex-end;
+}
+
+.org-filter-actions .btn {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 0.82rem;
+}
+
+/* ── Callout informativo ── */
+.info-callout {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.83rem;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.info-callout--warning {
+  background: rgba(var(--warning-rgb, 180,130,0), .08);
+  border-color: var(--warning);
+  color: var(--text);
+}
+
+/* ── Sector inactivo ── */
+.org-card--inactive {
+  opacity: .75;
+  border-top-color: var(--muted) !important;
+}
+
+.org-card--inactive .org-card-head {
+  background: var(--bg);
+}
+
+.org-badge-off {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
 /* ── Scroll wrapper ── */
 .org-chart-scroll {
   overflow-x: auto;
@@ -2081,7 +2179,19 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   background: linear-gradient(120deg, var(--primary-soft) 0%, var(--surface-soft) 55%, var(--surface) 100%);
 }
 
-/* ── Responsive: árbol vertical en móvil ── */
+/* ── Responsive: tablet (árbol en scroll horizontal con tarjetas más anchas) ── */
+@media (max-width: 1100px) {
+  :root { --org-card: 240px; }
+
+  .org-chart-scroll {
+    padding: 24px 20px 36px;
+  }
+
+  .org-filter-bar { padding: 12px 14px; }
+  .org-filter-field { min-width: 150px; }
+}
+
+/* ── Responsive: móvil (árbol vertical) ── */
 @media (max-width: 860px) {
   .org-banner { flex-direction: column; align-items: flex-start; }
   .org-banner-kpis { width: 100%; }
@@ -2102,7 +2212,6 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   }
 
   .org-node { align-items: stretch; }
-
   .org-connector { display: none !important; }
   .org-children::before { display: none; }
 
@@ -2110,8 +2219,8 @@ details[open] .org-team-arr { transform: rotate(180deg); }
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    padding: 0 0 0 20px;
-    margin: 6px 0 0 18px;
+    padding: 0 0 0 16px;
+    margin: 4px 0 0 14px;
     border-left: 2px solid var(--org-line);
     gap: 6px;
   }
@@ -2119,6 +2228,11 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   .org-children > .org-node { padding: 0; }
   .org-card { width: 100%; }
   .org-node--closed > .org-children { display: none; }
+
+  .org-filter-bar { flex-direction: column; align-items: stretch; }
+  .org-filter-fields { flex-direction: column; }
+  .org-filter-field { min-width: unset; }
+  .org-filter-actions { justify-content: flex-start; }
 }
 
 @media (max-width: 480px) {
@@ -2133,12 +2247,44 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   .org-bkpi:nth-child(2n) { border-right: none; }
   .org-bkpi:nth-last-child(-n+2):nth-child(2n+1),
   .org-bkpi:last-child { border-bottom: none; }
+
+  .org-company { border-left: none; border-right: none; border-radius: 0; }
 }
 
 /* ── Jerarquía de empleados (subordinados) ── */
 
 /* Wrapper <li> de cada empleado — el flex row está dentro en un <div> */
 .org-member-item { display: block; }
+
+/* Empleado inactivo */
+.org-member-item--inactive > .org-member {
+  opacity: .6;
+}
+
+.org-member-item--inactive .org-member-name {
+  color: var(--muted);
+}
+
+.org-person-avatar--inactive {
+  background: var(--surface-strong) !important;
+  color: var(--muted) !important;
+  border-color: var(--border) !important;
+}
+
+.org-member-badge-off {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 4px;
+  margin-left: 4px;
+  border-radius: 3px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+}
 
 /* Sub-lista de subordinados: anula los estilos base que no aplican aquí */
 .org-member-list--sub {

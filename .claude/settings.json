@@ -12,7 +12,8 @@
       "Bash(python -m pytest tests/test_mobile_v1_api.py::test_mobile_me_estadisticas_ok tests/test_mobile_v1_api.py::test_mobile_fichada_scan_qr_fuera_rango -v)",
       "Bash(python -m pytest tests/test_mobile_v1_api.py::test_mobile_fichada_scan_qr_fuera_rango -v)",
       "Bash(python -m pytest tests/ -q --tb=short)",
-      "Bash(py -m pytest tests/ -q --tb=short)"
+      "Bash(py -m pytest tests/ -q --tb=short)",
+      "Bash(python -m pytest tests/ -k \"trivia\" -q)"
     ]
   }
 }

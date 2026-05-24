@@ -15,6 +15,7 @@ from utils.limiter import limiter
 from extensions import init_db
 from db import DatabaseConfigError
 from routes.auth_routes import auth_bp          # API
+from routes.external_api_routes import external_api_bp
 from routes.mobile_v1_routes import mobile_v1_bp
 from routes.media_routes import media_bp, public_media_bp
 from web.auth.web_auth_routes import web_auth_bp  # WEB
@@ -46,6 +47,8 @@ from web.legajos.legajo_tipos_evento_routes import legajo_tipos_evento_bp
 from web.kpis_sectoriales.kpis_sectoriales_routes import kpis_sectoriales_bp
 from web.premios_concursos.premios_concursos_routes import premios_concursos_bp
 from web.app_version.app_version_routes import app_version_bp
+from routes.trivia_routes import trivia_bp
+from web.trivias.trivia_admin_routes import trivia_admin_bp
 
 load_dotenv("/etc/secrets/.env", override=False)
 load_dotenv(override=False)
@@ -198,7 +201,7 @@ def create_app():
         resources={r"/auth/*": {}, r"/api/*": {}},
         origins=_cors_origins,
         supports_credentials=False,
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "X-API-Key"],
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     )
 
@@ -230,10 +233,12 @@ def create_app():
     # Security
     csrf = CSRFProtect(app)
     csrf.exempt(auth_bp)
+    csrf.exempt(external_api_bp)
     csrf.exempt(mobile_v1_bp)
 
     # API
     app.register_blueprint(auth_bp)
+    app.register_blueprint(external_api_bp)
     app.register_blueprint(mobile_v1_bp)
     app.register_blueprint(media_bp)
     app.register_blueprint(public_media_bp)
@@ -269,6 +274,16 @@ def create_app():
     app.register_blueprint(kpis_sectoriales_bp)
     app.register_blueprint(premios_concursos_bp)
     app.register_blueprint(app_version_bp)
+    app.register_blueprint(trivia_admin_bp)
+
+    # API móvil trivia (exento de CSRF como el resto de la API)
+    csrf.exempt(trivia_bp)
+    app.register_blueprint(trivia_bp)
+
+    # Scheduler de trivia (solo en entornos no-test y cuando se usa gunicorn/run)
+    if _app_env() not in {"test", "testing"}:
+        from utils.trivia_scheduler import init_trivia_scheduler
+        init_trivia_scheduler(app)
 
     @app.route("/")
     def index():
@@ -312,7 +327,7 @@ def create_app():
         if code == 403:
             message = "Usuario no permitido."
 
-        if request.blueprint in {"auth", "mobile_v1"}:
+        if request.blueprint in {"auth", "external_api", "mobile_v1", "trivia"}:
             return jsonify({
                 "success": False,
                 "error": message

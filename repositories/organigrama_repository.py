@@ -21,13 +21,20 @@ def _sector_filters(empresa_id: int | None, activo: int | None):
     return ("WHERE " + " AND ".join(where)) if where else "", params
 
 
-def _employee_filters(empresa_id: int | None):
-    where = ["emp.activo = 1"]
+def _employee_filters(empresa_id: int | None, activo: int | None = 1):
+    where = []
     params = []
+    if activo in (0, 1):
+        where.append("emp.activo = %s")
+        params.append(int(activo))
     if empresa_id:
         where.append("emp.empresa_id = %s")
         params.append(int(empresa_id))
-    return "WHERE " + " AND ".join(where), params
+    base_where = ("WHERE " + " AND ".join(where)) if where else ""
+    # Para empleado_puestos se agrega ep.activo = 1 adicionalmente
+    ep_conditions = where + ["ep.activo = 1"]
+    ep_where = "WHERE " + " AND ".join(ep_conditions)
+    return base_where, ep_where, params
 
 
 def _can_attach_to_parent(node: dict, parent: dict | None, by_id: dict[int, dict]) -> bool:
@@ -66,12 +73,12 @@ def _assign_totals(node: dict) -> int:
 
 
 def _build_employee_tree(employees: list) -> list:
-    sector_ids = {e["id"] for e in employees}
     by_id = {e["id"]: {**e, "subordinados": []} for e in employees}
     roots = []
     for emp in by_id.values():
         parent_id = emp.get("reporta_a_empleado_id")
-        if parent_id and parent_id in sector_ids and parent_id in by_id:
+        # parent_id != emp["id"] evita auto-referencia (reporta_a sí mismo).
+        if parent_id and parent_id != emp["id"] and parent_id in by_id:
             by_id[parent_id]["subordinados"].append(emp)
         else:
             roots.append(emp)
@@ -87,7 +94,7 @@ def _compute_puestos_resumen(employees: list) -> list:
     return [{"nombre": k, "count": v} for k, v in counter.most_common()]
 
 
-def get_organigrama(empresa_id: int | None = None, activo: int | None = 1):
+def get_organigrama(empresa_id: int | None = None, activo: int | None = 1, empleado_activo: int | None = 1):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -117,7 +124,7 @@ def get_organigrama(empresa_id: int | None = None, activo: int | None = 1):
         """, sector_params)
         sector_rows = cursor.fetchall()
 
-        employee_where, employee_params = _employee_filters(empresa_id)
+        employee_where, ep_where, employee_params = _employee_filters(empresa_id, empleado_activo)
         cursor.execute(f"""
             SELECT
                 emp.id,
@@ -128,6 +135,7 @@ def get_organigrama(empresa_id: int | None = None, activo: int | None = 1):
                 emp.apellido,
                 emp.email,
                 emp.foto,
+                emp.activo AS emp_activo,
                 emp.reporta_a_empleado_id,
                 puesto.nombre AS puesto_nombre
             FROM empleados emp
@@ -148,8 +156,7 @@ def get_organigrama(empresa_id: int | None = None, activo: int | None = 1):
             FROM empleado_puestos ep
             JOIN empleados emp ON emp.id = ep.empleado_id
             JOIN puestos puesto ON puesto.id = ep.puesto_id
-            {employee_where}
-              AND ep.activo = 1
+            {ep_where}
             ORDER BY ep.empleado_id, puesto.nombre
         """, employee_params)
         extra_assignment_rows = cursor.fetchall()
@@ -185,6 +192,7 @@ def get_organigrama(empresa_id: int | None = None, activo: int | None = 1):
     for employee in employee_rows:
         employee = dict(employee)
         employee["nombre_completo"] = _full_name(employee)
+        employee["activo"] = bool(employee.get("emp_activo", 1))
         employee["puestos_adicionales"] = []
         employee["asignacion_adicional"] = False
         employees_by_id[int(employee["id"])] = employee
@@ -204,7 +212,10 @@ def get_organigrama(empresa_id: int | None = None, activo: int | None = 1):
         sector = by_id.get(int(sector_id)) if sector_id else None
         if sector and int(sector["empresa_id"]) == int(employee["empresa_id"]):
             sector["empleados"].append(employee)
-        else:
+        elif not sector_id:
+            # Solo sin sector cuando el empleado genuinamente no tiene sector asignado.
+            # Si sector_id existe pero el sector está fuera del filtro (ej: activo vs inactivo),
+            # el empleado no se muestra en "sin sector".
             company["empleados_sin_sector"].append(employee)
 
     for assignment in extra_assignment_rows:

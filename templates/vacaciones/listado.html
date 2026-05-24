@@ -5,9 +5,9 @@
   <div class="section-head">
     <div>
       <div class="section-kicker">RRHH</div>
-      <h2>Vacaciones</h2>
+      <h2>Gestión de vacaciones</h2>
       <p class="module-intro">
-        Consulte saldos por empleado, resuelva solicitudes mobile y registre compensatorios o ajustes.
+        Administre solicitudes, periodos aprobados, compensatorios y ajustes desde un único flujo.
       </p>
     </div>
     <div class="chip-row">
@@ -26,10 +26,12 @@
 
   <div class="toolbar">
     <a class="btn" href="{{ url_for('vacaciones.movimiento_nuevo') }}">Nuevo movimiento</a>
-    <a class="btn btn-secondary" href="{{ url_for('vacaciones.nuevo') }}">Registrar periodo</a>
+    <a class="btn btn-secondary" href="{{ url_for('vacaciones.movimiento_nuevo', tipo='tomado', estado='aprobado', empleado_id=empleado_id or None) }}">Registrar vacaciones tomadas</a>
+    <a class="btn btn-secondary" href="{{ url_for('vacaciones.compensatorios_masivos') }}">Cargar compensatorios</a>
+    <a class="btn btn-secondary" href="{{ url_for('vacaciones.reporte', anio=anio or None, sector_id=sector_id or None) }}">Reporte del personal</a>
     <a
       class="btn btn-secondary"
-      href="{{ url_for('vacaciones.movimientos_export_csv', empleado_id=empleado_id or None, q=q or None, estado=estado or None, tipo=tipo or None, anio=anio or None) }}"
+      href="{{ url_for('vacaciones.movimientos_export_csv', empleado_id=empleado_id or None, sector_id=sector_id or None, q=q or None, estado=estado or None, tipo=tipo or None, anio=anio or None, mes=mes or None) }}"
     >
       Exportar CSV
     </a>
@@ -38,12 +40,24 @@
   <form method="get" action="{{ url_for('vacaciones.listado') }}">
     <div class="form-grid">
       <div class="row">
+        <label>Sector</label>
+        <select name="sector_id">
+          <option value="">Todos</option>
+          {% for s in sectores %}
+            <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>
+              {{ s.nombre }}{% if s.empresa_nombre %} - {{ s.empresa_nombre }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
         <label>Empleado</label>
         <select name="empleado_id">
           <option value="">Todos</option>
           {% for e in empleados %}
             <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
-              {{ e.apellido }} {{ e.nombre }}{% if e.dni %} - {{ e.dni }}{% endif %}
+              {{ e.apellido }} {{ e.nombre }}{% if e.dni %} - {{ e.dni }}{% endif %}{% if e.sector_nombre %} · {{ e.sector_nombre }}{% endif %}
             </option>
           {% endfor %}
         </select>
@@ -54,6 +68,16 @@
         <select name="anio">
           {% for year in years %}
             <option value="{{ year }}" {% if anio == year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Mes</label>
+        <select name="mes">
+          <option value="">Todos</option>
+          {% for month_id, month_name in months %}
+            <option value="{{ month_id }}" {% if mes == month_id %}selected{% endif %}>{{ month_name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -78,7 +102,7 @@
         </select>
       </div>
 
-      <div class="row span-2">
+      <div class="row span-3">
         <label>Buscar</label>
         <input name="q" value="{{ q or '' }}" placeholder="Apellido, nombre o DNI">
       </div>
@@ -93,38 +117,13 @@
   {% if saldo %}
     {% set empleado = saldo.empleado %}
     {% set vac = saldo.vacaciones %}
-    <section class="grid-kpis dashboard-kpis">
-      <article class="kpi-card tone-ok">
-        <div class="kpi-label">Disponible</div>
-        <div class="kpi-value">{{ "%.2f"|format(vac.dias_disponibles_con_pendientes) }}</div>
-        <div class="kpi-desc">dias netos con pendientes</div>
-      </article>
-      <article class="kpi-card">
-        <div class="kpi-label">Corresponde</div>
-        <div class="kpi-value">{{ "%.2f"|format(vac.dias_corresponden) }}</div>
-        <div class="kpi-desc">base + compensatorios + ajustes</div>
-      </article>
-      <article class="kpi-card">
-        <div class="kpi-label">Tomados</div>
-        <div class="kpi-value">{{ "%.2f"|format(vac.dias_tomados) }}</div>
-        <div class="kpi-desc">aprobados</div>
-      </article>
-      <article class="kpi-card {% if vac.dias_pendientes > 0 %}tone-warn{% endif %}">
-        <div class="kpi-label">Pendientes</div>
-        <div class="kpi-value">{{ "%.2f"|format(vac.dias_pendientes) }}</div>
-        <div class="kpi-desc">solicitudes sin resolver</div>
-      </article>
-    </section>
 
     <div class="results-bar">
       <div class="summary">
-        {{ empleado.nombre }}{% if empleado.dni %} | DNI {{ empleado.dni }}{% endif %}
+        <strong>{{ empleado.nombre }}</strong>{% if empleado.dni %} &nbsp;|&nbsp; DNI {{ empleado.dni }}{% endif %}
       </div>
       <div class="summary">
-        Ingreso: {{ vac.fecha_ingreso }} | Antigüedad: {{ vac.antiguedad_al_31_12 }} años | Base: {{ "%.2f"|format(vac.dias_base) }} días
-      </div>
-      <div class="summary">
-        Trabajados evaluados: {{ vac.dias_trabajados_anio }}/{{ vac.dias_habiles_anio }}
+        Ingreso: {{ vac.fecha_ingreso }} &nbsp;|&nbsp; Antigüedad al 31/12: {{ vac.antiguedad_al_31_12 }} año(s)
         {% if vac.calculo_proporcional %}
           <span class="badge warning">Proporcional</span>
         {% elif vac.aplica_control_proporcional %}
@@ -133,24 +132,92 @@
           <span class="badge ok">Base por antigüedad</span>
         {% endif %}
       </div>
+      <div class="summary">
+        Días trabajados evaluados: {{ vac.dias_trabajados_anio }} / {{ vac.dias_habiles_anio }} hábiles
+      </div>
     </div>
+
+    {# Fórmula visual: base + comp + ajuste = total #}
+    <div class="results-bar" style="font-size:.95rem;gap:.25rem">
+      <span>
+        <strong>{{ "%.2f"|format(vac.dias_base) }}</strong> vacaciones base
+      </span>
+      {% if vac.dias_compensatorios != 0 %}
+        <span>&nbsp;+&nbsp;<strong>{{ "%.2f"|format(vac.dias_compensatorios) }}</strong> compensatorios</span>
+      {% endif %}
+      {% if vac.dias_ajustes != 0 %}
+        <span>&nbsp;{{ "+" if vac.dias_ajustes > 0 else "" }}<strong>{{ "%.2f"|format(vac.dias_ajustes) }}</strong> ajuste</span>
+      {% endif %}
+      <span>&nbsp;=&nbsp;<strong>{{ "%.2f"|format(vac.dias_corresponden) }} días totales</strong></span>
+    </div>
+
+    <section class="grid-kpis dashboard-kpis">
+      <article class="kpi-card tone-ok">
+        <div class="kpi-label">Disponible neto</div>
+        <div class="kpi-value">{{ "%.2f"|format(vac.dias_disponibles_con_pendientes) }}</div>
+        <div class="kpi-desc">descontando tomados y pendientes</div>
+      </article>
+      <article class="kpi-card">
+        <div class="kpi-label">Total corresponde</div>
+        <div class="kpi-value">{{ "%.2f"|format(vac.dias_corresponden) }}</div>
+        <div class="kpi-desc">
+          {{ "%.0f"|format(vac.dias_base) }} base
+          {% if vac.dias_compensatorios != 0 %}+ {{ "%.0f"|format(vac.dias_compensatorios) }} comp.{% endif %}
+          {% if vac.dias_ajustes != 0 %}{{ "+" if vac.dias_ajustes > 0 else "" }}{{ "%.0f"|format(vac.dias_ajustes) }} ajuste{% endif %}
+        </div>
+      </article>
+      <article class="kpi-card">
+        <div class="kpi-label">Tomados</div>
+        <div class="kpi-value">{{ "%.2f"|format(vac.dias_tomados) }}</div>
+        <div class="kpi-desc">aprobados</div>
+      </article>
+      <article class="kpi-card {% if vac.dias_pendientes > 0 %}tone-warn{% endif %}">
+        <div class="kpi-label">Solicitudes pendientes</div>
+        <div class="kpi-value">{{ "%.2f"|format(vac.dias_pendientes) }}</div>
+        <div class="kpi-desc">sin aprobar/rechazar</div>
+      </article>
+      <article class="kpi-card">
+        <div class="kpi-label">Disponible s/ pendientes</div>
+        <div class="kpi-value">{{ "%.2f"|format(vac.dias_disponibles) }}</div>
+        <div class="kpi-desc">sin descontar solicitudes</div>
+      </article>
+    </section>
   {% else %}
     <div class="empty-state">Seleccione un empleado para ver el saldo calculado del año.</div>
   {% endif %}
 
-  <div class="results-bar">
-    <div class="summary">Movimientos: {{ movimientos|length }} registro(s) en esta pagina</div>
-    <div class="summary">Total filtrado: {{ total }}</div>
-  </div>
-
-  <div class="chip-row">
-    <span class="chip">Total: {{ summary.total }}</span>
-    <span class="chip">Pendientes: {{ summary.pendientes }}</span>
-    <span class="chip">Aprobados: {{ summary.aprobados }}</span>
-    <span class="chip">Rechazados: {{ summary.rechazados }}</span>
-    <span class="chip">Tomados: {{ "%.2f"|format(summary.dias_tomados) }}</span>
-    <span class="chip">Comp./ajustes: {{ "%.2f"|format(summary.dias_compensatorios + summary.dias_ajustes) }}</span>
-  </div>
+  <section class="grid-kpis dashboard-kpis">
+    <article class="kpi-card">
+      <div class="kpi-label">Total filtrado</div>
+      <div class="kpi-value">{{ summary.total }}</div>
+      <div class="kpi-desc">{{ movimientos|length }} en esta pagina</div>
+    </article>
+    <article class="kpi-card {% if summary.pendientes > 0 %}tone-warn{% else %}tone-ok{% endif %}">
+      <div class="kpi-label">Pendientes</div>
+      <div class="kpi-value">{{ summary.pendientes }}</div>
+      <div class="kpi-desc">requieren decisión</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Aprobados</div>
+      <div class="kpi-value">{{ summary.aprobados }}</div>
+      <div class="kpi-desc">{{ "%.2f"|format(summary.dias_tomados) }} dias tomados</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Rechazados</div>
+      <div class="kpi-value">{{ summary.rechazados }}</div>
+      <div class="kpi-desc">{{ summary.revertidos }} revertidos</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Compensatorios</div>
+      <div class="kpi-value">{{ "%.2f"|format(summary.dias_compensatorios) }}</div>
+      <div class="kpi-desc">dias aprobados</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Ajustes</div>
+      <div class="kpi-value">{{ "%.2f"|format(summary.dias_ajustes) }}</div>
+      <div class="kpi-desc">neto aprobado</div>
+    </article>
+  </section>
 
   {% if movimientos %}
     <div class="table-responsive table-cards">
@@ -158,6 +225,7 @@
         <thead>
           <tr>
             <th>Empleado</th>
+            <th>Sector</th>
             <th>Año</th>
             <th>Tipo</th>
             <th>Días</th>
@@ -175,6 +243,7 @@
                 <strong>{{ m.apellido }} {{ m.nombre }}</strong>
                 <div class="helper-text">{{ m.empresa_nombre or "-" }}{% if m.dni %} | DNI {{ m.dni }}{% endif %}</div>
               </td>
+              <td data-label="Sector">{{ m.sector_nombre or "-" }}</td>
               <td data-label="Año">{{ m.anio }}</td>
               <td data-label="Tipo">
                 {% if m.tipo == "tomado" %}
@@ -196,25 +265,43 @@
               <td data-label="Estado">
                 {% if estado_actual == "aprobado" %}
                   <span class="badge ok">Aprobado</span>
+                  {% if m.revertido_por_movimiento_id %}
+                    <span class="badge warning">Revertido</span>
+                  {% elif m.origen_movimiento_id %}
+                    <span class="badge">Reversión</span>
+                  {% endif %}
                 {% elif estado_actual == "rechazado" %}
                   <span class="badge danger">Rechazado</span>
                 {% else %}
                   <span class="badge warning">Pendiente</span>
                 {% endif %}
               </td>
-              <td data-label="Observación">{{ m.observacion or "-" }}</td>
+              <td data-label="Observación">
+                {{ m.observacion or "-" }}
+                {% if m.motivo_resolucion %}
+                  <div class="helper-text">Motivo: {{ m.motivo_resolucion }}</div>
+                {% endif %}
+              </td>
               <td data-label="Acciones">
                 {% if estado_actual == "pendiente" %}
                   <div class="inline-actions">
+                    <a class="btn btn-secondary" href="{{ url_for('vacaciones.movimiento_editar', movimiento_id=m.id) }}">Editar</a>
                     <form method="post" action="{{ url_for('vacaciones.movimiento_aprobar', movimiento_id=m.id) }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button class="btn" type="submit">Aprobar</button>
                     </form>
                     <form method="post" action="{{ url_for('vacaciones.movimiento_rechazar', movimiento_id=m.id) }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input name="motivo" required placeholder="Motivo">
                       <button class="btn-danger" type="submit">Rechazar</button>
                     </form>
                   </div>
+                {% elif estado_actual == "aprobado" and not m.revertido_por_movimiento_id and not m.origen_movimiento_id %}
+                  <form class="inline-actions" method="post" action="{{ url_for('vacaciones.movimiento_cancelar', movimiento_id=m.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input name="motivo" required placeholder="Motivo">
+                    <button class="btn-danger" type="submit">Revertir</button>
+                  </form>
                 {% else %}
                   <span class="helper-text">Ya resuelto</span>
                 {% endif %}
@@ -232,7 +319,7 @@
     {% if page > 1 %}
       <a
         class="btn btn-secondary"
-        href="{{ url_for('vacaciones.listado', page=page - 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, tipo=tipo or None, anio=anio or None) }}"
+        href="{{ url_for('vacaciones.listado', page=page - 1, per=per_page, empleado_id=empleado_id or None, sector_id=sector_id or None, q=q or None, estado=estado or None, tipo=tipo or None, anio=anio or None, mes=mes or None) }}"
       >
         Anterior
       </a>
@@ -240,7 +327,7 @@
     {% if page * per_page < total %}
       <a
         class="btn btn-secondary"
-        href="{{ url_for('vacaciones.listado', page=page + 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, tipo=tipo or None, anio=anio or None) }}"
+        href="{{ url_for('vacaciones.listado', page=page + 1, per=per_page, empleado_id=empleado_id or None, sector_id=sector_id or None, q=q or None, estado=estado or None, tipo=tipo or None, anio=anio or None, mes=mes or None) }}"
       >
         Siguiente
       </a>
@@ -249,7 +336,7 @@
   </div>
 
   <details>
-    <summary>Periodos registrados para asistencia</summary>
+    <summary>Periodos aprobados que impactan asistencia</summary>
     {% if vacaciones %}
       <div class="table-responsive table-cards">
         <table>
@@ -259,7 +346,6 @@
               <th>Desde</th>
               <th>Hasta</th>
               <th>Observaciones</th>
-              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -269,22 +355,13 @@
                 <td data-label="Desde">{{ v.fecha_desde }}</td>
                 <td data-label="Hasta">{{ v.fecha_hasta }}</td>
                 <td data-label="Observaciones">{{ v.observaciones or "-" }}</td>
-                <td data-label="Acciones">
-                  <div class="inline-actions">
-                    <a class="btn btn-secondary" href="{{ url_for('vacaciones.editar', vacacion_id=v.id) }}">Editar</a>
-                    <form method="post" action="{{ url_for('vacaciones.eliminar', vacacion_id=v.id) }}">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <button class="btn-danger" type="submit">Eliminar</button>
-                    </form>
-                  </div>
-                </td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     {% else %}
-      <div class="empty-state">No hay periodos registrados para asistencia.</div>
+      <div class="empty-state">No hay periodos aprobados que impacten asistencia.</div>
     {% endif %}
   </details>
 

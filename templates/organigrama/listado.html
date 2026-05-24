@@ -2,16 +2,20 @@
 {% block title %}Organigrama{% endblock %}
 
 {% macro empleado_node(emp, depth=0) %}
-  <li class="org-member-item {% if depth > 0 %}org-member-item--sub{% endif %}">
+  <li class="org-member-item {% if depth > 0 %}org-member-item--sub{% endif %}{% if not emp.activo %} org-member-item--inactive{% endif %}">
     <div class="org-member">
       {% set ini = ((emp.nombre_completo or '?')|string)[:1]|upper %}
       {% if emp.foto %}
-        <img class="org-person-avatar org-person-avatar--photo" src="{{ emp.foto }}" alt="{{ emp.nombre_completo }}" loading="lazy">
+        <img class="org-person-avatar org-person-avatar--photo{% if not emp.activo %} org-person-avatar--inactive{% endif %}"
+             src="{{ emp.foto }}" alt="{{ emp.nombre_completo }}" loading="lazy">
       {% else %}
-        <span class="org-person-avatar">{{ ini }}</span>
+        <span class="org-person-avatar{% if not emp.activo %} org-person-avatar--inactive{% endif %}">{{ ini }}</span>
       {% endif %}
       <span class="org-member-info">
-        <span class="org-member-name">{{ emp.nombre_completo }}</span>
+        <span class="org-member-name">
+          {{ emp.nombre_completo }}
+          {% if not emp.activo %}<span class="org-member-badge-off">INACTIVO</span>{% endif %}
+        </span>
         {% if emp.puesto_nombre %}
           <span class="org-member-role">{{ emp.puesto_nombre }}{% if emp.asignacion_adicional %} · adicional{% endif %}</span>
         {% endif %}
@@ -27,20 +31,26 @@
 
 {% macro sector_node(node, level=1) %}
   {% set cap = level if level < 5 else 5 %}
-  <li class="org-node org-lv{{ cap }}" data-level="{{ level }}">
+  {% set is_inactive = not node.activo %}
+  <li class="org-node org-lv{{ cap }}{% if is_inactive %} org-node--inactive{% endif %}" data-level="{{ level }}">
     <div class="org-connector"></div>
-    <div class="org-card">
+    <div class="org-card{% if is_inactive %} org-card--inactive{% endif %}">
 
       <div class="org-card-head">
         <span class="org-lv-chip">N{{ level }}</span>
         <span class="org-card-name" title="{{ node.nombre }}">{{ node.nombre }}</span>
         <div class="org-card-ctrl">
-          <span class="org-status {% if node.activo %}org-status--on{% else %}org-status--off{% endif %}"
-                title="{% if node.activo %}Activo{% else %}Inactivo{% endif %}"></span>
+          {% if is_inactive %}
+            <span class="org-badge-off" title="Sector inactivo">OFF</span>
+          {% else %}
+            <span class="org-status org-status--on" title="Activo"></span>
+          {% endif %}
           {% if can_manage_sectors %}
-            <a class="org-toggle org-add-sub"
-               href="{{ url_for('sectores.nuevo', empresa_id=node.empresa_id, sector_padre_id=node.id) }}"
-               title="Agregar sub-sector">+</a>
+            {% if not is_inactive %}
+              <a class="org-toggle org-add-sub"
+                 href="{{ url_for('sectores.nuevo', empresa_id=node.empresa_id, sector_padre_id=node.id) }}"
+                 title="Agregar sub-sector">+</a>
+            {% endif %}
             <a class="org-toggle org-edit-btn"
                href="{{ url_for('sectores.editar', sector_id=node.id) }}"
                title="Editar sector">
@@ -106,7 +116,7 @@
           <summary class="org-team-hd">
             <svg class="org-team-arr" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
             <span>Equipo directo</span>
-            <span class="org-team-badge">{{ node.empleados|length }}</span>
+            <span class="org-team-badge">{{ node.dotacion_directa }}</span>
           </summary>
           <ul class="org-member-list">
             {% for emp in node.empleados_tree %}{{ empleado_node(emp) }}{% endfor %}
@@ -128,54 +138,84 @@
 
 {% block content %}
 <div class="content-stack">
+
+  {# ── Encabezado ── #}
   <div class="section-head">
     <div>
       <div class="section-kicker">Organización</div>
       <h2>Organigrama</h2>
-      <p class="module-intro">Estructura de sectores, responsables y dotación activa por empresa.</p>
+      <p class="module-intro">Estructura jerárquica de sectores, responsables y dotación activa por empresa.</p>
     </div>
-    <div class="chip-row">
-      <span class="chip">Sectores</span>
-      <span class="chip">Responsables</span>
-      <span class="chip">Dotación</span>
-    </div>
+    {% if can_manage_sectors %}
+      <div class="chip-row">
+        <a class="btn btn-secondary" href="{{ url_for('sectores.listado') }}">Administrar sectores</a>
+      </div>
+    {% endif %}
   </div>
 
-  <form method="get" action="{{ url_for('organigrama.listado') }}">
-    <div class="form-grid">
-      <div class="row">
+  {# ── Filtro compacto ── #}
+  <form method="get" action="{{ url_for('organigrama.listado') }}" class="org-filter-bar">
+    <div class="org-filter-fields">
+      <div class="org-filter-field">
         <label>Empresa</label>
         <select name="empresa_id">
-          <option value="">Todas</option>
+          <option value="">Todas las empresas</option>
           {% for e in empresas %}
             <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="row">
-        <label>Estado sectores</label>
+      <div class="org-filter-field">
+        <label>Sectores</label>
         <select name="activo">
-          <option value="1" {% if activo == "1" %}selected{% endif %}>Activos</option>
-          <option value="0" {% if activo == "0" %}selected{% endif %}>Inactivos</option>
+          <option value="1"   {% if activo == "1"   %}selected{% endif %}>Solo activos</option>
+          <option value="0"   {% if activo == "0"   %}selected{% endif %}>Solo inactivos</option>
           <option value="all" {% if activo == "all" %}selected{% endif %}>Todos</option>
         </select>
       </div>
+      <div class="org-filter-field">
+        <label>Empleados</label>
+        <select name="empleado_activo">
+          <option value="1"   {% if empleado_activo == "1"   %}selected{% endif %}>Solo activos</option>
+          <option value="0"   {% if empleado_activo == "0"   %}selected{% endif %}>Solo inactivos</option>
+          <option value="all" {% if empleado_activo == "all" %}selected{% endif %}>Todos</option>
+        </select>
+      </div>
     </div>
-    <div class="actions">
-      <button type="submit">Filtrar</button>
+    <div class="org-filter-actions">
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="{{ url_for('organigrama.listado') }}">Limpiar</a>
-      <a class="btn btn-secondary" href="{{ url_for('sectores.listado') }}">Administrar sectores</a>
     </div>
   </form>
 
+  {% if activo == "0" %}
+    <div class="info-callout info-callout--warning">
+      <strong>Mostrando sectores inactivos.</strong>
+      Los empleados asignados a sectores activos no aparecen en esta vista.
+      Seleccioná <em>Todos</em> para ver la estructura completa.
+    </div>
+  {% endif %}
+  {% if empleado_activo == "0" %}
+    <div class="info-callout info-callout--warning">
+      <strong>Mostrando solo empleados inactivos.</strong>
+      Los empleados activos no aparecen en esta vista.
+    </div>
+  {% elif empleado_activo == "all" %}
+    <div class="info-callout">
+      <strong>Mostrando todo el personal</strong> — activos e inactivos.
+      Los empleados inactivos aparecen con la etiqueta <em>INACTIVO</em>.
+    </div>
+  {% endif %}
+
+  {# ── Organigramas por empresa ── #}
   {% if organigramas %}
     {% for org in organigramas %}
       <section class="org-company">
 
         <div class="org-banner">
-          <div>
+          <div class="org-banner-info">
             <h3 class="org-banner-name">{{ org.empresa_nombre }}</h3>
-            <p class="org-banner-sub">Estructura jerárquica · sectores y dotación activa</p>
+            <p class="org-banner-sub">Estructura jerárquica · sectores y dotación</p>
           </div>
           <div class="org-banner-kpis">
             <div class="org-bkpi">
@@ -188,12 +228,12 @@
             </div>
             <div class="org-bkpi">
               <span class="org-bkpi-num">{{ org.responsables_asignados }}</span>
-              <span class="org-bkpi-lbl">Responsables</span>
+              <span class="org-bkpi-lbl">Con responsable</span>
             </div>
             {% if org.total_sectores - org.responsables_asignados > 0 %}
               <div class="org-bkpi org-bkpi--warn">
                 <span class="org-bkpi-num">{{ org.total_sectores - org.responsables_asignados }}</span>
-                <span class="org-bkpi-lbl">Pendientes</span>
+                <span class="org-bkpi-lbl">Sin responsable</span>
               </div>
             {% endif %}
           </div>
@@ -208,7 +248,13 @@
             </ol>
           </div>
         {% else %}
-          <div class="empty-state">No hay sectores para esta empresa.</div>
+          <div class="empty-state" style="padding: 24px 20px;">
+            {% if activo == "0" %}
+              No hay sectores inactivos en esta empresa.
+            {% else %}
+              No hay sectores configurados para esta empresa.
+            {% endif %}
+          </div>
         {% endif %}
 
         {% if org.empleados_sin_sector %}
@@ -228,7 +274,13 @@
       </section>
     {% endfor %}
   {% else %}
-    <div class="empty-state">No hay datos de organigrama para los filtros seleccionados.</div>
+    <div class="empty-state">
+      {% if activo == "0" %}
+        No hay sectores inactivos para los filtros seleccionados.
+      {% else %}
+        No hay datos de organigrama para los filtros seleccionados.
+      {% endif %}
+    </div>
   {% endif %}
 </div>
 

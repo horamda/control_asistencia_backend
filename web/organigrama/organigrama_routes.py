@@ -21,8 +21,13 @@ def _parse_activo(value: str | None):
 def listado():
     empresa_id = request.args.get("empresa_id", type=int)
     activo, activo_raw = _parse_activo(request.args.get("activo"))
+    empleado_activo, empleado_activo_raw = _parse_activo(request.args.get("empleado_activo"))
     empresas = get_empresas(include_inactive=False)
-    organigramas = get_organigrama(empresa_id=empresa_id, activo=activo)
+    organigramas = get_organigrama(
+        empresa_id=empresa_id,
+        activo=activo,
+        empleado_activo=empleado_activo,
+    )
     can_manage_sectors = str(session.get("rol") or "").lower() == "admin"
     return render_template(
         "organigrama/listado.html",
@@ -30,5 +35,6 @@ def listado():
         empresas=empresas,
         empresa_id=empresa_id,
         activo=activo_raw,
+        empleado_activo=empleado_activo_raw,
         can_manage_sectors=can_manage_sectors,
     )

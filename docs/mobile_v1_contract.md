@@ -1,7 +1,7 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.19.0
-Fecha de corte: 2026-05-18
+Version de contrato: 1.20.2
+Fecha de corte: 2026-05-24
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
@@ -492,7 +492,7 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ### Vacaciones
 
-> Nota: `/me/vacaciones*` mantiene el CRUD historico de periodos. Para el flujo mobile con saldo LCT, dias pendientes y validacion de disponibilidad, usar `/vacaciones/resumen`, `/vacaciones/movimientos` y `/vacaciones/solicitar`.
+> Nota: `/me/vacaciones*` se mantiene por compatibilidad, pero ahora opera sobre `vacaciones_movimientos`: crea solicitudes pendientes, permite editar solo pendientes y revierte aprobadas mediante ajuste. Para el flujo mobile con saldo LCT, dias pendientes y validacion de disponibilidad, usar `/vacaciones/resumen`, `/vacaciones/movimientos` y `/vacaciones/solicitar`.
 
 #### 23. `GET /api/v1/mobile/me/vacaciones?desde=&hasta=&page=&per_page=`
 - Lista paginada de periodos de vacaciones.
@@ -534,7 +534,21 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 - Resumen de saldo de vacaciones del empleado autenticado para el anio solicitado.
 - `anio`: opcional; default = anio actual del servidor.
 - Validacion de `anio`: entero entre 2000 y 2100.
-- Calcula dias segun antiguedad al 31/12, proporcionalidad por dias trabajados, compensatorios, ajustes, tomados y pendientes.
+
+**Logica de calculo:**
+- `dias_base`: dias por antiguedad al 31/12 segun LCT Art. 150 (14 / 21 / 28 / 35 dias).
+- `dias_compensatorios`: dias extra acreditados por RRHH (ej. feriados trabajados, beneficios). Se cargan desde el panel web por empleado o por sector. Son adicionales al saldo base.
+- `dias_ajustes`: correcciones manuales positivas o negativas.
+- `dias_corresponden = dias_base + dias_compensatorios + dias_ajustes` ← total disponible del anio.
+- `dias_tomados`: dias ya aprobados como tomados.
+- `dias_pendientes`: solicitudes aun sin resolver.
+- `dias_disponibles = dias_corresponden - dias_tomados`
+- `dias_disponibles_con_pendientes = dias_disponibles - dias_pendientes` ← saldo real para solicitar.
+
+**Ejemplo:** base=28, compensatorios=2 → corresponden=30. Toma 15 → disponibles=15.
+
+**Regla proporcional (nuevos ingresos):** si `aplica_control_proporcional=true` (antiguedad < 1 anio al 31/12) y el empleado trabajo menos de la mitad de los dias habiles de su propio periodo de empleo, `dias_base` se recalcula como `dias_trabajados_anio // 20`.
+
 - Response 200:
 ```json
 {
@@ -545,7 +559,13 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
     "fecha_ingreso":"2020-08-10",
     "antiguedad_al_31_12":6,
     "dias_habiles_anio":261,
+    "dias_habiles_anio_total":261,
+    "dias_habiles_evaluados":261,
     "dias_trabajados_anio":220,
+    "dias_trabajados_porcentaje":84.3,
+    "umbral_proporcional_pct":50.0,
+    "fecha_evaluacion_trabajo":"2026-12-31",
+    "aplica_control_proporcional":false,
     "calculo_proporcional":false,
     "dias_base":21,
     "dias_compensatorios":2,
@@ -554,10 +574,56 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
     "dias_pendientes":3,
     "dias_corresponden":23,
     "dias_disponibles":18,
-    "dias_disponibles_con_pendientes":15
+    "dias_disponibles_con_pendientes":15,
+    "desglose_corresponde":[
+      {"concepto":"Base LCT","dias":21},
+      {"concepto":"Compensatorios","dias":2}
+    ]
   }
 }
 ```
+
+**Referencia completa de campos `vacaciones`:**
+| campo | descripcion |
+|---|---|
+| `dias_base` | Dias base LCT por antiguedad (Art. 150). |
+| `dias_compensatorios` | Dias extra acreditados por RRHH (feriados trabajados, beneficios, etc.). |
+| `dias_ajustes` | Correcciones manuales positivas o negativas. |
+| `dias_corresponden` | Total = `dias_base + dias_compensatorios + dias_ajustes`. |
+| `dias_tomados` | Dias aprobados ya consumidos. |
+| `dias_pendientes` | Solicitudes aun sin resolver. |
+| `dias_disponibles` | `dias_corresponden - dias_tomados`. |
+| `dias_disponibles_con_pendientes` | Saldo real para solicitar (`dias_disponibles - dias_pendientes`). |
+| `desglose_corresponde` | Array con cada concepto que compone `dias_corresponden`. Mostrar como "21 base + 2 comp. = 23 días". Solo incluye conceptos con valor > 0. |
+| `dias_trabajados_anio` | Dias efectivamente trabajados en el periodo evaluado. |
+| `dias_trabajados_porcentaje` | `dias_trabajados_anio / dias_habiles_anio * 100`. Para mostrar como "66 de 102 días hábiles (64.7%)". |
+| `umbral_proporcional_pct` | Siempre `50.0`. El empleado necesita superar este porcentaje para no sufrir reduccion proporcional. |
+| `aplica_control_proporcional` | `true` si tiene < 1 anio de antiguedad al 31/12 (unico caso en que puede activarse la regla). |
+| `calculo_proporcional` | `true` si efectivamente se aplicó reduccion. Cuando es `true`, `dias_base` ya refleja el valor reducido. |
+| `dias_habiles_anio_total` | Dias habiles del anio completo (261 aprox). Referencia. |
+| `dias_habiles_evaluados` | Dias habiles desde la fecha de ingreso hasta `fecha_evaluacion_trabajo`. |
+| `fecha_evaluacion_trabajo` | Hasta que fecha se evaluo asistencia (hoy si el anio es el actual). |
+| `antiguedad_al_31_12` | Anios completos de antiguedad al 31/12 del anio consultado. |
+
+**Flujo recomendado en Flutter:**
+```
+GET /vacaciones/resumen?anio=YYYY
+
+1. KPIs: mostrar cards con dias_disponibles_con_pendientes, dias_pendientes,
+         dias_tomados, dias_corresponden.
+
+2. Desglose "Corresponde": iterar desglose_corresponde y mostrar cada concepto:
+   "21 Base LCT  +  2 Compensatorios  =  23 días"
+
+3. Dias trabajados: mostrar como
+   "${dias_trabajados_anio} de ${dias_habiles_anio} días hábiles (${dias_trabajados_porcentaje}%)"
+   Si aplica_control_proporcional=true, agregar nota sobre la regla proporcional.
+   Si calculo_proporcional=true, mostrar aviso "Vacaciones calculadas proporcionalmente".
+
+4. Movimientos rechazados: usar el campo afecta_saldo=false de /vacaciones/movimientos
+   para mostrarlos visualmente atenuados o con tachado, dejando claro que no impactan el saldo.
+```
+
 - Response 400:
 ```json
 {"ok":false,"error":"Anio invalido."}
@@ -581,15 +647,66 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
     {
       "id":1,
       "tipo":"tomado",
-      "dias":5,
-      "fecha_desde":"2026-01-10",
-      "fecha_hasta":"2026-01-14",
+      "dias":13,
+      "fecha_desde":"2026-07-27",
+      "fecha_hasta":"2026-08-08",
       "estado":"aprobado",
-      "observacion":"Vacaciones enero"
+      "observacion":null,
+      "es_reversion":false,
+      "afecta_saldo":true
+    },
+    {
+      "id":2,
+      "tipo":"tomado",
+      "dias":4,
+      "fecha_desde":"2026-09-27",
+      "fecha_hasta":"2026-09-30",
+      "estado":"rechazado",
+      "observacion":null,
+      "es_reversion":false,
+      "afecta_saldo":false
+    },
+    {
+      "id":3,
+      "tipo":"ajuste",
+      "dias":13,
+      "fecha_desde":null,
+      "fecha_hasta":null,
+      "estado":"aprobado",
+      "observacion":"Reversion movimiento #1",
+      "es_reversion":true,
+      "afecta_saldo":false
     }
   ]
 }
 ```
+
+**Estructura de la respuesta:**
+| campo raíz | descripcion |
+|---|---|
+| `ok` | `true` si la solicitud fue exitosa. |
+| `anio` | Año consultado (entero). |
+| `movimientos` | Array de objetos movimiento (puede ser vacío). |
+
+**Campos de cada movimiento:**
+| campo | descripcion |
+|---|---|
+| `id` | Identificador del movimiento. |
+| `tipo` | `tomado` \| `compensatorio` \| `ajuste`. |
+| `dias` | Cantidad de días del movimiento (entero o decimal). |
+| `fecha_desde` | Fecha de inicio (`YYYY-MM-DD`) o `null` para ajustes sin rango. |
+| `fecha_hasta` | Fecha de fin (`YYYY-MM-DD`) o `null` para ajustes sin rango. |
+| `estado` | `pendiente` \| `aprobado` \| `rechazado`. |
+| `observacion` | Texto libre o `null`. |
+| `es_reversion` | `true` si el movimiento fue generado para revertir otro. Mostrar con estilo atenuado / tachado. |
+| `afecta_saldo` | `false` para rechazados y reversiones. Cuando es `false` el movimiento se muestra a modo de historial pero **no impacta el saldo**. Usar para acompañar el número con un aviso tipo "Este movimiento no afecta tu saldo". |
+
+**UX recomendada para movimientos:**
+- `afecta_saldo=true` → estilo normal con chip de estado (verde/azul/naranja).
+- `afecta_saldo=false, estado="rechazado"` → chip rojo "Rechazado", texto atenuado (opacity 0.6), agregar tooltip "No afecta tu saldo".
+- `afecta_saldo=false, es_reversion=true` → fila gris/punteada, icono de reversión, sin chip de estado principal.
+- Agregar padding inferior de al menos 80px a la lista de movimientos para que el FAB flotante no tape el último item.
+
 - Response 400:
 ```json
 {"ok":false,"error":"Anio invalido."}
@@ -1469,6 +1586,454 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 
 ---
 
+### Trivia Operativa
+
+Prefijo: `/api/v1/trivia`
+Auth: Bearer JWT (mismo token mobile).
+
+Respuestas exitosas: `{"success": true, "data": ...}`
+Respuestas de error: `{"success": false, "error": "mensaje"}`
+
+---
+
+#### 40. `GET /api/v1/trivia/estado`
+- Estado general del módulo trivia para el empleado autenticado.
+- Indica si hay trivia activa, si ya participó o tiene una participación en progreso, y los datos de su última participación.
+- Response 200 (sin trivia activa):
+```json
+{
+  "success": true,
+  "data": {
+    "hay_trivia_activa": false,
+    "trivia": null,
+    "ya_participo": false,
+    "participacion": null
+  }
+}
+```
+- Response 200 (con trivia activa, sin participar aún):
+```json
+{
+  "success": true,
+  "data": {
+    "hay_trivia_activa": true,
+    "trivia": {
+      "id": 3,
+      "titulo": "Trivia Mayo 2026",
+      "descripcion": "Preguntas de logística y seguridad.",
+      "fecha_inicio": "2026-05-24T08:00:00",
+      "fecha_fin": "2026-05-31T23:59:00",
+      "estado": "activa",
+      "premio": "Vale de consumo $5000",
+      "mensaje_ganador": "¡Sos el campeón del mes!",
+      "anio": 2026
+    },
+    "ya_participo": false,
+    "en_progreso": false,
+    "participacion": null
+  }
+}
+```
+- Response 200 (ya completó):
+```json
+{
+  "success": true,
+  "data": {
+    "hay_trivia_activa": true,
+    "trivia": {"id": 3, "titulo": "Trivia Mayo 2026", "...": "..."},
+    "ya_participo": true,
+    "en_progreso": false,
+    "participacion": {
+      "estado_resultado": "completado",
+      "puntos_total": 80,
+      "correctas": 8,
+      "incorrectas": 2,
+      "tiempo_total_segundos": 142,
+      "posicion": null,
+      "es_ganador": false
+    }
+  }
+}
+```
+
+---
+
+#### 41. `GET /api/v1/trivia/activa`
+- Devuelve los datos de la trivia activa para el empleado (sin preguntas).
+- Response 200:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 3,
+    "titulo": "Trivia Mayo 2026",
+    "descripcion": "Preguntas de logística y seguridad.",
+    "fecha_inicio": "2026-05-24T08:00:00",
+    "fecha_fin": "2026-05-31T23:59:00",
+    "estado": "activa",
+    "premio": "Vale de consumo $5000",
+    "mensaje_ganador": "¡Sos el campeón del mes!",
+    "anio": 2026
+  }
+}
+```
+- Response 404: `{"success":false,"error":"No hay trivia activa."}`
+
+---
+
+#### 42. `POST /api/v1/trivia/iniciar`
+- Registra el inicio de la participación del empleado y devuelve las preguntas.
+- **Las respuestas correctas NO se incluyen en la respuesta.**
+- No requiere body.
+- Response 200:
+```json
+{
+  "success": true,
+  "data": {
+    "trivia_id": 3,
+    "titulo": "Trivia Mayo 2026",
+    "descripcion": "Preguntas de logística y seguridad.",
+    "fecha_fin": "2026-05-31T23:59:00",
+    "preguntas": [
+      {
+        "id": 101,
+        "trivia_id": 3,
+        "texto": "¿Cuántos bultos caben en un pallet estándar?",
+        "opcion_a": "60",
+        "opcion_b": "72",
+        "opcion_c": "80",
+        "opcion_d": "48",
+        "puntos": 10,
+        "orden": 0
+      },
+      {
+        "id": 102,
+        "trivia_id": 3,
+        "texto": "¿Cuál es el EPP obligatorio en almacén?",
+        "opcion_a": "Guantes",
+        "opcion_b": "Casco",
+        "opcion_c": "Casco y calzado de seguridad",
+        "opcion_d": "Ninguno",
+        "puntos": 15,
+        "orden": 1
+      }
+    ]
+  }
+}
+```
+- Response 200 (participación en progreso ya existente — Flutter debe reanudar):
+```json
+{
+  "success": true,
+  "en_progreso": true,
+  "message": "Tenés una participación en progreso para esta trivia.",
+  "data": {
+    "trivia_id": 3,
+    "titulo": "Trivia Mayo 2026",
+    "preguntas": ["..."]
+  }
+}
+```
+- Response 404: `{"success":false,"error":"No hay trivia activa disponible para vos."}`
+- Response 409 (ya completó): `{"success":false,"error":"Ya participaste en esta trivia."}`
+- Nota: la respuesta correcta (`respuesta_correcta`) nunca se incluye en `preguntas`.
+
+---
+
+#### 43. `POST /api/v1/trivia/finalizar`
+- Envía todas las respuestas del empleado. El backend calcula puntaje, correctas, incorrectas y tiempo.
+- Request:
+```json
+{
+  "trivia_id": 3,
+  "respuestas": [
+    {
+      "pregunta_id": 101,
+      "respuesta": "B",
+      "tiempo_respuesta_segundos": 8
+    },
+    {
+      "pregunta_id": 102,
+      "respuesta": "C",
+      "tiempo_respuesta_segundos": 12
+    }
+  ]
+}
+```
+- `respuesta`: `"A"` | `"B"` | `"C"` | `"D"` (mayúscula).
+- `tiempo_respuesta_segundos`: opcional; segundos que tardó el empleado en responder esa pregunta.
+- Response 200:
+```json
+{
+  "success": true,
+  "data": {
+    "trivia_id": 3,
+    "puntos_total": 25,
+    "correctas": 2,
+    "incorrectas": 0,
+    "tiempo_total_segundos": 142,
+    "total_preguntas": 2
+  }
+}
+```
+- Response 400: `{"success":false,"error":"trivia_id requerido."}`
+- Response 404: `{"success":false,"error":"No iniciaste la participación en esta trivia."}`
+- Response 409: `{"success":false,"error":"Ya enviaste tus respuestas para esta trivia."}`
+- Response 410: `{"success":false,"error":"Esta trivia ya fue finalizada."}`
+- Importante: el backend valida las respuestas contra las preguntas activas de la trivia. Si el empleado omite una pregunta, se cuenta como incorrecta.
+
+---
+
+#### 44. `GET /api/v1/trivia/ranking/<trivia_id>`
+- Ranking de una trivia. Disponible para trivias activas y finalizadas.
+- Orden: mayor puntaje → menor tiempo → inicio más temprano → fin más temprano.
+- Response 200:
+```json
+{
+  "success": true,
+  "data": {
+    "trivia": {
+      "id": 3,
+      "titulo": "Trivia Mayo 2026",
+      "estado": "finalizada",
+      "premio": "Vale de consumo $5000",
+      "anio": 2026
+    },
+    "ranking": [
+      {
+        "posicion": 1,
+        "empleado_id": 12,
+        "empleado_dni": "30111222",
+        "empleado_nombre": "Lopez Ana",
+        "puntos_total": 80,
+        "correctas": 8,
+        "incorrectas": 2,
+        "tiempo_total_segundos": 98,
+        "es_ganador": true
+      },
+      {
+        "posicion": 2,
+        "empleado_id": 15,
+        "empleado_dni": "25333444",
+        "empleado_nombre": "Gomez Carlos",
+        "puntos_total": 80,
+        "correctas": 8,
+        "incorrectas": 2,
+        "tiempo_total_segundos": 120,
+        "es_ganador": false
+      }
+    ]
+  }
+}
+```
+- Response 404: `{"success":false,"error":"Trivia no encontrada."}`
+
+---
+
+#### 45. `GET /api/v1/trivia/historial?page=1&per_page=10`
+- Lista de trivias finalizadas con datos del ganador de cada una.
+- Response 200:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 3,
+      "titulo": "Trivia Mayo 2026",
+      "descripcion": "Preguntas de logística y seguridad.",
+      "fecha_inicio": "2026-05-24T08:00:00",
+      "fecha_fin": "2026-05-31T23:59:00",
+      "estado": "finalizada",
+      "premio": "Vale de consumo $5000",
+      "mensaje_ganador": "¡Sos el campeón del mes!",
+      "anio": 2026,
+      "ganador_nombre": "Lopez Ana",
+      "ganador_dni": "30111222",
+      "ganador_puntos": 80
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "per_page": 10
+}
+```
+
+---
+
+#### 46. `GET /api/v1/trivia/mi-historial`
+- Historial completo de participaciones del empleado autenticado.
+- Response 200:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "trivia_id": 3,
+      "titulo": "Trivia Mayo 2026",
+      "estado_trivia": "finalizada",
+      "fecha_inicio": "2026-05-24T08:00:00",
+      "fecha_fin": "2026-05-31T23:59:00",
+      "premio": "Vale de consumo $5000",
+      "puntos_total": 80,
+      "correctas": 8,
+      "incorrectas": 2,
+      "tiempo_total_segundos": 142,
+      "posicion": 1,
+      "es_ganador": true,
+      "estado_resultado": "completado",
+      "fecha_inicio_participacion": "2026-05-25T09:14:00",
+      "fecha_finalizacion": "2026-05-25T09:16:22"
+    }
+  ]
+}
+```
+
+---
+
+#### 47. `GET /api/v1/trivia/ganador/<trivia_id>`
+- Ganador oficial de una trivia finalizada.
+- Response 200:
+```json
+{
+  "success": true,
+  "data": {
+    "trivia_id": 3,
+    "titulo": "Trivia Mayo 2026",
+    "premio": "Vale de consumo $5000",
+    "mensaje_ganador": "¡Sos el campeón del mes!",
+    "empleado_id": 12,
+    "empleado_dni": "30111222",
+    "empleado_nombre": "Lopez Ana",
+    "puntos_total": 80,
+    "tiempo_total_segundos": 98,
+    "fecha_registro": "2026-06-01T00:01:00"
+  }
+}
+```
+- Response 404: `{"success":false,"error":"Ganador no disponible aún."}`
+
+---
+
+#### 48. `GET /api/v1/trivia/ranking-anual/<anio>`
+- Ranking anual acumulado de todos los empleados.
+- Orden: mayor puntos acumulados → más trivias ganadas → más correctas → menor tiempo → más participaciones.
+- Response 200:
+```json
+{
+  "success": true,
+  "anio": 2026,
+  "data": [
+    {
+      "id": 1,
+      "anio": 2026,
+      "empleado_id": 12,
+      "empleado_dni": "30111222",
+      "empleado_nombre": "Lopez Ana",
+      "puntos_anuales": 240,
+      "trivias_participadas": 3,
+      "trivias_ganadas": 2,
+      "correctas_totales": 26,
+      "incorrectas_totales": 4,
+      "tiempo_total_anual": 380,
+      "posicion": 1,
+      "es_ganador_anual": false
+    }
+  ]
+}
+```
+
+---
+
+#### 49. `GET /api/v1/trivia/ganador-anual/<anio>`
+- Ganador anual definitivo del año indicado.
+- Response 200:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "anio": 2026,
+    "empleado_id": 12,
+    "empleado_dni": "30111222",
+    "empleado_nombre": "Lopez Ana",
+    "puntos_anuales": 240,
+    "trivias_participadas": 3,
+    "trivias_ganadas": 2,
+    "correctas_totales": 26,
+    "incorrectas_totales": 4,
+    "tiempo_total_anual": 380,
+    "posicion": 1,
+    "es_ganador_anual": true
+  }
+}
+```
+- Response 404: `{"success":false,"error":"Ganador anual 2026 no disponible aún."}`
+
+---
+
+#### 50. `GET /api/v1/trivia/notificaciones`
+- Devuelve las notificaciones de trivia no leídas del empleado.
+- Diseñado para polling desde Flutter (no usa push).
+- Response 200:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 7,
+      "trivia_id": 3,
+      "trivia_titulo": "Trivia Mayo 2026",
+      "tipo": "recordatorio_2h",
+      "mensaje": "¡Quedan solo 2 horas para participar en 'Trivia Mayo 2026'! No te lo pierdas.",
+      "enviada_en": "2026-05-31T21:59:00",
+      "fecha_fin_trivia": "2026-05-31T23:59:00"
+    }
+  ]
+}
+```
+- `tipo`: `recordatorio_24h` | `recordatorio_2h`
+
+---
+
+#### 51. `POST /api/v1/trivia/notificaciones/<id>/leer`
+- Marca una notificación puntual como leída.
+- No requiere body.
+- Response 200: `{"success":true,"data":{"marcada":true}}`
+
+---
+
+#### 52. `POST /api/v1/trivia/notificaciones/leer-todas`
+- Marca todas las notificaciones del empleado como leídas.
+- No requiere body.
+- Response 200: `{"success":true,"data":{"marcadas":true}}`
+
+---
+
+#### Flujo recomendado Flutter — Trivia
+
+1. Al abrir el módulo: `GET /api/v1/trivia/estado`
+   - Si `hay_trivia_activa=false` → mostrar pantalla de "sin trivia disponible".
+   - Si `ya_participo=true` → mostrar resultado previo y ranking.
+   - Si `en_progreso=true` → ir directamente a `POST /iniciar` para recuperar preguntas.
+   - Si ninguna de las anteriores → mostrar botón "Jugar".
+2. Al tocar "Jugar": `POST /api/v1/trivia/iniciar`
+   - Guardar localmente el `trivia_id` y `fecha_fin`.
+3. El empleado responde todas las preguntas.
+4. Al finalizar: `POST /api/v1/trivia/finalizar` con todas las respuestas.
+5. Mostrar resultado (`puntos_total`, `correctas`, `incorrectas`).
+6. Opcional: `GET /api/v1/trivia/ranking/<trivia_id>` para ver la posición en tiempo real.
+7. Para notificaciones: polling periódico a `GET /api/v1/trivia/notificaciones` y marcar leídas.
+
+#### Reglas de negocio — Trivia
+
+- Un empleado solo puede participar **una vez** por trivia. El backend valida esto independientemente del frontend.
+- Las preguntas se entregan **sin la respuesta correcta**. Nunca se expone `respuesta_correcta` en respuestas de la API.
+- Solo se puede responder una trivia mientras su estado sea `activa` y esté dentro del horario `fecha_inicio` – `fecha_fin`.
+- Si el empleado omite una pregunta en el body de `/finalizar`, se cuenta como incorrecta con 0 puntos.
+- El ranking definitivo se calcula automáticamente cuando la trivia finaliza (scheduler o finalización manual desde el panel admin).
+
+---
+
 ## Errores estandar
 
 - `400`: validacion de payload/formato
@@ -1496,6 +2061,35 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 
 ## Change log
 
+### 1.20.0 (2026-05-24)
+- **Nuevo módulo: Trivia Operativa** — prefijo `/api/v1/trivia/`
+- Nuevos endpoints (40–52):
+  - `GET /trivia/estado` — estado general para el empleado (hay trivia, ya participó, resultado propio).
+  - `GET /trivia/activa` — datos de la trivia activa disponible.
+  - `POST /trivia/iniciar` — registra inicio de participación; devuelve preguntas sin respuesta correcta.
+  - `POST /trivia/finalizar` — recibe todas las respuestas, calcula puntaje, correctas, tiempo.
+  - `GET /trivia/ranking/<trivia_id>` — ranking en tiempo real de una trivia.
+  - `GET /trivia/historial` — trivias finalizadas con ganador (paginado).
+  - `GET /trivia/mi-historial` — historial de participaciones del empleado autenticado.
+  - `GET /trivia/ganador/<trivia_id>` — ganador oficial de una trivia.
+  - `GET /trivia/ranking-anual/<anio>` — ranking anual acumulado.
+  - `GET /trivia/ganador-anual/<anio>` — ganador anual definitivo.
+  - `GET /trivia/notificaciones` — notificaciones no leídas (polling Flutter).
+  - `POST /trivia/notificaciones/<id>/leer` — marca una notificación como leída.
+  - `POST /trivia/notificaciones/leer-todas` — marca todas como leídas.
+- Reglas de negocio:
+  - Un empleado solo puede participar una vez por trivia (validación backend con UNIQUE constraint).
+  - La respuesta correcta nunca se expone en la API.
+  - Solo se puede jugar dentro del horario `fecha_inicio`–`fecha_fin` con estado `activa`.
+  - Preguntas omitidas en `/finalizar` se cuentan como incorrectas.
+  - Ranking definitivo: mayor puntaje → menor tiempo → inicio más temprano → fin más temprano.
+  - Ranking anual: mayor puntaje acumulado → más trivias ganadas → más correctas → menor tiempo → más participaciones.
+- Scheduler automático (APScheduler):
+  - Activa trivias cuya `fecha_inicio` llegó (cada 2 minutos).
+  - Finaliza trivias vencidas y calcula ranking definitivo (cada 2 minutos).
+  - Genera notificaciones a empleados sin participar: recordatorio 24h y 2h antes del fin (cada 1 hora).
+- Panel admin web: `/admin/trivias/` con CRUD de trivias, preguntas, visualización de ranking y finalización manual.
+
 ### 1.19.0 (2026-05-18)
 - **Legajo — documentacion bloqueada para empleados:**
   - `GET /me/legajo/adjuntos/<id>` siempre devuelve `403 No autorizado`. Los empleados no pueden descargar documentacion.
@@ -1516,13 +2110,31 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 - Las respuestas nuevas de legajo usan `ok` y errores JSON con `ok=false`.
 - Los adjuntos mobile quedan scoped al empleado autenticado.
 
+### 1.20.2 (2026-05-24)
+- `GET /vacaciones/resumen` — campos nuevos:
+  - `desglose_corresponde`: array `[{concepto, dias}]` listo para renderizar cada componente de `dias_corresponden`. Solo incluye conceptos con valor > 0. Soluciona el problema de mostrar "48 días" sin contexto; el app puede armar "35 Base LCT + 13 Compensatorios = 48 días".
+  - `dias_trabajados_porcentaje`: porcentaje de dias trabajados sobre el total habil del periodo. Para mostrar "66 de 102 días hábiles (64.7%)" en lugar de la fraccion cruda.
+  - `umbral_proporcional_pct`: siempre `50.0`. Indica el minimo % para no sufrir reduccion proporcional. Util para mostrar un indicador de progreso en la pantalla de saldo.
+- `GET /vacaciones/movimientos` — campos nuevos por movimiento:
+  - `es_reversion`: `true` si el movimiento revierte otro (no afecta saldo, mostrar atenuado).
+  - `afecta_saldo`: `false` para rechazados y reversiones. Cuando es `false`, el item debe mostrarse como historial, sin impactar el saldo visible. Incluye aviso UX recomendado.
+- Documentacion UX recomendada: padding inferior minimo de 80px en la lista de movimientos para evitar que el FAB flotante tape el ultimo item.
+- Tabla completa de referencia de todos los campos de `vacaciones` en el resumen.
+
+### 1.20.1 (2026-05-24)
+- `GET /vacaciones/resumen`: respuesta completa documentada con todos los campos devueltos (`dias_habiles_anio_total`, `dias_habiles_evaluados`, `fecha_evaluacion_trabajo`, `aplica_control_proporcional`).
+- Se documenta la logica de `dias_compensatorios`: dias extra acreditados por RRHH por sector o empleado, independientes de las vacaciones base. Se suman a `dias_corresponden`.
+- Formula explicita: `dias_corresponden = dias_base + dias_compensatorios + dias_ajustes`. Tomar vacaciones descuenta de este total indiferentemente de su origen.
+- Flujo Flutter recomendado para pantalla de saldo de vacaciones incluido.
+- Correccion del calculo proporcional para nuevos ingresos: el denominador ahora usa los dias habiles desde la fecha de ingreso (no desde el 1 de enero), evitando penalizar incorrectamente a empleados con ingreso posterior a enero.
+
 ### 1.17.0 (2026-05-15)
 - Nuevos endpoints mobile para vacaciones con saldo LCT:
   - `GET /vacaciones/resumen?anio=YYYY`
   - `GET /vacaciones/movimientos?anio=YYYY`
   - `POST /vacaciones/solicitar`
 - `POST /vacaciones/solicitar` valida saldo disponible contra `dias_disponibles_con_pendientes` y crea un movimiento `tomado` en estado `pendiente`.
-- Se documenta que `/me/vacaciones*` queda como CRUD historico, mientras el flujo mobile recomendado usa los endpoints de saldo/movimientos.
+- Se documenta que `/me/vacaciones*` queda como compatibilidad sobre movimientos, mientras el flujo mobile recomendado usa los endpoints de saldo/movimientos.
 
 ### 1.16.1 (2026-05-13)
 - `POST /me/fichadas/scan`: `qr_token` acepta JWT directo, `Bearer`, URL con query o JSON con `qr_token`.

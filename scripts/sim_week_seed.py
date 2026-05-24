@@ -20,7 +20,7 @@ from repositories.horario_dia_bloque_repository import create as create_horario_
 from repositories.horario_dia_repository import create as create_horario_dia
 from repositories.horario_repository import create as create_horario
 from repositories.justificacion_repository import create as create_justificacion
-from repositories.vacacion_repository import create as create_vacacion
+from repositories.vacaciones_repository import create_movimiento as create_vacacion_movimiento
 from utils.asistencia import validar_asistencia
 
 
@@ -147,6 +147,9 @@ def cleanup_tag(tag: str):
             stats["empleado_horarios"] = _delete_where_in(
                 cursor, "empleado_horarios", "empleado_id", emp_ids
             )
+            stats["vacaciones_movimientos"] = _delete_where_in(
+                cursor, "vacaciones_movimientos", "empleado_id", emp_ids
+            )
             stats["vacaciones"] = _delete_where_in(cursor, "vacaciones", "empleado_id", emp_ids)
             stats["empleados"] = _delete_where_in(cursor, "empleados", "id", emp_ids)
         else:
@@ -159,6 +162,7 @@ def cleanup_tag(tag: str):
                     "empleado_roles": 0,
                     "francos": 0,
                     "empleado_horarios": 0,
+                    "vacaciones_movimientos": 0,
                     "vacaciones": 0,
                     "empleados": 0,
                 }
@@ -547,20 +551,30 @@ def seed_week(*, tag: str, start_date: dt.date):
             }
         )
 
-    create_vacacion(
+    create_vacacion_movimiento(
         {
             "empleado_id": empleados["002"],
+            "empresa_id": base_ctx["empresa_id"],
+            "anio": 2026,
+            "tipo": "tomado",
+            "dias": 3,
+            "estado": "aprobado",
             "fecha_desde": "2026-03-12",
             "fecha_hasta": "2026-03-14",
-            "observaciones": f"{tag} vacaciones proximas",
+            "observacion": f"{tag} vacaciones proximas",
         }
     )
-    create_vacacion(
+    create_vacacion_movimiento(
         {
             "empleado_id": empleados["007"],
+            "empresa_id": base_ctx["empresa_id"],
+            "anio": 2026,
+            "tipo": "tomado",
+            "dias": 3,
+            "estado": "aprobado",
             "fecha_desde": "2026-03-02",
             "fecha_hasta": "2026-03-04",
-            "observaciones": f"{tag} vacaciones en curso",
+            "observacion": f"{tag} vacaciones en curso",
         }
     )
 
@@ -658,12 +672,12 @@ def _print_summary(tag: str, start_date: str, end_date: str):
         cursor.execute(
             f"""
             SELECT COUNT(*) AS c
-            FROM vacaciones
+            FROM vacaciones_movimientos
             WHERE empleado_id IN ({_qmarks(len(emp_ids))})
             """,
             tuple(emp_ids),
         )
-        print(f"vacaciones={int(cursor.fetchone()['c'])}")
+        print(f"vacaciones_movimientos={int(cursor.fetchone()['c'])}")
 
         cursor.execute(
             """

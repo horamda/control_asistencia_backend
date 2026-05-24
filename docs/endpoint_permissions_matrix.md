@@ -134,6 +134,12 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET,POST` | `/usuarios/editar/<int:user_id>` | sesion web | admin | `web/usuarios/usuarios_routes.py:editar` |
 | `GET,POST` | `/usuarios/nuevo` | sesion web | admin | `web/usuarios/usuarios_routes.py:nuevo` |
 | `GET` | `/vacaciones/` | sesion web | admin, rrhh | `web/vacaciones/vacaciones_routes.py:listado` |
+| `GET` | `/vacaciones/movimientos/export.csv` | sesion web | admin, rrhh | `web/vacaciones/vacaciones_routes.py:movimientos_export_csv` |
+| `GET,POST` | `/vacaciones/movimientos/nuevo` | sesion web | admin, rrhh | `web/vacaciones/vacaciones_routes.py:movimiento_nuevo` |
+| `GET,POST` | `/vacaciones/movimientos/editar/<int:movimiento_id>` | sesion web | admin, rrhh | `web/vacaciones/vacaciones_routes.py:movimiento_editar` |
+| `POST` | `/vacaciones/movimientos/aprobar/<int:movimiento_id>` | sesion web | admin, rrhh | `web/vacaciones/vacaciones_routes.py:movimiento_aprobar` |
+| `POST` | `/vacaciones/movimientos/rechazar/<int:movimiento_id>` | sesion web | admin, rrhh | `web/vacaciones/vacaciones_routes.py:movimiento_rechazar` |
+| `POST` | `/vacaciones/movimientos/cancelar/<int:movimiento_id>` | sesion web | admin, rrhh | `web/vacaciones/vacaciones_routes.py:movimiento_cancelar` |
 | `GET,POST` | `/vacaciones/editar/<int:vacacion_id>` | sesion web | admin, rrhh | `web/vacaciones/vacaciones_routes.py:editar` |
 | `POST` | `/vacaciones/eliminar/<int:vacacion_id>` | sesion web | admin, rrhh | `web/vacaciones/vacaciones_routes.py:eliminar` |
 | `GET,POST` | `/vacaciones/nuevo` | sesion web | admin, rrhh | `web/vacaciones/vacaciones_routes.py:nuevo` |

@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% block title %}{{ trivia.titulo }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ trivia.titulo }}</h1>
+    <p class="page-subtitle">
+      Año {{ trivia.anio }} ·
+      {% set badge_cls = 'ok' if trivia.estado == 'activa' else 'warning' if trivia.estado == 'programada' else 'inactivo' if trivia.estado == 'finalizada' else 'ghost' %}
+      <span class="badge {{ badge_cls }}">{{ trivia.estado|capitalize }}</span>
+    </p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost">← Volver</a>
+    <a href="{{ url_for('trivia_admin.editar', trivia_id=trivia.id) }}" class="btn btn-secondary">Editar trivia</a>
+    {% if trivia.estado in ('activa', 'programada') %}
+    <form method="post" action="{{ url_for('trivia_admin.finalizar_manual', trivia_id=trivia.id) }}"
+          onsubmit="return confirm('¿Finalizar esta trivia y calcular el ranking definitivo?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-danger">Finalizar ahora</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+{# KPIs #}
+<div class="grid-kpis" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:1.25rem">
+  <div class="kpi-card">
+    <span class="kpi-value">{{ preguntas|length }}</span>
+    <span class="kpi-label">Preguntas</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ ranking|length }}</span>
+    <span class="kpi-label">Participantes</span>
+  </div>
+  <div class="kpi-card {% if not trivia_sectores %}tone-ok{% endif %}">
+    <span class="kpi-value" style="font-size:1rem">
+      {% if trivia_sectores %}{{ trivia_sectores|length }}{% else %}Todos{% endif %}
+    </span>
+    <span class="kpi-label">Sectores</span>
+  </div>
+  {% if trivia.premio %}
+  <div class="kpi-card tone-ok">
+    <span class="kpi-value" style="font-size:.9rem;line-height:1.3">{{ trivia.premio }}</span>
+    <span class="kpi-label">Premio</span>
+  </div>
+  {% endif %}
+</div>
+
+{# Info general #}
+<div class="card" style="margin-bottom:1rem">
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.85rem 1.5rem">
+      <div>
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Inicio</div>
+        <div>{{ trivia.fecha_inicio.strftime('%d/%m/%Y %H:%M') if trivia.fecha_inicio else '—' }}</div>
+      </div>
+      <div>
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Fin</div>
+        <div>{{ trivia.fecha_fin.strftime('%d/%m/%Y %H:%M') if trivia.fecha_fin else '—' }}</div>
+      </div>
+      {% if trivia.descripcion %}
+      <div style="grid-column:1/-1">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Descripción</div>
+        <div>{{ trivia.descripcion }}</div>
+      </div>
+      {% endif %}
+      {% if trivia.mensaje_ganador %}
+      <div style="grid-column:1/-1">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Mensaje para el ganador</div>
+        <div>{{ trivia.mensaje_ganador }}</div>
+      </div>
+      {% endif %}
+      <div style="grid-column:1/-1">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.4rem">Sectores</div>
+        {% if trivia_sectores %}
+          <div style="display:flex;flex-wrap:wrap;gap:.3rem">
+            {% for s in trivia_sectores %}
+              <span style="display:inline-block;padding:.2rem .65rem;border:1px solid var(--border);border-radius:2rem;font-size:.84rem">{{ s.nombre }}</span>
+            {% endfor %}
+          </div>
+        {% else %}
+          <span style="color:var(--muted);font-size:.9rem">Todos los sectores</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Ganador #}
+{% if ganador %}
+<div class="card" style="margin-bottom:1rem;border-left:4px solid #f59e0b">
+  <div class="card-body" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+    <div style="font-size:2.5rem;line-height:1">🏆</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.15rem">Ganador</div>
+      <div style="font-size:1.1rem;font-weight:700">{{ ganador.empleado_nombre }}</div>
+      <div style="font-size:.875rem;color:var(--muted)">DNI {{ ganador.empleado_dni }} · {{ ganador.puntos_total }} pts · {{ ganador.tiempo_total_segundos }}s</div>
+    </div>
+    {% if trivia.mensaje_ganador %}
+    <div style="font-size:.875rem;color:var(--muted);font-style:italic;max-width:280px">"{{ trivia.mensaje_ganador }}"</div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{# Ranking #}
+{% if ranking %}
+<div class="card" style="margin-bottom:1rem">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+    <h3 class="card-title" style="margin:0">Ranking</h3>
+    <span style="font-size:.82rem;color:var(--muted)">{{ ranking|length }} participante{{ 's' if ranking|length != 1 else '' }}</span>
+  </div>
+  <div class="table-responsive table-cards">
+    <table class="table">
+      <thead>
+        <tr><th>#</th><th>Empleado</th><th>DNI</th><th>Puntos</th><th>✓</th><th>✗</th><th>Tiempo</th></tr>
+      </thead>
+      <tbody>
+        {% for r in ranking %}
+        <tr {% if r.es_ganador %}style="background:linear-gradient(90deg,rgba(245,158,11,.08),transparent)"{% endif %}>
+          <td data-label="#">
+            {% if r.posicion == 1 %}🥇{% elif r.posicion == 2 %}🥈{% elif r.posicion == 3 %}🥉{% else %}{{ r.posicion }}{% endif %}
+          </td>
+          <td data-label="Empleado"><strong>{{ r.empleado_nombre }}</strong></td>
+          <td data-label="DNI">{{ r.empleado_dni }}</td>
+          <td data-label="Puntos"><strong style="color:var(--primary)">{{ r.puntos_total }}</strong></td>
+          <td data-label="Correctas" style="color:#16a34a">{{ r.correctas }}</td>
+          <td data-label="Incorrectas" style="color:#dc2626">{{ r.incorrectas }}</td>
+          <td data-label="Tiempo">{{ r.tiempo_total_segundos }}s</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# Preguntas #}
+<div class="card">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+    <h3 class="card-title" style="margin:0">
+      Preguntas
+      <span style="font-weight:400;color:var(--muted);font-size:.9rem">({{ preguntas|length }})</span>
+    </h3>
+    {% if trivia.estado in ('programada', 'activa') %}
+    <button type="button" class="btn btn-primary btn-sm" onclick="toggleAgregarPregunta()">
+      + Agregar
+    </button>
+    {% endif %}
+  </div>
+
+  {# Panel agregar (colapsable) #}
+  {% if trivia.estado in ('programada', 'activa') %}
+  <div id="panel-agregar" style="display:none;border-bottom:1px solid var(--border);padding:1.1rem">
+    <form method="post" action="{{ url_for('trivia_admin.agregar_pregunta', trivia_id=trivia.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div style="margin-bottom:.75rem">
+        <label class="form-label">Texto de la pregunta <span style="color:var(--danger)">*</span></label>
+        <input type="text" name="texto" class="form-control" required maxlength="600"
+               placeholder="Escribí la pregunta…">
+      </div>
+      <div class="form-grid" style="margin-bottom:.75rem">
+        {% for letra in ['a', 'b', 'c', 'd'] %}
+        <div class="row">
+          <label class="form-label">Opción {{ letra|upper }} <span style="color:var(--danger)">*</span></label>
+          <input type="text" name="opcion_{{ letra }}" class="form-control" required maxlength="300"
+                 placeholder="Opción {{ letra|upper }}…">
+        </div>
+        {% endfor %}
+      </div>
+      <div class="form-grid" style="margin-bottom:1rem">
+        <div class="row">
+          <label class="form-label">Respuesta correcta <span style="color:var(--danger)">*</span></label>
+          <select name="respuesta_correcta" class="form-control" required>
+            {% for o in opciones_resp %}<option value="{{ o }}">{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="row">
+          <label class="form-label">Puntos</label>
+          <input type="number" name="puntos" class="form-control" value="10" min="1" max="100">
+        </div>
+        <div class="row">
+          <label class="form-label">Orden</label>
+          <input type="number" name="orden" class="form-control" value="{{ preguntas|length }}" min="0">
+        </div>
+      </div>
+      <div style="display:flex;gap:.6rem">
+        <button type="submit" class="btn btn-primary">Guardar pregunta</button>
+        <button type="button" class="btn btn-ghost" onclick="toggleAgregarPregunta()">Cancelar</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  {# Tabla preguntas #}
+  <div class="table-responsive table-cards">
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width:40px">#</th>
+          <th>Pregunta</th>
+          <th>A</th><th>B</th><th>C</th><th>D</th>
+          <th style="width:60px">OK</th>
+          <th style="width:50px">Pts</th>
+          <th style="width:120px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in preguntas %}
+        <tr>
+          <td data-label="#">{{ p.orden }}</td>
+          <td data-label="Pregunta" style="max-width:260px"><strong>{{ p.texto }}</strong></td>
+          <td data-label="A" style="color:var(--muted)">{{ p.opcion_a }}</td>
+          <td data-label="B" style="color:var(--muted)">{{ p.opcion_b }}</td>
+          <td data-label="C" style="color:var(--muted)">{{ p.opcion_c }}</td>
+          <td data-label="D" style="color:var(--muted)">{{ p.opcion_d }}</td>
+          <td data-label="Correcta">
+            <span style="display:inline-flex;align-items:center;justify-content:center;
+                         width:26px;height:26px;border-radius:50%;
+                         background:var(--success,#16a34a);color:#fff;font-weight:700;font-size:.85rem">
+              {{ p.respuesta_correcta }}
+            </span>
+          </td>
+          <td data-label="Puntos">{{ p.puntos }}</td>
+          <td data-label="Acciones">
+            <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+              <button type="button"
+                      class="btn btn-sm btn-secondary btn-editar-pregunta"
+                      title="Editar pregunta"
+                      data-pid="{{ p.id }}"
+                      data-texto="{{ p.texto|e }}"
+                      data-opcion-a="{{ p.opcion_a|e }}"
+                      data-opcion-b="{{ p.opcion_b|e }}"
+                      data-opcion-c="{{ p.opcion_c|e }}"
+                      data-opcion-d="{{ p.opcion_d|e }}"
+                      data-respuesta="{{ p.respuesta_correcta }}"
+                      data-puntos="{{ p.puntos }}"
+                      data-orden="{{ p.orden }}">
+                Editar
+              </button>
+              {% if trivia.estado == 'programada' %}
+              <form method="post"
+                    action="{{ url_for('trivia_admin.eliminar_pregunta', trivia_id=trivia.id, pregunta_id=p.id) }}"
+                    onsubmit="return confirm('¿Eliminar esta pregunta?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-danger" title="Eliminar pregunta">Eliminar</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center;padding:2.5rem;color:var(--muted)">
+            Sin preguntas.
+            {% if trivia.estado in ('programada', 'activa') %}
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAgregarPregunta()" style="margin-left:.5rem">Agregar la primera</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Modal editar pregunta #}
+<div id="modal-editar-pregunta" role="dialog" aria-modal="true" aria-labelledby="modal-ep-title"
+     style="display:none;position:fixed;inset:0;z-index:1000;
+            background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--bg-card,#fff);border-radius:.75rem;padding:1.5rem;
+              width:min(680px,100%);max-height:90vh;overflow-y:auto;
+              box-shadow:0 12px 40px rgba(0,0,0,.25)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem">
+      <h3 id="modal-ep-title" style="margin:0">Editar pregunta</h3>
+      <button type="button" onclick="cerrarModal()" aria-label="Cerrar"
+              style="background:none;border:none;font-size:1.4rem;cursor:pointer;
+                     color:var(--muted);line-height:1;padding:.2rem .4rem">✕</button>
+    </div>
+    <form id="form-editar-pregunta" method="post" action="#">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div style="margin-bottom:.75rem">
+        <label class="form-label">Texto <span style="color:var(--danger)">*</span></label>
+        <input type="text" id="ep-texto" name="texto" class="form-control" required maxlength="600">
+      </div>
+      <div class="form-grid" style="margin-bottom:.75rem">
+        {% for letra in ['a','b','c','d'] %}
+        <div class="row">
+          <label class="form-label">Opción {{ letra|upper }} <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="ep-opcion-{{ letra }}" name="opcion_{{ letra }}" class="form-control" required maxlength="300">
+        </div>
+        {% endfor %}
+      </div>
+      <div class="form-grid">
+        <div class="row">
+          <label class="form-label">Correcta <span style="color:var(--danger)">*</span></label>
+          <select id="ep-resp" name="respuesta_correcta" class="form-control" required>
+            {% for o in opciones_resp %}<option value="{{ o }}">{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="row">
+          <label class="form-label">Puntos</label>
+          <input type="number" id="ep-puntos" name="puntos" class="form-control" min="1" max="100">
+        </div>
+        <div class="row">
+          <label class="form-label">Orden</label>
+          <input type="number" id="ep-orden" name="orden" class="form-control" min="0">
+        </div>
+      </div>
+      <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.2rem;flex-wrap:wrap">
+        <button type="button" class="btn btn-ghost" onclick="cerrarModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var _triviaId = {{ trivia.id }};
+
+  /* --- Agregar pregunta (panel colapsable) --- */
+  window.toggleAgregarPregunta = function () {
+    var p = document.getElementById('panel-agregar');
+    if (!p) return;
+    var visible = p.style.display !== 'none';
+    p.style.display = visible ? 'none' : 'block';
+    if (!visible) p.querySelector('input[name="texto"]').focus();
+  };
+
+  /* --- Modal editar --- */
+  window.cerrarModal = function () {
+    document.getElementById('modal-editar-pregunta').style.display = 'none';
+  };
+
+  document.getElementById('modal-editar-pregunta').addEventListener('click', function (e) {
+    if (e.target === this) cerrarModal();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') cerrarModal();
+  });
+
+  /* Botones Editar – cada uno lleva los datos en data-* */
+  document.querySelectorAll('.btn-editar-pregunta').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var d = this.dataset;
+      document.getElementById('ep-texto').value    = d.texto;
+      document.getElementById('ep-opcion-a').value = d.opcionA;
+      document.getElementById('ep-opcion-b').value = d.opcionB;
+      document.getElementById('ep-opcion-c').value = d.opcionC;
+      document.getElementById('ep-opcion-d').value = d.opcionD;
+      document.getElementById('ep-resp').value     = d.respuesta;
+      document.getElementById('ep-puntos').value   = d.puntos;
+      document.getElementById('ep-orden').value    = d.orden;
+
+      document.getElementById('form-editar-pregunta').action =
+        '/admin/trivias/' + _triviaId + '/preguntas/' + d.pid + '/editar';
+
+      var modal = document.getElementById('modal-editar-pregunta');
+      modal.style.display = 'flex';
+      document.getElementById('ep-texto').focus();
+    });
+  });
+})();
+</script>
+{% endblock %}

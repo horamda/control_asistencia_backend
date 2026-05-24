@@ -1,0 +1,893 @@
+{% extends "base.html" %}
+{% block title %}Gantt Vacaciones{% endblock %}
+
+{% block extra_head %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<style>
+/* ======================================================
+   Gantt de vacaciones
+   Usa las variables de panel.css: --muted, --radius,
+   --border, --shadow, --danger, --success, --primary
+   ====================================================== */
+.gantt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.year-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-year {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  padding: 4px 14px;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text);
+  transition: background .12s;
+}
+.btn-year:hover { background: var(--bg); }
+.year-label {
+  font-size: 20px;
+  font-weight: 800;
+  min-width: 4ch;
+  text-align: center;
+}
+
+/* Metric cards */
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 700px) { .metrics-row { grid-template-columns: repeat(2, 1fr); } }
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+.metric-card .mc-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.metric-card .mc-value {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+.mc-value.col-warn { color: var(--danger); }
+.mc-value.col-ok   { color: var(--success); }
+
+/* Gantt container */
+.gantt-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.gantt-scroll { overflow-x: auto; }
+.gantt-inner  { min-width: 860px; }
+
+/* Header row */
+.gantt-header {
+  display: flex;
+  border-bottom: 2px solid var(--border);
+  background: var(--surface-strong);
+}
+.g-name-col {
+  width: 190px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+}
+.g-months-track {
+  flex: 1;
+  display: flex;
+}
+.g-month-lbl {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  padding: 8px 2px;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.g-month-lbl:last-child { border-right: none; }
+
+/* Rows */
+.gantt-row {
+  display: flex;
+  min-height: 38px;
+  border-bottom: 1px solid var(--border);
+}
+.gantt-row:last-child { border-bottom: none; }
+.gantt-row:hover { background: var(--surface-soft); }
+.g-row-name {
+  width: 190px;
+  flex-shrink: 0;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--border);
+  word-break: break-word;
+  line-height: 1.3;
+}
+.g-row-track {
+  flex: 1;
+  position: relative;
+  min-height: 38px;
+}
+
+/* Bars */
+.g-bar {
+  position: absolute;
+  top: 7px;
+  height: 24px;
+  border-radius: 5px;
+  cursor: pointer;
+  z-index: 2;
+  transition: filter .12s, box-shadow .12s;
+  min-width: 4px;
+}
+.g-bar:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+.g-bar.aprobado { background: #378ADD; }
+.g-bar.pendiente {
+  background: #a0c4f1;
+  border: 1px dashed #378ADD;
+}
+
+/* Decorative layers */
+.g-overlap {
+  position: absolute;
+  top: 0; bottom: 0;
+  background: rgba(179,33,53,.12);
+  border-left: 1px solid rgba(179,33,53,.3);
+  border-right: 1px solid rgba(179,33,53,.3);
+  z-index: 1;
+  pointer-events: none;
+}
+.g-month-line {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: var(--border);
+  z-index: 1;
+  pointer-events: none;
+}
+.g-today-line {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: var(--danger);
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Loading / empty */
+.g-loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+.g-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Legend */
+.gantt-legend {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+.leg-item { display: flex; align-items: center; gap: 6px; }
+.leg-sw { width: 22px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+/* Tooltip */
+.g-tooltip {
+  position: fixed;
+  z-index: 1200;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  box-shadow: var(--shadow);
+  min-width: 210px;
+  max-width: 280px;
+  display: none;
+  font-size: 13px;
+  pointer-events: none;
+}
+.g-tooltip.show { display: block; pointer-events: all; }
+.tt-emp  { font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.tt-rng  { font-size: 12px; color: var(--muted); }
+.tt-dias { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.tt-obs  { font-size: 12px; color: var(--muted); margin-top: 4px; display: none; }
+.tt-est  {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.tt-est.aprobado { background: var(--primary-soft); color: var(--info); }
+.tt-est.pendiente { background: #fff3cd; color: #856404; }
+[data-theme="dark"] .tt-est.pendiente { background: #3d2c00; color: #e1a230; }
+
+.btn-edit {
+  display: block;
+  margin-top: 8px;
+  width: 100%;
+  padding: 5px 0;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: all;
+}
+.btn-edit:hover { background: var(--primary-strong); }
+.btn-del {
+  display: block;
+  margin-top: 6px;
+  width: 100%;
+  padding: 5px 0;
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: all;
+}
+.btn-del:hover { opacity: .85; }
+
+/* Mobile month nav */
+.mobile-month-nav {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-strong);
+}
+.mobile-month-label {
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  min-width: 12ch;
+  color: var(--text);
+}
+.btn-mmonth {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px 12px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text);
+}
+@media (max-width: 640px) {
+  .mobile-month-nav { display: flex; }
+}
+
+/* Modal */
+.g-modal-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 600;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.g-modal-bg.open { display: flex; }
+.g-modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  width: 480px;
+  max-width: 95vw;
+  padding: 28px 28px 22px;
+  box-shadow: 0 10px 48px rgba(0,0,0,.22);
+}
+.g-modal-title { font-size: 18px; font-weight: 800; margin-bottom: 20px; color: var(--text); }
+.g-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.g-field label { font-size: 13px; font-weight: 600; color: var(--text); }
+.g-field select,
+.g-field input,
+.g-field textarea {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color .12s;
+}
+.g-field select:focus,
+.g-field input:focus,
+.g-field textarea:focus { outline: none; border-color: var(--primary); }
+.g-field textarea { resize: vertical; min-height: 64px; }
+.g-date-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.g-dias-preview { font-size: 12px; color: var(--muted); margin-top: -8px; margin-bottom: 8px; min-height: 16px; }
+.g-modal-err { color: var(--danger); font-size: 13px; margin-top: 6px; min-height: 18px; }
+.g-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">RRHH</div>
+      <h2>Gantt de vacaciones</h2>
+      <p class="module-intro">Vista anual de períodos tomados por el equipo. Los solapamientos se marcan automáticamente.</p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Tomados</span>
+      <span class="chip">Solapamientos</span>
+      <span class="chip">Anual</span>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="gantt-toolbar">
+    <div class="year-nav">
+      <button class="btn-year" id="btn-prev" aria-label="Año anterior">&#8249;</button>
+      <span class="year-label" id="year-label">—</span>
+      <button class="btn-year" id="btn-next" aria-label="Año siguiente">&#8250;</button>
+    </div>
+    <button class="btn" id="btn-add" type="button">+ Nuevo período</button>
+    <a class="btn btn-secondary" href="{{ url_for('vacaciones.listado') }}">Ver listado</a>
+  </div>
+
+  <!-- Metric cards -->
+  <div class="metrics-row">
+    <div class="metric-card">
+      <div class="mc-label">Períodos registrados</div>
+      <div class="mc-value" id="m-total">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="mc-label">Días acumulados</div>
+      <div class="mc-value" id="m-dias">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="mc-label">Días con solapamiento</div>
+      <div class="mc-value" id="m-solap">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="mc-label">Empleados con vacaciones</div>
+      <div class="mc-value" id="m-emps">—</div>
+    </div>
+  </div>
+
+  <!-- Gantt card -->
+  <div class="gantt-card">
+    <div id="gantt-loading" class="g-loading">Cargando datos...</div>
+    <div id="gantt-wrap" style="display:none">
+      <!-- Mobile: navegación por bloques de 3 meses -->
+      <div class="mobile-month-nav" id="mobile-month-nav">
+        <button class="btn-mmonth" id="btn-mob-prev" aria-label="Meses anteriores">&#8249;</button>
+        <span class="mobile-month-label" id="mob-month-label"></span>
+        <button class="btn-mmonth" id="btn-mob-next" aria-label="Meses siguientes">&#8250;</button>
+      </div>
+      <div class="gantt-scroll" id="gantt-scroll">
+        <div class="gantt-inner" id="gantt-inner"></div>
+      </div>
+      <div class="gantt-legend">
+        <span class="leg-item">
+          <span class="leg-sw" style="background:#378ADD"></span> Aprobado
+        </span>
+        <span class="leg-item">
+          <span class="leg-sw" style="background:#a0c4f1;border:1px dashed #378ADD"></span> Pendiente
+        </span>
+        <span class="leg-item">
+          <span class="leg-sw" style="background:rgba(220,53,69,.18);border:1px solid rgba(220,53,69,.4)"></span> Solapamiento
+        </span>
+        <span class="leg-item">
+          <span style="display:inline-block;width:3px;height:14px;background:#dc3545;border-radius:1px"></span> Hoy
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div class="g-tooltip" id="g-tooltip">
+  <div class="tt-emp" id="tt-emp"></div>
+  <div class="tt-rng" id="tt-rng"></div>
+  <div class="tt-dias" id="tt-dias"></div>
+  <div class="tt-obs" id="tt-obs"></div>
+  <span class="tt-est" id="tt-est"></span>
+  <button class="btn-edit" id="btn-edit" type="button">Editar período</button>
+  <button class="btn-del"  id="btn-del"  type="button">Eliminar período</button>
+</div>
+
+<!-- Modal -->
+<div class="g-modal-bg" id="g-modal-bg">
+  <div class="g-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="g-modal-title" id="modal-title">Nuevo período de vacaciones</div>
+    <div class="g-field" id="f-emp-field">
+      <label for="f-emp">Empleado</label>
+      <select id="f-emp">
+        <option value="">Seleccionar empleado...</option>
+        {% for emp in empleados_json %}
+          <option value="{{ emp.id }}">{{ emp.nombre }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="g-date-pair">
+      <div class="g-field">
+        <label for="f-desde">Desde</label>
+        <input type="date" id="f-desde">
+      </div>
+      <div class="g-field">
+        <label for="f-hasta">Hasta</label>
+        <input type="date" id="f-hasta">
+      </div>
+    </div>
+    <div class="g-dias-preview" id="g-dias-preview"></div>
+    <div class="g-field">
+      <label for="f-obs">Observación</label>
+      <textarea id="f-obs" placeholder="Opcional..."></textarea>
+    </div>
+    <div class="g-modal-err" id="g-modal-err"></div>
+    <div class="g-modal-actions">
+      <button class="btn btn-secondary" id="btn-modal-cancel" type="button">Cancelar</button>
+      <button class="btn" id="btn-modal-save" type="button">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---- Constantes ---- */
+  const MONTHS_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const MONTHS_FULL  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const BASE_DAYS    = [31,28,31,30,31,30,31,31,30,31,30,31];
+  const CSRF         = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const MOB_BREAK    = 640;
+
+  /* ---- Estado ---- */
+  let currentYear   = new Date().getFullYear();
+  let activeId      = null;
+  let activeData    = null;
+  let editId        = null;
+  let hideTimer     = null;
+  let mobStartMonth = 0;
+  const MOB_VISIBLE = 3;
+
+  /* ---- Utilidades ---- */
+  const isLeap  = y => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const totDays = y => isLeap(y) ? 366 : 365;
+  const mDays   = y => { const d = [...BASE_DAYS]; if (isLeap(y)) d[1] = 29; return d; };
+  const pct     = (n, tot) => (n / tot * 100).toFixed(5) + '%';
+  const esc     = s => (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const isMob   = () => window.innerWidth <= MOB_BREAK;
+
+  function dayOfYear(dateStr, year) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const s = new Date(year, 0, 1);
+    return Math.round((d - s) / 86400000);
+  }
+
+  function fmtDate(s) {
+    if (!s) return '';
+    const parts = s.split('-');
+    return parts[2] + '/' + parts[1];
+  }
+
+  /* ---- Solapamientos ---- */
+  function calcOverlaps(movs, year) {
+    const tot    = totDays(year);
+    const yStart = new Date(year, 0, 1);
+    const yEnd   = new Date(year, 11, 31);
+    const dayMap = new Map();
+
+    for (const m of movs) {
+      if (m.estado !== 'aprobado') continue;
+      const d0 = new Date(m.fecha_desde + 'T00:00:00');
+      const d1 = new Date(m.fecha_hasta + 'T00:00:00');
+      const cd = new Date(Math.max(d0, yStart));
+      const ch = new Date(Math.min(d1, yEnd));
+      if (cd > ch) continue;
+      let cur = new Date(cd);
+      while (cur <= ch) {
+        const idx = Math.round((cur - yStart) / 86400000);
+        if (!dayMap.has(idx)) dayMap.set(idx, new Set());
+        dayMap.get(idx).add(m.empleado_nombre);
+        cur = new Date(cur.getTime() + 86400000);
+      }
+    }
+
+    const overDays = [...dayMap.entries()]
+      .filter(([, e]) => e.size >= 2)
+      .map(([day, e]) => ({ day, emps: [...e] }))
+      .sort((a, b) => a.day - b.day);
+
+    if (!overDays.length) return { ranges: [], totalDias: 0 };
+
+    const ranges = [];
+    let rs = overDays[0].day, re = overDays[0].day, re_emps = new Set(overDays[0].emps);
+    for (let i = 1; i < overDays.length; i++) {
+      const { day, emps } = overDays[i];
+      if (day === re + 1) { re = day; emps.forEach(e => re_emps.add(e)); }
+      else {
+        ranges.push({ left: pct(rs, tot), width: pct(re - rs + 1, tot), emps: [...re_emps] });
+        rs = day; re = day; re_emps = new Set(emps);
+      }
+    }
+    ranges.push({ left: pct(rs, tot), width: pct(re - rs + 1, tot), emps: [...re_emps] });
+    return { ranges, totalDias: overDays.length };
+  }
+
+  /* ---- Mobile: scroll al bloque de 3 meses ---- */
+  function applyMobileWindow(year) {
+    if (!isMob()) return;
+    const md     = mDays(year);
+    const tot    = totDays(year);
+    const scroll = document.getElementById('gantt-scroll');
+    const inner  = document.getElementById('gantt-inner');
+    if (!scroll || !inner) return;
+
+    const trackW = inner.offsetWidth - 190;
+    let dayFrom  = 0;
+    for (let mi = 0; mi < mobStartMonth; mi++) dayFrom += md[mi];
+    scroll.scrollLeft = 190 + (dayFrom / tot) * trackW;
+
+    const endIdx = Math.min(mobStartMonth + MOB_VISIBLE - 1, 11);
+    document.getElementById('mob-month-label').textContent =
+      mobStartMonth === endIdx
+        ? MONTHS_FULL[mobStartMonth]
+        : MONTHS_SHORT[mobStartMonth] + ' - ' + MONTHS_SHORT[endIdx];
+  }
+
+  document.getElementById('btn-mob-prev').addEventListener('click', () => {
+    mobStartMonth = Math.max(0, mobStartMonth - MOB_VISIBLE);
+    applyMobileWindow(currentYear);
+  });
+  document.getElementById('btn-mob-next').addEventListener('click', () => {
+    mobStartMonth = Math.min(12 - MOB_VISIBLE, mobStartMonth + MOB_VISIBLE);
+    applyMobileWindow(currentYear);
+  });
+
+  /* ---- Render ---- */
+  function render(movimientos, year) {
+    const tot    = totDays(year);
+    const md     = mDays(year);
+    const ovs    = calcOverlaps(movimientos, year);
+    const today  = new Date();
+    const isNow  = today.getFullYear() === year;
+    const todPct = isNow ? pct(dayOfYear(today.toISOString().slice(0, 10), year), tot) : null;
+
+    /* Metricas */
+    const aprobados = movimientos.filter(m => m.estado === 'aprobado');
+    const diasTotal = aprobados.reduce((s, m) => s + m.dias, 0);
+    const uniqEmps  = new Set(aprobados.map(m => m.empleado_id)).size;
+    document.getElementById('m-total').textContent = movimientos.length;
+    document.getElementById('m-dias').textContent  = Math.round(diasTotal);
+    const mSolap = document.getElementById('m-solap');
+    mSolap.textContent = ovs.totalDias;
+    mSolap.className   = 'mc-value ' + (ovs.totalDias > 0 ? 'col-warn' : 'col-ok');
+    document.getElementById('m-emps').textContent  = uniqEmps;
+
+    /* Agrupar por empleado */
+    const empOrder = [];
+    const byEmp    = new Map();
+    for (const m of movimientos) {
+      if (!byEmp.has(m.empleado_id)) {
+        byEmp.set(m.empleado_id, { nombre: m.empleado_nombre, movs: [] });
+        empOrder.push(m.empleado_id);
+      }
+      byEmp.get(m.empleado_id).movs.push(m);
+    }
+
+    const parts = [];
+
+    /* Cabecera de meses */
+    let hdr = '<div class="gantt-header"><div class="g-name-col">Empleado</div><div class="g-months-track">';
+    for (let mi = 0; mi < 12; mi++) {
+      const w = (md[mi] / tot * 100).toFixed(5);
+      hdr += '<div class="g-month-lbl" style="flex:0 0 ' + w + '%;width:' + w + '%">' + MONTHS_SHORT[mi] + '</div>';
+    }
+    hdr += '</div></div>';
+    parts.push(hdr);
+
+    if (!empOrder.length) {
+      parts.push('<div class="g-empty">No hay periodos de vacaciones registrados para ' + year + '.<br>'
+               + '<button class="btn" onclick="openNewModal()" style="margin-top:14px">+ Agregar periodo</button></div>');
+    } else {
+      for (const empId of empOrder) {
+        const emp = byEmp.get(empId);
+        let row = '<div class="gantt-row">';
+        row += '<div class="g-row-name" title="' + esc(emp.nombre) + '">' + esc(emp.nombre) + '</div>';
+        row += '<div class="g-row-track">';
+
+        let dayAcc = 0;
+        for (let mi = 0; mi < 11; mi++) {
+          dayAcc += md[mi];
+          row += '<div class="g-month-line" style="left:' + pct(dayAcc, tot) + '"></div>';
+        }
+        for (const ov of ovs.ranges) {
+          row += '<div class="g-overlap" style="left:' + ov.left + ';width:' + ov.width + '" title="Solapamiento: ' + ov.emps.join(', ') + '"></div>';
+        }
+        if (todPct) row += '<div class="g-today-line" style="left:' + todPct + '" title="Hoy"></div>';
+
+        for (const m of emp.movs) {
+          const d0  = dayOfYear(m.fecha_desde, year);
+          const d1  = dayOfYear(m.fecha_hasta, year);
+          const cd0 = Math.max(0, d0);
+          const cd1 = Math.min(tot - 1, d1);
+          if (cd0 > cd1) continue;
+          row += '<div class="g-bar ' + esc(m.estado) + '"'
+               + ' style="left:' + pct(cd0, tot) + ';width:' + pct(cd1 - cd0 + 1, tot) + '"'
+               + ' data-id="' + m.id + '"'
+               + ' data-emp="' + esc(m.empleado_nombre) + '"'
+               + ' data-empid="' + m.empleado_id + '"'
+               + ' data-desde="' + esc(m.fecha_desde) + '"'
+               + ' data-hasta="' + esc(m.fecha_hasta) + '"'
+               + ' data-dias="' + m.dias + '"'
+               + ' data-obs="' + esc(m.observacion) + '"'
+               + ' data-est="' + esc(m.estado) + '"'
+               + '></div>';
+        }
+        row += '</div></div>';
+        parts.push(row);
+      }
+    }
+
+    document.getElementById('gantt-inner').innerHTML = parts.join('');
+    document.getElementById('gantt-loading').style.display = 'none';
+    document.getElementById('gantt-wrap').style.display    = 'block';
+
+    document.querySelectorAll('.g-bar').forEach(bar => {
+      bar.addEventListener('mouseenter', onBarEnter);
+      bar.addEventListener('mouseleave', onBarLeave);
+      bar.addEventListener('mousemove',  onBarMove);
+      bar.addEventListener('click',      onBarClick);
+    });
+
+    if (isMob()) setTimeout(() => applyMobileWindow(year), 60);
+  }
+
+  /* ---- Tooltip ---- */
+  const tooltip = document.getElementById('g-tooltip');
+
+  function fillTooltip(b) {
+    activeId   = parseInt(b.dataset.id, 10);
+    activeData = Object.assign({}, b.dataset);
+    document.getElementById('tt-emp').textContent  = b.dataset.emp;
+    document.getElementById('tt-rng').textContent  = fmtDate(b.dataset.desde) + ' a ' + fmtDate(b.dataset.hasta);
+    document.getElementById('tt-dias').textContent = b.dataset.dias + ' dias';
+    const obsEl = document.getElementById('tt-obs');
+    if (b.dataset.obs) { obsEl.textContent = b.dataset.obs; obsEl.style.display = 'block'; }
+    else { obsEl.style.display = 'none'; }
+    const estEl = document.getElementById('tt-est');
+    estEl.textContent = b.dataset.est === 'aprobado' ? 'Aprobado' : 'Pendiente';
+    estEl.className   = 'tt-est ' + b.dataset.est;
+    document.getElementById('btn-edit').style.display = b.dataset.est === 'pendiente' ? 'block' : 'none';
+  }
+
+  function onBarEnter(e) {
+    clearTimeout(hideTimer);
+    fillTooltip(e.currentTarget);
+    tooltip.classList.add('show');
+    posTooltip(e.clientX, e.clientY);
+  }
+  function onBarMove(e) { posTooltip(e.clientX, e.clientY); }
+  function onBarLeave() {
+    hideTimer = setTimeout(() => { tooltip.classList.remove('show'); activeId = null; activeData = null; }, 260);
+  }
+  function onBarClick(e) {
+    if (isMob() || e.currentTarget.dataset.est === 'pendiente') {
+      clearTimeout(hideTimer);
+      tooltip.classList.remove('show');
+      openEditModal(e.currentTarget.dataset);
+    }
+  }
+
+  function posTooltip(cx, cy) {
+    const TW = 270, TH = 220;
+    tooltip.style.left = (cx + 16 + TW > window.innerWidth  ? cx - TW - 10 : cx + 16) + 'px';
+    tooltip.style.top  = (cy + 12 + TH > window.innerHeight ? cy - TH - 10 : cy + 12) + 'px';
+  }
+
+  tooltip.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+  tooltip.addEventListener('mouseleave', onBarLeave);
+
+  document.getElementById('btn-edit').addEventListener('click', () => {
+    if (!activeData) return;
+    tooltip.classList.remove('show');
+    openEditModal(activeData);
+  });
+
+  document.getElementById('btn-del').addEventListener('click', async () => {
+    if (!activeId) return;
+    if (!confirm('Eliminar este periodo? Si esta aprobado se creara un movimiento de reversion.')) return;
+    tooltip.classList.remove('show');
+    const id = activeId;
+    activeId = null; activeData = null;
+    try {
+      const r = await fetch('/vacaciones/gantt/api/movimientos/' + id, {
+        method: 'DELETE', headers: { 'X-CSRFToken': CSRF },
+      });
+      const d = await r.json();
+      if (!r.ok) { alert(d.error || 'Error al eliminar.'); return; }
+      await loadYear(currentYear);
+    } catch { alert('Error de red al eliminar.'); }
+  });
+
+  /* ---- Navegacion de anio ---- */
+  document.getElementById('btn-prev').addEventListener('click', () => loadYear(currentYear - 1));
+  document.getElementById('btn-next').addEventListener('click', () => loadYear(currentYear + 1));
+
+  async function loadYear(year) {
+    currentYear   = year;
+    mobStartMonth = 0;
+    document.getElementById('year-label').textContent      = year;
+    document.getElementById('gantt-loading').style.display = 'block';
+    document.getElementById('gantt-loading').textContent   = 'Cargando datos...';
+    document.getElementById('gantt-wrap').style.display    = 'none';
+    try {
+      const r = await fetch('/vacaciones/gantt/api/datos?year=' + year);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      render(data.movimientos, year);
+    } catch {
+      document.getElementById('gantt-loading').textContent = 'Error al cargar datos. Recargue la pagina.';
+    }
+  }
+
+  /* ---- Modal (nuevo / edicion) ---- */
+  const modalBg  = document.getElementById('g-modal-bg');
+  const inpDesde = document.getElementById('f-desde');
+  const inpHasta = document.getElementById('f-hasta');
+  const inpObs   = document.getElementById('f-obs');
+  const selEmp   = document.getElementById('f-emp');
+  const empField = document.getElementById('f-emp-field');
+  const modalErr = document.getElementById('g-modal-err');
+  const diasPrev = document.getElementById('g-dias-preview');
+
+  function resetModal() {
+    modalErr.textContent = ''; diasPrev.textContent = '';
+    inpDesde.value = ''; inpHasta.value = ''; inpObs.value = '';
+  }
+
+  function openNewModal() {
+    editId = null;
+    resetModal();
+    selEmp.value    = '';
+    selEmp.disabled = false;
+    empField.style.display = 'flex';
+    document.getElementById('modal-title').textContent = 'Nuevo periodo de vacaciones';
+    modalBg.classList.add('open');
+    selEmp.focus();
+  }
+
+  function openEditModal(data) {
+    if (data.est !== 'pendiente') {
+      alert('Solo se pueden editar movimientos pendientes.\nPara modificar uno aprobado, primero eliminelo y cree uno nuevo.');
+      return;
+    }
+    editId = parseInt(data.id, 10);
+    resetModal();
+    selEmp.value    = data.empid;
+    selEmp.disabled = true;
+    empField.style.display = 'flex';
+    inpDesde.value  = data.desde;
+    inpHasta.value  = data.hasta;
+    inpObs.value    = data.obs || '';
+    recalcDias();
+    document.getElementById('modal-title').textContent = 'Editar periodo de vacaciones';
+    modalBg.classList.add('open');
+    inpDesde.focus();
+  }
+
+  function closeModal() { modalBg.classList.remove('open'); selEmp.disabled = false; editId = null; }
+
+  function recalcDias() {
+    if (inpDesde.value && inpHasta.value) {
+      if (inpHasta.value >= inpDesde.value) {
+        const ms = new Date(inpHasta.value) - new Date(inpDesde.value);
+        const d  = Math.round(ms / 86400000) + 1;
+        diasPrev.textContent = 'Duracion: ' + d + ' dia' + (d !== 1 ? 's' : '');
+      } else {
+        diasPrev.textContent = 'La fecha hasta debe ser igual o posterior a la fecha desde.';
+      }
+    } else { diasPrev.textContent = ''; }
+  }
+
+  window.openNewModal = openNewModal;
+  document.getElementById('btn-add').addEventListener('click', openNewModal);
+  document.getElementById('btn-modal-cancel').addEventListener('click', closeModal);
+  modalBg.addEventListener('click', e => { if (e.target === modalBg) closeModal(); });
+  inpDesde.addEventListener('input', recalcDias);
+  inpHasta.addEventListener('input', recalcDias);
+
+  document.getElementById('btn-modal-save').addEventListener('click', async () => {
+    modalErr.textContent = '';
+    const empId = parseInt(selEmp.value || '0', 10);
+    const desde = inpDesde.value;
+    const hasta = inpHasta.value;
+    if (!empId)        { modalErr.textContent = 'Seleccione un empleado.'; return; }
+    if (!desde)        { modalErr.textContent = 'Ingrese la fecha de inicio.'; return; }
+    if (!hasta)        { modalErr.textContent = 'Ingrese la fecha de fin.'; return; }
+    if (hasta < desde) { modalErr.textContent = 'La fecha hasta debe ser igual o posterior a la fecha desde.'; return; }
+
+    const btn = document.getElementById('btn-modal-save');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    try {
+      const isEdit = editId !== null;
+      const url    = isEdit ? '/vacaciones/gantt/api/movimientos/' + editId : '/vacaciones/gantt/api/movimientos';
+      const r = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({
+          empleado_id: empId,
+          anio: parseInt(desde.slice(0, 4), 10),
+          fecha_desde: desde,
+          fecha_hasta: hasta,
+          observacion: inpObs.value.trim() || null,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) { modalErr.textContent = d.error || 'Error al guardar.'; return; }
+      closeModal();
+      await loadYear(currentYear);
+    } catch { modalErr.textContent = 'Error de red. Intente nuevamente.'; }
+    finally { btn.disabled = false; btn.textContent = 'Guardar'; }
+  });
+
+  /* ---- Init ---- */
+  document.getElementById('year-label').textContent = currentYear;
+  loadYear(currentYear);
+})();
+</script>
+{% endblock %}

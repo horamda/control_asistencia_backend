@@ -193,11 +193,15 @@ def _calc_expected_minutes_from_planillas(
         vacation_rows = _safe_fetchall(
             dict_cursor,
             f"""
-            SELECT empleado_id, fecha_desde, fecha_hasta
-            FROM vacaciones
-            WHERE empleado_id IN ({placeholders})
-              AND fecha_desde <= %s
-              AND fecha_hasta >= %s
+            SELECT vm.empleado_id, vm.fecha_desde, vm.fecha_hasta
+            FROM vacaciones_movimientos vm
+            WHERE vm.empleado_id IN ({placeholders})
+              AND vm.tipo = 'tomado'
+              AND vm.estado = 'aprobado'
+              AND vm.revertido_por_movimiento_id IS NULL
+              AND vm.origen_movimiento_id IS NULL
+              AND vm.fecha_desde <= %s
+              AND vm.fecha_hasta >= %s
             """,
             (*employee_ids, end_date.isoformat(), start_date.isoformat()),
         )
@@ -1043,20 +1047,28 @@ def _dashboard_metrics():
         stats["vacaciones_en_curso_hoy"] = _safe_count(
             cursor,
             """
-            SELECT COUNT(*)
-            FROM vacaciones
-            WHERE fecha_desde <= %s
-              AND fecha_hasta >= %s
+            SELECT COUNT(DISTINCT vm.empleado_id)
+            FROM vacaciones_movimientos vm
+            WHERE vm.tipo = 'tomado'
+              AND vm.estado = 'aprobado'
+              AND vm.revertido_por_movimiento_id IS NULL
+              AND vm.origen_movimiento_id IS NULL
+              AND vm.fecha_desde <= %s
+              AND vm.fecha_hasta >= %s
             """,
             (today, today),
         )
         stats["vacaciones_proximas_30d"] = _safe_count(
             cursor,
             """
-            SELECT COUNT(*)
-            FROM vacaciones
-            WHERE fecha_desde > %s
-              AND fecha_desde <= %s
+            SELECT COUNT(DISTINCT vm.empleado_id)
+            FROM vacaciones_movimientos vm
+            WHERE vm.tipo = 'tomado'
+              AND vm.estado = 'aprobado'
+              AND vm.revertido_por_movimiento_id IS NULL
+              AND vm.origen_movimiento_id IS NULL
+              AND vm.fecha_desde > %s
+              AND vm.fecha_desde <= %s
             """,
             (today, next_30),
         )
@@ -1072,8 +1084,12 @@ def _dashboard_metrics():
                 ),
                 0
             )
-            FROM vacaciones v
-            WHERE v.fecha_desde <= %s
+            FROM vacaciones_movimientos v
+            WHERE v.tipo = 'tomado'
+              AND v.estado = 'aprobado'
+              AND v.revertido_por_movimiento_id IS NULL
+              AND v.origen_movimiento_id IS NULL
+              AND v.fecha_desde <= %s
               AND v.fecha_hasta >= %s
             """,
             (today, month_start, today, month_start),
@@ -1090,8 +1106,12 @@ def _dashboard_metrics():
                 ),
                 0
             )
-            FROM vacaciones v
-            WHERE v.fecha_desde <= %s
+            FROM vacaciones_movimientos v
+            WHERE v.tipo = 'tomado'
+              AND v.estado = 'aprobado'
+              AND v.revertido_por_movimiento_id IS NULL
+              AND v.origen_movimiento_id IS NULL
+              AND v.fecha_desde <= %s
               AND v.fecha_hasta >= %s
             """,
             (today, year_start, today, year_start),
@@ -1606,11 +1626,15 @@ def _dashboard_metrics():
             stats["vacaciones_en_curso_hoy"] = _safe_count(
                 cursor,
                 f"""
-                SELECT COUNT(*)
-                FROM vacaciones v
+                SELECT COUNT(DISTINCT v.empleado_id)
+                FROM vacaciones_movimientos v
                 JOIN empleados e ON e.id = v.empleado_id
                 WHERE 1 = 1
                 {scope_sql}
+                  AND v.tipo = 'tomado'
+                  AND v.estado = 'aprobado'
+                  AND v.revertido_por_movimiento_id IS NULL
+                  AND v.origen_movimiento_id IS NULL
                   AND v.fecha_desde <= %s
                   AND v.fecha_hasta >= %s
                 """,
@@ -1619,11 +1643,15 @@ def _dashboard_metrics():
             stats["vacaciones_proximas_30d"] = _safe_count(
                 cursor,
                 f"""
-                SELECT COUNT(*)
-                FROM vacaciones v
+                SELECT COUNT(DISTINCT v.empleado_id)
+                FROM vacaciones_movimientos v
                 JOIN empleados e ON e.id = v.empleado_id
                 WHERE 1 = 1
                 {scope_sql}
+                  AND v.tipo = 'tomado'
+                  AND v.estado = 'aprobado'
+                  AND v.revertido_por_movimiento_id IS NULL
+                  AND v.origen_movimiento_id IS NULL
                   AND v.fecha_desde > %s
                   AND v.fecha_desde <= %s
                 """,
@@ -1641,14 +1669,18 @@ def _dashboard_metrics():
                     ),
                     0
                 )
-                FROM vacaciones v
+                FROM vacaciones_movimientos v
                 JOIN empleados e ON e.id = v.empleado_id
                 WHERE 1 = 1
                 {scope_sql}
+                  AND v.tipo = 'tomado'
+                  AND v.estado = 'aprobado'
+                  AND v.revertido_por_movimiento_id IS NULL
+                  AND v.origen_movimiento_id IS NULL
                   AND v.fecha_desde <= %s
                   AND v.fecha_hasta >= %s
                 """,
-                (*scoped_params, today, month_start, today, month_start),
+                (today, month_start, *scoped_params, today, month_start),
             )
             stats["vacaciones_dias_anio"] = _safe_count(
                 cursor,
@@ -1662,14 +1694,18 @@ def _dashboard_metrics():
                     ),
                     0
                 )
-                FROM vacaciones v
+                FROM vacaciones_movimientos v
                 JOIN empleados e ON e.id = v.empleado_id
                 WHERE 1 = 1
                 {scope_sql}
+                  AND v.tipo = 'tomado'
+                  AND v.estado = 'aprobado'
+                  AND v.revertido_por_movimiento_id IS NULL
+                  AND v.origen_movimiento_id IS NULL
                   AND v.fecha_desde <= %s
                   AND v.fecha_hasta >= %s
                 """,
-                (*scoped_params, today, year_start, today, year_start),
+                (today, year_start, *scoped_params, today, year_start),
             )
 
             scoped_hours = _calc_hours_scope_summary(empresa_id, sucursal_id)
@@ -1792,10 +1828,14 @@ def _dashboard_metrics():
                 e.nombre,
                 COALESCE(emp.razon_social, 'Sin empresa') AS empresa,
                 DATEDIFF(v.fecha_hasta, v.fecha_desde) + 1 AS dias
-            FROM vacaciones v
+            FROM vacaciones_movimientos v
             JOIN empleados e ON e.id = v.empleado_id
             LEFT JOIN empresas emp ON emp.id = e.empresa_id
-            WHERE v.fecha_desde > %s
+            WHERE v.tipo = 'tomado'
+              AND v.estado = 'aprobado'
+              AND v.revertido_por_movimiento_id IS NULL
+              AND v.origen_movimiento_id IS NULL
+              AND v.fecha_desde > %s
               AND v.fecha_desde <= %s
               {scope_sql}
             ORDER BY v.fecha_desde ASC, e.apellido ASC, e.nombre ASC
@@ -1829,10 +1869,14 @@ def _dashboard_metrics():
                         DATEDIFF(LEAST(v.fecha_hasta, %s), GREATEST(v.fecha_desde, %s)) + 1
                     )
                 ) AS dias
-            FROM vacaciones v
+            FROM vacaciones_movimientos v
             JOIN empleados e ON e.id = v.empleado_id
             LEFT JOIN empresas emp ON emp.id = e.empresa_id
-            WHERE v.fecha_desde <= %s
+            WHERE v.tipo = 'tomado'
+              AND v.estado = 'aprobado'
+              AND v.revertido_por_movimiento_id IS NULL
+              AND v.origen_movimiento_id IS NULL
+              AND v.fecha_desde <= %s
               AND v.fecha_hasta >= %s
               {scope_sql}
             GROUP BY e.id, e.apellido, e.nombre, emp.razon_social

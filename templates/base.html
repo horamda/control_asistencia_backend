@@ -138,6 +138,8 @@
                   <a class="nav-link" href="/pedidos-mercaderia/">Pedidos mercaderia</a>
                   <a class="nav-link" href="/francos/">Francos</a>
                   <a class="nav-link" href="/vacaciones/">Vacaciones</a>
+                  <a class="nav-link" href="/vacaciones/reporte">Reporte vacaciones</a>
+                  <a class="nav-link" href="/vacaciones/gantt">Gantt vacaciones</a>
                 {% endif %}
               </div>
             </div>
@@ -172,6 +174,22 @@
                   <a class="nav-link" href="/premios-concursos/">Concursos</a>
                   <a class="nav-link" href="/premios-concursos/resultados">Resultados</a>
                   <a class="nav-link" href="/premios-concursos/resultados/importar">Importar resultados</a>
+                </div>
+              </div>
+            {% endif %}
+
+            {% if current_role in ["admin", "rrhh"] %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-trivias">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span class="nav-label">Trivias</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-trivias">
+                  <a class="nav-link" href="/admin/trivias/">Trivias</a>
+                  <a class="nav-link" href="/admin/trivias/ranking-anual">Ranking anual</a>
                 </div>
               </div>
             {% endif %}

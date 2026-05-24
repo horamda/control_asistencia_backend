@@ -12,7 +12,7 @@ from repositories.empleado_repository import get_page as _get_empleados_page
 from repositories.asistencia_repository import get_page as _get_asistencias_page
 from repositories.justificacion_repository import get_page as _get_justificaciones_page
 from repositories.justificacion_repository import get_by_id as get_justificacion_by_id
-from repositories.vacacion_repository import get_page_by_empleado as _get_vacaciones_page
+from repositories.vacaciones_repository import get_periodos_aprobados_page_by_empleado as _get_vacaciones_page
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.legajo_adjunto_repository import (
     create_adjunto,

@@ -124,8 +124,12 @@ def get_by_empleado(empleado_id: int, fecha_desde: str, fecha_hasta: str):
                     ),
                     0
                 ) AS dias
-            FROM vacaciones v
+            FROM vacaciones_movimientos v
             WHERE v.empleado_id = %s
+              AND v.tipo = 'tomado'
+              AND v.estado = 'aprobado'
+              AND v.revertido_por_movimiento_id IS NULL
+              AND v.origen_movimiento_id IS NULL
               AND v.fecha_desde <= %s
               AND v.fecha_hasta >= %s
             """,

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Trivias Operativas{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Trivias Operativas</h1>
+    <p class="page-subtitle">Gestión de trivias para empleados</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('trivia_admin.ranking_anual_view') }}" class="btn btn-ghost">Ranking anual</a>
+    <a href="{{ url_for('trivia_admin.nueva') }}" class="btn btn-primary">+ Nueva trivia</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+{# Filtros #}
+<form method="get" class="filters-bar" style="flex-wrap:wrap;gap:.5rem;margin-bottom:1.25rem">
+  <select name="estado" class="form-control" style="min-width:140px">
+    <option value="">Todos los estados</option>
+    {% for e in estados %}
+      <option value="{{ e }}" {% if filtro_estado == e %}selected{% endif %}>{{ e|capitalize }}</option>
+    {% endfor %}
+  </select>
+  <select name="anio" class="form-control" style="min-width:100px">
+    <option value="">Todos los años</option>
+    {% for a in anios %}
+      <option value="{{ a }}" {% if filtro_anio == a %}selected{% endif %}>{{ a }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-secondary">Filtrar</button>
+  {% if filtro_estado or filtro_anio %}
+    <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost">✕ Limpiar</a>
+  {% endif %}
+  <span style="margin-left:auto;color:var(--muted);font-size:.85rem;align-self:center">
+    {{ total }} resultado{{ 's' if total != 1 else '' }}
+  </span>
+</form>
+
+{# Tabla #}
+<div class="card">
+  <div class="table-responsive table-cards">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Título</th>
+          <th>Año</th>
+          <th>Inicio</th>
+          <th>Fin</th>
+          <th>Estado</th>
+          <th>Premio</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in trivias %}
+        <tr style="cursor:pointer" onclick="window.location='{{ url_for('trivia_admin.detalle', trivia_id=t.id) }}'">
+          <td data-label="Título"><strong>{{ t.titulo }}</strong></td>
+          <td data-label="Año">{{ t.anio }}</td>
+          <td data-label="Inicio">{{ t.fecha_inicio.strftime('%d/%m/%Y %H:%M') if t.fecha_inicio else '—' }}</td>
+          <td data-label="Fin">{{ t.fecha_fin.strftime('%d/%m/%Y %H:%M') if t.fecha_fin else '—' }}</td>
+          <td data-label="Estado">
+            {% set badge_cls = 'ok' if t.estado == 'activa' else 'warning' if t.estado == 'programada' else 'inactivo' if t.estado == 'finalizada' else 'ghost' %}
+            <span class="badge {{ badge_cls }}">{{ t.estado|capitalize }}</span>
+          </td>
+          <td data-label="Premio">{{ t.premio or '—' }}</td>
+          <td data-label="Acciones" class="inline-actions" onclick="event.stopPropagation()">
+            <a href="{{ url_for('trivia_admin.detalle', trivia_id=t.id) }}" class="btn btn-sm btn-secondary">Ver</a>
+            <a href="{{ url_for('trivia_admin.editar', trivia_id=t.id) }}" class="btn btn-sm btn-ghost">Editar</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center text-muted" style="padding:2rem">
+            No hay trivias registradas{% if filtro_estado or filtro_anio %} con los filtros seleccionados{% endif %}.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Paginación #}
+{% if pages > 1 %}
+<div class="pagination" style="margin-top:1rem">
+  {% for p in range(1, pages + 1) %}
+    <a href="?page={{ p }}{% if filtro_estado %}&estado={{ filtro_estado }}{% endif %}{% if filtro_anio %}&anio={{ filtro_anio }}{% endif %}"
+       class="page-link {% if p == page %}active{% endif %}">{{ p }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

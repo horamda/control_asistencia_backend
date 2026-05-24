@@ -50,10 +50,6 @@ from repositories.articulo_catalogo_pedido_repository import (
 )
 from repositories.vacacion_repository import (
     get_page_by_empleado as get_vacaciones_page_by_empleado,
-    get_by_id as get_vacacion_by_id,
-    create as create_vacacion_row,
-    update as update_vacacion_row,
-    delete as delete_vacacion_row,
 )
 from repositories.justificacion_repository import (
     get_by_id as get_justificacion_by_id,
@@ -79,10 +75,14 @@ from services.justificacion_service import (
 from services.vacaciones_service import (
     VacacionesError,
     VacacionesSaldoInsuficienteError,
+    cancelar_movimiento_vacaciones,
     calcular_resumen_vacaciones,
+    editar_movimiento_vacaciones_pendiente,
     listar_movimientos_vacaciones,
+    rechazar_movimiento_vacaciones,
     solicitar_vacaciones as solicitar_vacaciones_svc,
 )
+from repositories.vacaciones_repository import get_movimiento_by_id as get_vacaciones_movimiento_by_id
 from services.legajo_attachment_service import resolve_legajo_storage_path
 from services.legajo_service import (
     calcular_resumen_legajo,
@@ -1520,12 +1520,15 @@ def me_justificaciones_delete(justificacion_id):
 
 def _vacacion_to_dict(v: dict) -> dict:
     fh = v.get("fecha_hasta")
+    observaciones = v.get("observaciones")
+    if observaciones is None:
+        observaciones = v.get("observacion")
     return {
         "id": v.get("id"),
         "empleado_id": v.get("empleado_id"),
         "fecha_desde": _to_date_str(v.get("fecha_desde")),
         "fecha_hasta": _to_date_str(fh) if fh is not None else None,
-        "observaciones": v.get("observaciones") or "",
+        "observaciones": observaciones or "",
     }
 
 
@@ -1560,7 +1563,7 @@ def me_vacaciones_detail(vacacion_id):
     if not empleado:
         return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
 
-    v = get_vacacion_by_id(vacacion_id)
+    v = get_vacaciones_movimiento_by_id(vacacion_id)
     if not v or v.get("empleado_id") != int(empleado["id"]):
         return jsonify({"error": "Vacacion no encontrada"}), 404
 
@@ -1585,16 +1588,20 @@ def me_vacaciones_create():
     if fecha_desde > fecha_hasta:
         return jsonify({"error": "fecha_desde no puede ser posterior a fecha_hasta"}), 400
 
-    data = {
-        "empleado_id": int(empleado["id"]),
-        "empresa_id": empleado.get("empresa_id"),
-        "fecha_desde": fecha_desde,
-        "fecha_hasta": fecha_hasta,
-        "observaciones": observaciones,
-    }
-    vac_id = create_vacacion_row(data)
-    v = get_vacacion_by_id(vac_id)
-    return jsonify(_vacacion_to_dict(v)), 201
+    try:
+        solicitud = solicitar_vacaciones_svc(
+            empleado_id=int(empleado["id"]),
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            observacion=observaciones,
+        )
+    except VacacionesSaldoInsuficienteError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except VacacionesError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    v = get_vacaciones_movimiento_by_id(solicitud.get("id"))
+    return jsonify(_vacacion_to_dict(v or solicitud)), 201
 
 
 @mobile_v1_bp.route("/me/vacaciones/<int:vacacion_id>", methods=["PUT"])
@@ -1604,9 +1611,11 @@ def me_vacaciones_update(vacacion_id):
     if not empleado:
         return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
 
-    v = get_vacacion_by_id(vacacion_id)
+    v = get_vacaciones_movimiento_by_id(vacacion_id)
     if not v or v.get("empleado_id") != int(empleado["id"]):
         return jsonify({"error": "Vacacion no encontrada"}), 404
+    if str(v.get("estado") or "").lower() != "pendiente":
+        return jsonify({"error": "Solo se pueden editar vacaciones pendientes"}), 400
 
     payload = request.get_json(silent=True) or {}
     fecha_desde = (payload.get("fecha_desde") or "").strip() or None
@@ -1619,14 +1628,30 @@ def me_vacaciones_update(vacacion_id):
     if fecha_desde > fecha_hasta:
         return jsonify({"error": "fecha_desde no puede ser posterior a fecha_hasta"}), 400
 
-    update_vacacion_row(vacacion_id, {
-        "empleado_id": int(empleado["id"]),
-        "empresa_id": v.get("empresa_id"),
-        "fecha_desde": fecha_desde,
-        "fecha_hasta": fecha_hasta,
-        "observaciones": observaciones,
-    })
-    v = get_vacacion_by_id(vacacion_id)
+    try:
+        anio = int(str(fecha_desde)[:4])
+    except (TypeError, ValueError):
+        return jsonify({"error": "fecha_desde invalida. Use YYYY-MM-DD."}), 400
+
+    try:
+        editar_movimiento_vacaciones_pendiente(
+            vacacion_id,
+            {
+                "empleado_id": int(empleado["id"]),
+                "anio": anio,
+                "tipo": "tomado",
+                "dias": "",
+                "fecha_desde": fecha_desde,
+                "fecha_hasta": fecha_hasta,
+                "estado": "pendiente",
+                "observacion": observaciones,
+            },
+        )
+    except VacacionesSaldoInsuficienteError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except VacacionesError as exc:
+        return jsonify({"error": str(exc)}), 400
+    v = get_vacaciones_movimiento_by_id(vacacion_id)
     return jsonify(_vacacion_to_dict(v))
 
 
@@ -1637,11 +1662,28 @@ def me_vacaciones_delete(vacacion_id):
     if not empleado:
         return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
 
-    v = get_vacacion_by_id(vacacion_id)
+    v = get_vacaciones_movimiento_by_id(vacacion_id)
     if not v or v.get("empleado_id") != int(empleado["id"]):
         return jsonify({"error": "Vacacion no encontrada"}), 404
 
-    delete_vacacion_row(vacacion_id)
+    estado = str(v.get("estado") or "").lower()
+    try:
+        if estado == "pendiente":
+            rechazar_movimiento_vacaciones(
+                vacacion_id,
+                actor_id=int(empleado["id"]),
+                motivo="Cancelada por empleado",
+            )
+        elif estado == "aprobado":
+            cancelar_movimiento_vacaciones(
+                vacacion_id,
+                actor_id=int(empleado["id"]),
+                motivo="Cancelada por empleado",
+            )
+        else:
+            return jsonify({"error": "La vacacion ya esta resuelta"}), 400
+    except VacacionesError as exc:
+        return jsonify({"error": str(exc)}), 400
     return jsonify({"ok": True})
 
 

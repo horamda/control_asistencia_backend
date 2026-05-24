@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Preview – Gantt Vacaciones</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#eef2f7;--bg-spot:#e6edf7;--bg-grad-start:#f4f7fb;
+  --surface:#fff;--surface-soft:#f7f9fc;--surface-strong:#f1f6fd;
+  --border:#d6deea;--text:#111827;--muted:#5f6b7c;
+  --primary:#0f4c81;--primary-strong:#09365d;--primary-soft:#e7f0fb;
+  --success:#1e7a4f;--warning:#b26c00;--danger:#b32135;--info:#1f5f8f;
+  --radius:12px;--shadow:0 8px 24px rgba(16,42,67,.08);
+}
+[data-theme=dark]{
+  --bg:#0f1725;--bg-spot:#162338;--surface:#162335;--surface-soft:#1a2a3d;--surface-strong:#203248;
+  --border:#2f425a;--text:#e5edf7;--muted:#9db0c9;
+  --primary:#3f8ed8;--primary-strong:#2a6fb0;--primary-soft:#19314d;
+  --success:#2fb672;--warning:#e1a230;--danger:#d05a6b;--info:#49a0dc;
+  --shadow:0 10px 26px rgba(2,9,16,.35);
+}
+body{background:var(--bg);color:var(--text);font-family:'Source Sans 3',sans-serif;font-size:14px;min-height:100vh;padding:24px}
+h1,h2{font-family:Manrope,sans-serif}
+
+/* Shell simplificado */
+.page{max-width:1100px;margin:auto;display:flex;flex-direction:column;gap:18px}
+
+/* Section head */
+.section-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.kicker{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-2);margin-bottom:4px}
+.section-head h2{font-size:22px;font-weight:800}
+.intro{font-size:13px;color:var(--text-2);margin-top:4px}
+.chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.chip{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:3px 12px;font-size:11px;font-weight:600;color:var(--text-2)}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.year-nav{display:flex;align-items:center;gap:6px}
+.btn-year{background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:4px 14px;font-size:20px;line-height:1;color:var(--text)}
+.year-label{font-size:20px;font-weight:800;font-family:Manrope,sans-serif;min-width:4ch;text-align:center}
+.btn{background:var(--primary);color:#fff;border:none;border-radius:7px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
+.btn-sec{background:none;border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer}
+
+/* Metrics */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:700px){.metrics{grid-template-columns:repeat(2,1fr)}}
+.mc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.mc-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-2);margin-bottom:6px}
+.mc-value{font-size:28px;font-weight:800;line-height:1;font-family:Manrope,sans-serif}
+.mc-value.warn{color:#dc3545}
+.mc-value.ok{color:var(--success)}
+
+/* Gantt */
+.gantt-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.gantt-scroll{overflow-x:auto}
+.gantt-inner{min-width:860px}
+
+.gantt-header{display:flex;border-bottom:2px solid var(--border);background:var(--bg)}
+.g-name-col{width:190px;flex-shrink:0;padding:8px 12px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);border-right:1px solid var(--border)}
+.g-months{flex:1;display:flex}
+.g-month{font-size:11px;font-weight:700;color:var(--text-2);text-align:center;padding:8px 2px;border-right:1px solid var(--border);overflow:hidden;white-space:nowrap}
+.g-month:last-child{border-right:none}
+
+.gantt-row{display:flex;min-height:38px;border-bottom:1px solid var(--border)}
+.gantt-row:last-child{border-bottom:none}
+.gantt-row:hover{background:rgba(15,76,129,.03)}
+.g-row-name{width:190px;flex-shrink:0;padding:4px 12px;font-size:13px;font-weight:500;display:flex;align-items:center;border-right:1px solid var(--border)}
+.g-track{flex:1;position:relative;min-height:38px}
+
+.g-bar{position:absolute;top:7px;height:24px;border-radius:5px;cursor:pointer;z-index:2;min-width:4px}
+.g-bar.aprobado{background:#378ADD}
+.g-bar.pendiente{background:#a0c4f1;border:1px dashed #378ADD}
+.g-overlap{position:absolute;top:0;bottom:0;background:rgba(220,53,69,.13);border-left:1px solid rgba(220,53,69,.35);border-right:1px solid rgba(220,53,69,.35);z-index:1;pointer-events:none}
+.g-mline{position:absolute;top:0;bottom:0;width:1px;background:var(--border);z-index:1;pointer-events:none}
+.g-today{position:absolute;top:0;bottom:0;width:2px;background:#dc3545;z-index:3;pointer-events:none}
+
+/* Legend */
+.legend{display:flex;gap:20px;flex-wrap:wrap;align-items:center;padding:10px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--text-2)}
+.leg{display:flex;align-items:center;gap:6px}
+.leg-sw{width:22px;height:12px;border-radius:3px;flex-shrink:0}
+
+/* Tooltip */
+.tooltip{position:fixed;z-index:1200;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;box-shadow:0 6px 24px rgba(0,0,0,.16);min-width:210px;max-width:280px;display:none;font-size:13px;pointer-events:none;top:200px;right:60px}
+.tooltip.show{display:block;pointer-events:all}
+.tt-emp{font-weight:700;margin-bottom:3px}
+.tt-rng{font-size:12px;color:var(--text-2)}
+.tt-dias{font-size:12px;margin-top:2px}
+.tt-est{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:#e0edf9;color:#1a5fa8}
+.btn-edit{display:block;margin-top:8px;width:100%;padding:5px 0;background:var(--primary);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-del{display:block;margin-top:6px;width:100%;padding:5px 0;background:#dc3545;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+
+/* Modal backdrop (visible in demo) */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;display:none;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:14px;width:480px;max-width:95vw;padding:28px;box-shadow:0 10px 48px rgba(0,0,0,.22)}
+.modal-title{font-size:18px;font-weight:800;font-family:Manrope,sans-serif;margin-bottom:20px}
+.mfield{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.mfield label{font-size:13px;font-weight:600}
+.mfield select,.mfield input,.mfield textarea{border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:14px;background:var(--bg);color:var(--text)}
+.mfield textarea{resize:vertical;min-height:64px}
+.dpair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dias-prev{font-size:12px;color:var(--text-2);margin-top:-8px;margin-bottom:8px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+
+/* Theme toggle */
+.theme-btn{position:fixed;top:16px;right:16px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text)}
+</style>
+</head>
+<body>
+
+<button class="theme-btn" onclick="toggleTheme()">🌙 Tema oscuro</button>
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="section-head">
+    <div>
+      <div class="kicker">RRHH</div>
+      <h2>Gantt de vacaciones</h2>
+      <p class="intro">Vista anual de períodos tomados por el equipo. Los solapamientos se marcan automáticamente.</p>
+      <div class="chip-row">
+        <span class="chip">Tomados</span>
+        <span class="chip">Solapamientos</span>
+        <span class="chip">Anual</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="year-nav">
+      <button class="btn-year">&#8249;</button>
+      <span class="year-label">2026</span>
+      <button class="btn-year">&#8250;</button>
+    </div>
+    <button class="btn" onclick="document.getElementById('modal-bg').classList.add('open')">+ Nuevo período</button>
+    <button class="btn-sec">Ver listado</button>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="mc"><div class="mc-label">Períodos registrados</div><div class="mc-value">8</div></div>
+    <div class="mc"><div class="mc-label">Días acumulados</div><div class="mc-value">124</div></div>
+    <div class="mc"><div class="mc-label">Días con solapamiento</div><div class="mc-value warn">12</div></div>
+    <div class="mc"><div class="mc-label">Empleados con vacaciones</div><div class="mc-value">5</div></div>
+  </div>
+
+  <!-- Gantt -->
+  <div class="gantt-card">
+    <div class="gantt-scroll">
+      <div class="gantt-inner" id="gantt-inner"><!-- generated by JS --></div>
+    </div>
+    <div class="legend">
+      <span class="leg"><span class="leg-sw" style="background:#378ADD"></span> Aprobado</span>
+      <span class="leg"><span class="leg-sw" style="background:#a0c4f1;border:1px dashed #378ADD"></span> Pendiente</span>
+      <span class="leg"><span class="leg-sw" style="background:rgba(220,53,69,.18);border:1px solid rgba(220,53,69,.4)"></span> Solapamiento</span>
+      <span class="leg"><span style="display:inline-block;width:3px;height:14px;background:#dc3545;border-radius:1px"></span> Hoy</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Tooltip demo (siempre visible) -->
+<div class="tooltip show" id="tooltip">
+  <div class="tt-emp">García, Lucas</div>
+  <div class="tt-rng">13/01 → 17/01</div>
+  <div class="tt-dias">5 días</div>
+  <span class="tt-est">Aprobado</span>
+  <button class="btn-edit">Editar período</button>
+  <button class="btn-del" onclick="document.getElementById('tooltip').classList.remove('show')">Eliminar período</button>
+</div>
+
+<!-- Modal demo -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title">Nuevo período de vacaciones</div>
+    <div class="mfield">
+      <label>Empleado</label>
+      <select><option>García, Lucas</option><option>Martínez, Ana</option><option>Fernández, Carla</option></select>
+    </div>
+    <div class="dpair">
+      <div class="mfield"><label>Desde</label><input type="date" value="2026-07-01"></div>
+      <div class="mfield"><label>Hasta</label><input type="date" value="2026-07-14"></div>
+    </div>
+    <div class="dias-prev">Duración: 14 días</div>
+    <div class="mfield"><label>Observación</label><textarea placeholder="Opcional..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="document.getElementById('modal-bg').classList.remove('open')">Cancelar</button>
+      <button class="btn">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Datos de demo
+const year = 2026;
+const isLeap = y => (y%4===0&&y%100!==0)||y%400===0;
+const totDays = y => isLeap(y)?366:365;
+const mDays   = y => { const d=[31,28,31,30,31,30,31,31,30,31,30,31]; if(isLeap(y))d[1]=29; return d; };
+const pct = (n,tot) => (n/tot*100).toFixed(4)+'%';
+const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function dayOfYear(s, y) {
+  const d = new Date(s+'T00:00:00'), st = new Date(y,0,1);
+  return Math.round((d-st)/86400000);
+}
+
+const empleados = [
+  { nombre:'García, Lucas',    movs:[ {desde:'2026-01-13',hasta:'2026-01-24',est:'aprobado'}, {desde:'2026-07-07',hasta:'2026-07-18',est:'aprobado'} ] },
+  { nombre:'Martínez, Ana',    movs:[ {desde:'2026-01-19',hasta:'2026-02-06',est:'aprobado'}, {desde:'2026-09-14',hasta:'2026-09-25',est:'aprobado'} ] },
+  { nombre:'Fernández, Carla', movs:[ {desde:'2026-03-02',hasta:'2026-03-13',est:'aprobado'}, {desde:'2026-12-21',hasta:'2026-12-31',est:'pendiente'} ] },
+  { nombre:'López, Roberto',   movs:[ {desde:'2026-04-06',hasta:'2026-04-17',est:'aprobado'}, {desde:'2026-08-03',hasta:'2026-08-14',est:'aprobado'} ] },
+  { nombre:'Sánchez, Patricia',movs:[ {desde:'2026-01-26',hasta:'2026-02-13',est:'aprobado'} ] },
+];
+
+// Overlap: Ene 19-24 (García y Martínez), Ene 26 - Feb 06 (Martínez y Sánchez)
+const overlaps = [
+  { desde:'2026-01-19', hasta:'2026-01-24' },
+  { desde:'2026-01-26', hasta:'2026-02-06' },
+];
+
+const tot = totDays(year);
+const md  = mDays(year);
+const today = new Date();
+const todPct = today.getFullYear()===year ? pct(dayOfYear(today.toISOString().slice(0,10),year),tot) : null;
+
+// Overlap zones as pct
+const ovZones = overlaps.map(ov => ({
+  left: pct(dayOfYear(ov.desde,year),tot),
+  width: pct(dayOfYear(ov.hasta,year)-dayOfYear(ov.desde,year)+1,tot),
+}));
+
+let html = '<div class="gantt-header"><div class="g-name-col">Empleado</div><div class="g-months">';
+for(let mi=0;mi<12;mi++){
+  const w=(md[mi]/tot*100).toFixed(4);
+  html+=`<div class="g-month" style="flex:0 0 ${w}%">${MONTHS[mi]}</div>`;
+}
+html+='</div></div>';
+
+for(const emp of empleados){
+  html+=`<div class="gantt-row"><div class="g-row-name">${emp.nombre}</div><div class="g-track">`;
+  // month lines
+  let da=0;
+  for(let mi=0;mi<11;mi++){da+=md[mi];html+=`<div class="g-mline" style="left:${pct(da,tot)}"></div>`;}
+  // overlaps
+  for(const ov of ovZones) html+=`<div class="g-overlap" style="left:${ov.left};width:${ov.width}"></div>`;
+  // today
+  if(todPct) html+=`<div class="g-today" style="left:${todPct}"></div>`;
+  // bars
+  for(const m of emp.movs){
+    const d0=dayOfYear(m.desde,year), d1=dayOfYear(m.hasta,year);
+    const cd0=Math.max(0,d0), cd1=Math.min(tot-1,d1);
+    html+=`<div class="g-bar ${m.est}" style="left:${pct(cd0,tot)};width:${pct(cd1-cd0+1,tot)}"
+      onmouseenter="showTT(this,event)" onmousemove="moveTT(event)" onmouseleave="hideTT()"
+      data-emp="${emp.nombre}" data-d="${m.desde}" data-h="${m.hasta}" data-est="${m.est}"
+      title="${m.desde} → ${m.hasta}"></div>`;
+  }
+  html+='</div></div>';
+}
+
+document.getElementById('gantt-inner').innerHTML = html;
+
+// Tooltip logic
+const tt = document.getElementById('tooltip');
+let hideT;
+function showTT(b,e){
+  clearTimeout(hideT);
+  tt.querySelector('.tt-emp').textContent  = b.dataset.emp;
+  const [,m1,d1]=b.dataset.d.split('-'), [,m2,d2]=b.dataset.h.split('-');
+  tt.querySelector('.tt-rng').textContent  = d1+'/'+m1+' → '+d2+'/'+m2;
+  const ms=new Date(b.dataset.h)-new Date(b.dataset.d), dias=Math.round(ms/86400000)+1;
+  tt.querySelector('.tt-dias').textContent = dias+' días';
+  const est=tt.querySelector('.tt-est');
+  est.textContent = b.dataset.est==='aprobado'?'Aprobado':'Pendiente';
+  est.style.background = b.dataset.est==='aprobado'?'#e0edf9':'#fff3cd';
+  est.style.color       = b.dataset.est==='aprobado'?'#1a5fa8':'#856404';
+  tt.querySelector('.btn-edit').style.display = b.dataset.est==='pendiente'?'block':'none';
+  tt.classList.add('show');
+  moveTT(e);
+}
+function moveTT(e){
+  tt.style.left = Math.min(e.clientX+16, window.innerWidth-290)+'px';
+  tt.style.top  = Math.min(e.clientY+12, window.innerHeight-230)+'px';
+}
+function hideTT(){ hideT=setTimeout(()=>tt.classList.remove('show'),200); }
+tt.addEventListener('mouseenter',()=>clearTimeout(hideT));
+tt.addEventListener('mouseleave',hideTT);
+
+// Theme
+function toggleTheme(){
+  const html=document.documentElement;
+  const next = html.dataset.theme==='dark'?'light':'dark';
+  html.dataset.theme = next;
+  document.querySelector('.theme-btn').textContent = next==='dark'?'☀️ Tema claro':'🌙 Tema oscuro';
+}
+</script>
+</body>
+</html>

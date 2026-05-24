@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Reporte de vacaciones{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">RRHH</div>
+      <h2>Reporte de vacaciones</h2>
+      <p class="module-intro">
+        Consulte dias que corresponden, compensatorios, tomados y pendientes de tomarse por empleado.
+      </p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">Todo el personal</span>
+      <span class="chip">Filtro por area</span>
+      <span class="chip">CSV</span>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn btn-secondary" href="{{ url_for('vacaciones.listado') }}">Volver a gestion</a>
+    <a
+      class="btn"
+      href="{{ url_for('vacaciones.reporte_export_csv', anio=anio, sector_id=sector_id or None, q=q or None, activo=(activo if activo != '1' else None)) }}"
+    >
+      Exportar CSV
+    </a>
+  </div>
+
+  <form method="get" action="{{ url_for('vacaciones.reporte') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Area / sector</label>
+        <select name="sector_id">
+          <option value="">Todas</option>
+          {% for s in sectores %}
+            <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>
+              {{ s.nombre }}{% if s.empresa_nombre %} - {{ s.empresa_nombre }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Anio</label>
+        <select name="anio">
+          {% for year in years %}
+            <option value="{{ year }}" {% if anio == year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Estado empleado</label>
+        <select name="activo">
+          <option value="1" {% if activo == "1" %}selected{% endif %}>Activos</option>
+          <option value="0" {% if activo == "0" %}selected{% endif %}>Inactivos</option>
+          <option value="all" {% if activo == "all" %}selected{% endif %}>Todos</option>
+        </select>
+      </div>
+
+      <div class="row span-3">
+        <label>Buscar</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Apellido, nombre, DNI, legajo o area">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('vacaciones.reporte') }}">Limpiar</a>
+    </div>
+  </form>
+
+  <section class="grid-kpis dashboard-kpis">
+    <article class="kpi-card">
+      <div class="kpi-label">Empleados</div>
+      <div class="kpi-value">{{ totals.empleados }}</div>
+      <div class="kpi-desc">{{ totals.con_error }} con datos incompletos</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Corresponden</div>
+      <div class="kpi-value">{{ "%.2f"|format(totals.dias_corresponden) }}</div>
+      <div class="kpi-desc">dias totales del filtro</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Compensatorios</div>
+      <div class="kpi-value">{{ "%.2f"|format(totals.dias_compensatorios) }}</div>
+      <div class="kpi-desc">dias aprobados</div>
+    </article>
+    <article class="kpi-card">
+      <div class="kpi-label">Tomados</div>
+      <div class="kpi-value">{{ "%.2f"|format(totals.dias_tomados) }}</div>
+      <div class="kpi-desc">aprobados</div>
+    </article>
+    <article class="kpi-card tone-ok">
+      <div class="kpi-label">Pendientes por tomar</div>
+      <div class="kpi-value">{{ "%.2f"|format(totals.dias_pendientes_por_tomar) }}</div>
+      <div class="kpi-desc">saldo no tomado</div>
+    </article>
+  </section>
+
+  <div class="results-bar">
+    <div class="summary">Reporte anual {{ anio }}</div>
+    <div class="summary">
+      {% if sector_id %}Area filtrada{% else %}Todas las areas{% endif %}
+    </div>
+    <div class="summary">{{ rows|length }} empleado(s) en pantalla</div>
+  </div>
+
+  {% if rows %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead>
+          <tr>
+            <th>Empleado</th>
+            <th>Area</th>
+            <th>Puesto</th>
+            <th>Corresponden</th>
+            <th>Compensatorios</th>
+            <th>Tomados</th>
+            <th>Pendientes por tomar</th>
+            <th>Solicitudes pendientes</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td data-label="Empleado">
+                <strong>{{ row.apellido }} {{ row.nombre }}</strong>
+                <div class="helper-text">
+                  {% if row.dni %}DNI {{ row.dni }}{% endif %}
+                  {% if row.legajo %} | Legajo {{ row.legajo }}{% endif %}
+                </div>
+                <div class="helper-text">{{ row.empresa_nombre or "-" }}</div>
+              </td>
+              <td data-label="Area">{{ row.sector_nombre or "-" }}</td>
+              <td data-label="Puesto">{{ row.puesto_nombre or "-" }}</td>
+              <td data-label="Corresponden">
+                {{ "%.2f"|format(row.dias_corresponden or 0) }}
+                {% if row.antiguedad_al_31_12 is not none %}
+                  <div class="helper-text">Base {{ "%.2f"|format(row.dias_base or 0) }} | {{ row.antiguedad_al_31_12 }} anio(s)</div>
+                {% endif %}
+              </td>
+              <td data-label="Compensatorios">
+                {{ "%.2f"|format(row.dias_compensatorios or 0) }}
+                {% if row.dias_ajustes %}
+                  <div class="helper-text">Ajustes {{ "%.2f"|format(row.dias_ajustes) }}</div>
+                {% endif %}
+              </td>
+              <td data-label="Tomados">{{ "%.2f"|format(row.dias_tomados or 0) }}</td>
+              <td data-label="Pendientes por tomar">{{ "%.2f"|format(row.dias_pendientes_por_tomar or 0) }}</td>
+              <td data-label="Solicitudes pendientes">{{ "%.2f"|format(row.dias_pendientes or 0) }}</td>
+              <td data-label="Estado">
+                {% if row.error %}
+                  <span class="badge danger">Error</span>
+                  <div class="helper-text">{{ row.error }}</div>
+                {% else %}
+                  {% if row.calculo_proporcional %}
+                    <span class="badge warning">Proporcional</span>
+                  {% elif row.aplica_control_proporcional %}
+                    <span class="badge">Control proporcional</span>
+                  {% else %}
+                    <span class="badge ok">Calculado</span>
+                  {% endif %}
+                  <div class="helper-text">{{ row.estado or "-" }}</div>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay empleados para los filtros seleccionados.</div>
+  {% endif %}
+</div>
+{% endblock %}

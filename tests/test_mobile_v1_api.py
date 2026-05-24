@@ -2140,6 +2140,7 @@ _FAKE_VAC_ROW = {
     "fecha_desde": "2026-01-10",
     "fecha_hasta": "2026-01-20",
     "observaciones": "Vacaciones anuales",
+    "estado": "pendiente",
 }
 
 
@@ -2164,7 +2165,7 @@ def test_mobile_vacaciones_list_ok(monkeypatch):
 
 def test_mobile_vacaciones_detail_ok(monkeypatch):
     _setup_vac_auth(monkeypatch)
-    monkeypatch.setattr(mobile_routes, "get_vacacion_by_id", lambda _: _FAKE_VAC_ROW)
+    monkeypatch.setattr(mobile_routes, "get_vacaciones_movimiento_by_id", lambda _: _FAKE_VAC_ROW)
     client = _build_client(monkeypatch)
     resp = client.get("/api/v1/mobile/me/vacaciones/7", headers=_auth_headers())
     assert resp.status_code == 200
@@ -2174,7 +2175,7 @@ def test_mobile_vacaciones_detail_ok(monkeypatch):
 def test_mobile_vacaciones_detail_ajena_retorna_404(monkeypatch):
     _setup_vac_auth(monkeypatch)
     monkeypatch.setattr(
-        mobile_routes, "get_vacacion_by_id",
+        mobile_routes, "get_vacaciones_movimiento_by_id",
         lambda _: {**_FAKE_VAC_ROW, "empleado_id": 999}
     )
     client = _build_client(monkeypatch)
@@ -2186,10 +2187,11 @@ def test_mobile_vacaciones_create_ok(monkeypatch):
     _setup_vac_auth(monkeypatch)
     created = {}
     monkeypatch.setattr(
-        mobile_routes, "create_vacacion_row",
-        lambda data: (created.update(data) or 7)
+        mobile_routes,
+        "solicitar_vacaciones_svc",
+        lambda **data: (created.update(data) or {"id": 7})
     )
-    monkeypatch.setattr(mobile_routes, "get_vacacion_by_id", lambda _: _FAKE_VAC_ROW)
+    monkeypatch.setattr(mobile_routes, "get_vacaciones_movimiento_by_id", lambda _: _FAKE_VAC_ROW)
     client = _build_client(monkeypatch)
     resp = client.post(
         "/api/v1/mobile/me/vacaciones",
@@ -2226,10 +2228,11 @@ def test_mobile_vacaciones_create_fechas_invertidas_retorna_400(monkeypatch):
 
 def test_mobile_vacaciones_update_ok(monkeypatch):
     _setup_vac_auth(monkeypatch)
-    monkeypatch.setattr(mobile_routes, "get_vacacion_by_id", lambda _: _FAKE_VAC_ROW)
+    monkeypatch.setattr(mobile_routes, "get_vacaciones_movimiento_by_id", lambda _: _FAKE_VAC_ROW)
     updated = {}
     monkeypatch.setattr(
-        mobile_routes, "update_vacacion_row",
+        mobile_routes,
+        "editar_movimiento_vacaciones_pendiente",
         lambda vid, data: updated.update({"vid": vid, **data})
     )
     client = _build_client(monkeypatch)
@@ -2244,11 +2247,12 @@ def test_mobile_vacaciones_update_ok(monkeypatch):
 
 def test_mobile_vacaciones_delete_ok(monkeypatch):
     _setup_vac_auth(monkeypatch)
-    monkeypatch.setattr(mobile_routes, "get_vacacion_by_id", lambda _: _FAKE_VAC_ROW)
+    monkeypatch.setattr(mobile_routes, "get_vacaciones_movimiento_by_id", lambda _: _FAKE_VAC_ROW)
     deleted = {}
     monkeypatch.setattr(
-        mobile_routes, "delete_vacacion_row",
-        lambda vid: deleted.update({"vid": vid})
+        mobile_routes,
+        "rechazar_movimiento_vacaciones",
+        lambda vid, **kw: deleted.update({"vid": vid, **kw})
     )
     client = _build_client(monkeypatch)
     resp = client.delete("/api/v1/mobile/me/vacaciones/7", headers=_auth_headers())
@@ -2260,7 +2264,7 @@ def test_mobile_vacaciones_delete_ok(monkeypatch):
 def test_mobile_vacaciones_delete_ajena_retorna_404(monkeypatch):
     _setup_vac_auth(monkeypatch)
     monkeypatch.setattr(
-        mobile_routes, "get_vacacion_by_id",
+        mobile_routes, "get_vacaciones_movimiento_by_id",
         lambda _: {**_FAKE_VAC_ROW, "empleado_id": 999}
     )
     client = _build_client(monkeypatch)

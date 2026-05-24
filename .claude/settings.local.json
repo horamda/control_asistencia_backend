@@ -20,7 +20,10 @@
       "Bash(grep -n '\\\\\\\\me\\\\\\\\' \"/c/Users/horac/Desktop/Proyectos WEB/control_asistencia/backend/routes/mobile_v1_routes.py\")",
       "Bash(py -m pytest --tb=short)",
       "Bash(py -m pytest tests/ --tb=short)",
-      "Bash(find \"/c/Users/horac/Desktop/Proyectos WEB/control_asistencia/backend/migrations\" -name \"*.sql\" -exec basename {} \\\\;)"
+      "Bash(find \"/c/Users/horac/Desktop/Proyectos WEB/control_asistencia/backend/migrations\" -name \"*.sql\" -exec basename {} \\\\;)",
+      "Bash(python -c ' *)",
+      "Bash(python -m pytest tests/test_vacaciones_service.py tests/test_mobile_v1_api.py -q)",
+      "Bash(python -m pytest tests/test_vacaciones_service.py tests/test_web_vacaciones.py -q)"
     ]
   }
 }
