@@ -410,8 +410,17 @@ def app_version():
     })
 
 
+def _client_ip() -> str | None:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or None
+
+
 @mobile_v1_bp.route("/auth/login", methods=["POST"])
 def auth_login():
+    from repositories.mobile_sesiones_repository import create_sesion
+
     payload = request.get_json(silent=True) or {}
     dni = str(payload.get("dni") or "").strip()
     password = str(payload.get("password") or "").strip()
@@ -426,12 +435,25 @@ def auth_login():
         )
         return jsonify({"error": AUTH_INVALID_CREDENTIALS_MESSAGE}), 401
 
+    try:
+        sesion_id = create_sesion({
+            "empleado_id": user["id"],
+            "dni": user["dni"],
+            "ip": _client_ip(),
+            "platform": str(payload.get("platform") or "").strip().lower() or None,
+            "device_model": str(payload.get("device_model") or "").strip() or None,
+            "app_version": str(payload.get("app_version") or "").strip() or None,
+        })
+    except Exception:
+        sesion_id = None
+
     token = generar_token(
         {
             "empleado_id": user["id"],
             "user_id": user["id"],
             "dni": user["dni"],
             "nombre": user["nombre"],
+            "sesion_id": sesion_id,
         }
     )
     return jsonify(
@@ -453,10 +475,19 @@ def auth_login():
 @mobile_v1_bp.route("/auth/refresh", methods=["POST"])
 @mobile_auth_required
 def auth_refresh():
+    from repositories.mobile_sesiones_repository import update_ultimo_request
+
     empleado = _mobile_user()
     if not empleado:
         current_app.logger.info("mobile_auth_refresh_failed", extra={"extra": {"reason": "inactive_or_missing"}})
         return jsonify({"error": INVALID_SESSION_MESSAGE}), 401
+
+    sesion_id = g.mobile_payload.get("sesion_id") if hasattr(g, "mobile_payload") else None
+    if sesion_id:
+        try:
+            update_ultimo_request(int(sesion_id))
+        except Exception:
+            pass
 
     token = generar_token(
         {
@@ -464,6 +495,7 @@ def auth_refresh():
             "user_id": empleado["id"],
             "dni": empleado["dni"],
             "nombre": empleado["nombre"],
+            "sesion_id": sesion_id,
         }
     )
     return jsonify({"token": token})

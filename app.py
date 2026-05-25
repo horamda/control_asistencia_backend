@@ -50,6 +50,7 @@ from web.app_version.app_version_routes import app_version_bp
 from routes.trivia_routes import trivia_bp
 from web.trivias.trivia_admin_routes import trivia_admin_bp
 from web.calificaciones_app.calificaciones_app_routes import calificaciones_app_bp
+from web.mobile_stats.mobile_stats_routes import mobile_stats_bp
 
 load_dotenv("/etc/secrets/.env", override=False)
 load_dotenv(override=False)
@@ -277,6 +278,7 @@ def create_app():
     app.register_blueprint(app_version_bp)
     app.register_blueprint(trivia_admin_bp)
     app.register_blueprint(calificaciones_app_bp)
+    app.register_blueprint(mobile_stats_bp)
 
     # API móvil trivia (exento de CSRF como el resto de la API)
     csrf.exempt(trivia_bp)

@@ -27,7 +27,9 @@
       "Bash(python scripts/migrate_20260524_03_app_calificaciones.py)",
       "Bash(ls \"c:/Users/horac/Desktop/Proyectos WEB/\" 2>/dev/null || echo \"listing done\")",
       "Read(//c/Users/horac/Desktop/Proyectos WEB/**)",
-      "Bash(python -m pytest tests/test_mobile_v1_api.py tests/test_vacaciones_service.py -q --tb=short)"
+      "Bash(python -m pytest tests/test_mobile_v1_api.py tests/test_vacaciones_service.py -q --tb=short)",
+      "Bash(python scripts/migrate_20260524_04_mobile_sesiones.py)",
+      "Bash(python -m pytest tests/test_mobile_v1_api.py -q --tb=short)"
     ],
     "additionalDirectories": [
       "c:\\Users\\horac\\Desktop\\Proyectos WEB\\control_asistencia\\frontend_flutter\\lib\\src\\core\\network",

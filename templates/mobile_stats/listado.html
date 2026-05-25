@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Uso de la app móvil{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Uso de la app móvil</h1>
+    <p class="page-subtitle">Sesiones, dispositivos y versiones activas</p>
+  </div>
+</div>
+
+{# KPIs principales #}
+<div class="grid-kpis" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:1.25rem">
+  <div class="kpi-card tone-ok">
+    <span class="kpi-value">{{ stats.sesiones_hoy }}</span>
+    <span class="kpi-label">Sesiones hoy</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ stats.usuarios_activos_7d }}</span>
+    <span class="kpi-label">Usuarios activos 7d</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ stats.usuarios_activos_30d }}</span>
+    <span class="kpi-label">Usuarios activos 30d</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ stats.sesiones_7d }}</span>
+    <span class="kpi-label">Sesiones últimos 7d</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ stats.usuarios_totales }}</span>
+    <span class="kpi-label">Usuarios totales</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ stats.total_sesiones }}</span>
+    <span class="kpi-label">Sesiones históricas</span>
+  </div>
+</div>
+
+{# Plataformas y versiones #}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
+
+  {# Plataformas #}
+  <div class="card" style="padding:1rem 1.25rem">
+    <div style="font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.75rem">Plataforma (total histórico)</div>
+    {% set total_p = stats.android + stats.ios + stats.platform_desconocida %}
+    {% for label, count, color in [
+        ('Android', stats.android, '#22c55e'),
+        ('iOS', stats.ios, '#3b82f6'),
+        ('Desconocida', stats.platform_desconocida, '#94a3b8')
+      ] %}
+    {% if count > 0 %}
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.4rem">
+      <span style="width:5rem;font-size:.85rem;font-weight:600">{{ label }}</span>
+      <div style="flex:1;background:var(--border);border-radius:99px;height:10px;overflow:hidden">
+        <div style="width:{{ (count / total_p * 100)|round(1) if total_p else 0 }}%;height:100%;background:{{ color }};border-radius:99px"></div>
+      </div>
+      <span style="width:4rem;font-size:.8rem;color:var(--muted);text-align:right">{{ count }} ({{ (count / total_p * 100)|round(1) if total_p else 0 }}%)</span>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  {# Versiones últimos 30d #}
+  <div class="card" style="padding:1rem 1.25rem">
+    <div style="font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.75rem">Versiones activas (últimos 30d)</div>
+    {% if stats.versiones_30d %}
+      {% set max_v = stats.versiones_30d[0].sesiones %}
+      {% for v in stats.versiones_30d[:8] %}
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.4rem">
+        <span style="width:4.5rem;font-size:.82rem;font-weight:600;white-space:nowrap">{{ v.version }}</span>
+        <div style="flex:1;background:var(--border);border-radius:99px;height:10px;overflow:hidden">
+          <div style="width:{{ (v.sesiones / max_v * 100)|round(1) }}%;height:100%;background:#6366f1;border-radius:99px"></div>
+        </div>
+        <span style="width:3rem;font-size:.8rem;color:var(--muted);text-align:right">{{ v.sesiones }}</span>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div style="color:var(--muted);font-size:.85rem">Sin datos de versión aún.</div>
+    {% endif %}
+  </div>
+</div>
+
+{# Actividad diaria últimos 30d #}
+{% if stats.actividad_diaria %}
+<div class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem">
+  <div style="font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.75rem">Sesiones por día (últimos 30d)</div>
+  {% set max_d = stats.actividad_diaria | map(attribute='sesiones') | max %}
+  <div style="display:flex;align-items:flex-end;gap:3px;height:60px;overflow-x:auto">
+    {% for d in stats.actividad_diaria %}
+    <div title="{{ d.dia }}: {{ d.sesiones }} sesiones"
+         style="flex:1;min-width:6px;max-width:28px;
+                height:{{ (d.sesiones / max_d * 100)|round }}%;
+                background:#6366f1;border-radius:3px 3px 0 0;
+                opacity:.85;cursor:default"></div>
+    {% endfor %}
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-top:.35rem">
+    <span>{{ stats.actividad_diaria[0].dia }}</span>
+    <span>{{ stats.actividad_diaria[-1].dia }}</span>
+  </div>
+</div>
+{% endif %}
+
+{# Filtros #}
+<form method="get" style="margin-bottom:1rem">
+  <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end">
+    <div>
+      <label class="form-label" style="font-size:.75rem">Empleado / DNI</label>
+      <input type="text" name="q" class="form-control" value="{{ filtros.q }}" placeholder="Buscar..." style="width:160px">
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Desde</label>
+      <input type="date" name="fecha_desde" class="form-control" value="{{ filtros.fecha_desde }}">
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Hasta</label>
+      <input type="date" name="fecha_hasta" class="form-control" value="{{ filtros.fecha_hasta }}">
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Plataforma</label>
+      <select name="platform" class="form-control">
+        <option value="">Todas</option>
+        <option value="android" {% if filtros.platform == 'android' %}selected{% endif %}>Android</option>
+        <option value="ios" {% if filtros.platform == 'ios' %}selected{% endif %}>iOS</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Versión</label>
+      <select name="app_version" class="form-control">
+        <option value="">Todas</option>
+        {% for v in versiones %}
+        <option value="{{ v }}" {% if filtros.app_version == v %}selected{% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary">Filtrar</button>
+    {% if filtros.q or filtros.fecha_desde or filtros.fecha_hasta or filtros.platform or filtros.app_version %}
+    <a href="{{ url_for('mobile_stats.listado') }}" class="btn btn-ghost">Limpiar</a>
+    {% endif %}
+  </div>
+</form>
+
+{# Tabla de sesiones #}
+<div class="card" style="overflow:hidden">
+  {% if sesiones %}
+  <table class="data-table table-cards">
+    <thead>
+      <tr>
+        <th>Empleado</th>
+        <th>Plataforma</th>
+        <th>Dispositivo</th>
+        <th>Versión</th>
+        <th>IP</th>
+        <th>Login</th>
+        <th>Último request</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sesiones %}
+      <tr>
+        <td data-label="Empleado">
+          <div style="font-weight:600">{{ s.empleado_nombre }}</div>
+          <div style="font-size:.78rem;color:var(--muted)">DNI {{ s.dni }}{% if s.sector_nombre %} · {{ s.sector_nombre }}{% endif %}</div>
+        </td>
+        <td data-label="Plataforma">
+          {% if s.platform == 'android' %}
+            <span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.82rem;font-weight:600;color:#22c55e">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.341a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m-9.546 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0M3.516 7.5h16.968A1.5 1.5 0 0 1 22 9v6a1.5 1.5 0 0 1-1.516 1.5H3.516A1.5 1.5 0 0 1 2 15V9a1.5 1.5 0 0 1 1.516-1.5M6.5 3.5l-1.5-2m13 2-1.5-2"/></svg>
+              Android
+            </span>
+          {% elif s.platform == 'ios' %}
+            <span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.82rem;font-weight:600;color:#3b82f6">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83"/></svg>
+              iOS
+            </span>
+          {% else %}
+            <span style="font-size:.8rem;color:var(--muted)">—</span>
+          {% endif %}
+        </td>
+        <td data-label="Dispositivo"><span style="font-size:.82rem">{{ s.device_model or '—' }}</span></td>
+        <td data-label="Versión"><span style="font-size:.82rem;font-weight:600">{{ s.app_version or '—' }}</span></td>
+        <td data-label="IP"><span style="font-size:.78rem;color:var(--muted);font-family:monospace">{{ s.ip or '—' }}</span></td>
+        <td data-label="Login" style="white-space:nowrap;font-size:.82rem">{{ s.fecha_login }}</td>
+        <td data-label="Último request" style="white-space:nowrap;font-size:.82rem">{{ s.fecha_ultimo_request or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if total_pages > 1 %}
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:.75rem 1rem;border-top:1px solid var(--border);flex-wrap:wrap;gap:.5rem">
+    <span style="font-size:.82rem;color:var(--muted)">{{ total }} sesión{{ 'es' if total != 1 else '' }} · página {{ page }} de {{ total_pages }}</span>
+    <div style="display:flex;gap:.35rem">
+      {% if page > 1 %}
+      <a href="?{{ filtros.items()|selectattr('1')|list|map(attribute=0)|join('&') }}&page={{ page - 1 }}" class="btn btn-ghost" style="padding:.3rem .6rem;font-size:.8rem">← Ant</a>
+      {% endif %}
+      {% if page < total_pages %}
+      <a href="?{{ filtros.items()|selectattr('1')|list|map(attribute=0)|join('&') }}&page={{ page + 1 }}" class="btn btn-ghost" style="padding:.3rem .6rem;font-size:.8rem">Sig →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div style="padding:2.5rem;text-align:center;color:var(--muted)">
+    <div style="font-size:2rem;margin-bottom:.5rem">📱</div>
+    <div>No hay sesiones{% if filtros.q or filtros.fecha_desde or filtros.fecha_hasta or filtros.platform or filtros.app_version %} con los filtros seleccionados{% endif %}.</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

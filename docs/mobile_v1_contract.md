@@ -1,6 +1,6 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.20.3
+Version de contrato: 1.20.4
 Fecha de corte: 2026-05-24
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
@@ -23,23 +23,80 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ### Auth
 
 #### 1. `POST /api/v1/mobile/auth/login`
-- Request:
+- Request — campos obligatorios + campos opcionales de telemetría:
 ```json
-{"dni":"30111222","password":"secreta123"}
+{
+  "dni": "30111222",
+  "password": "secreta123",
+  "platform": "android",
+  "device_model": "Samsung Galaxy A54",
+  "app_version": "1.20.4"
+}
 ```
+  | Campo | Tipo | Requerido | Notas |
+  |---|---|---|---|
+  | `dni` | string | Sí | |
+  | `password` | string | Sí | |
+  | `platform` | string | No | `"android"` o `"ios"`. Si se omite se guarda como nulo. |
+  | `device_model` | string | No | Modelo del dispositivo (ej. `"Samsung Galaxy A54"`). |
+  | `app_version` | string | No | Versión instalada de la app (ej. `"1.20.4"`). |
+
 - Response 200:
 ```json
 {
-  "token":"<jwt>",
-  "empleado":{"id":12,"dni":"30111222","nombre":"Ana","apellido":"Lopez","empresa_id":1,"foto":"https://.../30111222.jpg","imagen_version":"1709294400"}
+  "token": "<jwt>",
+  "empleado": {
+    "id": 12,
+    "dni": "30111222",
+    "nombre": "Ana",
+    "apellido": "Lopez",
+    "empresa_id": 1,
+    "foto": "https://.../30111222.jpg",
+    "imagen_version": "1709294400"
+  }
 }
 ```
+- El JWT incluye internamente `sesion_id` para tracking de último request. Flutter no necesita leerlo.
 
 #### 2. `POST /api/v1/mobile/auth/refresh`
+- Actualiza `fecha_ultimo_request` de la sesión en curso (si el token tiene `sesion_id`).
+- No requiere body.
 - Response 200:
 ```json
-{"token":"<jwt>"}
+{"token": "<jwt>"}
 ```
+- El nuevo token mantiene el mismo `sesion_id` de la sesión original.
+
+#### Flujo recomendado Flutter — Login con telemetría
+
+```dart
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'dart:io' show Platform;
+
+Future<Map<String, String>> buildLoginExtras() async {
+  final pkg = await PackageInfo.fromPlatform();
+  final deviceInfo = DeviceInfoPlugin();
+  String model = '';
+  if (Platform.isAndroid) {
+    final info = await deviceInfo.androidInfo;
+    model = '${info.brand} ${info.model}';
+  } else if (Platform.isIOS) {
+    final info = await deviceInfo.iosInfo;
+    model = info.utsname.machine;
+  }
+  return {
+    'platform': Platform.isAndroid ? 'android' : 'ios',
+    'device_model': model,
+    'app_version': pkg.version,
+  };
+}
+
+// En el servicio de auth, agregar los extras al body del login:
+final extras = await buildLoginExtras();
+final body = {'dni': dni, 'password': password, ...extras};
+```
+- `device_info_plus` ya está disponible si usás `package_info_plus`. Verificar en `pubspec.yaml`.
 
 ---
 
@@ -2105,6 +2162,14 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.20.4 (2026-05-24)
+- **Telemetría de sesiones mobile** — registro automático de cada login en tabla `mobile_sesiones`.
+  - `POST /auth/login` acepta 3 campos opcionales nuevos: `platform`, `device_model`, `app_version`. Totalmente retrocompatible — si Flutter no los envía, funciona igual y se guardan como nulos.
+  - `POST /auth/refresh` actualiza `fecha_ultimo_request` de la sesión en curso (sin cambios en la respuesta).
+  - El JWT ahora incluye `sesion_id` internamente. Flutter no necesita leerlo.
+  - Panel admin web en `/mobile-stats/` (solo admin): KPIs de sesiones hoy/7d/30d, distribución Android/iOS, versiones activas y gráfico de actividad diaria.
+  - Requiere `device_info_plus` en Flutter para enviar modelo del dispositivo. Ver flujo recomendado en endpoint 1.
 
 ### 1.20.3 (2026-05-24)
 - **Nuevo módulo: Calificación de la app** — endpoint 53.

@@ -207,6 +207,7 @@ Documento generado automaticamente desde rutas activas del backend.
 | `POST` | `/admin/trivias/<int:trivia_id>/preguntas/<int:pregunta_id>/editar` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:editar_pregunta` |
 | `GET` | `/admin/trivias/ranking-anual` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:ranking_anual` |
 | `GET` | `/calificaciones-app/` | sesion web | admin, rrhh | `web/calificaciones_app/calificaciones_app_routes.py:listado` |
+| `GET` | `/mobile-stats/` | sesion web | admin | `web/mobile_stats/mobile_stats_routes.py:listado` |
 | `POST` | `/auth/login` | publico | - | `routes/auth_routes.py:login` |
 | `GET` | `/media/empleados/foto/<dni>` | publico | - | `routes/media_routes.py:empleado_foto` |
 | `GET` | `/empleados/imagen/<dni>` | publico | - | `routes/media_routes.py:empleado_imagen` |
