@@ -1,6 +1,6 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.20.2
+Version de contrato: 1.20.3
 Fecha de corte: 2026-05-24
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
@@ -2009,6 +2009,51 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
 
 ---
 
+### Calificación de la app
+
+#### 53. `POST /api/v1/mobile/calificar-app`
+- Envía la valoración del empleado autenticado sobre la experiencia de uso de la app.
+- Un empleado solo puede calificar **una vez por versión**. Si envía `version_app: null` o lo omite, solo puede calificar una vez con versión nula.
+- Request:
+```json
+{
+  "puntuacion": 4,
+  "comentario": "Muy fácil de usar, solo falta el modo oscuro",
+  "pantalla": "asistencia",
+  "version_app": "1.20.3"
+}
+```
+  | Campo | Tipo | Requerido | Notas |
+  |---|---|---|---|
+  | `puntuacion` | int | Sí | Entero entre 1 y 5 |
+  | `comentario` | string | No | Texto libre, máx. recomendado 500 chars |
+  | `pantalla` | string | No | Nombre de la pantalla o sección desde donde se lanzó el diálogo |
+  | `version_app` | string | No | Versión de la app instalada. Si se omite se registra como nula |
+
+- Response 201:
+```json
+{"ok": true, "id": 42}
+```
+- Response 400 (puntuacion fuera de rango o ausente):
+```json
+{"ok": false, "error": "puntuacion debe ser un entero entre 1 y 5"}
+```
+- Response 409 (ya calificó esa versión):
+```json
+{"ok": false, "error": "Ya calificaste esta versión de la app"}
+```
+
+#### Flujo recomendado Flutter — Calificación de la app
+
+1. Usar `SharedPreferences` para guardar localmente si ya se mostró el diálogo para la versión actual.
+2. Lanzar `RatingAppDialog` después de N sesiones (ej. 3) o N días de uso (ej. 7), solo si no se mostró antes para esta versión.
+3. Si el usuario completa la calificación: `POST /calificar-app`.
+   - Si `ok: true` → guardar en `SharedPreferences` que ya calificó y no mostrar más para esta versión.
+   - Si `409` → marcar igualmente como ya calificado en `SharedPreferences`.
+4. Si el usuario descarta el diálogo: registrar que descartó y volver a preguntar al próximo ciclo (ej. en 7 días más).
+
+---
+
 #### Flujo recomendado Flutter — Trivia
 
 1. Al abrir el módulo: `GET /api/v1/trivia/estado`
@@ -2060,6 +2105,16 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.20.3 (2026-05-24)
+- **Nuevo módulo: Calificación de la app** — endpoint 53.
+  - `POST /api/v1/mobile/calificar-app` — envía puntuación 1–5, comentario opcional, pantalla y versión de la app.
+  - Un empleado puede calificar una vez por versión de app (`version_app` nullable; la unicidad por NULL se controla a nivel aplicación).
+  - Panel admin web en `/admin/calificaciones-app/` con KPIs, barra de distribución de estrellas y tabla filtrable por fecha, versión, puntuación y sector.
+  - Tabla MySQL: `app_calificaciones` (migración `20260524_03`).
+
+### 1.20.2 (2026-05-24)
+- Changelog reorganizado: entrada 1.20.2 ya documentada — ver abajo.
 
 ### 1.20.0 (2026-05-24)
 - **Nuevo módulo: Trivia Operativa** — prefijo `/api/v1/trivia/`

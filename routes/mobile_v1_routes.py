@@ -2797,3 +2797,35 @@ def me_premios():
         },
         "meses": meses,
     })
+
+
+@mobile_v1_bp.route("/calificar-app", methods=["POST"])
+@mobile_auth_required
+def calificar_app():
+    from repositories.calificacion_app_repository import (
+        create_calificacion,
+        existe_calificacion,
+    )
+
+    empleado = _mobile_user()
+    body = request.get_json(silent=True) or {}
+
+    puntuacion = body.get("puntuacion")
+    if puntuacion is None or not isinstance(puntuacion, int) or not (1 <= puntuacion <= 5):
+        return jsonify({"ok": False, "error": "puntuacion debe ser un entero entre 1 y 5"}), 400
+
+    version_app = str(body.get("version_app") or "").strip() or None
+
+    if existe_calificacion(empleado["id"], version_app):
+        return jsonify({"ok": False, "error": "Ya calificaste esta versión de la app"}), 409
+
+    nuevo_id = create_calificacion({
+        "empleado_id": empleado["id"],
+        "dni": str(empleado.get("dni") or ""),
+        "puntuacion": puntuacion,
+        "comentario": str(body.get("comentario") or "").strip() or None,
+        "pantalla": str(body.get("pantalla") or "").strip() or None,
+        "version_app": version_app,
+    })
+
+    return jsonify({"ok": True, "id": nuevo_id}), 201

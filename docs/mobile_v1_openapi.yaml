@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Control Asistencia — Mobile API v1
+  title: FichaYa — Mobile API v1
   version: 1.18.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.

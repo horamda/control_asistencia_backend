@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Calificaciones de la app{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Calificaciones de la app</h1>
+    <p class="page-subtitle">Valoraciones enviadas por empleados desde la app móvil</p>
+  </div>
+</div>
+
+{# KPIs #}
+<div class="grid-kpis" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:1.25rem">
+  <div class="kpi-card">
+    <span class="kpi-value">{{ estadisticas.total }}</span>
+    <span class="kpi-label">Total</span>
+  </div>
+  <div class="kpi-card {% if estadisticas.promedio >= 4 %}tone-ok{% elif estadisticas.promedio >= 3 %}tone-warn{% else %}tone-danger{% endif %}">
+    <span class="kpi-value">{{ estadisticas.promedio }}</span>
+    <span class="kpi-label">Promedio ★</span>
+  </div>
+  {% for d in estadisticas.distribucion %}
+    {% if d.cantidad > 0 %}
+    <div class="kpi-card">
+      <span class="kpi-value">{{ d.cantidad }}</span>
+      <span class="kpi-label">{{ d.estrellas }}★ ({{ d.porcentaje }}%)</span>
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+{# Barra de distribución visual #}
+{% if estadisticas.total > 0 %}
+<div style="background:var(--surface-2,#f8f9fa);border:1px solid var(--border);border-radius:.75rem;padding:1rem 1.25rem;margin-bottom:1.25rem">
+  <div style="font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:.75rem;text-transform:uppercase;letter-spacing:.04em">Distribución de estrellas</div>
+  {% for d in estadisticas.distribucion %}
+  <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.35rem">
+    <span style="width:2.5rem;text-align:right;font-size:.85rem;font-weight:600">{{ d.estrellas }}★</span>
+    <div style="flex:1;background:var(--border);border-radius:99px;height:10px;overflow:hidden">
+      <div style="width:{{ d.porcentaje }}%;height:100%;background:{% if d.estrellas >= 4 %}#22c55e{% elif d.estrellas == 3 %}#f59e0b{% else %}#ef4444{% endif %};border-radius:99px"></div>
+    </div>
+    <span style="width:3.5rem;font-size:.8rem;color:var(--muted)">{{ d.cantidad }} ({{ d.porcentaje }}%)</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# Filtros #}
+<form method="get" class="filter-form" style="margin-bottom:1rem">
+  <div class="filter-grid" style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end">
+    <div>
+      <label class="form-label" style="font-size:.75rem">Desde</label>
+      <input type="date" name="fecha_desde" class="form-control" value="{{ filtros.fecha_desde }}">
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Hasta</label>
+      <input type="date" name="fecha_hasta" class="form-control" value="{{ filtros.fecha_hasta }}">
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Versión</label>
+      <select name="version_app" class="form-control">
+        <option value="">Todas</option>
+        {% for v in versiones %}
+        <option value="{{ v }}" {% if filtros.version_app == v %}selected{% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Puntuación</label>
+      <select name="puntuacion" class="form-control">
+        <option value="">Todas</option>
+        {% for n in [5,4,3,2,1] %}
+        <option value="{{ n }}" {% if filtros.puntuacion|string == n|string %}selected{% endif %}>{{ n }}★</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary">Filtrar</button>
+    {% if filtros.fecha_desde or filtros.fecha_hasta or filtros.version_app or filtros.puntuacion %}
+    <a href="{{ url_for('calificaciones_app.listado') }}" class="btn btn-ghost">Limpiar</a>
+    {% endif %}
+  </div>
+</form>
+
+{# Tabla #}
+<div class="card" style="overflow:hidden">
+  {% if calificaciones %}
+  <table class="data-table table-cards">
+    <thead>
+      <tr>
+        <th>Empleado</th>
+        <th>Puntuación</th>
+        <th>Versión</th>
+        <th>Pantalla</th>
+        <th>Comentario</th>
+        <th>Fecha</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in calificaciones %}
+      <tr>
+        <td data-label="Empleado">
+          <div style="font-weight:600">{{ c.empleado_nombre }}</div>
+          <div style="font-size:.78rem;color:var(--muted)">DNI {{ c.dni }}{% if c.sector_nombre %} · {{ c.sector_nombre }}{% endif %}</div>
+        </td>
+        <td data-label="Puntuación">
+          <span style="font-size:1.05rem;letter-spacing:.05em">
+            {% for i in range(c.puntuacion) %}★{% endfor %}{% for i in range(5 - c.puntuacion) %}<span style="color:var(--border)">★</span>{% endfor %}
+          </span>
+          <span style="margin-left:.3rem;font-weight:700;color:{% if c.puntuacion >= 4 %}#22c55e{% elif c.puntuacion == 3 %}#f59e0b{% else %}#ef4444{% endif %}">{{ c.puntuacion }}/5</span>
+        </td>
+        <td data-label="Versión">{{ c.version_app or '—' }}</td>
+        <td data-label="Pantalla"><span style="font-size:.82rem;color:var(--muted)">{{ c.pantalla or '—' }}</span></td>
+        <td data-label="Comentario">
+          {% if c.comentario %}
+          <span title="{{ c.comentario }}" style="font-size:.85rem;max-width:220px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.comentario }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td data-label="Fecha" style="white-space:nowrap;font-size:.82rem">{{ c.fecha }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {# Paginación #}
+  {% if total_pages > 1 %}
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:.75rem 1rem;border-top:1px solid var(--border);flex-wrap:wrap;gap:.5rem">
+    <span style="font-size:.82rem;color:var(--muted)">{{ total }} resultado{{ 's' if total != 1 else '' }} · página {{ page }} de {{ total_pages }}</span>
+    <div style="display:flex;gap:.35rem">
+      {% if page > 1 %}
+      <a href="?{{ filtros | items | selectattr('1') | list | map(attribute=0) | join('&') }}&page={{ page - 1 }}" class="btn btn-ghost" style="padding:.3rem .6rem;font-size:.8rem">← Ant</a>
+      {% endif %}
+      {% if page < total_pages %}
+      <a href="?{{ filtros | items | selectattr('1') | list | map(attribute=0) | join('&') }}&page={{ page + 1 }}" class="btn btn-ghost" style="padding:.3rem .6rem;font-size:.8rem">Sig →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div style="padding:2.5rem;text-align:center;color:var(--muted)">
+    <div style="font-size:2rem;margin-bottom:.5rem">★</div>
+    <div>No hay calificaciones{% if filtros.fecha_desde or filtros.fecha_hasta or filtros.version_app or filtros.puntuacion %} con los filtros seleccionados{% endif %}.</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

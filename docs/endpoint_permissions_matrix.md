@@ -183,7 +183,30 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/api/v1/mobile/me/legajo/eventos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_eventos_list` |
 | `GET` | `/api/v1/mobile/me/legajo/eventos/<int:evento_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_eventos_detail` |
 | `GET` | `/api/v1/mobile/me/legajo/adjuntos/<int:adjunto_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_adjunto` |
+| `GET` | `/api/v1/mobile/me/legajo/historial-por-tipo` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_historial_por_tipo` |
+| `GET` | `/api/v1/mobile/vacaciones/resumen` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:vacaciones_resumen` |
+| `GET` | `/api/v1/mobile/vacaciones/movimientos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:vacaciones_movimientos` |
 | `POST` | `/api/v1/mobile/me/qr` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_generar_qr` |
+| `POST` | `/api/v1/mobile/calificar-app` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:calificar_app` |
+| `GET` | `/api/v1/trivia/estado` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:estado` |
+| `GET` | `/api/v1/trivia/activa` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:activa` |
+| `POST` | `/api/v1/trivia/iniciar` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:iniciar` |
+| `POST` | `/api/v1/trivia/finalizar` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:finalizar` |
+| `GET` | `/api/v1/trivia/ranking/<trivia_id>` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:ranking_trivia` |
+| `GET` | `/api/v1/trivia/historial` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:historial` |
+| `GET` | `/api/v1/trivia/mi-historial` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:mi_historial` |
+| `GET` | `/api/v1/trivia/ganador/<trivia_id>` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:ganador_trivia` |
+| `GET` | `/api/v1/trivia/ranking-anual/<anio>` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:ranking_anual` |
+| `GET` | `/api/v1/trivia/ganador-anual/<anio>` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:ganador_anual` |
+| `GET` | `/api/v1/trivia/notificaciones` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:notificaciones` |
+| `POST` | `/api/v1/trivia/notificaciones/<int:notif_id>/leer` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:marcar_leida` |
+| `POST` | `/api/v1/trivia/notificaciones/leer-todas` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:marcar_todas_leidas` |
+| `GET` | `/admin/trivias/` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:listado` |
+| `GET,POST` | `/admin/trivias/nueva` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:nueva` |
+| `GET,POST` | `/admin/trivias/<int:trivia_id>` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:detalle` |
+| `POST` | `/admin/trivias/<int:trivia_id>/preguntas/<int:pregunta_id>/editar` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:editar_pregunta` |
+| `GET` | `/admin/trivias/ranking-anual` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:ranking_anual` |
+| `GET` | `/calificaciones-app/` | sesion web | admin, rrhh | `web/calificaciones_app/calificaciones_app_routes.py:listado` |
 | `POST` | `/auth/login` | publico | - | `routes/auth_routes.py:login` |
 | `GET` | `/media/empleados/foto/<dni>` | publico | - | `routes/media_routes.py:empleado_foto` |
 | `GET` | `/empleados/imagen/<dni>` | publico | - | `routes/media_routes.py:empleado_imagen` |
