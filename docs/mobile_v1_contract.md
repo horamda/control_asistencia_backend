@@ -1,7 +1,7 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.20.4
-Fecha de corte: 2026-05-24
+Version de contrato: 1.20.5
+Fecha de corte: 2026-05-25
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
@@ -2102,12 +2102,27 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
 
 #### Flujo recomendado Flutter — Calificación de la app
 
-1. Usar `SharedPreferences` para guardar localmente si ya se mostró el diálogo para la versión actual.
-2. Lanzar `RatingAppDialog` después de N sesiones (ej. 3) o N días de uso (ej. 7), solo si no se mostró antes para esta versión.
-3. Si el usuario completa la calificación: `POST /calificar-app`.
-   - Si `ok: true` → guardar en `SharedPreferences` que ya calificó y no mostrar más para esta versión.
-   - Si `409` → marcar igualmente como ya calificado en `SharedPreferences`.
-4. Si el usuario descarta el diálogo: registrar que descartó y volver a preguntar al próximo ciclo (ej. en 7 días más).
+Implementado via `AppRatingService` + `FlutterSecureStorage` (con `encryptedSharedPreferences: true` en Android).
+
+**Claves de storage por versión (`version` = valor de `PackageInfo.version`):**
+| Clave | Descripcion |
+|---|---|
+| `rating_sessions_{version}` | Contador de sesiones acumuladas para esta versión |
+| `rating_rated_{version}` | `"1"` si el usuario ya calificó esta versión |
+| `rating_dismissals_{version}` | Contador de veces que el usuario descartó el diálogo |
+
+**Lógica `shouldShowDialog()`:**
+1. Si `rating_rated_{version} == "1"` → no mostrar.
+2. Si `rating_dismissals_{version} >= maxDismissals` (default 2) → no mostrar.
+3. Incrementar `rating_sessions_{version}`; si el nuevo valor >= `minSessions` (default 3) → mostrar.
+
+**Al enviar calificación (`submitRating`):**
+- Obtiene versión actual via `PackageInfo.fromPlatform()` y llama `POST /calificar-app` con `version_app`.
+- Si `ok: true` → escribe `rating_rated_{version} = "1"` en storage.
+- Si `409` → el backend ya tiene la calificación; marcar igualmente `rating_rated_{version} = "1"`.
+
+**Al descartar (`markDismissed`):**
+- Incrementa `rating_dismissals_{version}`. Cuando llega a `maxDismissals`, no se vuelve a mostrar para esta versión.
 
 ---
 
@@ -2162,6 +2177,10 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.20.5 (2026-05-25)
+- **Corrección de flujo calificación (endpoint 53):** el flujo recomendado ahora describe la implementación real con `AppRatingService` + `FlutterSecureStorage`. Se documentan las claves de storage, la lógica de `shouldShowDialog` (`minSessions=3`, `maxDismissals=2`) y el comportamiento ante `409`.
+- **Panel web:** sección "Pedidos Empleados" separada del grupo "Asistencia" en la navegación lateral. Incluye Adelantos, Pedidos mercadería e Importar catálogo.
 
 ### 1.20.4 (2026-05-24)
 - **Telemetría de sesiones mobile** — registro automático de cada login en tabla `mobile_sesiones`.
