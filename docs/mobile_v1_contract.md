@@ -1,7 +1,7 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.20.5
-Fecha de corte: 2026-05-25
+Version de contrato: 1.21.5
+Fecha de corte: 2026-05-28
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo: `/api/v1/mobile`
@@ -19,6 +19,31 @@ Fuente tecnica: `routes/mobile_v1_routes.py`.
 ---
 
 ## Endpoints
+
+### Versión de la app
+
+#### 0. `GET /api/v1/mobile/version?platform=android`
+- Público — **no requiere token**.
+- Devuelve la versión mínima y recomendada de la app para la plataforma dada.
+- `platform`: `"android"` o `"ios"` (default `"android"` si se omite o es inválido).
+- Response 200:
+```json
+{
+  "ok": true,
+  "platform": "android",
+  "version_minima": "1.19.0",
+  "version_recomendada": "1.20.4",
+  "url_descarga": "https://play.google.com/store/apps/details?id=com.example.app",
+  "mensaje": null
+}
+```
+- `version_minima`: versión por debajo de la cual la app debe bloquearse y forzar actualización.
+- `version_recomendada`: versión sugerida; la app puede mostrar un banner no bloqueante.
+- `url_descarga`: URL de la tienda, o `null` si no está configurado.
+- `mensaje`: texto libre opcional para mostrar al usuario (novedad, aviso de mantenimiento, etc.), o `null`.
+- Si no hay configuración en base para la plataforma, devuelve `version_minima: "1.0.0"`, `version_recomendada: "1.0.0"` y el resto `null`.
+
+---
 
 ### Auth
 
@@ -1474,6 +1499,8 @@ GET /vacaciones/resumen?anio=YYYY
 - KPIs del sector del empleado autenticado para el año solicitado.
 - `anio`: año a consultar (opcional, default = año actual del servidor).
 - Para cada KPI muestra resultado acumulado vs objetivo anual del sector, con semaforo y recomendacion.
+- Fuente de datos: resultados cargados por CSV desde el panel web. Los codigos KPI se interpretan dentro del sector actual del empleado.
+- Regla de refresco de datos: si una importacion web contiene filas del mes actual del servidor, backend reemplaza ese mes solo para los empleados incluidos en el CSV antes de insertar los nuevos datos. Los meses historicos no se borran masivamente; se insertan/actualizan registros coincidentes.
 - Response 200:
 ```json
 {
@@ -1524,12 +1551,15 @@ GET /vacaciones/resumen?anio=YYYY
 ```
 - Campos del KPI:
   - `tipo_acumulacion`: `suma` | `promedio` | `ultimo`
+    - `suma`: `resultado_acumulado` = suma de todos los registros diarios del año. Ideal para conteos (bultos, entregas).
+    - `promedio`: `resultado_acumulado` = promedio de todos los registros del año. Ideal para tasas o porcentajes (satisfaccion, calidad).
+    - `ultimo`: `resultado_acumulado` = el valor mas reciente cargado en el año (por fecha). Ideal para indicadores tipo snapshot que se reemplazan al cambiar (NPS, stock, tasas que no se promedian).
   - `mayor_es_mejor`: `true` si mayor valor es mejor resultado
   - `condicion`: `gte` | `lte` | `eq` | `between`
   - `condicion_simbolo`: `≥` | `≤` | `=` | `entre`
   - `objetivo_anual`: objetivo simple del sector (0 si condicion es `between` o no configurado)
   - `valor_min` / `valor_max`: limites del rango (`null` salvo condicion `between`)
-  - `resultado_acumulado`: valor acumulado del empleado en el año segun tipo_acumulacion
+  - `resultado_acumulado`: valor acumulado del empleado en el año segun `tipo_acumulacion` (ver arriba)
   - `progreso_pct`: porcentaje del objetivo cubierto (`resultado / objetivo * 100`); 0 para `between`
   - `progreso_esperado_pct`: porcentaje del año transcurrido (ritmo lineal); 100 para `promedio`/`ultimo`/`between`
   - `semaforo`: `verde` | `amarillo` | `rojo` | `gris`
@@ -1542,6 +1572,262 @@ GET /vacaciones/resumen?anio=YYYY
 - Si el empleado no tiene sector asignado, `sector.id` es `null` y `kpis` es `[]`.
 - Response 400: `{"error":"Ano invalido."}`
 - Response 500: `{"error":"No se pudieron obtener los KPIs."}`
+
+#### 37A. `GET /api/v1/mobile/me/kpis-sector/resumen?anio=YYYY&limit_meses=N&include_series=true&series_dias=60`
+- Vista ampliada de KPIs del sector del empleado autenticado.
+- Mantiene la vista actual dentro de `vista_actual.kpis` y agrega:
+  - `ultimo_cargado`: ultimo resultado de KPI cargado para el empleado en el anio consultado.
+  - `meses_cerrados`: KPIs agrupados por meses calendario cerrados.
+  - `series_diaria` *(opcional)*: serie diaria de resultados por KPI con acumulados y semaforos por punto.
+- Usa la misma fuente y regla de refresco de datos que `GET /me/kpis-sector`.
+- `anio`: anio a consultar (opcional, default = anio actual del servidor).
+- `limit_meses`: cantidad de meses cerrados a devolver, entero entre 1 y 12 (opcional, default = 6).
+- `include_series`: `true` o `1` para incluir `series_diaria` en la respuesta (opcional, default omitido → no se incluye).
+- `series_dias`: cantidad de dias de historia a mostrar en `series_diaria`, entero entre 1 y 365 (opcional, default = 60). Solo aplica si `include_series=true`.
+- Un mes cerrado es un mes calendario completo anterior al mes actual del servidor. Ejemplo: si hoy es 2026-05-28, el ultimo mes cerrado es 2026-04.
+- `meses_cerrados` se devuelve de mas reciente a mas antiguo.
+- Response 200 (sin `include_series`):
+```json
+{
+  "anio": 2026,
+  "sector": {
+    "id": 3,
+    "nombre": "Entrega"
+  },
+  "vista_actual": {
+    "kpis": [
+      {
+        "kpi_id": 1,
+        "codigo": "BULTOS_ENT",
+        "nombre": "Bultos entregados",
+        "unidad": "bultos",
+        "tipo_acumulacion": "suma",
+        "mayor_es_mejor": true,
+        "condicion": "gte",
+        "condicion_simbolo": ">=",
+        "objetivo_anual": 1200.0,
+        "valor_min": null,
+        "valor_max": null,
+        "resultado_acumulado": 450.0,
+        "progreso_pct": 37.5,
+        "progreso_esperado_pct": 30.0,
+        "semaforo": "verde",
+        "recomendacion": "En camino al objetivo anual."
+      }
+    ]
+  },
+  "ultimo_cargado": {
+    "kpi_id": 1,
+    "codigo": "BULTOS_ENT",
+    "nombre": "Bultos entregados",
+    "unidad": "bultos",
+    "tipo_acumulacion": "suma",
+    "mayor_es_mejor": true,
+    "condicion": "gte",
+    "condicion_simbolo": ">=",
+    "objetivo_anual": 1200.0,
+    "objetivo_periodo": 3.2877,
+    "valor_min": null,
+    "valor_max": null,
+    "resultado": 38.0,
+    "valor": 38.0,
+    "progreso_pct": 1155.8,
+    "semaforo": "verde",
+    "recomendacion": "En camino al objetivo anual.",
+    "fecha_resultado": "2026-04-30",
+    "cargado_at": "2026-05-01T08:15:00"
+  },
+  "meses_cerrados": [
+    {
+      "periodo": "2026-04",
+      "periodo_year": 2026,
+      "periodo_month": 4,
+      "mes_nombre": "Abril",
+      "desde": "2026-04-01",
+      "hasta": "2026-04-30",
+      "cerrado": true,
+      "resumen": {
+        "total": 1,
+        "verde": 1,
+        "amarillo": 0,
+        "rojo": 0,
+        "gris": 0
+      },
+      "kpis": [
+        {
+          "kpi_id": 1,
+          "codigo": "BULTOS_ENT",
+          "nombre": "Bultos entregados",
+          "unidad": "bultos",
+          "tipo_acumulacion": "suma",
+          "mayor_es_mejor": true,
+          "condicion": "gte",
+          "condicion_simbolo": ">=",
+          "objetivo_anual": 1200.0,
+          "objetivo_mes": 98.6301,
+          "valor_min": null,
+          "valor_max": null,
+          "resultado_mes": 120.0,
+          "progreso_pct": 121.7,
+          "semaforo": "verde",
+          "recomendacion": "En camino al objetivo anual.",
+          "registros": 20,
+          "fecha_ultimo_resultado": "2026-04-30"
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "limit_meses": 6,
+    "include_series": false,
+    "series_dias": null
+  }
+}
+```
+- Response 200 con `include_series=true` — agrega el campo `series_diaria` y actualiza `meta`:
+```json
+{
+  "meta": {
+    "limit_meses": 6,
+    "include_series": true,
+    "series_dias": 60
+  },
+  "series_diaria": [
+    {
+      "kpi_id": 1,
+      "codigo": "BULTOS_ENT",
+      "nombre": "Bultos entregados",
+      "unidad": "bultos",
+      "tipo_acumulacion": "suma",
+      "condicion": "gte",
+      "condicion_simbolo": "≥",
+      "objetivo_anual": 1200.0,
+      "valor_min": null,
+      "valor_max": null,
+      "periodo_desde": "2026-03-29",
+      "periodo_hasta": "2026-05-28",
+      "puntos": [
+        {
+          "fecha": "2026-05-27",
+          "resultado_dia": 38.0,
+          "objetivo_dia": 3.2877,
+          "resultado_acumulado_a_fecha": 420.0,
+          "objetivo_acumulado_a_fecha": 405.0,
+          "progreso_dia_pct": 115.6,
+          "progreso_acumulado_pct": 103.7,
+          "semaforo_dia": "verde",
+          "semaforo_acumulado": "verde"
+        }
+      ]
+    }
+  ]
+}
+```
+
+##### Reglas de `series_diaria`
+
+- Solo se incluye si `include_series=true`. Si no se pide, la clave `series_diaria` no existe en el payload (Flutter debe ignorar campos desconocidos).
+- `puntos` solo contiene fechas con resultado real cargado. Los dias sin dato no se incluyen (no se rellena con 0).
+- `periodo_desde` / `periodo_hasta`: ventana de display = `[hoy - series_dias + 1, hoy]`, acotada al inicio del anio.
+- Los `resultado_acumulado_a_fecha` se calculan desde el inicio del anio, no solo desde `periodo_desde`. Esto garantiza que el acumulado sea correcto aunque el primer punto visible no sea el primero del anio.
+- `objetivo_dia` y `objetivo_acumulado_a_fecha` por tipo:
+  | tipo_acumulacion | condicion | objetivo_dia | objetivo_acumulado_a_fecha |
+  |---|---|---|---|
+  | `suma` | cualquiera menos `between` | `objetivo_anual / dias_en_año` | `objetivo_anual × (dia_del_año / total_dias)` |
+  | `promedio` | cualquiera menos `between` | `objetivo_anual` | `objetivo_anual` |
+  | `ultimo` | cualquiera menos `between` | `objetivo_anual` | `objetivo_anual` |
+  | cualquiera | `between` | `null` | `null` (usar `valor_min`/`valor_max`) |
+- Para `ultimo`: cada `resultado_dia` es el valor del registro de esa fecha; `resultado_acumulado_a_fecha` es el ultimo valor cargado hasta esa fecha (equivale al valor del punto mas reciente en la ventana, no un promedio ni una suma).
+- Para `ultimo` en `meses_cerrados`: `resultado_mes` es el valor del ultimo registro del mes (el mas reciente por fecha dentro del mes), no el promedio ni la suma.
+- `semaforo_dia` y `semaforo_acumulado`: mismas reglas que el semaforo de `vista_actual` (verde/amarillo/rojo/gris).
+- `puntos: []` si el KPI no tiene resultados en el anio (el KPI igual aparece en la lista con su definicion).
+
+- `ultimo_cargado` es `null` si el empleado no tiene resultados cargados en el anio.
+- `fecha_resultado`: fecha operativa del KPI informada en el CSV.
+- `cargado_at`: fecha tecnica de insercion o ultima actualizacion en backend.
+- Para meses sin datos en un KPI, `resultado_mes` es `null`, `registros` es `0` y `semaforo` es `"gris"`.
+- Si el empleado no tiene sector asignado, `sector.id` es `null`, `vista_actual.kpis` es `[]`, `ultimo_cargado` es `null`, `meses_cerrados` es `[]` y `series_diaria` es `[]`.
+- Response 400:
+  - `{"error":"Ano invalido."}`
+  - `{"error":"limit_meses invalido. Use un entero entre 1 y 12."}`
+  - `{"error":"series_dias invalido. Use un entero entre 1 y 365."}`
+- Response 500: `{"error":"No se pudieron obtener las vistas de KPIs."}`
+
+#### 37B. `GET /api/v1/mobile/me/kpis-sector/dia?fecha=YYYY-MM-DD`
+- Snapshot de todos los KPIs activos del sector del empleado autenticado para una fecha concreta.
+- `fecha`: requerido, formato `YYYY-MM-DD`. No puede ser futura.
+- Siempre devuelve una fila por KPI, haya o no resultado cargado para ese día exacto.
+- El acumulado se calcula desde el 1 de enero del año de la fecha consultada.
+- Response 200:
+```json
+{
+  "fecha": "2026-05-27",
+  "sector": {
+    "id": 3,
+    "nombre": "Entrega"
+  },
+  "kpis": [
+    {
+      "kpi_id": 1,
+      "codigo": "BULTOS_ENT",
+      "nombre": "Bultos entregados",
+      "unidad": "bultos",
+      "tipo_acumulacion": "suma",
+      "mayor_es_mejor": true,
+      "condicion": "gte",
+      "condicion_simbolo": "≥",
+      "objetivo_anual": 1200.0,
+      "valor_min": null,
+      "valor_max": null,
+      "tiene_resultado": true,
+      "resultado_dia": 38.0,
+      "objetivo_dia": 3.2877,
+      "resultado_acumulado_a_fecha": 420.0,
+      "objetivo_acumulado_a_fecha": 405.0,
+      "progreso_dia_pct": 115.6,
+      "progreso_acumulado_pct": 103.7,
+      "semaforo_dia": "verde",
+      "semaforo_acumulado": "verde"
+    },
+    {
+      "kpi_id": 2,
+      "codigo": "DISPERSION_KM",
+      "nombre": "Dispersion de recorrido",
+      "unidad": "km",
+      "tipo_acumulacion": "promedio",
+      "mayor_es_mejor": false,
+      "condicion": "between",
+      "condicion_simbolo": "entre",
+      "objetivo_anual": 0.0,
+      "valor_min": 8.0,
+      "valor_max": 12.0,
+      "tiene_resultado": false,
+      "resultado_dia": null,
+      "objetivo_dia": null,
+      "resultado_acumulado_a_fecha": 10.3,
+      "objetivo_acumulado_a_fecha": null,
+      "progreso_dia_pct": 0.0,
+      "progreso_acumulado_pct": 0.0,
+      "semaforo_dia": "gris",
+      "semaforo_acumulado": "verde"
+    }
+  ]
+}
+```
+- Campos del KPI:
+  - `tiene_resultado`: `true` si hay un valor cargado para esa fecha exacta.
+  - `resultado_dia`: valor del dia (`null` si `tiene_resultado` es `false`).
+  - `objetivo_dia`: objetivo del dia. Para `suma`: `objetivo_anual / dias_en_anio` (proporcional). Para `promedio`/`ultimo`: `objetivo_anual` (fijo — no se proratea). Para `between`: `null`.
+  - `resultado_acumulado_a_fecha`: acumulado del empleado desde el 1 de enero hasta la fecha (segun `tipo_acumulacion`). `null` si no hay ningun resultado en el periodo.
+  - `objetivo_acumulado_a_fecha`: objetivo proporcional acumulado hasta la fecha. `null` para `between`.
+  - `semaforo_dia`: `"gris"` si `tiene_resultado` es `false`.
+  - `semaforo_acumulado`: `"gris"` si `resultado_acumulado_a_fecha` es `null`.
+- Si el empleado no tiene sector asignado, `sector.id` es `null` y `kpis` es `[]`.
+- Response 400:
+  - `{"error":"El parametro fecha es obligatorio (YYYY-MM-DD)."}`
+  - `{"error":"Fecha invalida. Use formato YYYY-MM-DD."}`
+  - `{"error":"La fecha no puede ser futura."}`
+- Response 500: `{"error":"No se pudieron obtener los KPIs del dia."}`
 
 ---
 
@@ -2177,6 +2463,62 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.21.5 (2026-05-28)
+- Flutter — nueva solapa **"Mes en curso"** en `KpisSectorPage`:
+  - Se agrega una segunda pestaña ("Mes en curso") junto a la existente ("Resumen"). El contenido de "Resumen" queda intacto.
+  - Muestra un **calendario mensual del mes en curso** (semana lunes–domingo). Los días pasados y hoy son tapeables; los días futuros están deshabilitados.
+  - **Dots de datos sin llamada extra**: los días que ya tienen al menos un resultado cargado muestran un punto debajo del número. Se derivan de `series_diaria[].puntos[].resultado_dia` ya cargados en la llamada a endpoint 37A (`GET /me/kpis-sector/resumen?include_series=true`), sin llamadas adicionales.
+  - **Tap en un día**: llama al endpoint 37B (`GET /me/kpis-sector/dia?fecha=YYYY-MM-DD`) y muestra las tarjetas de KPI para esa fecha. Las respuestas se cachean en memoria durante la sesión — tocar un día ya consultado no genera nueva llamada a la red.
+  - Cada tarjeta de KPI muestra: nombre, código, semaforo, `resultado_dia`, `objetivo_dia` y `resultado_acumulado_a_fecha`.
+  - Si el día no tiene ningún registro (`tiene_resultado = false` para todos los KPIs), se muestra un estado vacío "Sin registros para este día."
+  - Sin cambios de payload ni status codes en el backend.
+
+### 1.21.4 (2026-05-28)
+- Documentacion explicita de `tipo_acumulacion = "ultimo"` en endpoints 37, 37A y 37B:
+  - `resultado_acumulado` / `resultado_mes` para `ultimo` es el **valor mas reciente por fecha**, no un promedio ni una suma.
+  - Ideal para indicadores tipo snapshot que se reemplazan al cambiar (NPS, stock, tasas).
+  - `objetivo_dia` para `ultimo` es `objetivo_anual` (fijo, igual que `promedio`); no se proratea.
+  - Sin cambio de payload ni status codes — solo aclaracion semantica y de negocio.
+- Panel web: formulario de KPI actualizado con descripciones claras por tipo de acumulacion e indicaciones de uso (NPS → Ultimo, satisfaccion → Promedio, bultos → Suma).
+- Panel web: listado de KPIs ahora muestra el tipo de acumulacion con badge de color (azul=suma, naranja=promedio, verde=ultimo) para facilitar la revision de configuracion.
+
+### 1.21.3 (2026-05-28)
+- Nuevo endpoint `GET /me/kpis-sector/dia?fecha=YYYY-MM-DD` (endpoint 37B):
+  - Snapshot de todos los KPIs activos del sector para una fecha concreta.
+  - Siempre devuelve una fila por KPI aunque no haya resultado ese día exacto.
+  - Cada fila incluye: `tiene_resultado`, `resultado_dia`, `objetivo_dia`, `resultado_acumulado_a_fecha`, `objetivo_acumulado_a_fecha`, `progreso_dia_pct`, `progreso_acumulado_pct`, `semaforo_dia`, `semaforo_acumulado`.
+  - Acumulado calculado desde el 1 de enero del año de la fecha consultada.
+  - `fecha` requerida, no puede ser futura. 400 si falta, es inválida o es futura.
+
+### 1.21.2 (2026-05-28)
+- `GET /me/kpis-sector/resumen` — nueva serie diaria opcional:
+  - Params opcionales: `include_series=true` y `series_dias=N` (1–365, default 60).
+  - Si `include_series=true`, el payload incluye `series_diaria`: lista de KPIs del sector con campo `puntos` (una entrada por dia con resultado real).
+  - Cada punto expone: `resultado_dia`, `objetivo_dia`, `resultado_acumulado_a_fecha`, `objetivo_acumulado_a_fecha`, `progreso_dia_pct`, `progreso_acumulado_pct`, `semaforo_dia`, `semaforo_acumulado`.
+  - Los acumulados se computan desde el inicio del anio aunque la ventana de display sea menor.
+  - Para KPIs `between`, `objetivo_dia` y `objetivo_acumulado_a_fecha` son `null`; se usa `valor_min`/`valor_max`.
+  - `meta` ahora incluye siempre `include_series` (bool) y `series_dias` (int o null).
+  - Sin `include_series`, el payload es identico al de 1.21.1 (compatible).
+  - Nuevo 400: `{"error":"series_dias invalido. Use un entero entre 1 y 365."}`.
+
+### 1.21.1 (2026-05-28)
+- Aclaracion de contrato para KPIs mobile:
+  - Los resultados provienen de importaciones CSV del panel web.
+  - `codigo_kpi` se resuelve por el sector del empleado.
+  - Al importar datos del mes actual, backend reemplaza ese mes para los empleados incluidos en el CSV antes de insertar los nuevos datos.
+  - Los meses historicos no se limpian masivamente; solo se insertan/actualizan registros coincidentes.
+- No cambia el payload ni los status codes de `GET /me/kpis-sector` ni `GET /me/kpis-sector/resumen`.
+
+### 1.21.0 (2026-05-28)
+- Nuevo endpoint mobile de KPIs sectoriales enriquecidos:
+  - `GET /me/kpis-sector/resumen?anio=YYYY&limit_meses=N`
+- No modifica el endpoint existente `GET /me/kpis-sector`.
+- Agrega vistas para Flutter:
+  - `vista_actual.kpis`: misma informacion de la vista anual actual.
+  - `ultimo_cargado`: ultimo resultado de KPI cargado, con `fecha_resultado` y `cargado_at`.
+  - `meses_cerrados`: resultados por KPI agrupados por meses calendario cerrados.
+- `limit_meses` permite pedir de 1 a 12 meses cerrados; default 6.
 
 ### 1.20.5 (2026-05-25)
 - **Corrección de flujo calificación (endpoint 53):** el flujo recomendado ahora describe la implementación real con `AppRatingService` + `FlutterSecureStorage`. Se documentan las claves de storage, la lógica de `shouldShowDialog` (`minSessions=3`, `maxDismissals=2`) y el comportamiento ante `409`.

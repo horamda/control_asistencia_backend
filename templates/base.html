@@ -14,7 +14,11 @@
         } catch (_) {}
       })();
     </script>
-    <title>{% block title %}Panel de control{% endblock %}</title>
+    <title>{% block title %}Panel de control{% endblock %} — FichaYa</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='img/fichaya-favicon.png') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/fichaya-icon.svg') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/fichaya-favicon.png') }}">
+    <meta name="theme-color" content="#0C2D5C">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -35,7 +39,7 @@
       <div class="app-shell">
         <aside class="app-sidebar" id="app-sidebar" aria-label="Navegacion principal">
           <div class="brand">
-            <div class="brand-mark">FY</div>
+            <img class="brand-mark" src="{{ url_for('static', filename='img/fichaya-icon.png') }}" alt="FichaYa" width="40" height="40">
             <div>
               <div class="brand-title">FichaYa</div>
               <div class="brand-sub">Panel empresarial</div>
@@ -171,6 +175,7 @@
                 <div class="nav-submenu" id="nav-submenu-kpis">
                   <a class="nav-link" href="/kpis-sectoriales/">Indicadores</a>
                   <a class="nav-link" href="/kpis-sectoriales/objetivos">Objetivos</a>
+                  <a class="nav-link" href="/kpis-sectoriales/resultados">Resultados</a>
                   <a class="nav-link" href="/kpis-sectoriales/importar-resultados">Importar resultados</a>
                 </div>
               </div>

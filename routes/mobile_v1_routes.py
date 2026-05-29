@@ -2738,6 +2738,116 @@ def me_kpis_sector():
     })
 
 
+@mobile_v1_bp.route("/me/kpis-sector/dia", methods=["GET"])
+@mobile_auth_required
+def me_kpis_sector_dia():
+    from repositories.kpi_sectorial_repository import get_kpis_dia_empleado
+
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": INVALID_SESSION_MESSAGE}), 401
+    emp_id = int(empleado["id"])
+
+    raw_fecha = (request.args.get("fecha") or "").strip()
+    if not raw_fecha:
+        return jsonify({"error": "El parametro fecha es obligatorio (YYYY-MM-DD)."}), 400
+    try:
+        fecha = datetime.date.fromisoformat(raw_fecha)
+        if fecha > datetime.date.today():
+            return jsonify({"error": "La fecha no puede ser futura."}), 400
+    except ValueError:
+        return jsonify({"error": "Fecha invalida. Use formato YYYY-MM-DD."}), 400
+
+    try:
+        data = get_kpis_dia_empleado(emp_id, fecha)
+    except Exception:
+        current_app.logger.exception("me_kpis_sector_dia_error", extra={"extra": {"empleado_id": emp_id}})
+        return jsonify({"error": "No se pudieron obtener los KPIs del dia."}), 500
+
+    return jsonify({
+        "fecha": fecha.isoformat(),
+        "sector": {
+            "id": data.get("sector_id"),
+            "nombre": data.get("sector_nombre"),
+        },
+        "kpis": data.get("kpis", []),
+    })
+
+
+@mobile_v1_bp.route("/me/kpis-sector/resumen", methods=["GET"])
+@mobile_auth_required
+def me_kpis_sector_resumen():
+    from repositories.kpi_sectorial_repository import (
+        get_resultados_empleado_anio,
+        get_resultados_empleado_meses_cerrados,
+        get_ultimo_resultado_cargado_empleado,
+        get_series_diaria_empleado,
+    )
+
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": INVALID_SESSION_MESSAGE}), 401
+    emp_id = int(empleado["id"])
+
+    raw_anio = (request.args.get("anio") or "").strip()
+    if raw_anio:
+        try:
+            anio = int(raw_anio)
+            if anio < 2020 or anio > 2100:
+                raise ValueError
+        except ValueError:
+            return jsonify({"error": "Ano invalido."}), 400
+    else:
+        anio = datetime.date.today().year
+
+    raw_limit = (request.args.get("limit_meses") or "6").strip()
+    try:
+        limit_meses = int(raw_limit)
+        if limit_meses < 1 or limit_meses > 12:
+            raise ValueError
+    except ValueError:
+        return jsonify({"error": "limit_meses invalido. Use un entero entre 1 y 12."}), 400
+
+    include_series = (request.args.get("include_series") or "").strip().lower() in ("1", "true")
+    raw_series_dias = (request.args.get("series_dias") or "60").strip()
+    try:
+        series_dias = int(raw_series_dias)
+        if series_dias < 1 or series_dias > 365:
+            raise ValueError
+    except ValueError:
+        return jsonify({"error": "series_dias invalido. Use un entero entre 1 y 365."}), 400
+
+    try:
+        data = get_resultados_empleado_anio(emp_id, anio)
+        ultimo = get_ultimo_resultado_cargado_empleado(emp_id, anio)
+        meses_cerrados = get_resultados_empleado_meses_cerrados(emp_id, anio, limit_meses)
+        series_diaria = get_series_diaria_empleado(emp_id, anio, series_dias) if include_series else None
+    except Exception:
+        current_app.logger.exception("me_kpis_sector_resumen_error", extra={"extra": {"empleado_id": emp_id}})
+        return jsonify({"error": "No se pudieron obtener las vistas de KPIs."}), 500
+
+    payload = {
+        "anio": anio,
+        "sector": {
+            "id": data.get("sector_id"),
+            "nombre": data.get("sector_nombre"),
+        },
+        "vista_actual": {
+            "kpis": data.get("kpis", []),
+        },
+        "ultimo_cargado": ultimo,
+        "meses_cerrados": meses_cerrados,
+        "meta": {
+            "limit_meses": limit_meses,
+            "include_series": include_series,
+            "series_dias": series_dias if include_series else None,
+        },
+    }
+    if include_series:
+        payload["series_diaria"] = series_diaria
+    return jsonify(payload)
+
+
 # ---------------------------------------------------------------------------
 # Premios y concursos
 # ---------------------------------------------------------------------------

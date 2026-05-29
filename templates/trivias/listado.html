@@ -71,6 +71,7 @@
           <td data-label="Premio">{{ t.premio or '—' }}</td>
           <td data-label="Acciones" class="inline-actions" onclick="event.stopPropagation()">
             <a href="{{ url_for('trivia_admin.detalle', trivia_id=t.id) }}" class="btn btn-sm btn-secondary">Ver</a>
+            <a href="{{ url_for('trivia_admin.resultados', trivia_id=t.id) }}" class="btn btn-sm btn-ghost">Resultados</a>
             <a href="{{ url_for('trivia_admin.editar', trivia_id=t.id) }}" class="btn btn-sm btn-ghost">Editar</a>
           </td>
         </tr>

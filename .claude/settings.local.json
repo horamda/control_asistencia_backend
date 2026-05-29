@@ -29,12 +29,22 @@
       "Read(//c/Users/horac/Desktop/Proyectos WEB/**)",
       "Bash(python -m pytest tests/test_mobile_v1_api.py tests/test_vacaciones_service.py -q --tb=short)",
       "Bash(python scripts/migrate_20260524_04_mobile_sesiones.py)",
-      "Bash(python -m pytest tests/test_mobile_v1_api.py -q --tb=short)"
+      "Bash(python -m pytest tests/test_mobile_v1_api.py -q --tb=short)",
+      "Bash(python -m pytest tests/test_kpi_series_diaria.py -v)",
+      "Bash(python -m pytest --tb=short -q)",
+      "Bash(python -m pytest tests/ --tb=short -q)",
+      "Bash(python -m pytest tests/test_kpi_dia_empleado.py -v)",
+      "Bash(python -m pytest tests/test_kpi_dia_empleado.py tests/test_kpi_series_diaria.py tests/test_kpi_sectorial_import_service.py -v --tb=short)",
+      "Bash(find \"C:/Users/horac/Desktop\" -name \"*.png\" -o -name \"FichaYa*\" -o -name \"fichaya*\" -o -name \"logo*\" 2>/dev/null | head -30)",
+      "Read(//c/Users/horac/Desktop/**)",
+      "Bash(find \"C:/Users/horac\" -maxdepth 3 \\\\\\( -iname \"*ficha*\" -o -iname \"*icon*1024*\" -o -iname \"*icon*512*\" -o -iname \"*app_icon*\" \\\\\\) 2>/dev/null | head -20)",
+      "Read(//c/Users/horac/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\horac\\Desktop\\Proyectos WEB\\control_asistencia\\frontend_flutter\\lib\\src\\core\\network",
       "c:\\Users\\horac\\Desktop\\Proyectos WEB\\control_asistencia\\frontend_flutter\\lib\\src\\core\\feedback",
-      "c:\\Users\\horac\\Desktop\\Proyectos WEB\\control_asistencia\\frontend_flutter\\lib\\src\\presentation\\widgets"
+      "c:\\Users\\horac\\Desktop\\Proyectos WEB\\control_asistencia\\frontend_flutter\\lib\\src\\presentation\\widgets",
+      "C:\\Users\\horac\\Desktop\\Proyectos WEB\\control_asistencia\\frontend_flutter\\assets\\branding"
     ]
   }
 }

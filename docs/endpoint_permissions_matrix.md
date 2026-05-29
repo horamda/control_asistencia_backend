@@ -41,6 +41,8 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/kpis-sectoriales/objetivos` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:objetivos` |
 | `POST` | `/kpis-sectoriales/objetivos/guardar` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:guardar_objetivo` |
 | `POST` | `/kpis-sectoriales/objetivos/copiar-anio-anterior` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:copiar_objetivos_anio_anterior` |
+| `GET` | `/kpis-sectoriales/resultados` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:resultados` |
+| `POST` | `/kpis-sectoriales/resultados/eliminar-mes` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:eliminar_resultados_mes` |
 | `GET,POST` | `/kpis-sectoriales/importar-resultados` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:importar_resultados` |
 | `GET` | `/premios-concursos/` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:listado` |
 | `GET,POST` | `/premios-concursos/nuevo` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:nuevo` |
@@ -155,6 +157,7 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/api/v1/mobile/me/estadisticas` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_estadisticas` |
 | `GET` | `/api/v1/mobile/me/config-asistencia` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_config_asistencia` |
 | `GET` | `/api/v1/mobile/me/kpis-sector` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_kpis_sector` |
+| `GET` | `/api/v1/mobile/me/kpis-sector/resumen` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_kpis_sector_resumen` |
 | `GET` | `/api/v1/mobile/me/premios` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_premios` |
 | `GET` | `/api/v1/mobile/me/eventos-seguridad` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_eventos_seguridad` |
 | `POST` | `/api/v1/mobile/me/fichadas/entrada` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:fichar_entrada` |
@@ -205,7 +208,9 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET,POST` | `/admin/trivias/nueva` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:nueva` |
 | `GET,POST` | `/admin/trivias/<int:trivia_id>` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:detalle` |
 | `POST` | `/admin/trivias/<int:trivia_id>/preguntas/<int:pregunta_id>/editar` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:editar_pregunta` |
-| `GET` | `/admin/trivias/ranking-anual` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:ranking_anual` |
+| `GET` | `/admin/trivias/ranking-anual` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:ranking_anual_view` |
+| `POST` | `/admin/trivias/ranking-anual/exclusiones` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:agregar_exclusion_ranking_anual` |
+| `POST` | `/admin/trivias/ranking-anual/exclusiones/<int:empleado_id>/eliminar` | sesion web | admin, rrhh | `web/trivias/trivia_admin_routes.py:eliminar_exclusion_ranking_anual` |
 | `GET` | `/calificaciones-app/` | sesion web | admin, rrhh | `web/calificaciones_app/calificaciones_app_routes.py:listado` |
 | `GET` | `/mobile-stats/` | sesion web | admin | `web/mobile_stats/mobile_stats_routes.py:listado` |
 | `POST` | `/auth/login` | publico | - | `routes/auth_routes.py:login` |

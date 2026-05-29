@@ -13,6 +13,7 @@
   </div>
   <div class="page-actions">
     <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost">← Volver</a>
+    <a href="{{ url_for('trivia_admin.resultados', trivia_id=trivia.id) }}" class="btn btn-secondary">Resultados</a>
     <a href="{{ url_for('trivia_admin.editar', trivia_id=trivia.id) }}" class="btn btn-secondary">Editar trivia</a>
     {% if trivia.estado in ('activa', 'programada') %}
     <form method="post" action="{{ url_for('trivia_admin.finalizar_manual', trivia_id=trivia.id) }}"

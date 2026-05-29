@@ -32,12 +32,16 @@ class _FakeDb:
     def __init__(self, cursor):
         self._cursor = cursor
         self.committed = False
+        self.rolled_back = False
 
     def cursor(self, dictionary=False):
         return self._cursor
 
     def commit(self):
         self.committed = True
+
+    def rollback(self):
+        self.rolled_back = True
 
     def close(self):
         return None
@@ -57,9 +61,11 @@ def test_importar_articulos_filtra_por_reglas_y_upserta(monkeypatch):
 
     assert result["total_filas"] == 3
     assert result["importables"] == 1
+    assert result["importados"] == 1
     assert result["creados"] == 1
     assert result["actualizados"] == 0
     assert result["deshabilitados"] == 2
+    assert result["anulados"] == 2
     assert result["ignorados"] == 2
     assert result["errores"] == []
     assert db.committed is True

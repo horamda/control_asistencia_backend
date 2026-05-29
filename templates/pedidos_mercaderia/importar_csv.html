@@ -8,13 +8,27 @@
       <h2>Importar articulos para pedidos</h2>
       <p class="module-intro">
         Se importan solo filas con Activo = SI, Anulado = NO, Usado en dispositivo movil = SI y Tipo de producto = MERCADERIA.
+        La importacion actualiza articulos por codigo, incorpora los nuevos y anula los que ya no vienen en el CSV.
       </p>
     </div>
     <div class="chip-row">
       <span class="chip">CSV separado por ;</span>
       <span class="chip">Upsert por Articulo</span>
-      <span class="chip">Deshabilita faltantes</span>
+      <span class="chip">Anula faltantes</span>
     </div>
+  </div>
+
+  <div class="grid-kpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:1rem">
+    <div class="kpi-card">
+      <span class="kpi-value">{{ articulos_total }}</span>
+      <span class="kpi-label">Articulos activos en base</span>
+    </div>
+    {% if resultado and not resultado.error %}
+      <div class="kpi-card tone-ok">
+        <span class="kpi-value">{{ resultado.importados }}</span>
+        <span class="kpi-label">Importados ultimo CSV</span>
+      </div>
+    {% endif %}
   </div>
 
   {% if resultado and resultado.error %}
@@ -38,10 +52,11 @@
   {% if resultado and not resultado.error %}
     <div class="chip-row">
       <span class="chip">Filas leidas: {{ resultado.total_filas }}</span>
-      <span class="chip">Importables: {{ resultado.importables }}</span>
+      <span class="chip">Importados: {{ resultado.importados }}</span>
       <span class="chip">Creados: {{ resultado.creados }}</span>
       <span class="chip">Actualizados: {{ resultado.actualizados }}</span>
-      <span class="chip">Deshabilitados: {{ resultado.deshabilitados }}</span>
+      <span class="chip">Anulados: {{ resultado.anulados }}</span>
+      <span class="chip">Articulos activos en base: {{ resultado.total_articulos }}</span>
       <span class="chip">Ignorados: {{ resultado.ignorados }}</span>
     </div>
 
@@ -67,7 +82,7 @@
         </table>
       </div>
     {% else %}
-      <div class="alert-ok"><p>Importacion completada sin errores.</p></div>
+      <div class="alert-ok"><p>Importacion completada sin errores. Catalogo actualizado con {{ resultado.importados }} articulo(s).</p></div>
     {% endif %}
   {% endif %}
 </div>

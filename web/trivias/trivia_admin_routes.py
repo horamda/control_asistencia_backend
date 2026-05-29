@@ -4,21 +4,25 @@ Prefix: /admin/trivias
 Auth:   @role_required("admin", "rrhh")
 """
 
+import csv
 import datetime
+import io
 
 from flask import (
-    Blueprint, flash, jsonify, redirect, render_template,
+    Blueprint, Response, flash, jsonify, redirect, render_template,
     request, session, url_for,
 )
 
 import repositories.trivia_repository as repo
+from repositories.empleado_repository import get_all as get_empleados
 from repositories.sector_repository import get_page as get_sectores_page
 from services.trivia_service import (
     TriviaError,
     TriviaNoEncontradaError,
-    finalizar_trivia,
     calcular_ranking,
     calcular_ranking_anual,
+    finalizar_trivia,
+    recalcular_resultados_trivia,
 )
 from utils.audit import log_audit
 from web.auth.decorators import role_required
@@ -84,6 +88,53 @@ def _validate_trivia(data: dict) -> list[str]:
         if data["fecha_fin"] <= data["fecha_inicio"]:
             errors.append("La fecha de fin debe ser posterior a la de inicio.")
     return errors
+
+
+def _build_resultados_summary(rows: list[dict]) -> dict:
+    summary = {
+        "habilitados": 0,
+        "resultados": 0,
+        "completados": 0,
+        "en_progreso": 0,
+        "pendientes": 0,
+        "excluidos": 0,
+    }
+    for row in rows:
+        excluido = bool(row.get("exclusion_id"))
+        habilitado = bool(row.get("habilitado_por_alcance"))
+        estado = row.get("estado_resultado")
+        if excluido:
+            summary["excluidos"] += 1
+            row["estado_admin"] = "excluido"
+        elif estado:
+            summary["resultados"] += 1
+            row["estado_admin"] = estado
+            if estado == "completado":
+                summary["completados"] += 1
+            elif estado == "en_progreso":
+                summary["en_progreso"] += 1
+        elif habilitado:
+            summary["pendientes"] += 1
+            row["estado_admin"] = "pendiente"
+        else:
+            row["estado_admin"] = "fuera_alcance"
+        if habilitado and not excluido:
+            summary["habilitados"] += 1
+    return summary
+
+
+def _enrich_resultados_with_ranking(rows: list[dict], ranking: list[dict]):
+    ranking_by_emp = {int(r["empleado_id"]): r for r in ranking}
+    for row in rows:
+        rank = ranking_by_emp.get(int(row["empleado_id"]))
+        row["posicion_calculada"] = rank["posicion"] if rank else None
+        row["es_ganador_calculado"] = bool(rank["es_ganador"]) if rank else False
+
+
+def _fmt_dt(value):
+    if not value:
+        return ""
+    return value.strftime("%d/%m/%Y %H:%M") if hasattr(value, "strftime") else str(value)
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +231,131 @@ def detalle(trivia_id: int):
         estados=_ESTADOS,
         opciones_resp=_OPCIONES_RESP,
     )
+
+
+@trivia_admin_bp.get("/<int:trivia_id>/resultados")
+@role_required("admin", "rrhh")
+def resultados(trivia_id: int):
+    trivia = repo.get_trivia_by_id(trivia_id)
+    if not trivia:
+        flash("Trivia no encontrada.", "danger")
+        return redirect(url_for("trivia_admin.listado"))
+
+    rows = repo.get_resultados_admin_trivia(trivia_id)
+    ranking = calcular_ranking(trivia_id)
+    _enrich_resultados_with_ranking(rows, ranking)
+    summary = _build_resultados_summary(rows)
+    exclusiones = repo.get_exclusiones_trivia(trivia_id)
+    excluidos_ids = {int(e["empleado_id"]) for e in exclusiones}
+    empleados = [
+        e for e in get_empleados(include_inactive=False)
+        if int(e["id"]) not in excluidos_ids
+    ]
+    respuestas = repo.get_respuestas_admin_trivia(trivia_id)
+
+    return render_template(
+        "trivias/resultados.html",
+        trivia=trivia,
+        resultados=rows,
+        respuestas=respuestas,
+        summary=summary,
+        ranking=ranking,
+        exclusiones=exclusiones,
+        empleados=empleados,
+    )
+
+
+@trivia_admin_bp.get("/<int:trivia_id>/resultados/export.csv")
+@role_required("admin", "rrhh")
+def resultados_export_csv(trivia_id: int):
+    trivia = repo.get_trivia_by_id(trivia_id)
+    if not trivia:
+        flash("Trivia no encontrada.", "danger")
+        return redirect(url_for("trivia_admin.listado"))
+
+    rows = repo.get_resultados_admin_trivia(trivia_id)
+    ranking = calcular_ranking(trivia_id)
+    _enrich_resultados_with_ranking(rows, ranking)
+    _build_resultados_summary(rows)
+
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow([
+        "trivia_id", "trivia", "estado_trivia", "empleado_id", "legajo", "dni",
+        "apellido", "nombre", "sector", "estado", "posicion", "puntos",
+        "correctas", "incorrectas", "tiempo_segundos", "inicio_participacion",
+        "fin_participacion", "motivo_exclusion",
+    ])
+    for row in rows:
+        writer.writerow([
+            trivia["id"],
+            trivia["titulo"],
+            trivia["estado"],
+            row.get("empleado_id"),
+            row.get("empleado_legajo") or "",
+            row.get("empleado_dni") or "",
+            row.get("empleado_apellido") or "",
+            row.get("empleado_nombre") or "",
+            row.get("sector_nombre") or "",
+            row.get("estado_admin") or "",
+            row.get("posicion_calculada") or "",
+            row.get("puntos_total") if row.get("resultado_id") else "",
+            row.get("correctas") if row.get("resultado_id") else "",
+            row.get("incorrectas") if row.get("resultado_id") else "",
+            row.get("tiempo_total_segundos") if row.get("resultado_id") else "",
+            _fmt_dt(row.get("fecha_inicio_participacion")),
+            _fmt_dt(row.get("fecha_finalizacion")),
+            row.get("exclusion_motivo") or "",
+        ])
+
+    csv_content = "\ufeff" + out.getvalue()
+    filename = f"trivia_{trivia_id}_resultados.csv"
+    return Response(
+        csv_content,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@trivia_admin_bp.route("/<int:trivia_id>/exclusiones", methods=["POST"])
+@role_required("admin", "rrhh")
+def agregar_exclusion(trivia_id: int):
+    trivia = repo.get_trivia_by_id(trivia_id)
+    if not trivia:
+        flash("Trivia no encontrada.", "danger")
+        return redirect(url_for("trivia_admin.listado"))
+
+    empleado_id = request.form.get("empleado_id", type=int)
+    motivo = (request.form.get("motivo") or "").strip() or None
+    if not empleado_id:
+        flash("Selecciona un empleado para excluir.", "danger")
+        return redirect(url_for("trivia_admin.resultados", trivia_id=trivia_id))
+
+    repo.add_exclusion_trivia(
+        trivia_id,
+        empleado_id,
+        motivo=motivo,
+        creado_por=session.get("user_id"),
+    )
+    recalcular_resultados_trivia(trivia_id)
+    log_audit(session, "exclude", "trivia_exclusiones", trivia_id)
+    flash("Empleado excluido de la trivia.", "success")
+    return redirect(url_for("trivia_admin.resultados", trivia_id=trivia_id))
+
+
+@trivia_admin_bp.route("/<int:trivia_id>/exclusiones/<int:empleado_id>/eliminar", methods=["POST"])
+@role_required("admin", "rrhh")
+def eliminar_exclusion(trivia_id: int, empleado_id: int):
+    trivia = repo.get_trivia_by_id(trivia_id)
+    if not trivia:
+        flash("Trivia no encontrada.", "danger")
+        return redirect(url_for("trivia_admin.listado"))
+
+    repo.remove_exclusion_trivia(trivia_id, empleado_id)
+    recalcular_resultados_trivia(trivia_id)
+    log_audit(session, "delete", "trivia_exclusiones", trivia_id)
+    flash("Exclusion quitada.", "success")
+    return redirect(url_for("trivia_admin.resultados", trivia_id=trivia_id))
 
 
 @trivia_admin_bp.route("/<int:trivia_id>/editar", methods=["GET", "POST"])
@@ -362,12 +538,53 @@ def finalizar_manual(trivia_id: int):
 def ranking_anual_view():
     anio = int(request.args.get("anio") or datetime.date.today().year)
     ranking = calcular_ranking_anual(anio)
+    exclusiones = repo.get_exclusiones_ranking_anual(anio)
+    excluidos_ids = {int(e["empleado_id"]) for e in exclusiones}
+    empleados = [
+        e for e in get_empleados(include_inactive=False)
+        if int(e["id"]) not in excluidos_ids
+    ]
     return render_template(
         "trivias/ranking_anual.html",
         ranking=ranking,
+        exclusiones=exclusiones,
+        empleados=empleados,
         anio=anio,
         anios=_current_year_options(),
     )
+
+
+@trivia_admin_bp.route("/ranking-anual/exclusiones", methods=["POST"])
+@role_required("admin", "rrhh")
+def agregar_exclusion_ranking_anual():
+    anio = request.form.get("anio", type=int) or datetime.date.today().year
+    empleado_id = request.form.get("empleado_id", type=int)
+    motivo = (request.form.get("motivo") or "").strip() or None
+    if not empleado_id:
+        flash("Selecciona un empleado para excluir del ranking anual.", "danger")
+        return redirect(url_for("trivia_admin.ranking_anual_view", anio=anio))
+
+    repo.add_exclusion_ranking_anual(
+        anio,
+        empleado_id,
+        motivo=motivo,
+        creado_por=session.get("user_id"),
+    )
+    repo.recalcular_ranking_anual(anio)
+    log_audit(session, "exclude_anual", "trivia_ranking_anual_exclusiones", empleado_id)
+    flash("Empleado excluido del ranking anual.", "success")
+    return redirect(url_for("trivia_admin.ranking_anual_view", anio=anio))
+
+
+@trivia_admin_bp.route("/ranking-anual/exclusiones/<int:empleado_id>/eliminar", methods=["POST"])
+@role_required("admin", "rrhh")
+def eliminar_exclusion_ranking_anual(empleado_id: int):
+    anio = request.form.get("anio", type=int) or datetime.date.today().year
+    repo.remove_exclusion_ranking_anual(anio, empleado_id)
+    repo.recalcular_ranking_anual(anio)
+    log_audit(session, "delete_exclusion_anual", "trivia_ranking_anual_exclusiones", empleado_id)
+    flash("Exclusion anual quitada.", "success")
+    return redirect(url_for("trivia_admin.ranking_anual_view", anio=anio))
 
 
 # ---------------------------------------------------------------------------

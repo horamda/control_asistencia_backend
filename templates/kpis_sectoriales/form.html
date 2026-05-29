@@ -66,15 +66,15 @@
       <div class="row">
         <label>Tipo de acumulacion <span class="required">*</span></label>
         <select name="tipo_acumulacion" required>
-          {% for tipo in tipos_acumulacion %}
-            <option value="{{ tipo }}" {% if kpi and kpi.tipo_acumulacion == tipo %}selected{% endif %}>
-              {{ tipo | capitalize }}
-              {% if tipo == 'suma' %} — suma de todos los valores diarios del año{% endif %}
-              {% if tipo == 'promedio' %} — promedio de los valores diarios{% endif %}
-              {% if tipo == 'ultimo' %} — ultimo valor registrado{% endif %}
-            </option>
-          {% endfor %}
+          <option value="suma"    {% if kpi and kpi.tipo_acumulacion == 'suma'    %}selected{% endif %}>Suma — acumula la suma de todos los registros del período (ej: bultos, entregas, ventas)</option>
+          <option value="promedio"{% if kpi and kpi.tipo_acumulacion == 'promedio'%}selected{% endif %}>Promedio — promedio de todos los registros del período (ej: satisfaccion, calidad, eficiencia %)</option>
+          <option value="ultimo"  {% if kpi and kpi.tipo_acumulacion == 'ultimo'  %}selected{% endif %}>Ultimo — muestra el valor mas reciente; el nuevo valor reemplaza al anterior (ej: NPS, stock, tasa)</option>
         </select>
+        <small class="helper-text">
+          <strong>Suma</strong>: el CSV puede tener un delta diario o el total del mes (se suma todo).<br>
+          <strong>Promedio</strong>: se promedian todos los registros del período.<br>
+          <strong>Ultimo</strong>: ideal cuando cada carga reemplaza al valor anterior, como el NPS mensual.
+        </small>
       </div>
 
       <div class="row">

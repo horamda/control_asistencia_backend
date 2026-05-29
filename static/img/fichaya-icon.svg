@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <clipPath id="c">
+      <rect width="100" height="100" rx="20"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <!-- Background navy -->
+    <rect width="100" height="100" fill="#0C2D5C"/>
+    <!-- Orange corner top-right -->
+    <path d="M62 0 L100 0 L100 38 Z" fill="#F5921D"/>
+    <!-- Dot grid: 4 cols x 5 rows, dot=10x10 rx=2.5, step=16
+         x: 21 37 53 69   y: 13 29 45 61 77 -->
+    <!-- Row 1: all 4 -->
+    <rect x="21" y="13" width="10" height="10" rx="2.5" fill="white"/>
+    <rect x="37" y="13" width="10" height="10" rx="2.5" fill="white"/>
+    <rect x="53" y="13" width="10" height="10" rx="2.5" fill="white"/>
+    <rect x="69" y="13" width="10" height="10" rx="2.5" fill="white"/>
+    <!-- Row 2: cols 1, 3 -->
+    <rect x="21" y="29" width="10" height="10" rx="2.5" fill="white"/>
+    <rect x="53" y="29" width="10" height="10" rx="2.5" fill="white"/>
+    <!-- Row 3: cols 1, 2, 3 -->
+    <rect x="21" y="45" width="10" height="10" rx="2.5" fill="white"/>
+    <rect x="37" y="45" width="10" height="10" rx="2.5" fill="white"/>
+    <rect x="53" y="45" width="10" height="10" rx="2.5" fill="white"/>
+    <!-- Row 4: cols 1, 4 -->
+    <rect x="21" y="61" width="10" height="10" rx="2.5" fill="white"/>
+    <rect x="69" y="61" width="10" height="10" rx="2.5" fill="white"/>
+    <!-- Row 5: all 4 -->
+    <rect x="21" y="77" width="10" height="10" rx="2.5" fill="white"/>
+    <rect x="37" y="77" width="10" height="10" rx="2.5" fill="white"/>
+    <rect x="53" y="77" width="10" height="10" rx="2.5" fill="white"/>
+    <rect x="69" y="77" width="10" height="10" rx="2.5" fill="white"/>
+  </g>
+</svg>

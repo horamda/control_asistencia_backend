@@ -46,7 +46,7 @@ def get_trivias_activas() -> list[dict]:
 
 
 def get_trivia_activa_para_empleado(empleado_id: int) -> dict | None:
-    """Devuelve la trivia activa visible para el empleado según sus sectores asignados."""
+    """Devuelve la próxima trivia activa pendiente para el empleado (excluye completadas)."""
     db = get_db()
     cur = db.cursor(dictionary=True)
     try:
@@ -55,6 +55,16 @@ def get_trivia_activa_para_empleado(empleado_id: int) -> dict | None:
             SELECT t.*
             FROM trivias t
             WHERE t.estado = 'activa'
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_exclusiones te
+                  WHERE te.trivia_id = t.id AND te.empleado_id = %s
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_resultados tr
+                  WHERE tr.trivia_id = t.id
+                    AND tr.empleado_id = %s
+                    AND tr.estado_resultado = 'completado'
+              )
               AND (
                   -- Sin sectores asignados → aplica a todos
                   NOT EXISTS (SELECT 1 FROM trivia_sectores ts WHERE ts.trivia_id = t.id)
@@ -68,10 +78,10 @@ def get_trivia_activa_para_empleado(empleado_id: int) -> dict | None:
                         )
                   )
               )
-            ORDER BY t.fecha_inicio DESC
+            ORDER BY t.fecha_inicio ASC
             LIMIT 1
             """,
-            (int(empleado_id),),
+            (int(empleado_id), int(empleado_id), int(empleado_id)),
         )
         return _one(cur)
     finally:
@@ -109,6 +119,100 @@ def set_sectores_trivia(trivia_id: int, sector_ids: list[int]):
                 "INSERT INTO trivia_sectores (trivia_id, sector_id) VALUES (%s, %s)",
                 [(int(trivia_id), int(sid)) for sid in sector_ids],
             )
+        db.commit()
+    finally:
+        cur.close(); db.close()
+
+
+# ---------------------------------------------------------------------------
+# EXCLUSIONES
+# ---------------------------------------------------------------------------
+
+def get_exclusiones_trivia(trivia_id: int) -> list[dict]:
+    db = get_db()
+    cur = db.cursor(dictionary=True)
+    try:
+        cur.execute(
+            """
+            SELECT
+                te.*,
+                e.dni AS empleado_dni,
+                e.legajo AS empleado_legajo,
+                e.nombre AS empleado_nombre,
+                e.apellido AS empleado_apellido,
+                CONCAT(e.apellido, ' ', e.nombre) AS empleado_nombre_completo,
+                e.activo AS empleado_activo,
+                sec.nombre AS sector_nombre
+            FROM trivia_exclusiones te
+            JOIN empleados e ON e.id = te.empleado_id
+            LEFT JOIN sectores sec ON sec.id = e.sector_id
+            WHERE te.trivia_id = %s
+            ORDER BY e.apellido, e.nombre
+            """,
+            (int(trivia_id),),
+        )
+        return _all(cur)
+    finally:
+        cur.close(); db.close()
+
+
+def is_empleado_excluido(trivia_id: int, empleado_id: int) -> bool:
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT 1 FROM trivia_exclusiones
+            WHERE trivia_id = %s AND empleado_id = %s
+            LIMIT 1
+            """,
+            (int(trivia_id), int(empleado_id)),
+        )
+        return cur.fetchone() is not None
+    finally:
+        cur.close(); db.close()
+
+
+def add_exclusion_trivia(
+    trivia_id: int,
+    empleado_id: int,
+    motivo: str | None = None,
+    creado_por: int | None = None,
+):
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO trivia_exclusiones (trivia_id, empleado_id, motivo, creado_por)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                motivo = VALUES(motivo),
+                creado_por = VALUES(creado_por)
+            """,
+            (
+                int(trivia_id),
+                int(empleado_id),
+                (motivo or "").strip() or None,
+                int(creado_por) if creado_por else None,
+            ),
+        )
+        db.commit()
+    finally:
+        cur.close(); db.close()
+
+
+def remove_exclusion_trivia(trivia_id: int, empleado_id: int):
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute(
+            """
+            DELETE FROM trivia_exclusiones
+            WHERE trivia_id = %s AND empleado_id = %s
+            """,
+            (int(trivia_id), int(empleado_id)),
+        )
         db.commit()
     finally:
         cur.close(); db.close()
@@ -475,6 +579,11 @@ def get_ranking_trivia(trivia_id: int) -> list[dict]:
             FROM trivia_resultados tr
             JOIN empleados e ON e.id = tr.empleado_id
             WHERE tr.trivia_id = %s AND tr.estado_resultado = 'completado'
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_exclusiones te
+                  WHERE te.trivia_id = tr.trivia_id
+                    AND te.empleado_id = tr.empleado_id
+              )
             ORDER BY
                 tr.puntos_total            DESC,
                 tr.tiempo_total_segundos   ASC,
@@ -484,6 +593,23 @@ def get_ranking_trivia(trivia_id: int) -> list[dict]:
             (int(trivia_id),),
         )
         return _all(cur)
+    finally:
+        cur.close(); db.close()
+
+
+def reset_posiciones_ranking(trivia_id: int):
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute(
+            """
+            UPDATE trivia_resultados
+            SET posicion = NULL, es_ganador = 0
+            WHERE trivia_id = %s
+            """,
+            (int(trivia_id),),
+        )
+        db.commit()
     finally:
         cur.close(); db.close()
 
@@ -522,9 +648,119 @@ def get_historial_empleado(empleado_id: int) -> list[dict]:
             FROM trivia_resultados tr
             JOIN trivias t ON t.id = tr.trivia_id
             WHERE tr.empleado_id = %s
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_exclusiones te
+                  WHERE te.trivia_id = tr.trivia_id
+                    AND te.empleado_id = tr.empleado_id
+              )
             ORDER BY tr.fecha_inicio_participacion DESC
             """,
             (int(empleado_id),),
+        )
+        return _all(cur)
+    finally:
+        cur.close(); db.close()
+
+
+def get_resultados_admin_trivia(trivia_id: int) -> list[dict]:
+    """Devuelve el tablero administrativo de una trivia: habilitados, resultados y excluidos."""
+    db = get_db()
+    cur = db.cursor(dictionary=True)
+    try:
+        cur.execute(
+            """
+            SELECT
+                e.id AS empleado_id,
+                e.dni AS empleado_dni,
+                e.legajo AS empleado_legajo,
+                e.nombre AS empleado_nombre,
+                e.apellido AS empleado_apellido,
+                CONCAT(e.apellido, ' ', e.nombre) AS empleado_nombre_completo,
+                e.activo AS empleado_activo,
+                sec.nombre AS sector_nombre,
+                CASE
+                    WHEN e.activo = 1 AND (
+                        NOT EXISTS (
+                            SELECT 1 FROM trivia_sectores ts
+                            WHERE ts.trivia_id = %s
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM trivia_sectores ts
+                            WHERE ts.trivia_id = %s AND ts.sector_id = e.sector_id
+                        )
+                    )
+                    THEN 1 ELSE 0
+                END AS habilitado_por_alcance,
+                tr.id AS resultado_id,
+                tr.fecha_inicio_participacion,
+                tr.fecha_finalizacion,
+                tr.tiempo_total_segundos,
+                tr.puntos_total,
+                tr.correctas,
+                tr.incorrectas,
+                tr.posicion,
+                tr.es_ganador,
+                tr.estado_resultado,
+                te.id AS exclusion_id,
+                te.motivo AS exclusion_motivo,
+                te.creado_en AS exclusion_creado_en
+            FROM empleados e
+            LEFT JOIN sectores sec ON sec.id = e.sector_id
+            LEFT JOIN trivia_resultados tr
+                ON tr.trivia_id = %s AND tr.empleado_id = e.id
+            LEFT JOIN trivia_exclusiones te
+                ON te.trivia_id = %s AND te.empleado_id = e.id
+            WHERE
+                (
+                    e.activo = 1 AND (
+                        NOT EXISTS (
+                            SELECT 1 FROM trivia_sectores ts
+                            WHERE ts.trivia_id = %s
+                        )
+                        OR EXISTS (
+                            SELECT 1 FROM trivia_sectores ts
+                            WHERE ts.trivia_id = %s AND ts.sector_id = e.sector_id
+                        )
+                    )
+                )
+                OR tr.id IS NOT NULL
+                OR te.id IS NOT NULL
+            ORDER BY e.apellido, e.nombre
+            """,
+            (
+                int(trivia_id), int(trivia_id),
+                int(trivia_id), int(trivia_id),
+                int(trivia_id), int(trivia_id),
+            ),
+        )
+        return _all(cur)
+    finally:
+        cur.close(); db.close()
+
+
+def get_respuestas_admin_trivia(trivia_id: int) -> list[dict]:
+    db = get_db()
+    cur = db.cursor(dictionary=True)
+    try:
+        cur.execute(
+            """
+            SELECT
+                tres.*,
+                tp.orden,
+                tp.texto AS pregunta_texto,
+                tp.respuesta_correcta,
+                CONCAT(e.apellido, ' ', e.nombre) AS empleado_nombre_completo,
+                e.dni AS empleado_dni,
+                te.id AS exclusion_id
+            FROM trivia_respuestas tres
+            JOIN trivia_preguntas tp ON tp.id = tres.pregunta_id
+            JOIN empleados e ON e.id = tres.empleado_id
+            LEFT JOIN trivia_exclusiones te
+                ON te.trivia_id = tres.trivia_id AND te.empleado_id = tres.empleado_id
+            WHERE tres.trivia_id = %s
+            ORDER BY e.apellido, e.nombre, tp.orden, tp.id
+            """,
+            (int(trivia_id),),
         )
         return _all(cur)
     finally:
@@ -635,6 +871,16 @@ def save_ganador(data: dict):
         cur.close(); db.close()
 
 
+def delete_ganador(trivia_id: int):
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute("DELETE FROM trivia_ganadores WHERE trivia_id = %s", (int(trivia_id),))
+        db.commit()
+    finally:
+        cur.close(); db.close()
+
+
 def get_ganador_trivia(trivia_id: int) -> dict | None:
     db = get_db()
     cur = db.cursor(dictionary=True)
@@ -645,6 +891,11 @@ def get_ganador_trivia(trivia_id: int) -> dict | None:
             FROM trivia_ganadores tg
             JOIN trivias t ON t.id = tg.trivia_id
             WHERE tg.trivia_id = %s
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_exclusiones te
+                  WHERE te.trivia_id = tg.trivia_id
+                    AND te.empleado_id = tg.empleado_id
+              )
             LIMIT 1
             """,
             (int(trivia_id),),
@@ -683,8 +934,12 @@ def get_empleados_sin_participar(trivia_id: int) -> list[dict]:
               AND e.id NOT IN (
                   SELECT empleado_id FROM trivia_resultados WHERE trivia_id = %s
               )
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_exclusiones te
+                  WHERE te.trivia_id = %s AND te.empleado_id = e.id
+              )
             """,
-            (int(trivia_id), int(trivia_id), int(trivia_id)),
+            (int(trivia_id), int(trivia_id), int(trivia_id), int(trivia_id)),
         )
         return _all(cur)
     finally:
@@ -741,6 +996,11 @@ def get_notificaciones_no_leidas(empleado_id: int) -> list[dict]:
             FROM trivia_notificaciones tn
             JOIN trivias t ON t.id = tn.trivia_id
             WHERE tn.empleado_id = %s AND tn.leida = 0
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_exclusiones te
+                  WHERE te.trivia_id = tn.trivia_id
+                    AND te.empleado_id = tn.empleado_id
+              )
             ORDER BY tn.enviada_en DESC
             """,
             (int(empleado_id),),
@@ -784,6 +1044,79 @@ def marcar_todas_notificaciones_leidas(empleado_id: int):
 # RANKING ANUAL
 # ---------------------------------------------------------------------------
 
+def get_exclusiones_ranking_anual(anio: int) -> list[dict]:
+    db = get_db()
+    cur = db.cursor(dictionary=True)
+    try:
+        cur.execute(
+            """
+            SELECT
+                ex.*,
+                e.dni AS empleado_dni,
+                e.legajo AS empleado_legajo,
+                e.nombre AS empleado_nombre,
+                e.apellido AS empleado_apellido,
+                CONCAT(e.apellido, ' ', e.nombre) AS empleado_nombre_completo,
+                e.activo AS empleado_activo,
+                sec.nombre AS sector_nombre
+            FROM trivia_ranking_anual_exclusiones ex
+            JOIN empleados e ON e.id = ex.empleado_id
+            LEFT JOIN sectores sec ON sec.id = e.sector_id
+            WHERE ex.anio = %s
+            ORDER BY e.apellido, e.nombre
+            """,
+            (int(anio),),
+        )
+        return _all(cur)
+    finally:
+        cur.close(); db.close()
+
+
+def add_exclusion_ranking_anual(
+    anio: int,
+    empleado_id: int,
+    motivo: str | None = None,
+    creado_por: int | None = None,
+):
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO trivia_ranking_anual_exclusiones (anio, empleado_id, motivo, creado_por)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                motivo = VALUES(motivo),
+                creado_por = VALUES(creado_por)
+            """,
+            (
+                int(anio),
+                int(empleado_id),
+                (motivo or "").strip() or None,
+                int(creado_por) if creado_por else None,
+            ),
+        )
+        db.commit()
+    finally:
+        cur.close(); db.close()
+
+
+def remove_exclusion_ranking_anual(anio: int, empleado_id: int):
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute(
+            """
+            DELETE FROM trivia_ranking_anual_exclusiones
+            WHERE anio = %s AND empleado_id = %s
+            """,
+            (int(anio), int(empleado_id)),
+        )
+        db.commit()
+    finally:
+        cur.close(); db.close()
+
+
 def recalcular_ranking_anual(anio: int):
     """
     Recalcula ranking anual desde trivia_resultados para el año dado.
@@ -818,9 +1151,19 @@ def recalcular_ranking_anual(anio: int):
             JOIN trivias t   ON t.id = tr.trivia_id
             JOIN empleados e ON e.id = tr.empleado_id
             WHERE t.anio = %s AND tr.estado_resultado = 'completado'
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_exclusiones te
+                  WHERE te.trivia_id = tr.trivia_id
+                    AND te.empleado_id = tr.empleado_id
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_ranking_anual_exclusiones ex
+                  WHERE ex.anio = %s
+                    AND ex.empleado_id = tr.empleado_id
+              )
             GROUP BY tr.empleado_id, tr.empleado_dni
             """,
-            (int(anio), int(anio)),
+            (int(anio), int(anio), int(anio)),
         )
 
         # Asignar posiciones según orden del ranking anual
@@ -855,9 +1198,15 @@ def get_ranking_anual(anio: int) -> list[dict]:
     try:
         cur.execute(
             """
-            SELECT * FROM trivia_ranking_anual
-            WHERE anio = %s
-            ORDER BY posicion ASC
+            SELECT ra.*
+            FROM trivia_ranking_anual ra
+            WHERE ra.anio = %s
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_ranking_anual_exclusiones ex
+                  WHERE ex.anio = ra.anio
+                    AND ex.empleado_id = ra.empleado_id
+              )
+            ORDER BY ra.posicion ASC
             """,
             (int(anio),),
         )
@@ -872,8 +1221,15 @@ def get_ganador_anual(anio: int) -> dict | None:
     try:
         cur.execute(
             """
-            SELECT * FROM trivia_ranking_anual
-            WHERE anio = %s AND es_ganador_anual = 1
+            SELECT ra.*
+            FROM trivia_ranking_anual ra
+            WHERE ra.anio = %s
+              AND NOT EXISTS (
+                  SELECT 1 FROM trivia_ranking_anual_exclusiones ex
+                  WHERE ex.anio = ra.anio
+                    AND ex.empleado_id = ra.empleado_id
+              )
+            ORDER BY ra.posicion ASC
             LIMIT 1
             """,
             (int(anio),),

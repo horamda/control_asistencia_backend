@@ -7,7 +7,7 @@
       <div class="section-kicker">Carga diaria</div>
       <h2>Importar Resultados de KPIs</h2>
       <p class="module-intro">
-        Suba un archivo CSV con los resultados diarios por empleado. Los registros existentes para la misma fecha y KPI se actualizan automaticamente.
+        Suba un archivo CSV con los resultados diarios por empleado. Si el archivo contiene datos del mes actual, se limpia ese mes para los empleados incluidos antes de cargar la nueva informacion.
       </p>
     </div>
   </div>
@@ -21,8 +21,9 @@
     <ul style="font-size:.82rem;color:var(--muted);margin:0;padding-left:1.2rem;line-height:1.8">
       <li><strong>fecha</strong>: formato YYYY-MM-DD, no puede ser futura</li>
       <li><strong>legajo</strong>: legajo del empleado activo en la empresa seleccionada</li>
-      <li><strong>codigo_kpi</strong>: codigo exacto del KPI (ver <a href="{{ url_for('kpis_sectoriales.listado') }}">listado de KPIs</a>)</li>
+      <li><strong>codigo_kpi</strong>: codigo exacto del KPI dentro del sector del empleado (ver <a href="{{ url_for('kpis_sectoriales.listado') }}">listado de KPIs</a>)</li>
       <li><strong>valor</strong>: numero decimal — se admite punto o coma como separador</li>
+      <li><strong>mes actual</strong>: se reemplaza completo para los empleados incluidos en el CSV; los meses historicos no se borran masivamente</li>
     </ul>
   </div>
 
@@ -61,10 +62,18 @@
             <strong>Importacion completada</strong>
             <div style="font-size:.85rem;margin-top:2px">
               <strong>{{ resultado.importadas }}</strong> filas importadas de <strong>{{ resultado.total_filas }}</strong> totales
+              {% if resultado.limpiadas_mes_actual %}
+                &mdash; <strong>{{ resultado.limpiadas_mes_actual }}</strong> dato(s) reemplazados de {{ resultado.periodo_limpiado }}
+              {% endif %}
               {% if resultado.errores > 0 %}
                 &mdash; <span style="color:var(--danger,#c53a4d)"><strong>{{ resultado.errores }}</strong> con error</span>
               {% endif %}
             </div>
+            {% if resultado.periodo_limpiado and not resultado.limpiadas_mes_actual %}
+              <div style="font-size:.8rem;margin-top:2px">
+                Mes actual {{ resultado.periodo_limpiado }} preparado para {{ resultado.empleados_limpiados_mes_actual }} empleado(s), sin datos previos para borrar.
+              </div>
+            {% endif %}
           </div>
           {% if resultado.errores == 0 %}
             <span class="badge ok">Sin errores</span>

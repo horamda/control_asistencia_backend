@@ -198,6 +198,7 @@
   <div class="actions">
     {% if sector_id %}
       <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.listado', empresa_id=empresa_id, sector_id=sector_id) }}">KPIs del sector</a>
+      <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.resultados', empresa_id=empresa_id, sector_id=sector_id, anio=anio) }}">Ver resultados</a>
     {% endif %}
     <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.listado') }}">Volver</a>
   </div>

@@ -171,17 +171,23 @@ def importar_articulos_desde_csv(stream) -> dict:
             deshabilitados = int(cursor.rowcount or 0)
 
         db.commit()
+        importados = len(rows_to_import)
         creados = sum(1 for row in rows_to_import if row["codigo_articulo"] not in existentes)
-        actualizados = len(rows_to_import) - creados
+        actualizados = importados - creados
         return {
             "total_filas": total_filas,
-            "importables": len(rows_to_import),
+            "importables": importados,
+            "importados": importados,
             "creados": creados,
             "actualizados": actualizados,
             "deshabilitados": deshabilitados,
+            "anulados": deshabilitados,
             "ignorados": ignorados,
             "errores": errores,
         }
+    except Exception:
+        db.rollback()
+        raise
     finally:
         cursor.close()
         db.close()

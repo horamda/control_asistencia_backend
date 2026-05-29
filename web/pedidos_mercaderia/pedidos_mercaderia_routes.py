@@ -4,6 +4,7 @@ import io
 
 from flask import Blueprint, Response, current_app, redirect, render_template, request, session, url_for
 
+from repositories.articulo_catalogo_pedido_repository import count_all as count_articulos_catalogo
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.pedido_mercaderia_repository import get_by_id, get_export, get_page, get_summary
 from services.articulo_pedido_import_service import importar_articulos_desde_csv
@@ -229,6 +230,7 @@ def rechazar(pedido_id):
 @role_required("admin", "rrhh")
 def importar_csv():
     resultado = None
+    articulos_total = None
 
     if request.method == "POST":
         archivo = request.files.get("archivo_csv")
@@ -237,12 +239,18 @@ def importar_csv():
         else:
             try:
                 resultado = importar_articulos_desde_csv(archivo.stream)
+                articulos_total = count_articulos_catalogo(habilitado_only=True)
+                resultado["total_articulos"] = articulos_total
                 log_audit(session, "importar_csv", "articulos_catalogo_pedidos", 0)
             except Exception as exc:
                 current_app.logger.exception("importar_articulos_catalogo_error")
                 resultado = {"error": f"Error al procesar el archivo: {exc}"}
 
+    if articulos_total is None:
+        articulos_total = count_articulos_catalogo(habilitado_only=True)
+
     return render_template(
         "pedidos_mercaderia/importar_csv.html",
         resultado=resultado,
+        articulos_total=articulos_total,
     )

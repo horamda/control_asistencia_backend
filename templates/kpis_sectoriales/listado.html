@@ -49,6 +49,7 @@
     <div class="toolbar">
       <a class="btn" href="{{ url_for('kpis_sectoriales.nuevo', empresa_id=empresa_id, sector_id=sector_id) }}">+ Nuevo KPI</a>
       <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.objetivos', empresa_id=empresa_id, sector_id=sector_id) }}">Objetivos {{ anio if anio else '' }}</a>
+      <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.resultados', empresa_id=empresa_id, sector_id=sector_id) }}">Ver resultados</a>
       <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.importar_resultados') }}">Importar resultados CSV</a>
     </div>
 
@@ -81,7 +82,15 @@
                 </td>
                 <td data-label="Unidad · Acumulacion">
                   <span class="badge">{{ k.unidad }}</span>
-                  <span style="color:var(--muted);font-size:.8rem">{{ k.tipo_acumulacion }}</span>
+                  {% if k.tipo_acumulacion == 'suma' %}
+                    <span class="badge" style="background:#e8f0fe;color:#1a56db" title="Suma de todos los registros del período">suma</span>
+                  {% elif k.tipo_acumulacion == 'promedio' %}
+                    <span class="badge warning" title="Promedio de todos los registros del período">promedio</span>
+                  {% elif k.tipo_acumulacion == 'ultimo' %}
+                    <span class="badge ok" title="Muestra el valor mas reciente (reemplaza al anterior)">ultimo</span>
+                  {% else %}
+                    <span class="badge" style="color:var(--muted);font-size:.8rem">{{ k.tipo_acumulacion }}</span>
+                  {% endif %}
                 </td>
                 <td data-label="Estado">
                   {% if k.activo %}

@@ -1,6 +1,24 @@
 from extensions import get_db
 
 
+def count_all(*, habilitado_only: bool = False) -> int:
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        where_sql = "WHERE habilitado_pedido = 1" if habilitado_only else ""
+        cursor.execute(
+            f"""
+            SELECT COUNT(*) AS total
+            FROM articulos_catalogo_pedidos
+            {where_sql}
+            """
+        )
+        return int((cursor.fetchone() or {}).get("total") or 0)
+    finally:
+        cursor.close()
+        db.close()
+
+
 def get_page(
     page: int,
     per_page: int,

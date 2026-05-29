@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Resultados - {{ trivia.titulo }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Resultados</h1>
+    <p class="page-subtitle">
+      {{ trivia.titulo }} ·
+      {% set badge_cls = 'ok' if trivia.estado == 'activa' else 'warning' if trivia.estado == 'programada' else 'inactivo' if trivia.estado == 'finalizada' else 'ghost' %}
+      <span class="badge {{ badge_cls }}">{{ trivia.estado|capitalize }}</span>
+    </p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('trivia_admin.detalle', trivia_id=trivia.id) }}" class="btn btn-ghost">Volver</a>
+    <a href="{{ url_for('trivia_admin.resultados_export_csv', trivia_id=trivia.id) }}" class="btn btn-secondary">Exportar CSV</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+<div class="grid-kpis" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:1.25rem">
+  <div class="kpi-card">
+    <span class="kpi-value">{{ summary.habilitados }}</span>
+    <span class="kpi-label">Habilitados</span>
+  </div>
+  <div class="kpi-card tone-ok">
+    <span class="kpi-value">{{ summary.completados }}</span>
+    <span class="kpi-label">Completaron</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ summary.en_progreso }}</span>
+    <span class="kpi-label">En progreso</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{ summary.pendientes }}</span>
+    <span class="kpi-label">Pendientes</span>
+  </div>
+  <div class="kpi-card {% if summary.excluidos %}tone-warning{% endif %}">
+    <span class="kpi-value">{{ summary.excluidos }}</span>
+    <span class="kpi-label">Excluidos</span>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <div class="card-header">
+    <h3 class="card-title" style="margin:0">Exclusiones</h3>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('trivia_admin.agregar_exclusion', trivia_id=trivia.id) }}"
+          style="display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,1fr) auto;gap:.75rem;align-items:end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div>
+        <label class="form-label">Empleado</label>
+        <select name="empleado_id" class="form-control" required>
+          <option value="">Seleccionar...</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}">{{ e.apellido }} {{ e.nombre }}{% if e.dni %} - DNI {{ e.dni }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Motivo</label>
+        <input type="text" name="motivo" class="form-control" maxlength="300" placeholder="Opcional">
+      </div>
+      <button type="submit" class="btn btn-danger">Excluir</button>
+    </form>
+
+    {% if exclusiones %}
+      <div class="table-responsive table-cards" style="margin-top:1rem">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>DNI</th>
+              <th>Sector</th>
+              <th>Motivo</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ex in exclusiones %}
+              <tr>
+                <td data-label="Empleado"><strong>{{ ex.empleado_nombre_completo }}</strong></td>
+                <td data-label="DNI">{{ ex.empleado_dni or '-' }}</td>
+                <td data-label="Sector">{{ ex.sector_nombre or '-' }}</td>
+                <td data-label="Motivo">{{ ex.motivo or '-' }}</td>
+                <td data-label="Acciones">
+                  <form method="post"
+                        action="{{ url_for('trivia_admin.eliminar_exclusion', trivia_id=trivia.id, empleado_id=ex.empleado_id) }}"
+                        onsubmit="return confirm('Quitar exclusion de este empleado?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-ghost">Quitar</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p style="color:var(--muted);font-size:.9rem;margin:1rem 0 0">No hay empleados excluidos para esta trivia.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+    <h3 class="card-title" style="margin:0">Participacion</h3>
+    <span style="font-size:.82rem;color:var(--muted)">{{ resultados|length }} empleado{{ 's' if resultados|length != 1 else '' }}</span>
+  </div>
+  <div class="table-responsive table-cards">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Estado</th>
+          <th>#</th>
+          <th>Empleado</th>
+          <th>DNI</th>
+          <th>Sector</th>
+          <th>Puntos</th>
+          <th>OK</th>
+          <th>Mal</th>
+          <th>Tiempo</th>
+          <th>Fin</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in resultados %}
+          {% set is_ex = r.estado_admin == 'excluido' %}
+          <tr {% if is_ex %}style="opacity:.72"{% elif r.es_ganador_calculado %}style="background:linear-gradient(90deg,rgba(245,158,11,.08),transparent)"{% endif %}>
+            <td data-label="Estado">
+              {% if r.estado_admin == 'completado' %}
+                <span class="badge ok">Completado</span>
+              {% elif r.estado_admin == 'en_progreso' %}
+                <span class="badge warning">En progreso</span>
+              {% elif r.estado_admin == 'pendiente' %}
+                <span class="badge ghost">Pendiente</span>
+              {% elif r.estado_admin == 'excluido' %}
+                <span class="badge inactivo">Excluido</span>
+              {% else %}
+                <span class="badge ghost">Fuera alcance</span>
+              {% endif %}
+            </td>
+            <td data-label="#">{{ r.posicion_calculada or '-' }}</td>
+            <td data-label="Empleado"><strong>{{ r.empleado_nombre_completo }}</strong></td>
+            <td data-label="DNI">{{ r.empleado_dni or '-' }}</td>
+            <td data-label="Sector">{{ r.sector_nombre or '-' }}</td>
+            <td data-label="Puntos">{{ r.puntos_total if r.resultado_id else '-' }}</td>
+            <td data-label="OK" style="color:#16a34a">{{ r.correctas if r.resultado_id else '-' }}</td>
+            <td data-label="Mal" style="color:#dc2626">{{ r.incorrectas if r.resultado_id else '-' }}</td>
+            <td data-label="Tiempo">{{ (r.tiempo_total_segundos ~ 's') if r.tiempo_total_segundos is not none else '-' }}</td>
+            <td data-label="Fin">{{ r.fecha_finalizacion.strftime('%d/%m/%Y %H:%M') if r.fecha_finalizacion else '-' }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="10" style="text-align:center;padding:2rem;color:var(--muted)">Sin empleados para mostrar.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if respuestas %}
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title" style="margin:0">Respuestas individuales</h3>
+  </div>
+  <div class="table-responsive table-cards">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Empleado</th>
+          <th>Pregunta</th>
+          <th>Seleccion</th>
+          <th>Correcta</th>
+          <th>Puntos</th>
+          <th>Tiempo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in respuestas %}
+          <tr {% if r.exclusion_id %}style="opacity:.72"{% endif %}>
+            <td data-label="Empleado"><strong>{{ r.empleado_nombre_completo }}</strong></td>
+            <td data-label="Pregunta">{{ r.orden }}. {{ r.pregunta_texto }}</td>
+            <td data-label="Seleccion">{{ r.respuesta_seleccionada }}</td>
+            <td data-label="Correcta">
+              {% if r.correcta %}
+                <span class="badge ok">Si</span>
+              {% else %}
+                <span class="badge inactivo">No</span>
+              {% endif %}
+              <span style="color:var(--muted);font-size:.82rem">({{ r.respuesta_correcta }})</span>
+            </td>
+            <td data-label="Puntos">{{ r.puntos_obtenidos }}</td>
+            <td data-label="Tiempo">{{ (r.tiempo_respuesta_segundos ~ 's') if r.tiempo_respuesta_segundos is not none else '-' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

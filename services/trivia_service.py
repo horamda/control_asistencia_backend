@@ -34,6 +34,10 @@ class TriviaNoActivaError(TriviaError):
     pass
 
 
+class TriviaExcluidoError(TriviaNoActivaError):
+    pass
+
+
 class TriviaYaFinalizadaError(TriviaError):
     pass
 
@@ -130,6 +134,8 @@ def finalizar_participacion(empleado: dict, trivia_id: int, respuestas: list[dic
         raise TriviaNoEncontradaError("Trivia no encontrada.")
     if trivia["estado"] == "finalizada":
         raise TriviaYaFinalizadaError("Esta trivia ya fue finalizada.")
+    if repo.is_empleado_excluido(trivia_id, empleado_id):
+        raise TriviaExcluidoError("No hay trivia activa disponible para vos.")
 
     resultado = repo.get_resultado_by_trivia_empleado(trivia_id, empleado_id)
     if not resultado:
@@ -190,6 +196,16 @@ def finalizar_participacion(empleado: dict, trivia_id: int, respuestas: list[dic
         },
     )
 
+    siguiente = repo.get_trivia_activa_para_empleado(empleado_id)
+    siguiente_trivia_disponible = None
+    if siguiente:
+        siguiente_trivia_disponible = {
+            "trivia_id": siguiente["id"],
+            "titulo": siguiente["titulo"],
+            "descripcion": siguiente.get("descripcion"),
+            "fecha_fin": siguiente["fecha_fin"].isoformat() if hasattr(siguiente["fecha_fin"], "isoformat") else str(siguiente["fecha_fin"]),
+        }
+
     return {
         "trivia_id": trivia_id,
         "puntos_total": puntos_total,
@@ -197,6 +213,7 @@ def finalizar_participacion(empleado: dict, trivia_id: int, respuestas: list[dic
         "incorrectas": incorrectas,
         "tiempo_total_segundos": tiempo_total,
         "total_preguntas": len(preguntas_map),
+        "siguiente_trivia_disponible": siguiente_trivia_disponible,
     }
 
 
@@ -241,17 +258,37 @@ def finalizar_trivia(trivia_id: int):
 
     # 1) Marcar como finalizada
     repo.set_trivia_estado(trivia_id, "finalizada")
+    recalcular_resultados_trivia(trivia_id, trivia={**trivia, "estado": "finalizada"})
+    return
 
-    # 2) Obtener ranking ordenado
+# ---------------------------------------------------------------------------
+# Recalculo de resultados
+# ---------------------------------------------------------------------------
+
+def recalcular_resultados_trivia(trivia_id: int, trivia: dict | None = None):
+    """
+    Recalcula posiciones y ganador de una trivia respetando exclusiones.
+    Si la trivia ya esta finalizada, tambien refresca el ranking anual.
+    """
+    trivia = trivia or repo.get_trivia_by_id(trivia_id)
+    if not trivia:
+        raise TriviaNoEncontradaError(f"Trivia {trivia_id} no encontrada.")
+
     ranking = repo.get_ranking_trivia(trivia_id)
-    if not ranking:
+    repo.reset_posiciones_ranking(trivia_id)
+
+    if trivia["estado"] != "finalizada":
+        repo.delete_ganador(trivia_id)
         return
 
-    # 3) Guardar posiciones
+    if not ranking:
+        repo.delete_ganador(trivia_id)
+        repo.recalcular_ranking_anual(trivia["anio"])
+        return
+
     ordered_ids = [r["id"] for r in ranking]
     repo.set_posiciones_ranking(trivia_id, ordered_ids)
 
-    # 4) Guardar ganador histórico (primer puesto)
     ganador_row = ranking[0]
     repo.save_ganador({
         "trivia_id": trivia_id,
@@ -263,12 +300,11 @@ def finalizar_trivia(trivia_id: int):
         "posicion": 1,
     })
 
-    # 5) Recalcular ranking anual del año de la trivia
     repo.recalcular_ranking_anual(trivia["anio"])
 
 
 # ---------------------------------------------------------------------------
-# Notificaciones automáticas
+# Notificaciones automaticas
 # ---------------------------------------------------------------------------
 
 def generar_notificaciones(trivia_id: int):

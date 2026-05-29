@@ -1,3 +1,4 @@
+import calendar
 import datetime
 
 from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
@@ -8,9 +9,12 @@ from repositories.kpi_sectorial_repository import (
     copiar_objetivos_anio,
     create_kpi,
     delete_objetivo,
+    delete_resultados_mes,
+    get_empleados_by_sector_para_kpis,
     get_kpi_by_id,
     get_kpis_by_sector,
     get_objetivos_by_sector_anio,
+    get_resultados_empleado_kpis_anio,
     tiene_objetivos_anio,
     toggle_kpi_activo,
     update_kpi,
@@ -27,6 +31,24 @@ kpis_sectoriales_bp = Blueprint(
 )
 
 _TIPOS_ACUMULACION = ["suma", "promedio", "ultimo"]
+_MONTH_NAMES = [
+    "",
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+]
+_CONDICION_SIMBOLO = {"gte": ">=", "lte": "<=", "eq": "=", "between": "entre"}
+_SEMAFORO_BADGE = {"verde": "ok", "amarillo": "warning", "rojo": "danger", "gris": ""}
+_SEMAFORO_TONE = {"verde": "ok", "amarillo": "warn", "rojo": "bad", "gris": "empty"}
 
 
 def _year_options():
@@ -34,11 +56,326 @@ def _year_options():
     return list(range(y + 1, y - 4, -1))
 
 
+def _month_options():
+    return [{"value": i, "label": _MONTH_NAMES[i]} for i in range(1, 13)]
+
+
 def _get_sectores(empresa_id):
     if not empresa_id:
         return []
     rows, _ = get_sectores_page(1, 500, empresa_id=empresa_id, activo=1)
     return rows
+
+
+def _safe_year(value):
+    today = datetime.date.today()
+    try:
+        year = int(value)
+    except (TypeError, ValueError):
+        return today.year
+    if year < 2020 or year > today.year + 1:
+        return today.year
+    return year
+
+
+def _safe_month(value):
+    try:
+        month = int(value)
+    except (TypeError, ValueError):
+        return datetime.date.today().month
+    if month < 1 or month > 12:
+        return datetime.date.today().month
+    return month
+
+
+def _parse_delete_period(anio_value, mes_value):
+    today = datetime.date.today()
+    try:
+        anio = int(anio_value)
+        mes = int(mes_value)
+    except (TypeError, ValueError):
+        return None, None, "Periodo invalido."
+    if anio < 2020 or anio > today.year + 1 or mes < 1 or mes > 12:
+        return None, None, "Periodo invalido."
+    return anio, mes, None
+
+
+def _as_float(value):
+    if value is None:
+        return None
+    return float(value)
+
+
+def _fmt_num(value):
+    if value is None:
+        return "-"
+    value = float(value)
+    if value.is_integer():
+        return str(int(value))
+    return f"{value:.2f}".rstrip("0").rstrip(".")
+
+
+def _date_iso(value):
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)[:10]
+
+
+def _days_in_year(year: int) -> int:
+    return 366 if calendar.isleap(year) else 365
+
+
+def _month_bounds(year: int, month: int):
+    start = datetime.date(year, month, 1)
+    end = datetime.date(year, month, calendar.monthrange(year, month)[1])
+    return start, end
+
+
+def _elapsed_fraction(start: datetime.date, end: datetime.date) -> float:
+    today = datetime.date.today()
+    if start > today:
+        return 0.0
+    effective_end = min(end, today)
+    days = max((effective_end - start).days + 1, 0)
+    return days / _days_in_year(start.year)
+
+
+def _aggregate_values(values, tipo_acumulacion: str):
+    if not values:
+        return None
+    ordered = sorted(values, key=lambda item: item[0])
+    nums = [float(item[1]) for item in ordered]
+    if tipo_acumulacion == "promedio":
+        return sum(nums) / len(nums)
+    if tipo_acumulacion == "ultimo":
+        return nums[-1]
+    return sum(nums)
+
+
+def _objetivo_label(kpi: dict, fraction: float = 1.0):
+    condicion = kpi.get("condicion") or "gte"
+    unidad = kpi.get("unidad") or ""
+    if condicion == "between":
+        valor_min = kpi.get("valor_min")
+        valor_max = kpi.get("valor_max")
+        if valor_min is None or valor_max is None:
+            return "Sin objetivo"
+        return f"entre {_fmt_num(valor_min)} y {_fmt_num(valor_max)} {unidad}".strip()
+
+    objetivo = kpi.get("objetivo_anual")
+    if objetivo is None:
+        return "Sin objetivo"
+    valor = float(objetivo)
+    if kpi.get("tipo_acumulacion") == "suma":
+        valor *= max(fraction, 0.0)
+    simbolo = _CONDICION_SIMBOLO.get(condicion, ">=")
+    return f"{simbolo} {_fmt_num(valor)} {unidad}".strip()
+
+
+def _evaluar_resultado(valor, kpi: dict, fraction: float):
+    if valor is None:
+        return "gris", "Sin resultado cargado."
+
+    condicion = kpi.get("condicion") or "gte"
+    valor = float(valor)
+
+    if condicion == "between":
+        valor_min = kpi.get("valor_min")
+        valor_max = kpi.get("valor_max")
+        if valor_min is None or valor_max is None:
+            return "gris", "Rango objetivo sin definir."
+        valor_min = float(valor_min)
+        valor_max = float(valor_max)
+        rango = valor_max - valor_min
+        margen = rango * 0.10 if rango > 0 else abs(valor_min) * 0.10
+        if valor_min <= valor <= valor_max:
+            return "verde", "Dentro del rango objetivo."
+        distancia = min(abs(valor - valor_min), abs(valor - valor_max))
+        if distancia <= margen:
+            return "amarillo", "Cerca del rango objetivo."
+        return "rojo", "Fuera del rango objetivo."
+
+    objetivo = kpi.get("objetivo_anual")
+    if objetivo is None or float(objetivo) <= 0:
+        return "gris", "Sin objetivo definido."
+
+    esperado = float(objetivo)
+    if kpi.get("tipo_acumulacion") == "suma":
+        esperado *= fraction
+    if esperado <= 0:
+        return "gris", "Sin periodo transcurrido para evaluar."
+
+    ratio = valor / esperado
+    if condicion == "gte":
+        if ratio >= 0.90:
+            return "verde", "En objetivo."
+        if ratio >= 0.70:
+            return "amarillo", "Debajo del ritmo esperado."
+        return "rojo", "Muy por debajo del objetivo."
+    if condicion == "lte":
+        if ratio <= 1.10:
+            return "verde", "Dentro del limite."
+        if ratio <= 1.30:
+            return "amarillo", "Sobre el limite esperado."
+        return "rojo", "Muy por encima del limite."
+
+    if 0.90 <= ratio <= 1.10:
+        return "verde", "Dentro del valor esperado."
+    if 0.75 <= ratio <= 1.25:
+        return "amarillo", "Levemente fuera del objetivo."
+    return "rojo", "Fuera del objetivo."
+
+
+def _build_resultados_view(rows, anio: int, mes: int, kpi_id: int | None = None):
+    month_start, month_end = _month_bounds(anio, mes)
+    month_start_s = month_start.isoformat()
+    month_end_s = month_end.isoformat()
+    days_year = _days_in_year(anio)
+    month_full_fraction = ((month_end - month_start).days + 1) / days_year
+    month_eval_fraction = _elapsed_fraction(month_start, month_end)
+    year_eval_fraction = _elapsed_fraction(datetime.date(anio, 1, 1), datetime.date(anio, 12, 31))
+
+    kpis = {}
+    for row in rows:
+        rid = int(row["kpi_id"])
+        if kpi_id and rid != kpi_id:
+            continue
+        if rid not in kpis:
+            kpis[rid] = {
+                "kpi_id": rid,
+                "codigo": row["codigo"],
+                "nombre": row["nombre"],
+                "unidad": row["unidad"],
+                "tipo_acumulacion": row["tipo_acumulacion"],
+                "mayor_es_mejor": bool(row["mayor_es_mejor"]),
+                "objetivo_anual": _as_float(row.get("objetivo_valor")),
+                "condicion": row.get("condicion") or "gte",
+                "valor_min": _as_float(row.get("valor_min")),
+                "valor_max": _as_float(row.get("valor_max")),
+                "values_year": [],
+                "values_month": [],
+            }
+
+        fecha = _date_iso(row.get("fecha"))
+        if not fecha or row.get("valor") is None:
+            continue
+        valor = float(row["valor"])
+        kpis[rid]["values_year"].append((fecha, valor))
+        if month_start_s <= fecha <= month_end_s:
+            kpis[rid]["values_month"].append((fecha, valor))
+
+    resumen = []
+    daily = {}
+    for kpi in kpis.values():
+        valor_mes = _aggregate_values(kpi["values_month"], kpi["tipo_acumulacion"])
+        valor_anio = _aggregate_values(kpi["values_year"], kpi["tipo_acumulacion"])
+        sem_mes, msg_mes = _evaluar_resultado(valor_mes, kpi, month_eval_fraction)
+        sem_anio, msg_anio = _evaluar_resultado(valor_anio, kpi, year_eval_fraction)
+
+        target_eval = None
+        if kpi["objetivo_anual"] is not None and kpi["tipo_acumulacion"] == "suma":
+            target_eval = kpi["objetivo_anual"] * month_eval_fraction
+
+        resumen.append({
+            **kpi,
+            "resultado_mes": round(valor_mes, 4) if valor_mes is not None else None,
+            "resultado_anio": round(valor_anio, 4) if valor_anio is not None else None,
+            "registros_mes": len(kpi["values_month"]),
+            "registros_anio": len(kpi["values_year"]),
+            "objetivo_anual_label": _objetivo_label(kpi, 1.0),
+            "objetivo_mes_label": _objetivo_label(kpi, month_full_fraction),
+            "objetivo_eval_label": _objetivo_label(kpi, month_eval_fraction),
+            "objetivo_eval_valor": round(target_eval, 4) if target_eval is not None else None,
+            "semaforo_mes": sem_mes,
+            "semaforo_anio": sem_anio,
+            "semaforo_mes_label": _SEMAFORO_BADGE.get(sem_mes, ""),
+            "semaforo_anio_label": _SEMAFORO_BADGE.get(sem_anio, ""),
+            "mensaje_mes": msg_mes,
+            "mensaje_anio": msg_anio,
+        })
+
+        daily_fraction = 1 / days_year if kpi["tipo_acumulacion"] == "suma" else 1.0
+        for fecha, valor in kpi["values_month"]:
+            sem, msg = _evaluar_resultado(valor, kpi, daily_fraction)
+            daily.setdefault(fecha, []).append({
+                "kpi_id": kpi["kpi_id"],
+                "codigo": kpi["codigo"],
+                "nombre": kpi["nombre"],
+                "valor": round(valor, 4),
+                "valor_fmt": _fmt_num(valor),
+                "unidad": kpi["unidad"],
+                "semaforo": sem,
+                "tone": _SEMAFORO_TONE.get(sem, "empty"),
+                "objetivo_label": _objetivo_label(kpi, daily_fraction),
+                "mensaje": msg,
+            })
+
+    weeks = _build_resultados_calendar(daily, month_start, month_end)
+    total_celdas_con_datos = sum(1 for entries in daily.values() if entries)
+    en_objetivo = sum(1 for item in resumen if item["semaforo_mes"] == "verde")
+    alerta = sum(1 for item in resumen if item["semaforo_mes"] in {"amarillo", "rojo"})
+    sin_datos = sum(1 for item in resumen if item["resultado_mes"] is None)
+
+    return {
+        "resumen": resumen,
+        "calendar_weeks": weeks,
+        "month_label": f"{_MONTH_NAMES[mes]} {anio}",
+        "totales": {
+            "kpis": len(resumen),
+            "dias_con_resultado": total_celdas_con_datos,
+            "en_objetivo": en_objetivo,
+            "alerta": alerta,
+            "sin_datos": sin_datos,
+        },
+    }
+
+
+def _build_resultados_calendar(daily, month_start: datetime.date, month_end: datetime.date):
+    days = []
+    cur = month_start
+    while cur <= month_end:
+        fecha = cur.isoformat()
+        entries = sorted(daily.get(fecha, []), key=lambda item: item["nombre"])
+        if entries:
+            if any(item["semaforo"] == "rojo" for item in entries):
+                tone = "bad"
+            elif any(item["semaforo"] == "amarillo" for item in entries):
+                tone = "warn"
+            elif any(item["semaforo"] == "verde" for item in entries):
+                tone = "ok"
+            else:
+                tone = "empty"
+            tooltip = " | ".join(
+                f"{item['nombre']} ({item['codigo']}): {item['valor_fmt']} {item['unidad']} ({item['mensaje']})"
+                for item in entries
+            )
+        else:
+            tone = "weekend" if cur.weekday() >= 5 else "empty"
+            tooltip = f"{fecha} - Sin resultado"
+
+        days.append({
+            "date": fecha,
+            "num": cur.day,
+            "weekday": cur.weekday(),
+            "entries": entries,
+            "tone": tone,
+            "tooltip": tooltip,
+        })
+        cur += datetime.timedelta(days=1)
+
+    weeks = []
+    week = [None] * days[0]["weekday"]
+    for day in days:
+        week.append(day)
+        if len(week) == 7:
+            weeks.append(week)
+            week = []
+    if week:
+        week += [None] * (7 - len(week))
+        weeks.append(week)
+    return weeks
 
 
 # ---------------------------------------------------------------------------
@@ -297,6 +634,116 @@ def copiar_objetivos_anio_anterior():
     return redirect(url_for("kpis_sectoriales.objetivos", empresa_id=empresa_id,
                              sector_id=sector_id, anio=anio,
                              msg=f"{copiados} objetivo(s) copiados de {anio - 1}."))
+
+
+# ---------------------------------------------------------------------------
+# Resultados por empleado
+# ---------------------------------------------------------------------------
+
+@kpis_sectoriales_bp.route("/resultados")
+@role_required("admin", "rrhh")
+def resultados():
+    empresa_id = request.args.get("empresa_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
+    empleado_id = request.args.get("empleado_id", type=int)
+    kpi_id = request.args.get("kpi_id", type=int)
+    anio = _safe_year(request.args.get("anio"))
+    mes = _safe_month(request.args.get("mes"))
+    error = (request.args.get("error") or "").strip() or None
+    msg = (request.args.get("msg") or "").strip() or None
+
+    empresas = get_empresas()
+    sectores = _get_sectores(empresa_id)
+    empleados = get_empleados_by_sector_para_kpis(empresa_id, sector_id) if empresa_id and sector_id else []
+    kpis = get_kpis_by_sector(sector_id, activo=1) if sector_id else []
+    vista = None
+
+    empleado = None
+    if empleado_id:
+        empleado = next((e for e in empleados if int(e["id"]) == empleado_id), None)
+        if not empleado:
+            error = "Empleado no encontrado para la empresa y sector seleccionados."
+            empleado_id = None
+
+    if kpi_id and not any(int(k["id"]) == kpi_id for k in kpis):
+        kpi_id = None
+
+    if empleado and kpis:
+        rows = get_resultados_empleado_kpis_anio(empleado_id, sector_id, anio)
+        vista = _build_resultados_view(rows, anio, mes, kpi_id=kpi_id)
+
+    return render_template(
+        "kpis_sectoriales/resultados.html",
+        empresas=empresas,
+        sectores=sectores,
+        empleados=empleados,
+        kpis=kpis,
+        empresa_id=empresa_id,
+        sector_id=sector_id,
+        empleado_id=empleado_id,
+        empleado=empleado,
+        kpi_id=kpi_id,
+        anio=anio,
+        mes=mes,
+        years=_year_options(),
+        months=_month_options(),
+        bulk_delete_confirmacion=f"{anio}-{mes:02d}",
+        bulk_delete_month_label=f"{_MONTH_NAMES[mes]} {anio}",
+        vista=vista,
+        error=error,
+        msg=msg,
+    )
+
+
+@kpis_sectoriales_bp.route("/resultados/eliminar-mes", methods=["POST"])
+@role_required("admin", "rrhh")
+def eliminar_resultados_mes():
+    empresa_id = request.form.get("empresa_id", type=int)
+    sector_id = request.form.get("sector_id", type=int)
+    empleado_id = request.form.get("empleado_id", type=int)
+    kpi_id = request.form.get("kpi_id", type=int)
+    anio, mes, period_error = _parse_delete_period(request.form.get("anio"), request.form.get("mes"))
+
+    redirect_params = {
+        "empresa_id": empresa_id,
+        "sector_id": sector_id,
+        "empleado_id": empleado_id,
+        "kpi_id": kpi_id,
+        "anio": anio or request.form.get("anio"),
+        "mes": mes or request.form.get("mes"),
+    }
+    redirect_params = {k: v for k, v in redirect_params.items() if v not in (None, "")}
+
+    if not empresa_id or not sector_id or period_error:
+        return redirect(url_for(
+            "kpis_sectoriales.resultados",
+            **redirect_params,
+            error=period_error or "Empresa y sector son obligatorios para eliminar resultados.",
+        ))
+
+    confirmacion = (request.form.get("confirmacion") or "").strip()
+    confirmacion_esperada = f"{anio}-{mes:02d}"
+    if confirmacion != confirmacion_esperada:
+        return redirect(url_for(
+            "kpis_sectoriales.resultados",
+            **redirect_params,
+            error=f"Para eliminar el mes debe confirmar escribiendo {confirmacion_esperada}.",
+        ))
+
+    eliminados = delete_resultados_mes(
+        empresa_id,
+        sector_id,
+        anio,
+        mes,
+        empleado_id=empleado_id,
+        kpi_id=kpi_id,
+    )
+    log_audit(session, "eliminar_resultados_mes", "kpis_empleado_resultado", sector_id)
+    return redirect(url_for(
+        "kpis_sectoriales.resultados",
+        **redirect_params,
+        msg=f"{eliminados} resultado(s) eliminados de {_MONTH_NAMES[mes]} {anio}.",
+    ))
 
 
 # ---------------------------------------------------------------------------

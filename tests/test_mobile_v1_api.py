@@ -2,6 +2,7 @@ import datetime
 import io
 
 import app as app_module
+import repositories.kpi_sectorial_repository as kpi_repo
 import utils.jwt_guard as jwt_guard
 import routes.mobile_v1_routes as mobile_routes
 
@@ -1676,6 +1677,114 @@ def test_mobile_me_estadisticas_error_controlado(monkeypatch):
     body = resp.get_json()
     assert resp.status_code == 500
     assert "No se pudieron obtener estadisticas." in body["error"]
+
+
+def _setup_kpis_auth(monkeypatch):
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 6})
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_empleado_by_id",
+        lambda empleado_id: {
+            "id": empleado_id,
+            "activo": 1,
+            "empresa_id": 1,
+            "dni": "6",
+            "nombre": "Emp",
+            "apellido": "Six",
+        },
+    )
+
+
+def test_mobile_kpis_sector_actual_no_agrega_vistas(monkeypatch):
+    _setup_kpis_auth(monkeypatch)
+    monkeypatch.setattr(
+        kpi_repo,
+        "get_resultados_empleado_anio",
+        lambda empleado_id, anio: {
+            "sector_id": 3,
+            "sector_nombre": "Entrega",
+            "kpis": [{"kpi_id": 1, "nombre": "Bultos entregados"}],
+        },
+    )
+    client = _build_client(monkeypatch)
+
+    resp = client.get("/api/v1/mobile/me/kpis-sector?anio=2026", headers={"Authorization": "Bearer abc"})
+    body = resp.get_json()
+
+    assert resp.status_code == 200
+    assert set(body.keys()) == {"anio", "sector", "kpis"}
+    assert body["kpis"][0]["nombre"] == "Bultos entregados"
+
+
+def test_mobile_kpis_sector_resumen_incluye_vistas(monkeypatch):
+    _setup_kpis_auth(monkeypatch)
+    monkeypatch.setattr(
+        kpi_repo,
+        "get_resultados_empleado_anio",
+        lambda empleado_id, anio: {
+            "sector_id": 3,
+            "sector_nombre": "Entrega",
+            "kpis": [{"kpi_id": 1, "nombre": "Bultos entregados", "resultado_acumulado": 450.0}],
+        },
+    )
+    monkeypatch.setattr(
+        kpi_repo,
+        "get_ultimo_resultado_cargado_empleado",
+        lambda empleado_id, anio: {
+            "kpi_id": 1,
+            "codigo": "BULTOS_ENT",
+            "nombre": "Bultos entregados",
+            "valor": 38.0,
+            "unidad": "bultos",
+            "fecha_resultado": "2026-04-30",
+            "cargado_at": "2026-05-01T08:15:00",
+            "semaforo": "verde",
+        },
+    )
+    monkeypatch.setattr(
+        kpi_repo,
+        "get_resultados_empleado_meses_cerrados",
+        lambda empleado_id, anio, limit_meses: [
+            {
+                "periodo": "2026-04",
+                "periodo_year": 2026,
+                "periodo_month": 4,
+                "mes_nombre": "Abril",
+                "cerrado": True,
+                "resumen": {"total": 1, "verde": 1, "amarillo": 0, "rojo": 0, "gris": 0},
+                "kpis": [{"kpi_id": 1, "nombre": "Bultos entregados", "resultado_mes": 120.0}],
+            }
+        ],
+    )
+    client = _build_client(monkeypatch)
+
+    resp = client.get(
+        "/api/v1/mobile/me/kpis-sector/resumen?anio=2026&limit_meses=3",
+        headers={"Authorization": "Bearer abc"},
+    )
+    body = resp.get_json()
+
+    assert resp.status_code == 200
+    assert body["sector"]["nombre"] == "Entrega"
+    assert body["vista_actual"]["kpis"][0]["resultado_acumulado"] == 450.0
+    assert body["ultimo_cargado"]["fecha_resultado"] == "2026-04-30"
+    assert body["ultimo_cargado"]["nombre"] == "Bultos entregados"
+    assert body["meses_cerrados"][0]["periodo"] == "2026-04"
+    assert body["meses_cerrados"][0]["kpis"][0]["resultado_mes"] == 120.0
+    assert body["meta"]["limit_meses"] == 3
+
+
+def test_mobile_kpis_sector_resumen_limit_invalido(monkeypatch):
+    _setup_kpis_auth(monkeypatch)
+    client = _build_client(monkeypatch)
+
+    resp = client.get(
+        "/api/v1/mobile/me/kpis-sector/resumen?limit_meses=99",
+        headers={"Authorization": "Bearer abc"},
+    )
+
+    assert resp.status_code == 400
+    assert "limit_meses invalido" in resp.get_json()["error"]
 
 
 def test_mobile_me_perfil_actualiza_con_foto_file(monkeypatch):

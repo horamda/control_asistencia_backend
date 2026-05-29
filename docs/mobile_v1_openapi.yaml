@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: FichaYa — Mobile API v1
-  version: 1.18.0
+  version: 1.21.1
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -1267,6 +1267,129 @@ components:
         recomendacion:
           type: string
           description: "Texto corto para mostrar al empleado"
+
+    KpiSectorUltimoCargado:
+      allOf:
+        - $ref: '#/components/schemas/KpiSectorialItem'
+        - type: object
+          properties:
+            objetivo_periodo:
+              type: number
+              nullable: true
+              description: "Objetivo esperado para el periodo puntual evaluado"
+            resultado:
+              type: number
+              nullable: true
+            valor:
+              type: number
+              nullable: true
+              description: "Alias del resultado puntual cargado"
+            fecha_resultado:
+              type: string
+              format: date
+              nullable: true
+              description: "Fecha operativa del KPI informada en el CSV"
+            cargado_at:
+              type: string
+              format: date-time
+              nullable: true
+              description: "Fecha tecnica de insercion o ultima actualizacion"
+
+    KpiSectorMesCerradoItem:
+      allOf:
+        - $ref: '#/components/schemas/KpiSectorialItem'
+        - type: object
+          properties:
+            objetivo_mes:
+              type: number
+              nullable: true
+            resultado_mes:
+              type: number
+              nullable: true
+            registros:
+              type: integer
+            fecha_ultimo_resultado:
+              type: string
+              format: date
+              nullable: true
+
+    KpiSectorMesCerrado:
+      type: object
+      properties:
+        periodo:
+          type: string
+          example: "2026-04"
+        periodo_year:
+          type: integer
+          example: 2026
+        periodo_month:
+          type: integer
+          example: 4
+        mes_nombre:
+          type: string
+          example: Abril
+        desde:
+          type: string
+          format: date
+        hasta:
+          type: string
+          format: date
+        cerrado:
+          type: boolean
+          example: true
+        resumen:
+          type: object
+          properties:
+            total:
+              type: integer
+            verde:
+              type: integer
+            amarillo:
+              type: integer
+            rojo:
+              type: integer
+            gris:
+              type: integer
+        kpis:
+          type: array
+          items:
+            $ref: '#/components/schemas/KpiSectorMesCerradoItem'
+
+    KpisSectorResumenResponse:
+      type: object
+      properties:
+        anio:
+          type: integer
+          example: 2026
+        sector:
+          type: object
+          properties:
+            id:
+              type: integer
+              nullable: true
+            nombre:
+              type: string
+              nullable: true
+        vista_actual:
+          type: object
+          properties:
+            kpis:
+              type: array
+              items:
+                $ref: '#/components/schemas/KpiSectorialItem'
+        ultimo_cargado:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/KpiSectorUltimoCargado'
+        meses_cerrados:
+          type: array
+          items:
+            $ref: '#/components/schemas/KpiSectorMesCerrado'
+        meta:
+          type: object
+          properties:
+            limit_meses:
+              type: integer
 
 security:
   - BearerAuth: []
@@ -2876,7 +2999,10 @@ paths:
       summary: KPIs del sector del empleado autenticado
       description: |
         Devuelve los KPIs del sector al que pertenece el empleado, con resultado acumulado
-        en el año solicitado y semaforo de progreso vs objetivo del sector.
+        en el anio solicitado y semaforo de progreso vs objetivo del sector.
+        Los resultados provienen de importaciones CSV del panel web. Si una importacion
+        incluye datos del mes actual, backend reemplaza ese mes para los empleados
+        incluidos en el CSV; los meses historicos no se limpian masivamente.
       security:
         - BearerAuth: []
       parameters:
@@ -2896,6 +3022,53 @@ paths:
                 $ref: '#/components/schemas/KpisSectorResponse'
         '400':
           description: Año invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me/kpis-sector/resumen:
+    get:
+      tags: [KPIs]
+      summary: Vista ampliada de KPIs del sector del empleado autenticado
+      description: |
+        No reemplaza a /me/kpis-sector. Devuelve la vista actual dentro de
+        vista_actual.kpis y agrega ultimo_cargado y meses_cerrados.
+        Usa la misma fuente de datos y regla de refresco que /me/kpis-sector.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: anio
+          in: query
+          required: false
+          schema:
+            type: integer
+            example: 2026
+          description: "Anio a consultar (default: anio actual del servidor)"
+        - name: limit_meses
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            default: 6
+          description: "Cantidad de meses cerrados a devolver"
+      responses:
+        '200':
+          description: Vistas de KPIs para Flutter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpisSectorResumenResponse'
+        '400':
+          description: Anio o limit_meses invalido
           content:
             application/json:
               schema:

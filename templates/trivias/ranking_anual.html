@@ -19,6 +19,76 @@
   </div>
 </div>
 
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+<div class="card" style="margin-bottom:1rem">
+  <div class="card-header">
+    <h3 class="card-title" style="margin:0">Exclusiones del ranking anual</h3>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('trivia_admin.agregar_exclusion_ranking_anual') }}"
+          style="display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,1fr) auto;gap:.75rem;align-items:end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="anio" value="{{ anio }}">
+      <div>
+        <label class="form-label">Empleado</label>
+        <select name="empleado_id" class="form-control" required>
+          <option value="">Seleccionar...</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}">{{ e.apellido }} {{ e.nombre }}{% if e.dni %} - DNI {{ e.dni }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Motivo</label>
+        <input type="text" name="motivo" class="form-control" maxlength="300" placeholder="Opcional">
+      </div>
+      <button type="submit" class="btn btn-danger">Excluir del anual</button>
+    </form>
+
+    {% if exclusiones %}
+      <div class="table-responsive table-cards" style="margin-top:1rem">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>DNI</th>
+              <th>Sector</th>
+              <th>Motivo</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ex in exclusiones %}
+              <tr>
+                <td data-label="Empleado"><strong>{{ ex.empleado_nombre_completo }}</strong></td>
+                <td data-label="DNI">{{ ex.empleado_dni or '-' }}</td>
+                <td data-label="Sector">{{ ex.sector_nombre or '-' }}</td>
+                <td data-label="Motivo">{{ ex.motivo or '-' }}</td>
+                <td data-label="Acciones">
+                  <form method="post"
+                        action="{{ url_for('trivia_admin.eliminar_exclusion_ranking_anual', empleado_id=ex.empleado_id) }}"
+                        onsubmit="return confirm('Quitar exclusion anual de este empleado?')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="anio" value="{{ anio }}">
+                    <button type="submit" class="btn btn-sm btn-ghost">Quitar</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p style="color:var(--muted);font-size:.9rem;margin:1rem 0 0">No hay empleados excluidos del ranking anual {{ anio }}.</p>
+    {% endif %}
+  </div>
+</div>
+
 {% if ranking %}
 
 {# Podio top 3 #}

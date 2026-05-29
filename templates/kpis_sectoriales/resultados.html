@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}Resultados KPI por empleado{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Resultados por empleado</div>
+      <h2>KPIs diarios y mensuales</h2>
+      <p class="module-intro">
+        Consulte los resultados cargados por CSV contra los objetivos del sector.
+      </p>
+    </div>
+    <div class="chip-row">
+      {% if empleado %}
+        <span class="chip">{{ empleado.apellido }} {{ empleado.nombre }}</span>
+      {% endif %}
+      {% if vista %}
+        <span class="chip">{{ vista.month_label }}</span>
+        <span class="chip">{{ vista.totales.dias_con_resultado }} dias con resultado</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if error %}<div class="errors"><p>{{ error }}</p></div>{% endif %}
+  {% if msg %}<div class="alert-ok"><p>{{ msg }}</p></div>{% endif %}
+
+  <form method="get" action="{{ url_for('kpis_sectoriales.resultados') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id" onchange="this.form.submit()">
+          <option value="">Seleccione empresa</option>
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        <select name="sector_id" onchange="this.form.submit()" {% if not empresa_id %}disabled{% endif %}>
+          <option value="">{% if not empresa_id %}Seleccione empresa{% else %}Seleccione sector{% endif %}</option>
+          {% for s in sectores %}
+            <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Empleado</label>
+        <select name="empleado_id" onchange="this.form.submit()" {% if not sector_id %}disabled{% endif %}>
+          <option value="">{% if not sector_id %}Seleccione sector{% else %}Seleccione empleado{% endif %}</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }}{% if e.legajo %} &middot; {{ e.legajo }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>KPI</label>
+        <select name="kpi_id" onchange="this.form.submit()" {% if not sector_id %}disabled{% endif %}>
+          <option value="">Todos los KPIs activos</option>
+          {% for k in kpis %}
+            <option value="{{ k.id }}" {% if kpi_id == k.id %}selected{% endif %}>{{ k.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Mes</label>
+        <select name="mes" onchange="this.form.submit()">
+          {% for m in months %}
+            <option value="{{ m.value }}" {% if mes == m.value %}selected{% endif %}>{{ m.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Ano</label>
+        <select name="anio" onchange="this.form.submit()">
+          {% for y in years %}
+            <option value="{{ y }}" {% if anio == y %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Aplicar filtros</button>
+      <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.resultados') }}">Limpiar</a>
+    </div>
+  </form>
+
+  {% if empresa_id and sector_id %}
+    <section class="panel kpi-danger-panel">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">
+        <div>
+          <h3 style="margin:0 0 6px">Eliminar resultados del mes</h3>
+          <div class="chip-row" style="margin-bottom:6px">
+            <span class="chip">{{ bulk_delete_month_label }}</span>
+            {% if empleado %}
+              <span class="chip">{{ empleado.apellido }} {{ empleado.nombre }}</span>
+            {% else %}
+              <span class="chip">Todos los empleados del sector</span>
+            {% endif %}
+            {% if kpi_id %}
+              <span class="chip">KPI filtrado</span>
+            {% else %}
+              <span class="chip">Todos los KPIs</span>
+            {% endif %}
+          </div>
+          <p class="helper-text" style="margin:0">
+            Respeta los filtros actuales de empleado y KPI. Sin esos filtros borra todo el mes del sector.
+          </p>
+        </div>
+        <form method="post" action="{{ url_for('kpis_sectoriales.eliminar_resultados_mes') }}"
+              style="display:flex;gap:.5rem;align-items:end;flex-wrap:wrap"
+              onsubmit="return confirm('Eliminar resultados KPI de {{ bulk_delete_month_label }}? Esta accion no se puede deshacer.')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
+          <input type="hidden" name="sector_id" value="{{ sector_id }}">
+          {% if empleado_id %}<input type="hidden" name="empleado_id" value="{{ empleado_id }}">{% endif %}
+          {% if kpi_id %}<input type="hidden" name="kpi_id" value="{{ kpi_id }}">{% endif %}
+          <input type="hidden" name="anio" value="{{ anio }}">
+          <input type="hidden" name="mes" value="{{ mes }}">
+          <div class="row" style="margin:0">
+            <label>Confirmar periodo</label>
+            <input
+              type="text"
+              name="confirmacion"
+              placeholder="{{ bulk_delete_confirmacion }}"
+              autocomplete="off"
+              style="width:130px"
+              required
+            >
+          </div>
+          <button class="btn-danger" type="submit">Eliminar mes</button>
+        </form>
+      </div>
+    </section>
+  {% endif %}
+
+  {% if sector_id and not kpis %}
+    <div class="empty-state">Este sector no tiene KPIs activos.</div>
+  {% elif sector_id and not empleados %}
+    <div class="empty-state">Este sector no tiene empleados activos.</div>
+  {% elif not empleado_id %}
+    <div class="empty-state">Seleccione un empleado para ver sus resultados.</div>
+  {% elif vista %}
+    <section class="grid-kpis dashboard-kpis">
+      <article class="kpi-card">
+        <div class="kpi-label">KPIs evaluados</div>
+        <div class="kpi-value">{{ vista.totales.kpis }}</div>
+        <div class="kpi-desc">indicadores activos</div>
+      </article>
+      <article class="kpi-card tone-ok">
+        <div class="kpi-label">En objetivo</div>
+        <div class="kpi-value">{{ vista.totales.en_objetivo }}</div>
+        <div class="kpi-desc">segun avance del mes</div>
+      </article>
+      <article class="kpi-card {% if vista.totales.alerta %}tone-warn{% endif %}">
+        <div class="kpi-label">Alertas</div>
+        <div class="kpi-value">{{ vista.totales.alerta }}</div>
+        <div class="kpi-desc">amarillo o rojo</div>
+      </article>
+      <article class="kpi-card {% if vista.totales.sin_datos %}tone-bad{% endif %}">
+        <div class="kpi-label">Sin datos</div>
+        <div class="kpi-value">{{ vista.totales.sin_datos }}</div>
+        <div class="kpi-desc">sin carga en el mes</div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <h3 style="margin:0">Resumen mensual</h3>
+        <div class="chip-row">
+          <span class="chip chip-muted">Objetivo anual prorrateado</span>
+          <span class="chip chip-muted">{{ vista.month_label }}</span>
+        </div>
+      </div>
+      {% if vista.resumen %}
+        <div class="table-responsive table-cards">
+          <table>
+            <thead>
+              <tr>
+                <th>Indicador</th>
+                <th>Objetivo mes</th>
+                <th>Resultado mes</th>
+                <th>Resultado anual</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in vista.resumen %}
+                <tr>
+                  <td data-label="Indicador">
+                    <strong>{{ item.nombre }}</strong>
+                    <small style="display:block;color:var(--muted)">
+                      <code>{{ item.codigo }}</code> &middot; {{ item.tipo_acumulacion }} &middot; {{ item.objetivo_anual_label }}
+                    </small>
+                  </td>
+                  <td data-label="Objetivo mes">
+                    <strong>{{ item.objetivo_mes_label }}</strong>
+                    {% if item.objetivo_eval_valor is not none %}
+                      <small style="display:block;color:var(--muted)">Esperado al corte: {{ item.objetivo_eval_label }}</small>
+                    {% endif %}
+                  </td>
+                  <td data-label="Resultado mes">
+                    {% if item.resultado_mes is not none %}
+                      <strong>{{ item.resultado_mes | float | round(2) }}</strong> {{ item.unidad }}
+                      <small style="display:block;color:var(--muted)">{{ item.registros_mes }} registro(s)</small>
+                    {% else %}
+                      <span class="helper-text">Sin datos</span>
+                    {% endif %}
+                  </td>
+                  <td data-label="Resultado anual">
+                    {% if item.resultado_anio is not none %}
+                      <strong>{{ item.resultado_anio | float | round(2) }}</strong> {{ item.unidad }}
+                      <small style="display:block;color:var(--muted)">{{ item.registros_anio }} registro(s)</small>
+                    {% else %}
+                      <span class="helper-text">Sin datos</span>
+                    {% endif %}
+                  </td>
+                  <td data-label="Estado">
+                    <span class="badge {{ item.semaforo_mes_label }}">{{ item.mensaje_mes }}</span>
+                    <small style="display:block;color:var(--muted);margin-top:4px">Anual: {{ item.mensaje_anio }}</small>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state">No hay indicadores para los filtros seleccionados.</div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">Calendario de resultados</h3>
+        <div class="kpi-calendar-legend">
+          <span><i class="kpi-cal-dot ok"></i>En objetivo</span>
+          <span><i class="kpi-cal-dot warn"></i>Atencion</span>
+          <span><i class="kpi-cal-dot bad"></i>Fuera</span>
+          <span><i class="kpi-cal-dot empty"></i>Sin datos</span>
+        </div>
+      </div>
+
+      <div class="kpi-calendar-wrap">
+        <div class="kpi-calendar">
+          <div class="kpi-calendar-header">
+            {% for name in ["L","M","X","J","V","S","D"] %}
+              <div>{{ name }}</div>
+            {% endfor %}
+          </div>
+          {% for week in vista.calendar_weeks %}
+            <div class="kpi-calendar-week">
+              {% for day in week %}
+                {% if day %}
+                  <div class="kpi-calendar-day tone-{{ day.tone }}" title="{{ day.tooltip }}">
+                    <div class="kpi-calendar-num">{{ day.num }}</div>
+                    {% if day.entries %}
+                      <div class="kpi-calendar-values">
+                        {% for entry in day.entries[:3] %}
+                          <span class="kpi-calendar-value tone-{{ entry.tone }}">
+                            <strong class="kpi-calendar-name">{{ entry.nombre }}</strong>
+                            <span class="kpi-calendar-meta">
+                              <span>{{ entry.valor_fmt }} {{ entry.unidad }}</span>
+                              <code>{{ entry.codigo }}</code>
+                            </span>
+                          </span>
+                        {% endfor %}
+                        {% if day.entries | length > 3 %}
+                          <span class="kpi-calendar-more">+{{ (day.entries | length) - 3 }}</span>
+                        {% endif %}
+                      </div>
+                    {% else %}
+                      <span class="kpi-calendar-empty">sin datos</span>
+                    {% endif %}
+                  </div>
+                {% else %}
+                  <div class="kpi-calendar-day pad"></div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+  <div class="actions">
+    <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.listado', empresa_id=empresa_id, sector_id=sector_id) }}">Indicadores</a>
+    <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.objetivos', empresa_id=empresa_id, sector_id=sector_id, anio=anio) }}">Objetivos</a>
+    <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.importar_resultados') }}">Importar resultados</a>
+  </div>
+</div>
+{% endblock %}

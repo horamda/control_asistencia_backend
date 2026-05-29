@@ -11,6 +11,7 @@ import repositories.trivia_repository as trivia_repo
 import services.trivia_service as svc
 from services.trivia_service import (
     TriviaDuplicadaError,
+    TriviaExcluidoError,
     TriviaFueraDeHorarioError,
     TriviaNoActivaError,
     TriviaNoEncontradaError,
@@ -94,6 +95,14 @@ _RESULTADO_COMPLETADO = {
     "incorrectas": 2,
     "estado_resultado": "completado",
 }
+
+
+@pytest.fixture(autouse=True)
+def _patch_repo_defaults(monkeypatch):
+    monkeypatch.setattr(trivia_repo, "is_empleado_excluido", lambda tid, eid: False)
+    monkeypatch.setattr(trivia_repo, "reset_posiciones_ranking", lambda tid: None)
+    monkeypatch.setattr(trivia_repo, "delete_ganador", lambda tid: None)
+    monkeypatch.setattr(trivia_repo, "recalcular_ranking_anual", lambda anio: None)
 
 
 # ===========================================================================
@@ -189,6 +198,14 @@ def test_finalizar_trivia_ya_finalizada_lanza_excepcion(monkeypatch):
         svc.finalizar_participacion(_EMPLEADO, 3, [])
 
 
+def test_finalizar_empleado_excluido_lanza_excepcion(monkeypatch):
+    monkeypatch.setattr(trivia_repo, "get_trivia_by_id", lambda tid: _TRIVIA_ACTIVA)
+    monkeypatch.setattr(trivia_repo, "is_empleado_excluido", lambda tid, eid: True)
+
+    with pytest.raises(TriviaExcluidoError):
+        svc.finalizar_participacion(_EMPLEADO, 3, [])
+
+
 def test_finalizar_sin_inicio_lanza_excepcion(monkeypatch):
     monkeypatch.setattr(trivia_repo, "get_trivia_by_id", lambda tid: _TRIVIA_ACTIVA)
     monkeypatch.setattr(
@@ -219,6 +236,7 @@ def test_finalizar_calcula_puntaje_correcto(monkeypatch):
     monkeypatch.setattr(
         trivia_repo, "get_preguntas_admin", lambda tid: _PREGUNTAS_ADMIN
     )
+    monkeypatch.setattr(trivia_repo, "get_trivia_activa_para_empleado", lambda eid: None)
     monkeypatch.setattr(svc, "_now", lambda: _NOW)
     guardadas = []
     monkeypatch.setattr(trivia_repo, "save_respuestas_bulk", lambda rows: guardadas.extend(rows))
@@ -249,6 +267,7 @@ def test_finalizar_con_respuestas_incorrectas(monkeypatch):
     monkeypatch.setattr(
         trivia_repo, "get_preguntas_admin", lambda tid: _PREGUNTAS_ADMIN
     )
+    monkeypatch.setattr(trivia_repo, "get_trivia_activa_para_empleado", lambda eid: None)
     monkeypatch.setattr(svc, "_now", lambda: _NOW)
     monkeypatch.setattr(trivia_repo, "save_respuestas_bulk", lambda rows: None)
     monkeypatch.setattr(trivia_repo, "update_resultado_final", lambda rid, data: None)
@@ -275,6 +294,7 @@ def test_finalizar_pregunta_omitida_cuenta_como_incorrecta(monkeypatch):
     monkeypatch.setattr(
         trivia_repo, "get_preguntas_admin", lambda tid: _PREGUNTAS_ADMIN
     )
+    monkeypatch.setattr(trivia_repo, "get_trivia_activa_para_empleado", lambda eid: None)
     monkeypatch.setattr(svc, "_now", lambda: _NOW)
     monkeypatch.setattr(trivia_repo, "save_respuestas_bulk", lambda rows: None)
     monkeypatch.setattr(trivia_repo, "update_resultado_final", lambda rid, data: None)
@@ -299,6 +319,7 @@ def test_finalizar_sin_respuestas_todo_incorrecto(monkeypatch):
     monkeypatch.setattr(
         trivia_repo, "get_preguntas_admin", lambda tid: _PREGUNTAS_ADMIN
     )
+    monkeypatch.setattr(trivia_repo, "get_trivia_activa_para_empleado", lambda eid: None)
     monkeypatch.setattr(svc, "_now", lambda: _NOW)
     monkeypatch.setattr(trivia_repo, "save_respuestas_bulk", lambda rows: None)
     monkeypatch.setattr(trivia_repo, "update_resultado_final", lambda rid, data: None)

@@ -146,13 +146,17 @@ def test_pedidos_mercaderia_importar_csv_ok(monkeypatch):
         lambda stream: {
             "total_filas": 3,
             "importables": 1,
+            "importados": 1,
             "creados": 1,
             "actualizados": 0,
             "deshabilitados": 0,
+            "anulados": 0,
+            "total_articulos": 1,
             "ignorados": 2,
             "errores": [],
         },
     )
+    monkeypatch.setattr(pedidos_routes, "count_articulos_catalogo", lambda **kw: 1)
     monkeypatch.setattr(pedidos_routes, "log_audit", lambda *a, **kw: None)
     client = _build_authed_client(monkeypatch)
     resp = client.post(
@@ -162,3 +166,5 @@ def test_pedidos_mercaderia_importar_csv_ok(monkeypatch):
     )
     assert resp.status_code == 200
     assert b"Importacion completada sin errores" in resp.data
+    assert b"Articulos activos en base" in resp.data
+    assert b"Importados: 1" in resp.data
