@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar motivo{% else %}Nuevo motivo{% endif %}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">Motivos</div>
+  <h2 class="section-title">{% if mode == "edit" %}Editar motivo{% else %}Nuevo motivo{% endif %}</h2>
+  {% if errors %}
+    <div class="alert alert-danger">
+      <ul style="margin:0;padding-left:1.2rem;">
+        {% for err in errors %}
+          <li>{{ err }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" class="form-grid" style="margin-top:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>
+      <span>Nombre</span>
+      <input type="text" name="nombre" value="{{ data.nombre or '' }}" required>
+    </label>
+    <label>
+      <span>SLA en dias</span>
+      <input type="number" name="sla_dias" min="1" step="1" value="{{ data.sla_dias or 1 }}" required>
+    </label>
+    <label style="grid-column:1/-1;">
+      <span>Descripcion</span>
+      <textarea name="descripcion" rows="4">{{ data.descripcion or '' }}</textarea>
+    </label>
+    <label>
+      <span>Activo</span>
+      <select name="activo">
+        <option value="1" {% if data.activo in [True, 1, "1", "true", "True"] %}selected{% endif %}>Si</option>
+        <option value="0" {% if data.activo in [False, 0, "0", "false", "False"] %}selected{% endif %}>No</option>
+      </select>
+    </label>
+    <div class="actions" style="grid-column:1/-1;">
+      <button class="btn" type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado') }}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

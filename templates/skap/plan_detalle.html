@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}SKAP - Plan{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">SKAP</div>
+  <h2 class="section-title">Plan de desarrollo {{ plan.anio }}</h2>
+  <p class="helper-text">{{ plan.empleado.nombre }} - {{ plan.sector.nombre or "-" }}</p>
+
+  {% if error %}
+    <div class="alert alert-danger" style="margin-top:1rem;">{{ error }}</div>
+  {% endif %}
+  {% if msg %}
+    <div class="alert alert-success" style="margin-top:1rem;">{{ msg }}</div>
+  {% endif %}
+
+  <section class="grid-kpis dashboard-kpis" style="margin-top:1rem;">
+    <article class="panel">
+      <div class="kicker">Promedio</div>
+      <div class="kpi-value">{{ "%.2f"|format(plan.promedio_general) }}</div>
+      <div class="helper-text">{{ plan.nivel }}</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Acciones</div>
+      <div class="kpi-value">{{ plan.acciones_total }}</div>
+      <div class="helper-text">Total PDP</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Completadas</div>
+      <div class="kpi-value">{{ plan.acciones_completadas }}</div>
+      <div class="helper-text">Acciones terminadas</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Vencidas</div>
+      <div class="kpi-value">{{ plan.acciones_vencidas }}</div>
+      <div class="helper-text">Acciones vencidas</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Avance</div>
+      <div class="kpi-value">{{ "%.1f"|format(plan.avance_pct) }}%</div>
+      <div class="helper-text">Progreso del plan</div>
+    </article>
+  </section>
+</section>
+
+<section class="panel" style="margin-top:1rem;">
+  <div class="section-kicker">Contexto</div>
+  <div class="table-responsive">
+    <table class="table">
+      <tbody>
+        <tr><td>Empleado</td><td>{{ plan.empleado.nombre }}</td></tr>
+        <tr><td>Legajo</td><td>{{ plan.empleado.legajo or "-" }}</td></tr>
+        <tr><td>Sector</td><td>{{ plan.sector.nombre or "-" }}</td></tr>
+        <tr><td>Puesto</td><td>{{ plan.puesto.nombre if plan.puesto else "-" }}</td></tr>
+        <tr><td>Evaluador</td><td>{{ plan.evaluador.nombre or "-" }}</td></tr>
+        <tr><td>Fecha evaluacion</td><td>{{ plan.evaluacion.fecha_evaluacion }} {{ plan.evaluacion.hora_evaluacion }}</td></tr>
+        <tr><td>Observaciones</td><td>{{ plan.observaciones or "Sin observaciones." }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if edit_action %}
+  <section class="panel" style="margin-top:1rem;">
+    <div class="section-kicker">Acciones</div>
+    <h3 class="section-title">Editar accion</h3>
+    <form method="post" action="{{ url_for('skap_web.plan_accion_editar', plan_id=plan.id, action_id=edit_action.id) }}" class="form-grid" style="margin-top:1rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>
+        <span>Categoria</span>
+        <select name="categoria">
+          <option value="">Sin categoria</option>
+          {% for code, label in categorias %}
+            <option value="{{ code }}" {% if edit_action.categoria == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="grid-column:1/-1;">
+        <span>Accion</span>
+        <input type="text" name="accion" value="{{ edit_action.accion or '' }}" required>
+      </label>
+      <label>
+        <span>Responsable</span>
+        <select name="responsable_empleado_id">
+          <option value="">Sin responsable</option>
+          {% for empleado in empleados %}
+            <option value="{{ empleado.id }}" {% if edit_action.responsable_empleado_id and edit_action.responsable_empleado_id == empleado.id %}selected{% endif %}>
+              {{ empleado.apellido }}, {{ empleado.nombre }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Fecha compromiso</span>
+        <input type="date" name="fecha_compromiso" value="{{ edit_action.fecha_compromiso or '' }}">
+      </label>
+      <label>
+        <span>Estado</span>
+        <select name="estado">
+          <option value="pendiente" {% if edit_action.estado == 'pendiente' %}selected{% endif %}>Pendiente</option>
+          <option value="en_proceso" {% if edit_action.estado == 'en_proceso' %}selected{% endif %}>En proceso</option>
+          <option value="completado" {% if edit_action.estado == 'completado' %}selected{% endif %}>Completado</option>
+          <option value="cancelado" {% if edit_action.estado == 'cancelado' %}selected{% endif %}>Cancelado</option>
+        </select>
+      </label>
+      <label style="grid-column:1/-1;">
+        <span>Comentarios</span>
+        <textarea name="comentarios" rows="3">{{ edit_action.comentarios or '' }}</textarea>
+      </label>
+      <div class="actions" style="grid-column:1/-1;">
+        <button class="btn" type="submit">Guardar</button>
+        <a class="btn btn-secondary" href="{{ url_for('skap_web.plan_detalle', plan_id=plan.id) }}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% else %}
+  <section class="panel" style="margin-top:1rem;">
+    <div class="section-kicker">Acciones</div>
+    <h3 class="section-title">Nueva accion</h3>
+    <form method="post" action="{{ url_for('skap_web.plan_accion_nueva', plan_id=plan.id) }}" class="form-grid" style="margin-top:1rem;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>
+        <span>Categoria</span>
+        <select name="categoria">
+          <option value="">Sin categoria</option>
+          {% for code, label in categorias %}
+            <option value="{{ code }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="grid-column:1/-1;">
+        <span>Accion</span>
+        <input type="text" name="accion" required>
+      </label>
+      <label>
+        <span>Responsable</span>
+        <select name="responsable_empleado_id">
+          <option value="">Sin responsable</option>
+          {% for empleado in empleados %}
+            <option value="{{ empleado.id }}">{{ empleado.apellido }}, {{ empleado.nombre }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Fecha compromiso</span>
+        <input type="date" name="fecha_compromiso">
+      </label>
+      <label>
+        <span>Estado</span>
+        <select name="estado">
+          <option value="pendiente">Pendiente</option>
+          <option value="en_proceso">En proceso</option>
+          <option value="completado">Completado</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+      </label>
+      <label style="grid-column:1/-1;">
+        <span>Comentarios</span>
+        <textarea name="comentarios" rows="3"></textarea>
+      </label>
+      <div class="actions" style="grid-column:1/-1;">
+        <button class="btn" type="submit">Agregar</button>
+      </div>
+    </form>
+  </section>
+{% endif %}
+
+<section class="panel" style="margin-top:1rem;">
+  <div class="section-kicker">Seguimiento</div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Categoria</th>
+          <th>Accion</th>
+          <th>Responsable</th>
+          <th>Compromiso</th>
+          <th>Estado</th>
+          <th>Comentarios</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for accion in plan.acciones %}
+          <tr>
+            <td>{{ accion.categoria_label if accion.categoria_label else "-" }}</td>
+            <td>{{ accion.accion }}</td>
+            <td>{{ accion.responsable.nombre if accion.responsable else "-" }}</td>
+            <td>{{ accion.fecha_compromiso or "-" }}</td>
+            <td>
+              {% if accion.estado_actual == 'completado' %}
+                <span class="badge success">Completado</span>
+              {% elif accion.estado_actual == 'en_proceso' %}
+                <span class="badge">En proceso</span>
+              {% elif accion.estado_actual == 'cancelado' %}
+                <span class="badge warning">Cancelado</span>
+              {% elif accion.estado_actual == 'vencido' %}
+                <span class="badge warning">Vencido</span>
+              {% else %}
+                <span class="badge">Pendiente</span>
+              {% endif %}
+            </td>
+            <td>{{ accion.comentarios or "-" }}</td>
+            <td>
+              <div class="actions" style="display:flex;flex-wrap:wrap;gap:.35rem;">
+                <a class="btn btn-secondary" href="{{ url_for('skap_web.plan_detalle', plan_id=plan.id, edit_action=accion.id) }}">Editar</a>
+                <form method="post" action="{{ url_for('skap_web.plan_accion_estado', plan_id=plan.id, action_id=accion.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="estado" value="completado">
+                  <button class="btn" type="submit">Completar</button>
+                </form>
+                <form method="post" action="{{ url_for('skap_web.plan_accion_estado', plan_id=plan.id, action_id=accion.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="estado" value="en_proceso">
+                  <button class="btn btn-secondary" type="submit">En proceso</button>
+                </form>
+                <form method="post" action="{{ url_for('skap_web.plan_accion_estado', plan_id=plan.id, action_id=accion.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="estado" value="cancelado">
+                  <button class="btn btn-secondary" type="submit">Cancelar</button>
+                </form>
+                <form method="post" action="{{ url_for('skap_web.plan_accion_eliminar', plan_id=plan.id, action_id=accion.id) }}" onsubmit="return confirm('Eliminar accion?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-secondary" type="submit">Eliminar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">No hay acciones cargadas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

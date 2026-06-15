@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}SKAP - Evaluacion{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">SKAP</div>
+  <h2 class="section-title">Evaluacion {{ evaluacion.anio }}</h2>
+  <p class="helper-text">{{ evaluacion.empleado.nombre }} - {{ evaluacion.sector.nombre or "-" }}</p>
+
+  {% if error %}
+    <div class="alert alert-danger" style="margin-top:1rem;">{{ error }}</div>
+  {% endif %}
+  {% if msg %}
+    <div class="alert alert-success" style="margin-top:1rem;">{{ msg }}</div>
+  {% endif %}
+
+  <section class="grid-kpis dashboard-kpis" style="margin-top:1rem;">
+    <article class="panel">
+      <div class="kicker">General</div>
+      <div class="kpi-value">{{ "%.2f"|format(evaluacion.promedios.general) }}</div>
+      <div class="helper-text">{{ evaluacion.nivel }}</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Skills</div>
+      <div class="kpi-value">{{ "%.2f"|format(evaluacion.promedios.skills) }}</div>
+      <div class="helper-text">Categoria S</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Knowledge</div>
+      <div class="kpi-value">{{ "%.2f"|format(evaluacion.promedios.knowledge) }}</div>
+      <div class="helper-text">Categoria K</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Attitude</div>
+      <div class="kpi-value">{{ "%.2f"|format(evaluacion.promedios.attitude) }}</div>
+      <div class="helper-text">Categoria A</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Performance</div>
+      <div class="kpi-value">{{ "%.2f"|format(evaluacion.promedios.performance) }}</div>
+      <div class="helper-text">Categoria P</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Badge</div>
+      <div class="kpi-value">{{ evaluacion.badge or "-" }}</div>
+      <div class="helper-text">Insignia</div>
+    </article>
+  </section>
+</section>
+
+<section class="panel" style="margin-top:1rem;">
+  <div class="section-kicker">Contexto</div>
+  <div class="table-responsive">
+    <table class="table">
+      <tbody>
+        <tr><td>Empleado</td><td>{{ evaluacion.empleado.nombre }}</td></tr>
+        <tr><td>Legajo</td><td>{{ evaluacion.empleado.legajo or "-" }}</td></tr>
+        <tr><td>Sector</td><td>{{ evaluacion.sector.nombre or "-" }}</td></tr>
+        <tr><td>Puesto</td><td>{{ evaluacion.puesto.nombre if evaluacion.puesto else "-" }}</td></tr>
+        <tr><td>Evaluador</td><td>{{ evaluacion.evaluador.nombre }}</td></tr>
+        <tr><td>Fecha</td><td>{{ evaluacion.fecha_evaluacion }} {{ evaluacion.hora_evaluacion }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" style="margin-top:1rem;">
+  <div class="section-kicker">Categorias</div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Categoria</th>
+          <th>Promedio</th>
+          <th>Esperado</th>
+          <th>Nivel</th>
+          <th>Respuestas</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for card in evaluacion.categoria_cards %}
+          <tr>
+            <td>{{ card.label }}</td>
+            <td>{{ "%.2f"|format(card.promedio) }}</td>
+            <td>{{ "%.2f"|format(card.esperado) }}</td>
+            <td>{{ card.nivel }}</td>
+            <td>{{ card.respuestas }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" style="margin-top:1rem;">
+  <div class="section-kicker">Detalle</div>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Categoria</th>
+          <th>Pregunta</th>
+          <th>Esperado</th>
+          <th>Obtenido</th>
+          <th>Cumple</th>
+          <th>Observacion</th>
+          <th>Evidencia</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in evaluacion.detalles %}
+          <tr>
+            <td><span class="badge">{{ d.categoria_label }}</span></td>
+            <td>{{ d.descripcion }}</td>
+            <td>{{ d.puntaje_esperado }}</td>
+            <td>{{ d.puntaje_obtenido }}</td>
+            <td>{% if d.cumple_esperado %}<span class="badge success">Si</span>{% else %}<span class="badge warning">No</span>{% endif %}</td>
+            <td>{{ d.observacion or "-" }}</td>
+            <td>{{ d.evidencia or "-" }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">Sin detalle disponible.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" style="margin-top:1rem;">
+  <div class="section-kicker">PDP</div>
+  {% if plan %}
+    <div class="grid-kpis dashboard-kpis">
+      <article class="panel">
+        <div class="kicker">Acciones</div>
+        <div class="kpi-value">{{ plan.acciones_total }}</div>
+      </article>
+      <article class="panel">
+        <div class="kicker">Completadas</div>
+        <div class="kpi-value">{{ plan.acciones_completadas }}</div>
+      </article>
+      <article class="panel">
+        <div class="kicker">Vencidas</div>
+        <div class="kpi-value">{{ plan.acciones_vencidas }}</div>
+      </article>
+      <article class="panel">
+        <div class="kicker">Avance</div>
+        <div class="kpi-value">{{ "%.1f"|format(plan.avance_pct) }}%</div>
+      </article>
+    </div>
+    <div class="helper-text" style="margin-top:.75rem;">{{ plan.observaciones or "Sin observaciones." }}</div>
+    <div class="actions" style="margin-top:1rem;">
+      <a class="btn" href="{{ url_for('skap_web.plan_detalle', plan_id=plan.id) }}">Ver plan</a>
+      <a class="btn btn-secondary" href="{{ url_for('skap_web.planes_listado') }}">Ir a planes</a>
+    </div>
+  {% else %}
+    <p class="helper-text">No hay plan de desarrollo asociado a esta evaluacion.</p>
+  {% endif %}
+</section>
+{% endblock %}

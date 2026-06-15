@@ -2,6 +2,8 @@
 Tests for justificaciones: service validation, state machine, and web routes.
 """
 
+import io
+
 import app as app_module
 import services.justificacion_service as just_service
 import web.auth.decorators as auth_decorators
@@ -219,6 +221,9 @@ def _stub_asistencias():
 def _build_authed_client(monkeypatch):
     """Client with has_role bypassed (no DB needed)."""
     monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
+    monkeypatch.setattr(just_routes, "sync_justificacion_event", lambda *a, **kw: None)
+    monkeypatch.setattr(just_routes, "save_justificacion_adjuntos", lambda *a, **kw: [])
+    monkeypatch.setattr(just_routes, "delete_justificacion_resources", lambda *a, **kw: None)
     client = _build_client(monkeypatch)
     _login(client)
     return client
@@ -263,6 +268,40 @@ def test_nuevo_post_valido(monkeypatch):
     })
     assert resp.status_code == 302
     assert "msg=" in resp.headers["Location"]
+
+
+def test_nuevo_post_con_adjuntos(monkeypatch):
+    monkeypatch.setattr(just_routes, "get_empleados", lambda **kw: _stub_empleados())
+    monkeypatch.setattr(just_routes, "get_asistencias", lambda: _stub_asistencias())
+    monkeypatch.setattr(just_routes, "create_justificacion", lambda data: 42)
+    monkeypatch.setattr(just_routes, "log_audit", lambda *a, **kw: None)
+    client = _build_authed_client(monkeypatch)
+    captured = {}
+
+    def _fake_save(justificacion_id, adjuntos, actor_id=None):
+        adjuntos = list(adjuntos)
+        captured["justificacion_id"] = justificacion_id
+        captured["filenames"] = [a.filename for a in adjuntos]
+        return []
+
+    monkeypatch.setattr(just_routes, "save_justificacion_adjuntos", _fake_save)
+
+    from werkzeug.datastructures import MultiDict
+
+    resp = client.post(
+        "/justificaciones/nuevo",
+        data=MultiDict([
+            ("empleado_id", "1"),
+            ("asistencia_id", ""),
+            ("motivo", "Certificado medico"),
+            ("archivo", ""),
+            ("adjuntos", (io.BytesIO(b"%PDF-1.4"), "certificado.pdf")),
+        ]),
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 302
+    assert captured["justificacion_id"] == 42
+    assert captured["filenames"] == ["certificado.pdf"]
 
 
 def test_nuevo_post_invalido_muestra_errores(monkeypatch):
@@ -318,6 +357,29 @@ def test_revertir_redirige_con_msg(monkeypatch):
     resp = client.post("/justificaciones/revertir/1")
     assert resp.status_code == 302
     assert "msg=" in resp.headers["Location"]
+
+
+def test_eliminar_desvincula_antes_de_borrar(monkeypatch):
+    monkeypatch.setattr(just_routes, "get_by_id", lambda _: {**_VALID_DATA, "id": 1})
+    calls = []
+
+    def _fake_delete_resources(justificacion_id, actor_id=None):
+        calls.append(("resources", justificacion_id, actor_id))
+
+    def _fake_delete(justificacion_id):
+        calls.append(("delete", justificacion_id))
+
+    monkeypatch.setattr(just_routes, "delete_justificacion_resources", _fake_delete_resources)
+    monkeypatch.setattr(just_routes, "delete", _fake_delete)
+    monkeypatch.setattr(just_routes, "log_audit", lambda *a, **kw: None)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
+    client = _build_client(monkeypatch)
+    _login(client)
+
+    resp = client.post("/justificaciones/eliminar/1")
+
+    assert resp.status_code == 302
+    assert calls == [("resources", 1, 99), ("delete", 1)]
 
 
 def test_eliminar_redirige(monkeypatch):

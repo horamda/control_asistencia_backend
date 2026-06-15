@@ -37,7 +37,7 @@
     </div>
   {% endif %}
 
-  <form method="post">
+  <form method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid">
       <div class="row span-2">
@@ -77,6 +77,13 @@
       <div class="row span-2">
         <label>Archivo (URL)</label>
         <input name="archivo" value="{{ data.archivo or '' }}">
+        <div class="helper-text">Opcional. Si adjunta archivos, se guardan normalizados en la base de datos.</div>
+      </div>
+
+      <div class="row span-2">
+        <label>Adjuntos</label>
+        <input type="file" name="adjuntos" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
+        <div class="helper-text">Puede subir una o varias fotos/PDFs desde web o Flutter.</div>
       </div>
 
       {% if mode == "new" %}

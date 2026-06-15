@@ -28,6 +28,7 @@ from repositories.legajo_evento_repository import (
     get_conteo_por_tipo_for_empleado,
 )
 from repositories.legajo_adjunto_repository import (
+    get_adjunto_by_id,
     get_adjunto_by_id_for_empleado,
     get_adjunto_data_by_id,
     get_adjuntos_by_evento_for_empleado,
@@ -71,6 +72,13 @@ from services.pedido_mercaderia_service import (
 from services.justificacion_service import (
     create_justificacion as create_justificacion_svc,
     update_justificacion as update_justificacion_svc,
+)
+from services.justificacion_attachment_service import (
+    delete_justificacion_resources,
+    justificacion_adjunto_to_mobile_dict,
+    list_justificacion_adjuntos,
+    save_justificacion_adjuntos,
+    sync_justificacion_event,
 )
 from services.vacaciones_service import (
     VacacionesError,
@@ -1395,14 +1403,56 @@ def me_update_password():
 # Justificaciones del empleado autenticado
 # ---------------------------------------------------------------------------
 
-def _justificacion_to_dict(j: dict) -> dict:
+def _extract_justificacion_payload():
+    source = request.form if request.form else (request.get_json(silent=True) or {})
+    motivo = (source.get("motivo") or "").strip()
+    archivo = (source.get("archivo") or "").strip() or None
+    raw_asistencia_id = source.get("asistencia_id")
+    asistencia_id = _parse_int(raw_asistencia_id, "asistencia_id", default=None)
+    return {
+        "motivo": motivo,
+        "archivo": archivo,
+        "asistencia_id": asistencia_id,
+    }
+
+
+def _extract_justificacion_files():
+    archivos = request.files.getlist("adjuntos")
+    if not archivos:
+        archivos = request.files.getlist("adjuntos[]")
+    if not archivos:
+        archivo_unico = request.files.get("archivo_file")
+        if not archivo_unico:
+            archivo_unico = request.files.get("archivo")
+        if archivo_unico and str(archivo_unico.filename or "").strip():
+            archivos = [archivo_unico]
+    return archivos
+
+
+def _justificacion_adjunto_to_dict(row: dict, justificacion_id: int) -> dict:
+    return justificacion_adjunto_to_mobile_dict(row, justificacion_id)
+
+
+def _justificacion_to_dict(j: dict, adjuntos: list[dict] | None = None) -> dict:
+    adjuntos_count = int(j.get("adjuntos_count") or 0)
+    if adjuntos is not None:
+        adjuntos_count = len(adjuntos)
+    archivo = j.get("archivo") or None
+    if not archivo and adjuntos:
+        archivo = adjuntos[0].get("download_url")
     return {
         "id": j["id"],
         "asistencia_id": j.get("asistencia_id"),
         "asistencia_fecha": _to_date_str(j.get("asistencia_fecha")) if j.get("asistencia_fecha") else None,
         "motivo": j.get("motivo"),
-        "archivo": j.get("archivo") or None,
+        "archivo": archivo,
         "estado": j.get("estado") or "pendiente",
+        "legajo_evento_id": j.get("legajo_evento_id"),
+        "adjuntos_count": adjuntos_count,
+        "adjuntos": [
+            _justificacion_adjunto_to_dict(a, int(j["id"]))
+            for a in adjuntos or []
+        ],
         "created_at": j["created_at"].isoformat() if hasattr(j.get("created_at"), "isoformat") else str(j.get("created_at") or ""),
     }
 
@@ -1451,7 +1501,26 @@ def me_justificaciones_detail(justificacion_id):
     if not j or j.get("empleado_id") != int(empleado["id"]):
         return jsonify({"error": "Justificacion no encontrada"}), 404
 
-    return jsonify(_justificacion_to_dict(j))
+    adjuntos = list_justificacion_adjuntos(justificacion_id)
+    return jsonify(_justificacion_to_dict(j, adjuntos))
+
+
+@mobile_v1_bp.route("/me/justificaciones/<int:justificacion_id>/adjuntos", methods=["GET"])
+@mobile_auth_required
+def me_justificaciones_adjuntos_list(justificacion_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    j = get_justificacion_by_id(justificacion_id)
+    if not j or j.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Justificacion no encontrada"}), 404
+
+    adjuntos = list_justificacion_adjuntos(justificacion_id)
+    return jsonify({
+        "items": [_justificacion_adjunto_to_dict(a, justificacion_id) for a in adjuntos],
+        "total": len(adjuntos),
+    })
 
 
 @mobile_v1_bp.route("/me/justificaciones", methods=["POST"])
@@ -1461,17 +1530,14 @@ def me_justificaciones_create():
     if not empleado:
         return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
 
-    payload = request.get_json(silent=True) or {}
-    motivo = (payload.get("motivo") or "").strip()
-    archivo = (payload.get("archivo") or "").strip() or None
-    raw_asistencia_id = payload.get("asistencia_id")
-    asistencia_id = int(raw_asistencia_id) if raw_asistencia_id is not None else None
+    payload = _extract_justificacion_payload()
+    archivos = _extract_justificacion_files()
 
     data = {
         "empleado_id": int(empleado["id"]),
-        "asistencia_id": asistencia_id,
-        "motivo": motivo,
-        "archivo": archivo,
+        "asistencia_id": payload["asistencia_id"],
+        "motivo": payload["motivo"],
+        "archivo": payload["archivo"],
         "estado": "pendiente",
     }
     try:
@@ -1480,11 +1546,28 @@ def me_justificaciones_create():
         return jsonify({"error": str(e)}), 400
 
     try:
-        create_audit(int(empleado["id"]), "create", "justificaciones", just_id)
+        # En mobile autenticamos como empleado, pero estos campos apuntan a usuarios.
+        # No existe un usuario equivalente para todos los empleados, así que se dejan nulos.
+        sync_justificacion_event(int(just_id), actor_id=None)
+        if archivos:
+            save_justificacion_adjuntos(
+                int(just_id),
+                archivos,
+                actor_id=None,
+            )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception:
+        current_app.logger.exception("mobile_justificaciones_create_error", extra={"extra": {"justificacion_id": just_id}})
+        return jsonify({"error": "No se pudo guardar la justificacion."}), 500
+
+    try:
+        create_audit(None, "create", "justificaciones", just_id)
     except Exception:
         current_app.logger.warning("create_audit failed for justificaciones create", exc_info=True)
     j = get_justificacion_by_id(just_id)
-    return jsonify(_justificacion_to_dict(j)), 201
+    adjuntos = list_justificacion_adjuntos(just_id)
+    return jsonify(_justificacion_to_dict(j, adjuntos)), 201
 
 
 @mobile_v1_bp.route("/me/justificaciones/<int:justificacion_id>", methods=["PUT"])
@@ -1501,27 +1584,41 @@ def me_justificaciones_update(justificacion_id):
     if (j.get("estado") or "pendiente") != "pendiente":
         return jsonify({"error": f"Solo se puede editar una justificacion pendiente (estado actual: '{j.get('estado')}')"}), 409
 
-    payload = request.get_json(silent=True) or {}
-    motivo = (payload.get("motivo") or "").strip()
-    archivo = (payload.get("archivo") or "").strip() or None
+    payload = _extract_justificacion_payload()
+    archivos = _extract_justificacion_files()
 
     try:
         update_justificacion_svc(justificacion_id, {
             "empleado_id": j["empleado_id"],
             "asistencia_id": j.get("asistencia_id"),
-            "motivo": motivo,
-            "archivo": archivo,
+            "motivo": payload["motivo"],
+            "archivo": payload["archivo"],
             "estado": j.get("estado") or "pendiente",
         })
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
     try:
-        create_audit(int(empleado["id"]), "update", "justificaciones", justificacion_id)
+        sync_justificacion_event(int(justificacion_id), actor_id=None)
+        if archivos:
+            save_justificacion_adjuntos(
+                int(justificacion_id),
+                archivos,
+                actor_id=None,
+            )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception:
+        current_app.logger.exception("mobile_justificaciones_update_error", extra={"extra": {"justificacion_id": justificacion_id}})
+        return jsonify({"error": "No se pudo actualizar la justificacion."}), 500
+
+    try:
+        create_audit(None, "update", "justificaciones", justificacion_id)
     except Exception:
         current_app.logger.warning("create_audit failed for justificaciones update", exc_info=True)
     j = get_justificacion_by_id(justificacion_id)
-    return jsonify(_justificacion_to_dict(j))
+    adjuntos = list_justificacion_adjuntos(justificacion_id)
+    return jsonify(_justificacion_to_dict(j, adjuntos))
 
 
 @mobile_v1_bp.route("/me/justificaciones/<int:justificacion_id>", methods=["DELETE"])
@@ -1538,12 +1635,72 @@ def me_justificaciones_delete(justificacion_id):
     if (j.get("estado") or "pendiente") != "pendiente":
         return jsonify({"error": f"Solo se puede retirar una justificacion pendiente (estado actual: '{j.get('estado')}')"}), 409
 
-    delete_justificacion_row(justificacion_id)
     try:
-        create_audit(int(empleado["id"]), "delete", "justificaciones", justificacion_id)
+        delete_justificacion_resources(int(justificacion_id), actor_id=None)
+        delete_justificacion_row(justificacion_id)
+    except Exception:
+        current_app.logger.exception(
+            "mobile_justificaciones_delete_error",
+            extra={"extra": {"justificacion_id": justificacion_id}},
+        )
+        return jsonify({"error": "No se pudo eliminar la justificacion."}), 500
+    try:
+        create_audit(None, "delete", "justificaciones", justificacion_id)
     except Exception:
         current_app.logger.warning("create_audit failed for justificaciones delete", exc_info=True)
     return jsonify({"ok": True})
+
+
+@mobile_v1_bp.route("/me/justificaciones/<int:justificacion_id>/adjuntos/<int:adjunto_id>", methods=["GET"])
+@mobile_auth_required
+def me_justificaciones_adjunto(justificacion_id, adjunto_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    j = get_justificacion_by_id(justificacion_id)
+    if not j or j.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Justificacion no encontrada"}), 404
+
+    adjuntos = list_justificacion_adjuntos(justificacion_id)
+    adjunto = next((a for a in adjuntos if int(a.get("id") or 0) == int(adjunto_id)), None)
+    if not adjunto:
+        return jsonify({"error": "Adjunto no encontrado"}), 404
+
+    row = get_adjunto_by_id(adjunto_id)
+    if not row or int(row.get("evento_justificacion_id") or 0) != int(justificacion_id):
+        return jsonify({"error": "Adjunto no encontrado"}), 404
+    if str(row.get("estado") or "").strip().lower() != "activo":
+        return jsonify({"error": "Adjunto no encontrado"}), 404
+    if str(row.get("evento_estado") or "").strip().lower() != "vigente":
+        return jsonify({"error": "Adjunto no encontrado"}), 404
+
+    download = str(request.args.get("download") or "").strip().lower() in {"1", "true", "yes"}
+    backend = str(row.get("storage_backend") or "").strip().lower()
+    if backend == "db":
+        payload = get_adjunto_data_by_id(adjunto_id)
+        if not payload:
+            return jsonify({"error": "Adjunto no encontrado"}), 404
+        response = Response(payload, mimetype=row.get("mime_type") or "application/octet-stream")
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        if download:
+            filename = str(row.get("nombre_original") or f"adjunto_{adjunto_id}.pdf").replace('"', "")
+            response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+    try:
+        path = resolve_legajo_storage_path(row.get("storage_ruta"))
+    except RuntimeError:
+        return jsonify({"error": "Adjunto no encontrado"}), 404
+    if not path.exists() or not path.is_file():
+        return jsonify({"error": "Adjunto no encontrado"}), 404
+    return send_file(
+        str(path),
+        mimetype=row.get("mime_type") or "application/octet-stream",
+        as_attachment=download,
+        download_name=row.get("nombre_original") or path.name,
+        max_age=86400,
+    )
 
 
 # ---------------------------------------------------------------------------

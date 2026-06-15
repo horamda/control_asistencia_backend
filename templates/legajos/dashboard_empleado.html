@@ -26,7 +26,7 @@
       <a class="chip" href="{{ url_for('legajos.dashboard_empleado', q=q, empleado_id=empleado_id, periodo='mes_actual', solo_activos=(1 if solo_activos else 0)) }}">Mes actual</a>
       {% if empleado %}
         <a class="chip" href="{{ url_for('legajos.dashboard_empleado_export_csv', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">Exportar CSV</a>
-        <a class="chip" href="{{ url_for('legajos.dashboard_empleado_export_xls', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">Exportar XLS</a>
+        <a class="chip" href="{{ url_for('legajos.dashboard_empleado_export_xls', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">Exportar Excel</a>
         <a class="chip" target="_blank" rel="noopener" href="{{ url_for('legajos.dashboard_empleado_print', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0), auto_print=1) }}">Imprimir / PDF</a>
       {% endif %}
       <span class="chip">Periodo: {{ desde }} a {{ hasta }}</span>
@@ -141,15 +141,33 @@
         <li>Empresa: <strong>{{ empleado.empresa_nombre or ("Empresa #" ~ empleado.empresa_id) }}</strong></li>
         <li>Legajo: <strong>{{ empleado.legajo or "-" }}</strong></li>
         <li>DNI: <strong>{{ empleado.dni }}</strong></li>
+        <li>Ingreso: <strong>{{ empleado.fecha_ingreso or "-" }}</strong></li>
+        <li>Antiguedad (al corte): <strong>{{ antiguedad.text if antiguedad else "-" }}</strong></li>
+        <li>Legajo historico: <strong>{{ legajo.historico.get("total", 0) }}</strong> evento(s) en <strong>{{ legajo.get("por_tipo_historico", []) | length }}</strong> tipo(s)</li>
         <li>Accesos:
           <strong><a href="{{ url_for('legajos.empleado', emp_id=empleado.id) }}">Legajo</a></strong> |
           <strong><a href="{{ url_for('legajos.listado_eventos', empleado_id=empleado.id) }}">Eventos</a></strong> |
           <strong><a href="{{ url_for('asistencias.listado', empleado_id=empleado.id) }}">Asistencias</a></strong> |
           <strong><a href="{{ url_for('legajos.dashboard_empleado_export_csv', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">CSV</a></strong> |
-          <strong><a href="{{ url_for('legajos.dashboard_empleado_export_xls', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">XLS</a></strong> |
+          <strong><a href="{{ url_for('legajos.dashboard_empleado_export_xls', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">Excel</a></strong> |
           <strong><a target="_blank" rel="noopener" href="{{ url_for('legajos.dashboard_empleado_print', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0), auto_print=1) }}">PDF</a></strong>
         </li>
       </ul>
+      {% if legajo.get("por_tipo_historico") %}
+        <div class="helper-text" style="margin-top:10px;">Eventos de legajo por tipo (historico)</div>
+        <ul class="list-clean">
+          {% for row in legajo.get("por_tipo_historico", [])[:5] %}
+            <li>
+              {{ row.label }}: <strong>{{ row.total }}</strong>
+              {% if row.vigentes < row.total %}
+                <span class="helper-text">({{ row.vigentes }} vigentes)</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="helper-text" style="margin-top:10px;">Sin eventos de legajo registrados.</div>
+      {% endif %}
     </section>
 
     {# ---- Panel de alertas ---- #}
@@ -216,7 +234,7 @@
       <article class="kpi-card {% if kpis.get('horas_promedio', 0) >= 7 %}tone-ok{% elif kpis.get('horas_promedio', 0) >= 5 %}tone-warn{% elif kpis.get('horas_promedio', 0) > 0 %}tone-bad{% endif %}">
         <div class="kpi-label kpi-label-inline">
           Hs promedio
-          <span class="kpi-help" tabindex="0" data-tooltip="Promedio de horas trabajadas por jornada completa (entrada y salida registradas).">?</span>
+          <span class="kpi-help" tabindex="0" data-tooltip="Promedio de horas trabajadas por dia, sumando todos los tramos cerrados. Ejemplo: 7-12 + 14-17 = 8h.">?</span>
         </div>
         <div class="kpi-value">{{ "%.1f"|format(kpis.get("horas_promedio", 0.0)) }}h</div>
         <div class="kpi-desc">{{ "%.0f"|format(kpis.get("horas_totales", 0.0)) }}h totales acumuladas</div>
@@ -468,12 +486,13 @@
     <section class="panel" id="hs-chart-panel" style="position:relative;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
         <div>
-          <h3 style="margin:0 0 4px;">Horas promedio por jornada &mdash; últimos 13 meses</h3>
+          <h3 style="margin:0 0 4px;">Horas promedio por dia &mdash; últimos 13 meses</h3>
           <p class="helper-text" style="margin:0;">
-            Solo jornadas con entrada <em>y</em> salida registradas.
+            Se suman todos los tramos cerrados de cada dia.
+            Ejemplo: <em>7-12 + 14-17 = 8h</em>.
             {% if horario_desc %}
               Horario asignado: <strong>{{ horario_desc }}</strong>.
-              Los rombos punteados muestran las horas esperadas <em>para los días efectivamente trabajados</em> ese mes.
+              Los rombos punteados muestran las horas esperadas <em>para los dias efectivamente trabajados</em> ese mes.
             {% else %}
               Sin horario asignado &mdash; sin referencia teórica.
             {% endif %}
@@ -489,7 +508,7 @@
             <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#d97706;display:inline-block;"></i>70–90 %</span>
             <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#dc2626;display:inline-block;"></i>&lt; 70 %</span>
           {% else %}
-            <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#2563eb;display:inline-block;"></i>Horas reales</span>
+            <span style="display:flex;align-items:center;gap:5px;"><i style="width:11px;height:11px;border-radius:3px;background:#2563eb;display:inline-block;"></i>Horas reales por dia</span>
           {% endif %}
           <span style="display:flex;align-items:center;gap:5px;">
             <svg width="26" height="8"><polyline points="0,7 8,2 18,5 26,1" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>Tendencia
@@ -626,7 +645,7 @@
             {# Mini etiqueta jornadas bajo barra #}
             <text x="{{ _cx }}" y="{{ _mt + _ph + 30 }}"
                   text-anchor="middle" font-size="9" fill="#cbd5e1"
-                  pointer-events="none">{{ p.jornadas }}j</text>
+                  pointer-events="none">{{ p.jornadas }}d</text>
           {% endfor %}
 
           {# ── Línea de tendencia sobre barras ── #}
@@ -717,10 +736,10 @@
             "<div style='font-weight:700;font-size:13px;color:" + color + ";margin-bottom:6px;'>" + mes + "</div>",
             "<div style='display:flex;align-items:baseline;gap:4px;'>",
               "<span style='font-size:26px;font-weight:800;color:" + color + ";line-height:1;'>" + prom + "</span>",
-              "<span style='font-size:12px;color:#94a3b8;'>h prom./jornada</span>",
+              "<span style='font-size:12px;color:#94a3b8;'>h prom./dia</span>",
             "</div>",
             "<div style='margin-top:6px;padding-top:6px;border-top:1px solid #f1f5f9;font-size:12px;color:#64748b;'>",
-              "<div>" + jornadas + " jornada" + (jornadas !== 1 ? "s" : "") + " completa" + (jornadas !== 1 ? "s" : "") + "</div>",
+              "<div>" + jornadas + " dia" + (jornadas !== 1 ? "s" : "") + " con registro</div>",
           ];
           if (teo) {
             var bar_w = Math.min(100, pct);

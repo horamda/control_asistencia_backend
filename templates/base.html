@@ -14,6 +14,15 @@
         } catch (_) {}
       })();
     </script>
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem("ca_sidebar_hidden") === "1" && window.innerWidth > 1120) {
+            document.documentElement.classList.add("sidebar-hidden");
+          }
+        } catch (_) {}
+      })();
+    </script>
     <title>{% block title %}Panel de control{% endblock %} — FichaYa</title>
     <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='img/fichaya-favicon.png') }}">
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/fichaya-icon.svg') }}">
@@ -44,7 +53,6 @@
               <div class="brand-title">FichaYa</div>
               <div class="brand-sub">Panel empresarial</div>
             </div>
-            <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Cerrar menu">Cerrar</button>
           </div>
 
           <nav class="nav-groups">
@@ -165,6 +173,44 @@
 
             {% if current_role in ["admin", "rrhh"] %}
               <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-feedback">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M7 8h10"/><path d="M7 12h6"/></svg>
+                    <span class="nav-label">Feedback</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-feedback">
+                  <a class="nav-link" href="/feedback/">Dashboard</a>
+                  <a class="nav-link" href="/feedback/motivos">Motivos</a>
+                  <a class="nav-link" href="/feedback/clientes">Clientes</a>
+                  <a class="nav-link" href="/feedback/clientes/importar">Importar clientes</a>
+                </div>
+              </div>
+            {% endif %}
+
+            {% if current_role in ["admin", "rrhh", "supervisor"] %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-skap">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13.5"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></svg>
+                    <span class="nav-label">SKAP</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-skap">
+                  <a class="nav-link" href="/skap/">Dashboard</a>
+                  <a class="nav-link" href="/skap/evaluaciones">Evaluaciones</a>
+                  <a class="nav-link" href="/skap/planes">Planes</a>
+                  {% if current_role in ["admin", "rrhh"] %}
+                    <a class="nav-link" href="/skap/preguntas">Preguntas</a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
+
+            {% if current_role in ["admin", "rrhh"] %}
+              <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-kpis">
                   <span class="nav-toggle-label">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -250,12 +296,60 @@
             <div class="topbar-actions">
               <button type="button" class="nav-toggle" id="nav-toggle" aria-controls="app-sidebar" aria-expanded="false">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                Menu
+                <span class="nav-toggle-text">Menu</span>
               </button>
               <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false" title="Cambiar tema">
                 <span class="theme-toggle-icon" aria-hidden="true"></span>
                 <span class="theme-toggle-text">Modo oscuro</span>
               </button>
+              {% if current_role in ["admin", "rrhh"] %}
+                <div class="notifications-shell" id="notifications-shell">
+                  <button
+                    type="button"
+                    class="notifications-toggle{% if panel_notifications.total > 0 %} has-alerts{% endif %}"
+                    id="notifications-toggle"
+                    aria-controls="notifications-panel"
+                    aria-expanded="false"
+                    aria-label="Alertas pendientes{% if panel_notifications.total > 0 %}: {{ panel_notifications.total }}{% endif %}"
+                    title="Alertas"
+                  >
+                    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M15 17H5l1.5-2.5A6 6 0 0 0 7 12V9a5 5 0 1 1 10 0v3a6 6 0 0 0 .5 2.5L19 17h-4"/>
+                      <path d="M9 17a3 3 0 0 0 6 0"/>
+                    </svg>
+                    {% if panel_notifications.total > 0 %}
+                      <span class="notifications-badge">{{ panel_notifications.total if panel_notifications.total < 100 else "99+" }}</span>
+                    {% endif %}
+                  </button>
+                  <div class="notifications-panel" id="notifications-panel" aria-hidden="true">
+                    <div class="notifications-header">
+                      <div>
+                        <div class="notifications-kicker">Alertas</div>
+                        <div class="notifications-title">Solicitudes mobile</div>
+                      </div>
+                      <span class="notifications-total">{{ panel_notifications.total }}</span>
+                    </div>
+
+                    {% if panel_notifications["items"] %}
+                      <div class="notifications-list">
+                        {% for item in panel_notifications["items"] %}
+                          <a class="notification-item notification-item-{{ item.tone }}" href="{{ item.href }}">
+                            <div class="notification-item-body">
+                              <div class="notification-item-title">{{ item.label }}</div>
+                              <div class="notification-item-description">{{ item.description }}</div>
+                            </div>
+                            <span class="notification-item-count">{{ item.count if item.count < 100 else "99+" }}</span>
+                          </a>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <div class="notifications-empty">
+                        No hay solicitudes pendientes.
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endif %}
               {% set _username = session.web_user or session.admin_user or 'Admin' %}
               {% set _initials = (_username[0] | upper) %}
               <div class="user-chip">

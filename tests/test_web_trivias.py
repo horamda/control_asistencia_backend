@@ -1,4 +1,7 @@
+import io
 import datetime
+
+from openpyxl import load_workbook
 
 import app as app_module
 import web.auth.decorators as auth_decorators
@@ -237,6 +240,81 @@ def test_trivia_agregar_exclusion_anual_recalcula(monkeypatch):
     assert resp.status_code == 302
     assert llamadas == [(2026, 11, "No computa anual", 99)]
     assert recalculos == [2026]
+
+
+def test_trivia_resultados_export_xlsx_ok(monkeypatch):
+    monkeypatch.setattr(trivia_admin_routes.repo, "get_trivia_by_id", lambda tid: _TRIVIA)
+    monkeypatch.setattr(
+        trivia_admin_routes.repo,
+        "get_resultados_admin_trivia",
+        lambda tid: [
+            {
+                "empleado_id": 10,
+                "empleado_dni": "30111222",
+                "empleado_legajo": "L001",
+                "empleado_nombre": "Ana",
+                "empleado_apellido": "Lopez",
+                "empleado_nombre_completo": "Lopez Ana",
+                "empleado_activo": 1,
+                "sector_nombre": "Logistica",
+                "habilitado_por_alcance": 1,
+                "resultado_id": 1,
+                "fecha_inicio_participacion": datetime.datetime(2026, 5, 25, 9, 0),
+                "fecha_finalizacion": datetime.datetime(2026, 5, 25, 9, 2),
+                "tiempo_total_segundos": 120,
+                "puntos_total": 25,
+                "correctas": 2,
+                "incorrectas": 0,
+                "posicion": None,
+                "es_ganador": 0,
+                "estado_resultado": "completado",
+                "exclusion_id": None,
+                "exclusion_motivo": None,
+                "exclusion_creado_en": None,
+            },
+            {
+                "empleado_id": 11,
+                "empleado_dni": "30222333",
+                "empleado_legajo": "L002",
+                "empleado_nombre": "Luis",
+                "empleado_apellido": "Gomez",
+                "empleado_nombre_completo": "Gomez Luis",
+                "empleado_activo": 1,
+                "sector_nombre": "Logistica",
+                "habilitado_por_alcance": 1,
+                "resultado_id": None,
+                "fecha_inicio_participacion": None,
+                "fecha_finalizacion": None,
+                "tiempo_total_segundos": None,
+                "puntos_total": None,
+                "correctas": None,
+                "incorrectas": None,
+                "posicion": None,
+                "es_ganador": 0,
+                "estado_resultado": None,
+                "exclusion_id": 4,
+                "exclusion_motivo": "No participa",
+                "exclusion_creado_en": datetime.datetime(2026, 5, 26, 10, 0),
+            },
+        ],
+    )
+    monkeypatch.setattr(trivia_admin_routes, "calcular_ranking", lambda tid: [{"empleado_id": 10, "posicion": 1, "es_ganador": True}])
+    client = _build_authed_client(monkeypatch)
+
+    resp = client.get("/admin/trivias/3/resultados/export.xlsx")
+
+    assert resp.status_code == 200
+    assert "spreadsheetml.sheet" in resp.headers["Content-Type"]
+    assert "trivia_3_resultados.xlsx" in resp.headers["Content-Disposition"]
+
+    wb = load_workbook(io.BytesIO(resp.data))
+    ws = wb["Resultados"]
+    assert ws["A1"].value == "Resultados de trivia"
+    assert ws["A11"].value == "Habilitados"
+    assert ws["B11"].value == 1
+    assert ws["A20"].value == 3
+    assert ws["J20"].value == "completado"
+    assert ws["J21"].value == "excluido"
 
 
 def test_trivia_eliminar_exclusion_anual_recalcula(monkeypatch):

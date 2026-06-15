@@ -1,9 +1,10 @@
 import csv
 import datetime
 import io
+from calendar import monthrange
 from collections import defaultdict
 
-from flask import Blueprint, Response, abort, redirect, render_template, request, session, url_for
+from flask import Blueprint, Response, abort, current_app, redirect, render_template, request, session, url_for
 
 from utils.forms import parse_date as _parse_date, parse_int as _parse_int, safe_next_url as _safe_next_url
 from repositories.empleado_repository import get_all as get_empleados
@@ -26,12 +27,14 @@ from repositories.legajo_evento_repository import (
     get_evento_by_id,
     get_eventos_page,
     get_eventos_by_empleado,
+    get_conteo_por_tipo_for_empleado,
     get_tipo_evento_by_id,
     get_tipos_evento,
     update_evento,
 )
 from repositories.empleado_horario_repository import get_actual_by_empleado as _get_horario_actual
 from services.horario_service import get_horario_estructurado as _get_horario_estructurado
+from services.export_excel_service import generar_dashboard_empleado_excel
 from services.legajo_attachment_service import save_legajo_attachment_local
 from utils.audit import log_audit
 from web.auth.decorators import role_required
@@ -483,6 +486,39 @@ def _to_date(value):
         return None
 
 
+def _compute_antiguedad(fecha_ingreso, referencia=None):
+    ingreso = _to_date(fecha_ingreso)
+    referencia_dt = _to_date(referencia) or datetime.date.today()
+    if ingreso is None or referencia_dt is None or ingreso > referencia_dt:
+        return None
+
+    years = referencia_dt.year - ingreso.year
+    months = referencia_dt.month - ingreso.month
+    days = referencia_dt.day - ingreso.day
+
+    if days < 0:
+        months -= 1
+        prev_year = referencia_dt.year if referencia_dt.month > 1 else referencia_dt.year - 1
+        prev_month = referencia_dt.month - 1 if referencia_dt.month > 1 else 12
+        days += monthrange(prev_year, prev_month)[1]
+
+    if months < 0:
+        years -= 1
+        months += 12
+
+    def _unit(value, singular, plural):
+        return singular if value == 1 else plural
+
+    return {
+        "fecha_ingreso": ingreso.isoformat(),
+        "referencia": referencia_dt.isoformat(),
+        "years": years,
+        "months": months,
+        "days": days,
+        "text": f"{years} {_unit(years, 'anio', 'anios')}, {months} {_unit(months, 'mes', 'meses')}, {days} {_unit(days, 'dia', 'dias')}",
+    }
+
+
 def _td_to_hours(value):
     """Convert a MySQL TIME (timedelta) or HH:MM:SS string to float hours."""
     if value is None:
@@ -569,6 +605,8 @@ def _build_calendar_months(daily_map, desde, hasta):
                 parts = [ds, _ESTADO_LABEL.get(estado, estado)]
                 if dm.get("horas"):
                     parts.append(f"{dm['horas']}h")
+                if dm.get("tramos", 0) > 1:
+                    parts.append(f"{dm['tramos']} tramos")
                 if dm.get("tardes"):
                     parts.append(f"{dm['tardes']} tardanza(s)")
                 if dm.get("ausentes"):
@@ -647,6 +685,8 @@ def _build_calendar_grid(daily_map, desde, hasta):
             tooltip_parts = [ds, _ESTADO_LABEL.get(estado, estado)]
             if dm.get("horas"):
                 tooltip_parts.append(f"{dm['horas']}h trabajadas")
+            if dm.get("tramos", 0) > 1:
+                tooltip_parts.append(f"{dm['tramos']} tramos")
             if dm["tardes"]:
                 tooltip_parts.append(f"{dm['tardes']} tardanza(s)")
             if dm["ausentes"]:
@@ -725,7 +765,7 @@ def _rows_to_daily_map(rows: list) -> dict:
         if ds not in daily_map:
             daily_map[ds] = {
                 "registros": 0, "tardes": 0, "ausentes": 0,
-                "salidas": 0, "ok": 0, "estado": "none", "horas": None,
+                "salidas": 0, "ok": 0, "estado": "none", "horas": 0.0, "tramos": 0,
             }
         dm = daily_map[ds]
         dm["registros"] += 1
@@ -746,7 +786,8 @@ def _rows_to_daily_map(rows: list) -> dict:
             he = _td_to_hours(h_entrada)
             hs = _td_to_hours(h_salida)
             if he is not None and hs is not None and hs > he:
-                dm["horas"] = round(hs - he, 1)
+                dm["horas"] = round((dm.get("horas") or 0.0) + (hs - he), 1)
+                dm["tramos"] += 1
     return daily_map
 
 
@@ -755,7 +796,6 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
 
     totales = {"registros": 0, "ok": 0, "tarde": 0, "ausente": 0, "salida_anticipada": 0}
     jornadas = {"completas": 0, "incompletas": 0}
-    horas_jornada = []
     gps_incidencias = 0
     entradas_manuales = 0   # hora_entrada registrada con método manual (admin o app manual)
     salidas_manuales = 0    # hora_salida registrada con método manual
@@ -771,10 +811,6 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
 
         if h_entrada and h_salida:
             jornadas["completas"] += 1
-            he = _td_to_hours(h_entrada)
-            hs = _td_to_hours(h_salida)
-            if he is not None and hs is not None and hs > he:
-                horas_jornada.append(hs - he)
         elif h_entrada:
             jornadas["incompletas"] += 1
 
@@ -789,13 +825,33 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
             salidas_manuales += 1
 
     daily_map = _rows_to_daily_map(rows)
+    diaria_rows = []
+    horas_diarias = []
+    for ds in sorted(daily_map.keys()):
+        dm = daily_map[ds]
+        horas_dia = round(float(dm.get("horas") or 0.0), 1)
+        if horas_dia > 0:
+            horas_diarias.append(horas_dia)
+        diaria_rows.append(
+            {
+                "fecha": ds,
+                "registros": int(dm.get("registros") or 0),
+                "tardes": int(dm.get("tardes") or 0),
+                "ausentes": int(dm.get("ausentes") or 0),
+                "salidas": int(dm.get("salidas") or 0),
+                "ok": int(dm.get("ok") or 0),
+                "estado": dm.get("estado") or "none",
+                "horas": horas_dia if horas_dia > 0 else None,
+                "tramos": int(dm.get("tramos") or 0),
+            }
+        )
 
     n = max(totales["registros"], 1)
     dias_laborables = _count_workdays(desde, hasta)
     dias_con_registro = len(daily_map)
     adherencia_pct = round(dias_con_registro * 100 / max(dias_laborables, 1), 1)
-    horas_promedio = round(sum(horas_jornada) / len(horas_jornada), 1) if horas_jornada else 0.0
-    horas_totales = round(sum(horas_jornada), 1)
+    horas_promedio = round(sum(horas_diarias) / len(horas_diarias), 1) if horas_diarias else 0.0
+    horas_totales = round(sum(horas_diarias), 1)
 
     kpis = {
         "puntualidad_pct": round(totales["ok"] * 100 / n, 1),
@@ -890,23 +946,16 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
 
     # Horas promedio por mes — con teóricas calculadas sobre los días efectivamente trabajados
     _horas_mes: dict = {}
-    for r in cal_rows:
-        fecha = r.get("fecha")
-        h_entrada = r.get("hora_entrada")
-        h_salida = r.get("hora_salida")
-        if not fecha or not h_entrada or not h_salida:
+    for ds, dm in cal_daily_map.items():
+        horas_dia = float(dm.get("horas") or 0.0)
+        if horas_dia <= 0:
             continue
-        he = _td_to_hours(h_entrada)
-        hs = _td_to_hours(h_salida)
-        if he is None or hs is None or hs <= he:
-            continue
-        ds = str(fecha)[:10]
-        mes_key = ds[:7]
-        wd = datetime.date.fromisoformat(ds).weekday()  # 0=Lun … 6=Dom
+        mes_key = str(ds)[:7]
+        wd = datetime.date.fromisoformat(str(ds)[:10]).weekday()  # 0=Lun … 6=Dom
 
         if mes_key not in _horas_mes:
             _horas_mes[mes_key] = {"sum_horas": 0.0, "jornadas": 0, "sum_teo": 0.0, "jornadas_teo": 0}
-        _horas_mes[mes_key]["sum_horas"] += hs - he
+        _horas_mes[mes_key]["sum_horas"] += horas_dia
         _horas_mes[mes_key]["jornadas"] += 1
 
         # Acumular teóricas solo para días que tienen horario definido
@@ -1146,12 +1195,14 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
         "calidad_fichada_n": calidad_fichada_n,
         "calidad_por_mes": calidad_por_mes,
         "alertas": alertas,
+        "diaria_rows": diaria_rows,
         "_rows": rows,
     }
 
 
 def _compute_legajo_stats(empleado_id, desde, hasta):
     all_events = get_eventos_by_empleado(empleado_id, include_anulados=True)
+    tipos_historico_rows = get_conteo_por_tipo_for_empleado(empleado_id)
 
     hist_vigentes = sum(1 for e in all_events if str(e.get("estado") or "").lower() == "vigente")
     hist_anulados = len(all_events) - hist_vigentes
@@ -1200,6 +1251,21 @@ def _compute_legajo_stats(empleado_id, desde, hasta):
     graves = sum(1 for e in periodo_vigentes if str(e.get("severidad") or "").lower() == "grave")
     media = sum(1 for e in periodo_vigentes if str(e.get("severidad") or "").lower() == "media")
     leve = sum(1 for e in periodo_vigentes if str(e.get("severidad") or "").lower() == "leve")
+    tipos_historico = []
+    for row in tipos_historico_rows:
+        total_tipo = int(row.get("total") or 0)
+        if total_tipo <= 0:
+            continue
+        tipos_historico.append(
+            {
+                "tipo_id": row.get("tipo_id"),
+                "codigo": row.get("codigo") or "",
+                "label": row.get("nombre") or row.get("codigo") or str(row.get("tipo_id") or "sin_tipo"),
+                "total": total_tipo,
+                "vigentes": int(row.get("vigentes") or 0),
+                "ultima_fecha": row["ultima_fecha"].isoformat() if row.get("ultima_fecha") else None,
+            }
+        )
 
     return {
         "historico": {"total": len(all_events), "vigentes": hist_vigentes, "anulados": hist_anulados},
@@ -1214,6 +1280,7 @@ def _compute_legajo_stats(empleado_id, desde, hasta):
         },
         "por_tipo": por_tipo,
         "por_severidad": por_severidad,
+        "por_tipo_historico": tipos_historico,
         "recientes_periodo": periodo_vigentes[:10],
     }
 
@@ -1278,6 +1345,7 @@ def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos
     calendar_months = []
     semanas_rows = []
     asistencia_rows = []
+    diaria_rows = []
     horas_promedio_por_mes = []
     horario_desc = None
     estados_por_mes = []
@@ -1285,6 +1353,7 @@ def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos
     calidad_fichada_n = 0
     calidad_por_mes = []
     alertas = []
+    antiguedad = None
 
     if empleado_id:
         empleado = get_empleado_by_id(empleado_id)
@@ -1302,8 +1371,10 @@ def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos
             calidad_fichada_n = stats["calidad_fichada_n"]
             calidad_por_mes = stats["calidad_por_mes"]
             alertas = stats["alertas"]
+            diaria_rows = stats.get("diaria_rows", [])
             asistencia_rows = stats["_rows"]
             legajo = _compute_legajo_stats(empleado_id, desde, hasta)
+            antiguedad = _compute_antiguedad(empleado.get("fecha_ingreso"), hasta)
 
     return {
         "empleado": empleado,
@@ -1312,10 +1383,12 @@ def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos
         "empleados_total": empleados_total,
         "asistencia": asistencia,
         "legajo": legajo,
+        "antiguedad": antiguedad,
         "asistencia_status_rows": asistencia_status_rows,
         "calendar_weeks": calendar_weeks,
         "calendar_months": calendar_months,
         "semanas_rows": semanas_rows,
+        "diaria_rows": diaria_rows,
         "horas_promedio_por_mes": horas_promedio_por_mes,
         "horario_desc": horario_desc,
         "estados_por_mes": estados_por_mes,
@@ -1441,7 +1514,6 @@ def dashboard_empleado_export_csv():
 @legajos_bp.route("/dashboard-empleado/export.xls")
 @role_required("admin", "rrhh", "supervisor")
 def dashboard_empleado_export_xls():
-    # Return the same CSV with Excel-compatible content-type
     q = str(request.args.get("q") or "").strip() or None
     empleado_id = request.args.get("empleado_id", type=int)
     periodo_raw = str(request.args.get("periodo") or "30d").strip()
@@ -1464,44 +1536,45 @@ def dashboard_empleado_export_xls():
     legajo = _compute_legajo_stats(empleado_id, desde, hasta)
     asistencia = stats["asistencia"]
     rows = stats["_rows"]
-    eventos = legajo["recientes_periodo"]
+    diaria_rows = stats.get("diaria_rows", [])
 
-    out = io.StringIO()
-    writer = csv.writer(out, delimiter="\t")
+    all_events = get_eventos_by_empleado(empleado_id, include_anulados=True)
+    desde_date = _to_date(desde)
+    hasta_date = _to_date(hasta)
 
-    writer.writerow(["Empleado", f"{empleado.get('apellido')} {empleado.get('nombre')}", "DNI", empleado.get("dni")])
-    writer.writerow(["Periodo", f"{desde} a {hasta}"])
-    writer.writerow([])
-    writer.writerow(["Registros", "OK", "Tardanzas", "Ausentes", "Salida anticipada", "Puntualidad %", "Ausentismo %"])
-    writer.writerow([
-        asistencia["totales"].get("registros", 0),
-        asistencia["totales"].get("ok", 0),
-        asistencia["totales"].get("tarde", 0),
-        asistencia["totales"].get("ausente", 0),
-        asistencia["totales"].get("salida_anticipada", 0),
-        asistencia["kpis"].get("puntualidad_pct", 0),
-        asistencia["kpis"].get("ausentismo_pct", 0),
-    ])
-    writer.writerow([])
-    writer.writerow(["Fecha", "Estado", "Hora entrada", "Hora salida"])
-    for r in rows:
-        writer.writerow([r.get("fecha"), r.get("estado"), r.get("hora_entrada"), r.get("hora_salida")])
-    writer.writerow([])
-    writer.writerow(["Fecha evento", "Tipo", "Titulo", "Severidad", "Estado"])
-    for ev in eventos:
-        writer.writerow([
-            ev.get("fecha_evento"),
-            ev.get("tipo_nombre") or ev.get("tipo_codigo"),
-            ev.get("titulo") or "",
-            ev.get("severidad") or "",
-            ev.get("estado") or "",
-        ])
+    def _in_period(evento):
+        fecha_evento = _to_date(evento.get("fecha_evento"))
+        if fecha_evento is None:
+            return False
+        if desde_date and fecha_evento < desde_date:
+            return False
+        if hasta_date and fecha_evento > hasta_date:
+            return False
+        return True
+
+    eventos_periodo = [evento for evento in all_events if _in_period(evento)]
+
+    try:
+        excel_bytes = generar_dashboard_empleado_excel(
+            empleado=empleado,
+            desde=desde,
+            hasta=hasta,
+            antiguedad=_compute_antiguedad(empleado.get("fecha_ingreso"), hasta),
+            stats=stats,
+            legajo=legajo,
+            diaria_rows=diaria_rows,
+            asistencia_rows=rows,
+            eventos_periodo=eventos_periodo,
+        )
+    except Exception as exc:
+        current_app.logger.exception("dashboard_empleado_excel_error")
+        return Response(f"Error al generar el Excel del dashboard: {exc}", status=500, mimetype="text/plain")
 
     nombre = f"{empleado.get('apellido', '')}_{empleado.get('nombre', '')}".replace(" ", "_")
-    filename = f"dashboard_{nombre}_{desde}_{hasta}.xls"
+    filename = f"dashboard_{nombre}_{desde}_{hasta}.xlsx"
     return Response(
-        "\ufeff" + out.getvalue(),
-        mimetype="application/vnd.ms-excel; charset=utf-8",
+        excel_bytes,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

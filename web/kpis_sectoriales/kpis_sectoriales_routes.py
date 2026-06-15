@@ -21,6 +21,7 @@ from repositories.kpi_sectorial_repository import (
     upsert_objetivo,
 )
 from services.kpi_sectorial_import_service import KpiImportError, importar_resultados_desde_csv
+from services.export_excel_service import generar_kpis_resultados_excel
 from utils.audit import log_audit
 from web.auth.decorators import role_required
 
@@ -318,9 +319,20 @@ def _build_resultados_view(rows, anio: int, mes: int, kpi_id: int | None = None)
     alerta = sum(1 for item in resumen if item["semaforo_mes"] in {"amarillo", "rojo"})
     sin_datos = sum(1 for item in resumen if item["resultado_mes"] is None)
 
+    daily_rows = []
+    current_day = month_start
+    while current_day <= month_end:
+        fecha = current_day.isoformat()
+        daily_rows.append({
+            "fecha": fecha,
+            "entries": sorted(daily.get(fecha, []), key=lambda item: item["nombre"]),
+        })
+        current_day += datetime.timedelta(days=1)
+
     return {
         "resumen": resumen,
         "calendar_weeks": weeks,
+        "daily_rows": daily_rows,
         "month_label": f"{_MONTH_NAMES[mes]} {anio}",
         "totales": {
             "kpis": len(resumen),
@@ -692,6 +704,76 @@ def resultados():
         vista=vista,
         error=error,
         msg=msg,
+    )
+
+
+@kpis_sectoriales_bp.route("/resultados/export.xlsx")
+@role_required("admin", "rrhh")
+def resultados_export_xlsx():
+    empresa_id = request.args.get("empresa_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
+    empleado_id = request.args.get("empleado_id", type=int)
+    kpi_id = request.args.get("kpi_id", type=int)
+    anio = _safe_year(request.args.get("anio"))
+    mes = _safe_month(request.args.get("mes"))
+
+    empresas = get_empresas()
+    sectores = _get_sectores(empresa_id)
+    empleados = get_empleados_by_sector_para_kpis(empresa_id, sector_id) if empresa_id and sector_id else []
+    kpis = get_kpis_by_sector(sector_id, activo=1) if sector_id else []
+
+    empleado = None
+    if empleado_id:
+        empleado = next((e for e in empleados if int(e["id"]) == empleado_id), None)
+        if not empleado:
+            return redirect(url_for(
+                "kpis_sectoriales.resultados",
+                empresa_id=empresa_id,
+                sector_id=sector_id,
+                empleado_id="",
+                kpi_id=kpi_id or None,
+                anio=anio,
+                mes=mes,
+                error="Empleado no encontrado para la empresa y sector seleccionados.",
+            ))
+
+    if kpi_id and not any(int(k["id"]) == kpi_id for k in kpis):
+        kpi_id = None
+
+    if not empleado or not kpis:
+        return redirect(url_for(
+            "kpis_sectoriales.resultados",
+            empresa_id=empresa_id,
+            sector_id=sector_id,
+            empleado_id=empleado_id or "",
+            kpi_id=kpi_id or "",
+            anio=anio,
+            mes=mes,
+            error="Seleccione una empresa, sector y empleado con KPIs para exportar.",
+        ))
+
+    rows = get_resultados_empleado_kpis_anio(empleado_id, sector_id, anio)
+    vista = _build_resultados_view(rows, anio, mes, kpi_id=kpi_id)
+
+    empresa_label = next((e.get("razon_social") for e in empresas if int(e.get("id") or 0) == int(empresa_id or 0)), None)
+    sector_label = next((s.get("nombre") for s in sectores if int(s.get("id") or 0) == int(sector_id or 0)), None)
+    empleado_label = f"{empleado.get('apellido') or ''} {empleado.get('nombre') or ''}".strip()
+    kpi_label = next((k.get("nombre") for k in kpis if int(k.get("id") or 0) == int(kpi_id or 0)), None)
+
+    workbook = generar_kpis_resultados_excel(
+        empresa_label=empresa_label,
+        sector_label=sector_label,
+        empleado_label=empleado_label or None,
+        kpi_label=kpi_label,
+        anio=anio,
+        mes=mes,
+        vista=vista,
+    )
+    filename = f"kpis_resultados_{anio}_{mes:02d}_{datetime.date.today().isoformat()}.xlsx"
+    return current_app.response_class(
+        workbook,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

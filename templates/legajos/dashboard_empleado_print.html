@@ -39,6 +39,8 @@
       <strong>DNI:</strong> {{ empleado.dni }} |
       <strong>Legajo:</strong> {{ empleado.legajo or "-" }} |
       <strong>Empresa:</strong> {{ empleado.empresa_nombre or ("Empresa #" ~ empleado.empresa_id) }} |
+      <strong>Ingreso:</strong> {{ empleado.fecha_ingreso or "-" }} |
+      <strong>Antiguedad:</strong> {{ antiguedad.text if antiguedad else "-" }} |
       <strong>Periodo:</strong> {{ desde }} a {{ hasta }}
     </p>
 
@@ -77,6 +79,27 @@
           <li>Periodo vigentes: {{ legajo.periodo.vigentes }}</li>
           <li>Periodo anulados (excluidos): {{ legajo.periodo.anulados }}</li>
         </ul>
+        {% if legajo.por_tipo_historico %}
+          <h4 style="margin-top:8px; margin-bottom:4px; font-size:13px;">Eventos historicos por tipo</h4>
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Total</th>
+                <th>Vigentes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in legajo.por_tipo_historico[:5] %}
+                <tr>
+                  <td>{{ row.label }}</td>
+                  <td>{{ row.total }}</td>
+                  <td>{{ row.vigentes }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
       </div>
     </div>
 
@@ -141,6 +164,8 @@
             <tr>
               <th>Fecha</th>
               <th>Registros</th>
+              <th>Horas</th>
+              <th>Tramos</th>
               <th>Tardes</th>
               <th>Ausentes</th>
             </tr>
@@ -151,12 +176,14 @@
                 <tr>
                   <td>{{ row.fecha }}</td>
                   <td>{{ row.registros }}</td>
+                  <td>{{ "%.1f"|format(row.horas or 0) }}h</td>
+                  <td>{{ row.tramos or 0 }}</td>
                   <td>{{ row.tardes }}</td>
                   <td>{{ row.ausentes }}</td>
                 </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="4">Sin datos</td></tr>
+              <tr><td colspan="6">Sin datos</td></tr>
             {% endif %}
           </tbody>
         </table>

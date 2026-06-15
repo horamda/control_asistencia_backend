@@ -21,3 +21,6 @@ os.environ.setdefault("DB_NAME", "test")
 os.environ.setdefault("JWT_SECRET", "test_jwt_secret_0123456789abcdef_pytest")
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("SECRET_KEY", "test_flask_secret_0123456789abcdef")
+
+# Evita que pytest intente recorrer carpetas locales con permisos restringidos.
+collect_ignore = ["ptmp2", "testtmp", ".pytest_tmp", ".pytest_tmp_codex"]

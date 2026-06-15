@@ -1,8 +1,13 @@
-from flask import Blueprint, abort, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, redirect, render_template, request, session, url_for
 
 from repositories.asistencia_repository import get_all as get_asistencias
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.justificacion_repository import delete, get_by_id, get_page
+from services.justificacion_attachment_service import (
+    delete_justificacion_resources,
+    save_justificacion_adjuntos,
+    sync_justificacion_event,
+)
 from services.justificacion_service import (
     aprobar_justificacion,
     create_justificacion,
@@ -14,6 +19,7 @@ from utils.audit import log_audit
 from web.auth.decorators import role_required
 
 justificaciones_bp = Blueprint("justificaciones", __name__, url_prefix="/justificaciones")
+ESTADOS_VALIDOS = {"pendiente", "aprobada", "rechazada"}
 
 
 def _extract_form_data(form) -> dict:
@@ -24,6 +30,19 @@ def _extract_form_data(form) -> dict:
         "archivo": (form.get("archivo") or "").strip(),
         "estado": (form.get("estado") or "").strip() or None,
     }
+
+
+def _extract_adjuntos_from_request():
+    adjuntos = request.files.getlist("adjuntos")
+    if not adjuntos:
+        adjuntos = request.files.getlist("adjuntos[]")
+    if not adjuntos:
+        archivo_unico = request.files.get("archivo_file")
+        if not archivo_unico:
+            archivo_unico = request.files.get("archivo")
+        if archivo_unico and str(archivo_unico.filename or "").strip():
+            adjuntos = [archivo_unico]
+    return adjuntos
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +58,10 @@ def listado():
     search = request.args.get("q")
     fecha_desde = request.args.get("fecha_desde")
     fecha_hasta = request.args.get("fecha_hasta")
-    justificaciones, total = get_page(page, per_page, empleado_id, fecha_desde, fecha_hasta, search)
+    estado = (request.args.get("estado") or "").strip().lower() or None
+    if estado and estado not in ESTADOS_VALIDOS:
+        estado = None
+    justificaciones, total = get_page(page, per_page, empleado_id, fecha_desde, fecha_hasta, search, estado)
     empleados = get_empleados(include_inactive=True)
     error = (request.args.get("error") or "").strip() or None
     msg = (request.args.get("msg") or "").strip() or None
@@ -50,6 +72,7 @@ def listado():
         empleado_id=empleado_id,
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
+        estado=estado,
         q=search,
         page=page,
         per_page=per_page,
@@ -72,6 +95,20 @@ def nuevo():
         data = _extract_form_data(request.form)
         try:
             just_id = create_justificacion(data)
+        except ValueError as exc:
+            return render_template(
+                "justificaciones/form.html",
+                mode="new",
+                data=data,
+                errors=[str(exc)],
+                empleados=empleados,
+                asistencias=asistencias,
+            )
+        try:
+            sync_justificacion_event(int(just_id), actor_id=session.get("user_id"))
+            adjuntos = _extract_adjuntos_from_request()
+            if adjuntos:
+                save_justificacion_adjuntos(int(just_id), adjuntos, actor_id=session.get("user_id"))
         except ValueError as exc:
             return render_template(
                 "justificaciones/form.html",
@@ -112,6 +149,22 @@ def editar(justificacion_id):
         data["estado"] = justificacion.get("estado") or "pendiente"
         try:
             update_justificacion(justificacion_id, data)
+        except ValueError as exc:
+            merged = dict(justificacion)
+            merged.update(data)
+            return render_template(
+                "justificaciones/form.html",
+                mode="edit",
+                data=merged,
+                errors=[str(exc)],
+                empleados=empleados,
+                asistencias=asistencias,
+            )
+        try:
+            sync_justificacion_event(int(justificacion_id), actor_id=session.get("user_id"))
+            adjuntos = _extract_adjuntos_from_request()
+            if adjuntos:
+                save_justificacion_adjuntos(int(justificacion_id), adjuntos, actor_id=session.get("user_id"))
         except ValueError as exc:
             merged = dict(justificacion)
             merged.update(data)
@@ -179,6 +232,19 @@ def revertir(justificacion_id):
 @justificaciones_bp.route("/eliminar/<int:justificacion_id>", methods=["POST"])
 @role_required("admin", "rrhh")
 def eliminar(justificacion_id):
-    delete(justificacion_id)
+    try:
+        delete_justificacion_resources(int(justificacion_id), actor_id=session.get("user_id"))
+        delete(justificacion_id)
+    except Exception:
+        current_app.logger.exception(
+            "web_justificaciones_delete_error",
+            extra={"extra": {"justificacion_id": justificacion_id}},
+        )
+        return redirect(
+            url_for(
+                "justificaciones.listado",
+                error="No se pudo eliminar la justificacion.",
+            )
+        )
     log_audit(session, "delete", "justificaciones", justificacion_id)
     return redirect(url_for("justificaciones.listado", msg="Justificacion eliminada."))

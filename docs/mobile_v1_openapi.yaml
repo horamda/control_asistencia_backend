@@ -1,10 +1,12 @@
 openapi: 3.0.3
 info:
   title: FichaYa — Mobile API v1
-  version: 1.21.1
+  version: 1.22.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
+    Los modulos complementarios Feedback (`/api/v1/feedback`) y SKAP (`/api/skap`)
+    usan el mismo Bearer JWT mobile, aunque no cuelgan del prefijo `/api/v1/mobile`.
   contact:
     name: Equipo Backend
 servers:
@@ -302,6 +304,16 @@ components:
         archivo:
           type: string
           nullable: true
+        legajo_evento_id:
+          type: integer
+          nullable: true
+        adjuntos_count:
+          type: integer
+          default: 0
+        adjuntos:
+          type: array
+          items:
+            $ref: '#/components/schemas/JustificacionAdjuntoItem'
         estado:
           type: string
           enum: [pendiente, aprobada, rechazada]
@@ -309,6 +321,30 @@ components:
         created_at:
           type: string
           format: date-time
+
+    JustificacionAdjuntoItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        evento_id:
+          type: integer
+        nombre_original:
+          type: string
+        mime_type:
+          type: string
+        extension:
+          type: string
+          nullable: true
+        tamano_bytes:
+          type: integer
+        estado:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        download_url:
+          type: string
 
     JustificacionCreateRequest:
       type: object
@@ -325,6 +361,24 @@ components:
           nullable: true
           example: "https://.../cert.pdf"
 
+    JustificacionCreateMultipartRequest:
+      type: object
+      required: [motivo]
+      properties:
+        asistencia_id:
+          type: integer
+          nullable: true
+        motivo:
+          type: string
+        archivo:
+          type: string
+          nullable: true
+        adjuntos:
+          type: array
+          items:
+            type: string
+            format: binary
+
     JustificacionUpdateRequest:
       type: object
       required: [motivo]
@@ -334,6 +388,21 @@ components:
         archivo:
           type: string
           nullable: true
+
+    JustificacionUpdateMultipartRequest:
+      type: object
+      required: [motivo]
+      properties:
+        motivo:
+          type: string
+        archivo:
+          type: string
+          nullable: true
+        adjuntos:
+          type: array
+          items:
+            type: string
+            format: binary
 
     PaginatedJustificaciones:
       type: object
@@ -346,6 +415,16 @@ components:
           type: integer
         per_page:
           type: integer
+        total:
+          type: integer
+
+    JustificacionAdjuntosListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JustificacionAdjuntoItem'
         total:
           type: integer
 
@@ -1190,6 +1269,810 @@ components:
       type: object
       properties:
         error:
+          type: string
+
+    # --- Feedback de calle ---
+    FeedbackEmpleadoRef:
+      type: object
+      properties:
+        id:
+          type: integer
+          nullable: true
+        nombre:
+          type: string
+          nullable: true
+        legajo:
+          type: string
+          nullable: true
+        dni:
+          type: string
+          nullable: true
+
+    FeedbackClienteRef:
+      type: object
+      properties:
+        id:
+          type: integer
+        codigo:
+          type: string
+          nullable: true
+        razon_social:
+          type: string
+          nullable: true
+        nombre_fantasia:
+          type: string
+          nullable: true
+        tipo:
+          type: string
+          nullable: true
+
+    FeedbackCliente:
+      allOf:
+        - $ref: '#/components/schemas/FeedbackClienteRef'
+        - type: object
+          properties:
+            sucursal_origen:
+              type: string
+              nullable: true
+            telefonos:
+              type: string
+              nullable: true
+            movil:
+              type: string
+              nullable: true
+            email:
+              type: string
+              nullable: true
+            domicilio:
+              type: string
+              nullable: true
+            localidad:
+              type: string
+              nullable: true
+            provincia:
+              type: string
+              nullable: true
+
+    FeedbackMotivo:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+        descripcion:
+          type: string
+          nullable: true
+        sla_dias:
+          type: integer
+          minimum: 1
+
+    FeedbackMotivoRef:
+      type: object
+      properties:
+        id:
+          type: integer
+        nombre:
+          type: string
+
+    FeedbackItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        empresa_id:
+          type: integer
+        estado:
+          type: string
+          enum: [pendiente, en_proceso, resuelto]
+        estado_actual:
+          type: string
+          enum: [pendiente, en_proceso, resuelto, vencido]
+        descripcion:
+          type: string
+        fecha_vencimiento:
+          type: string
+          format: date
+        created_at:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          nullable: true
+        resuelto_at:
+          type: string
+          nullable: true
+        resuelto_en_sla:
+          type: boolean
+          nullable: true
+        resolucion_descripcion:
+          type: string
+          nullable: true
+        dias_restantes:
+          type: integer
+          nullable: true
+        empleado:
+          $ref: '#/components/schemas/FeedbackEmpleadoRef'
+        jefe_directo:
+          $ref: '#/components/schemas/FeedbackEmpleadoRef'
+        cliente:
+          $ref: '#/components/schemas/FeedbackClienteRef'
+        motivo:
+          $ref: '#/components/schemas/FeedbackMotivoRef'
+        resuelto_por:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FeedbackEmpleadoRef'
+
+    FeedbackCreateRequest:
+      type: object
+      required: [cliente_id, motivo_id, descripcion]
+      properties:
+        cliente_id:
+          type: integer
+        motivo_id:
+          type: integer
+        descripcion:
+          type: string
+
+    FeedbackResolveRequest:
+      type: object
+      required: [resolucion_descripcion]
+      properties:
+        resolucion_descripcion:
+          type: string
+
+    FeedbackMotivosResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackMotivo'
+        total:
+          type: integer
+
+    FeedbackClientesResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackCliente'
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+
+    FeedbackListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackItem'
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+
+    FeedbackMutationResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        feedback:
+          $ref: '#/components/schemas/FeedbackItem'
+
+    FeedbackDetailResponse:
+      type: object
+      properties:
+        feedback:
+          $ref: '#/components/schemas/FeedbackItem'
+
+    FeedbackDashboardResponse:
+      type: object
+      properties:
+        resumen:
+          type: object
+          properties:
+            total:
+              type: integer
+            resueltos:
+              type: integer
+            pendientes:
+              type: integer
+            en_proceso:
+              type: integer
+            vencidos:
+              type: integer
+            resueltos_en_sla:
+              type: integer
+            resueltos_fuera_sla:
+              type: integer
+            motivos_distintos:
+              type: integer
+            clientes_distintos:
+              type: integer
+            empleados_con_carga:
+              type: integer
+        top_motivos:
+          type: array
+          items:
+            type: object
+            properties:
+              motivo_id:
+                type: integer
+              motivo_nombre:
+                type: string
+              total:
+                type: integer
+              resueltos:
+                type: integer
+        ranking:
+          type: array
+          items:
+            type: object
+            properties:
+              empleado_id:
+                type: integer
+              legajo:
+                type: string
+                nullable: true
+              apellido:
+                type: string
+                nullable: true
+              nombre:
+                type: string
+                nullable: true
+              total:
+                type: integer
+        personal:
+          type: object
+          nullable: true
+          properties:
+            empleado_id:
+              type: integer
+            total_cargados:
+              type: integer
+            posicion_ranking:
+              type: integer
+              nullable: true
+            total_personal_activo:
+              type: integer
+            promedio_por_empleado:
+              type: number
+            porcentaje_sobre_total:
+              type: number
+        totales:
+          type: object
+          properties:
+            empleados_activos:
+              type: integer
+            empleados_con_carga:
+              type: integer
+        empleado:
+          type: object
+          properties:
+            id:
+              type: integer
+            nombre:
+              type: string
+              nullable: true
+            apellido:
+              type: string
+              nullable: true
+            legajo:
+              type: string
+              nullable: true
+            empresa_id:
+              type: integer
+
+    # --- SKAP ---
+    SkapErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+
+    SkapEmpleadoRef:
+      type: object
+      properties:
+        id:
+          type: integer
+        legajo:
+          type: string
+          nullable: true
+        dni:
+          type: string
+          nullable: true
+        nombre:
+          type: string
+          nullable: true
+
+    SkapPregunta:
+      type: object
+      properties:
+        id:
+          type: integer
+        sector_id:
+          type: integer
+        sector_nombre:
+          type: string
+          nullable: true
+        categoria:
+          type: string
+          enum: [S, K, A, P]
+        categoria_label:
+          type: string
+          enum: [Skills, Knowledge, Attitude, Performance]
+        descripcion:
+          type: string
+        peso:
+          type: number
+        puntaje_esperado:
+          type: number
+        requiere_observacion:
+          type: boolean
+        requiere_evidencia:
+          type: boolean
+        activo:
+          type: boolean
+        created_at:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          nullable: true
+
+    SkapPreguntasResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            sector_id:
+              type: integer
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkapPregunta'
+            total:
+              type: integer
+
+    SkapRespuestaInput:
+      type: object
+      required: [pregunta_id]
+      properties:
+        pregunta_id:
+          type: integer
+        puntaje:
+          type: number
+          minimum: 1
+          maximum: 5
+        score:
+          type: number
+          minimum: 1
+          maximum: 5
+          description: Alias aceptado de puntaje.
+        observacion:
+          type: string
+          nullable: true
+        evidencia:
+          type: string
+          nullable: true
+
+    SkapEvaluacionRequest:
+      type: object
+      required: [respuestas]
+      properties:
+        empleado_id:
+          type: integer
+          nullable: true
+        anio:
+          type: integer
+          nullable: true
+        observaciones_generales:
+          type: string
+          nullable: true
+        respuestas:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkapRespuestaInput'
+
+    SkapCategoriaCard:
+      type: object
+      properties:
+        categoria:
+          type: string
+          enum: [S, K, A, P]
+        label:
+          type: string
+        promedio:
+          type: number
+        esperado:
+          type: number
+        nivel:
+          type: string
+        respuestas:
+          type: integer
+        badge:
+          type: string
+          nullable: true
+
+    SkapDetalleRespuesta:
+      type: object
+      properties:
+        id:
+          type: integer
+        evaluacion_id:
+          type: integer
+        pregunta_id:
+          type: integer
+        categoria:
+          type: string
+          enum: [S, K, A, P]
+        categoria_label:
+          type: string
+        descripcion:
+          type: string
+        peso:
+          type: number
+        puntaje_esperado:
+          type: number
+        puntaje_obtenido:
+          type: number
+        observacion:
+          type: string
+          nullable: true
+        evidencia:
+          type: string
+          nullable: true
+        cumple_esperado:
+          type: boolean
+        created_at:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          nullable: true
+
+    SkapPlanAction:
+      type: object
+      properties:
+        id:
+          type: integer
+        plan_id:
+          type: integer
+        categoria:
+          type: string
+          enum: [S, K, A, P]
+        categoria_label:
+          type: string
+        accion:
+          type: string
+        responsable_empleado_id:
+          type: integer
+          nullable: true
+        responsable:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/SkapEmpleadoRef'
+        fecha_compromiso:
+          type: string
+          format: date
+          nullable: true
+        estado:
+          type: string
+          enum: [pendiente, en_proceso, completado, cancelado]
+        estado_actual:
+          type: string
+          enum: [pendiente, en_proceso, completado, cancelado, vencido]
+        es_vencido:
+          type: boolean
+        completado_at:
+          type: string
+          nullable: true
+        comentarios:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          nullable: true
+
+    SkapPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        evaluacion_id:
+          type: integer
+        empresa_id:
+          type: integer
+        empleado_id:
+          type: integer
+        sector_id:
+          type: integer
+        puesto_id:
+          type: integer
+          nullable: true
+        anio:
+          type: integer
+        promedio_general:
+          type: number
+        nivel:
+          type: string
+        observaciones:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          nullable: true
+        evaluacion:
+          type: object
+        empleado:
+          $ref: '#/components/schemas/SkapEmpleadoRef'
+        sector:
+          type: object
+          properties:
+            id:
+              type: integer
+            nombre:
+              type: string
+              nullable: true
+        puesto:
+          type: object
+          nullable: true
+        evaluador:
+          type: object
+          nullable: true
+        acciones_total:
+          type: integer
+        acciones_completadas:
+          type: integer
+        acciones_vencidas:
+          type: integer
+        avance_pct:
+          type: number
+        acciones:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkapPlanAction'
+
+    SkapEvaluacion:
+      type: object
+      properties:
+        id:
+          type: integer
+        empresa_id:
+          type: integer
+        anio:
+          type: integer
+        fecha_evaluacion:
+          type: string
+          format: date
+        hora_evaluacion:
+          type: string
+          nullable: true
+        empleado:
+          $ref: '#/components/schemas/SkapEmpleadoRef'
+        sector:
+          type: object
+        puesto:
+          type: object
+          nullable: true
+        evaluador:
+          type: object
+        promedios:
+          type: object
+          properties:
+            skills:
+              type: number
+            knowledge:
+              type: number
+            attitude:
+              type: number
+            performance:
+              type: number
+            general:
+              type: number
+        nivel:
+          type: string
+        badge:
+          type: string
+          nullable: true
+        observaciones_generales:
+          type: string
+          nullable: true
+        pdp_generado_at:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          nullable: true
+        categoria_cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkapCategoriaCard'
+        detalles:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkapDetalleRespuesta'
+        plan:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/SkapPlan'
+
+    SkapEvaluacionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            evaluacion:
+              $ref: '#/components/schemas/SkapEvaluacion'
+            plan:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/SkapPlan'
+        message:
+          type: string
+          nullable: true
+
+    SkapMiDesarrolloResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            empleado:
+              $ref: '#/components/schemas/SkapEmpleadoRef'
+            anio_evaluado:
+              type: integer
+            evaluacion:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/SkapEvaluacion'
+            categoria_cards:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkapCategoriaCard'
+            historial:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkapEvaluacion'
+            plan:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/SkapPlan'
+            ranking:
+              type: object
+              nullable: true
+            badge:
+              type: string
+              nullable: true
+
+    SkapRankingResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            anio:
+              type: integer
+            posicion:
+              type: integer
+              nullable: true
+            total:
+              type: integer
+            puntaje:
+              type: number
+              nullable: true
+            nivel:
+              type: string
+              nullable: true
+            badge:
+              type: string
+              nullable: true
+
+    SkapPlanesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            anio_seleccionado:
+              type: integer
+              nullable: true
+            total:
+              type: integer
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkapPlan'
+            current:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/SkapPlan'
+
+    SkapPlanActionInput:
+      type: object
+      required: [accion]
+      properties:
+        categoria:
+          type: string
+          enum: [S, K, A, P]
+        accion:
+          type: string
+        responsable_empleado_id:
+          type: integer
+          nullable: true
+        fecha_compromiso:
+          type: string
+          format: date
+          nullable: true
+        estado:
+          type: string
+          enum: [pendiente, en_proceso, completado, cancelado]
+        comentarios:
+          type: string
+          nullable: true
+
+    SkapPlanUpsertRequest:
+      type: object
+      required: [evaluacion_id]
+      properties:
+        evaluacion_id:
+          type: integer
+        acciones:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SkapPlanActionInput'
+
+    SkapPlanUpsertResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            plan:
+              $ref: '#/components/schemas/SkapPlan'
+        message:
           type: string
 
     KpisSectorResponse:
@@ -2063,6 +2946,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/JustificacionCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/JustificacionCreateMultipartRequest'
       responses:
         '201':
           description: Justificacion creada
@@ -2115,6 +3001,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/JustificacionUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/JustificacionUpdateMultipartRequest'
       responses:
         '200':
           description: Justificacion actualizada
@@ -2150,6 +3039,73 @@ paths:
           description: No encontrada
         '409':
           description: No esta en estado pendiente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me/justificaciones/{id}/adjuntos:
+    get:
+      tags: [Justificaciones]
+      summary: Lista los adjuntos de una justificacion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de adjuntos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JustificacionAdjuntosListResponse'
+        '404':
+          description: No encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me/justificaciones/{id}/adjuntos/{adjunto_id}:
+    get:
+      tags: [Justificaciones]
+      summary: Descarga un adjunto de una justificacion del empleado
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: adjunto_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: download
+          in: query
+          schema:
+            type: boolean
+          description: Si es true, fuerza descarga como attachment.
+      responses:
+        '200':
+          description: Archivo adjunto
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Adjunto no encontrado
           content:
             application/json:
               schema:
@@ -3032,6 +3988,575 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  # ---- Feedback de calle (prefijo complementario) ----
+  /api/v1/feedback/motivos:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [Feedback]
+      summary: Motivos activos de feedback
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Motivos activos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackMotivosResponse'
+        '401':
+          description: Token invalido o vencido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/feedback/clientes:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [Feedback]
+      summary: Clientes activos importados por CSV
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          required: false
+          description: Busca por codigo, razon social, fantasia, localidad, provincia o tipo.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+      responses:
+        '200':
+          description: Clientes paginados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackClientesResponse'
+
+  /api/v1/feedback/historial:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [Feedback]
+      summary: Historial del empleado autenticado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: estado
+          in: query
+          schema:
+            type: string
+            enum: [pendiente, en_proceso, resuelto, vencido]
+          required: false
+        - name: q
+          in: query
+          schema:
+            type: string
+          required: false
+      responses:
+        '200':
+          description: Feedbacks cargados por el empleado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackListResponse'
+        '401':
+          description: Token invalido o empleado inactivo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/feedback/bandeja:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [Feedback]
+      summary: Bandeja del jefe directo autenticado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: estado
+          in: query
+          schema:
+            type: string
+            enum: [pendiente, en_proceso, resuelto, vencido]
+          required: false
+        - name: q
+          in: query
+          schema:
+            type: string
+          required: false
+      responses:
+        '200':
+          description: Feedbacks asignados al jefe directo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackListResponse'
+
+  /api/v1/feedback/dashboard:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [Feedback]
+      summary: Dashboard de feedback para el empleado autenticado
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Totales, motivos principales, ranking y posicion personal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackDashboardResponse'
+
+  /api/v1/feedback:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    post:
+      tags: [Feedback]
+      summary: Crea feedback de calle
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackCreateRequest'
+      responses:
+        '201':
+          description: Feedback creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackMutationResponse'
+        '400':
+          description: Payload invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Empleado sin permiso o sin jefe directo disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/feedback/{feedback_id}:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [Feedback]
+      summary: Detalle de feedback
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: feedback_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Feedback visible para empleado creador o jefe directo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackDetailResponse'
+        '403':
+          description: Sin permiso para ver el feedback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Feedback no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/feedback/{feedback_id}/tomar:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    post:
+      tags: [Feedback]
+      summary: Toma un feedback y lo pasa a en_proceso
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: feedback_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Feedback actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackMutationResponse'
+        '403':
+          description: Solo el jefe directo puede tomarlo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Feedback no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/feedback/{feedback_id}/resolver:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    post:
+      tags: [Feedback]
+      summary: Resuelve feedback con descripcion de gestion
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: feedback_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackResolveRequest'
+      responses:
+        '200':
+          description: Feedback resuelto; incluye resuelto_at y resuelto_en_sla
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackMutationResponse'
+        '400':
+          description: Falta descripcion de resolucion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Solo el jefe directo puede resolverlo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---- SKAP (prefijo complementario) ----
+  /api/skap/preguntas:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [SKAP]
+      summary: Preguntas SKAP por sector
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: sector_id
+          in: query
+          schema:
+            type: integer
+          required: false
+        - name: empleado_id
+          in: query
+          schema:
+            type: integer
+          required: false
+        - name: categoria
+          in: query
+          schema:
+            type: string
+            enum: [S, K, A, P]
+          required: false
+        - name: activo
+          in: query
+          schema:
+            type: string
+            default: "1"
+          required: false
+      responses:
+        '200':
+          description: Preguntas disponibles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapPreguntasResponse'
+        '400':
+          description: Sector requerido o invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'
+
+  /api/skap/evaluacion:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    post:
+      tags: [SKAP]
+      summary: Crea evaluacion SKAP anual
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkapEvaluacionRequest'
+      responses:
+        '200':
+          description: Evaluacion creada y PDP generado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapEvaluacionResponse'
+        '400':
+          description: Payload invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'
+        '403':
+          description: Sin permiso para evaluar al empleado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'
+        '409':
+          description: Ya existe evaluacion del empleado para ese anio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'
+
+  /api/skap/evaluacion/{evaluacion_id}:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [SKAP]
+      summary: Detalle de evaluacion SKAP
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: evaluacion_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Evaluacion, detalles por pregunta y plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapEvaluacionResponse'
+        '403':
+          description: Sin permiso para ver la evaluacion
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'
+        '404':
+          description: Evaluacion no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'
+
+  /api/skap/mi_desarrollo:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [SKAP]
+      summary: Vista Mi Desarrollo del empleado autenticado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: anio
+          in: query
+          schema:
+            type: integer
+            example: 2026
+          required: false
+      responses:
+        '200':
+          description: Evaluacion, cards SKAP, historial, plan, ranking y badge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapMiDesarrolloResponse'
+
+  /api/skap/ranking:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [SKAP]
+      summary: Ranking personal SKAP
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: anio
+          in: query
+          schema:
+            type: integer
+            example: 2026
+          required: false
+      responses:
+        '200':
+          description: Posicion personal del empleado autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapRankingResponse'
+
+  /api/skap/planes:
+    servers:
+      - url: http://localhost:5000
+        description: Local root
+      - url: https://control-asistencia-backend-8gle.onrender.com
+        description: Produccion root
+    get:
+      tags: [SKAP]
+      summary: Planes PDP del empleado autenticado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: anio
+          in: query
+          schema:
+            type: integer
+            example: 2026
+          required: false
+      responses:
+        '200':
+          description: Historial de planes y plan actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapPlanesResponse'
+    post:
+      tags: [SKAP]
+      summary: Crea o actualiza acciones extra del PDP
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkapPlanUpsertRequest'
+      responses:
+        '200':
+          description: Plan actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapPlanUpsertResponse'
+        '400':
+          description: Payload invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'
+        '403':
+          description: Sin permiso para administrar este PDP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'
+        '404':
+          description: Evaluacion no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'
 
   /me/kpis-sector/resumen:
     get:

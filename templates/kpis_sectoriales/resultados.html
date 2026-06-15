@@ -289,6 +289,9 @@
     <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.listado', empresa_id=empresa_id, sector_id=sector_id) }}">Indicadores</a>
     <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.objetivos', empresa_id=empresa_id, sector_id=sector_id, anio=anio) }}">Objetivos</a>
     <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.importar_resultados') }}">Importar resultados</a>
+    {% if vista %}
+      <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.resultados_export_xlsx', empresa_id=empresa_id or None, sector_id=sector_id or None, empleado_id=empleado_id or None, kpi_id=kpi_id or None, anio=anio or None, mes=mes or None) }}">Exportar Excel</a>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

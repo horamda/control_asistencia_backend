@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Motivos Feedback{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">Configuracion</div>
+  <h2 class="section-title">Motivos de feedback</h2>
+  <p class="helper-text">Defina nombre, descripcion y SLA en dias.</p>
+
+  <form method="get" class="dashboard-filter-form" style="margin-top:1rem;">
+    <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nombre o descripcion">
+    <select name="activo">
+      <option value="all" {% if activo == "all" %}selected{% endif %}>Todos</option>
+      <option value="1" {% if activo == "1" %}selected{% endif %}>Activos</option>
+      <option value="0" {% if activo == "0" %}selected{% endif %}>Inactivos</option>
+    </select>
+    <button class="btn" type="submit">Filtrar</button>
+    <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado') }}">Limpiar</a>
+    <a class="btn" href="{{ url_for('feedback_web.motivo_nuevo') }}">Nuevo motivo</a>
+    <a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Volver</a>
+  </form>
+
+  <div class="table-responsive" style="margin-top:1rem;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>SLA</th>
+          <th>Activo</th>
+          <th>Descripcion</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for motivo in motivos %}
+          <tr>
+            <td>{{ motivo.nombre }}</td>
+            <td>{{ motivo.sla_dias }} dias</td>
+            <td>{{ "Si" if motivo.activo else "No" }}</td>
+            <td>{{ motivo.descripcion or "-" }}</td>
+            <td class="inline-actions">
+              <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivo_editar', motivo_id=motivo.id) }}">Editar</a>
+              {% if motivo.activo %}
+                <form method="post" action="{{ url_for('feedback_web.motivo_desactivar', motivo_id=motivo.id) }}" style="display:inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-secondary" type="submit">Desactivar</button>
+                </form>
+              {% else %}
+                <form method="post" action="{{ url_for('feedback_web.motivo_activar', motivo_id=motivo.id) }}" style="display:inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn" type="submit">Activar</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5">No hay motivos cargados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

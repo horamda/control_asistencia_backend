@@ -24,6 +24,7 @@ from services.trivia_service import (
     finalizar_trivia,
     recalcular_resultados_trivia,
 )
+from services.export_excel_service import generar_trivia_resultados_excel
 from utils.audit import log_audit
 from web.auth.decorators import role_required
 
@@ -313,6 +314,28 @@ def resultados_export_csv(trivia_id: int):
     return Response(
         csv_content,
         mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@trivia_admin_bp.get("/<int:trivia_id>/resultados/export.xlsx")
+@role_required("admin", "rrhh")
+def resultados_export_xlsx(trivia_id: int):
+    trivia = repo.get_trivia_by_id(trivia_id)
+    if not trivia:
+        flash("Trivia no encontrada.", "danger")
+        return redirect(url_for("trivia_admin.listado"))
+
+    rows = repo.get_resultados_admin_trivia(trivia_id)
+    ranking = calcular_ranking(trivia_id)
+    _enrich_resultados_with_ranking(rows, ranking)
+    summary = _build_resultados_summary(rows)
+
+    workbook = generar_trivia_resultados_excel(trivia=trivia, rows=rows, summary=summary)
+    filename = f"trivia_{trivia_id}_resultados.xlsx"
+    return Response(
+        workbook,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

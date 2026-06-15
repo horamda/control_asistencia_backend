@@ -1,4 +1,7 @@
 import datetime
+import io
+
+from openpyxl import load_workbook
 
 import app as app_module
 import web.auth.decorators as auth_decorators
@@ -167,3 +170,83 @@ def test_kpis_resultados_eliminar_mes_exige_confirmacion(monkeypatch):
 
     assert resp.status_code == 302
     assert "error=" in resp.headers["Location"]
+
+
+def test_kpis_resultados_export_xlsx_ok(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+
+    monkeypatch.setattr(kpi_routes, "get_empresas", lambda: [{"id": 1, "razon_social": "Empresa A"}])
+    monkeypatch.setattr(
+        kpi_routes,
+        "get_sectores_page",
+        lambda page, per_page, empresa_id=None, activo=None: ([{"id": 2, "nombre": "Ventas"}], 1),
+    )
+    monkeypatch.setattr(
+        kpi_routes,
+        "get_empleados_by_sector_para_kpis",
+        lambda empresa_id, sector_id: [
+            {
+                "id": 7,
+                "empresa_id": 1,
+                "sector_id": 2,
+                "legajo": "L-7",
+                "dni": "30111222",
+                "nombre": "Ana",
+                "apellido": "Perez",
+                "empresa_nombre": "Empresa A",
+                "sector_nombre": "Ventas",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        kpi_routes,
+        "get_kpis_by_sector",
+        lambda sector_id, activo=None: [
+            {
+                "id": 5,
+                "codigo": "VENTAS",
+                "nombre": "Ventas cerradas",
+                "unidad": "ventas",
+                "tipo_acumulacion": "suma",
+                "mayor_es_mejor": 1,
+                "activo": 1,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        kpi_routes,
+        "get_resultados_empleado_kpis_anio",
+        lambda empleado_id, sector_id, anio: [
+            {
+                "kpi_id": 5,
+                "codigo": "VENTAS",
+                "nombre": "Ventas cerradas",
+                "unidad": "ventas",
+                "tipo_acumulacion": "suma",
+                "mayor_es_mejor": 1,
+                "objetivo_valor": 3650,
+                "condicion": "gte",
+                "valor_min": None,
+                "valor_max": None,
+                "fecha": datetime.date(2026, 5, 1),
+                "valor": 20,
+            }
+        ],
+    )
+
+    resp = client.get("/kpis-sectoriales/resultados/export.xlsx?empresa_id=1&sector_id=2&empleado_id=7&anio=2026&mes=5")
+
+    assert resp.status_code == 200
+    assert "spreadsheetml.sheet" in resp.headers["Content-Type"]
+    assert "kpis_resultados_2026_05_" in resp.headers["Content-Disposition"]
+
+    wb = load_workbook(io.BytesIO(resp.data))
+    ws = wb["Resumen"]
+    assert ws["A1"].value == "Resultados KPI por empleado"
+    assert ws["A15"].value == "KPIs evaluados"
+    assert ws["B15"].value == 1
+    assert ws["A23"].value == "VENTAS"
+    assert ws["B23"].value == "Ventas cerradas"
+    assert ws["A27"].value == "2026-05-01"

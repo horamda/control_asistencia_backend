@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}SKAP - Preguntas{% endblock %}
+{% block content %}
+<section class="panel">
+  <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap;">
+    <div>
+      <div class="section-kicker">SKAP</div>
+      <h2 class="section-title">Preguntas</h2>
+      <p class="helper-text">CRUD de preguntas dinamicas por sector y categoria.</p>
+    </div>
+    <a class="btn" href="{{ url_for('skap_web.pregunta_nueva') }}">Nueva pregunta</a>
+  </div>
+
+  {% if error %}
+    <div class="alert alert-danger" style="margin-top:1rem;">{{ error }}</div>
+  {% endif %}
+  {% if msg %}
+    <div class="alert alert-success" style="margin-top:1rem;">{{ msg }}</div>
+  {% endif %}
+
+  <form method="get" class="form-grid" style="margin-top:1rem;">
+    <label>
+      <span>Buscar</span>
+      <input type="text" name="q" value="{{ q }}" placeholder="Descripcion o sector">
+    </label>
+    <label>
+      <span>Sector</span>
+      <select name="sector_id">
+        <option value="">Todos</option>
+        {% for sector in sectores %}
+          <option value="{{ sector.id }}" {% if sector_id and sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Categoria</span>
+      <select name="categoria">
+        <option value="">Todas</option>
+        {% for code, label in categorias %}
+          <option value="{{ code }}" {% if categoria == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Estado</span>
+      <select name="activo">
+        <option value="all" {% if activo == "all" %}selected{% endif %}>Todos</option>
+        <option value="1" {% if activo == "1" %}selected{% endif %}>Activos</option>
+        <option value="0" {% if activo == "0" %}selected{% endif %}>Inactivos</option>
+      </select>
+    </label>
+    <div class="actions" style="align-self:end;">
+      <button class="btn" type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('skap_web.preguntas_listado') }}">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="table-responsive" style="margin-top:1rem;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Sector</th>
+          <th>Categoria</th>
+          <th>Descripcion</th>
+          <th>Peso</th>
+          <th>Esperado</th>
+          <th>Obs.</th>
+          <th>Evid.</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pregunta in preguntas %}
+          <tr>
+            <td>{{ pregunta.sector_nombre }}</td>
+            <td><span class="badge">{{ pregunta.categoria_label }}</span></td>
+            <td>{{ pregunta.descripcion }}</td>
+            <td>{{ "%.2f"|format(pregunta.peso) }}</td>
+            <td>{{ pregunta.puntaje_esperado }}</td>
+            <td>{{ "Si" if pregunta.requiere_observacion else "No" }}</td>
+            <td>{{ "Si" if pregunta.requiere_evidencia else "No" }}</td>
+            <td>
+              {% if pregunta.activo %}
+                <span class="badge success">Activa</span>
+              {% else %}
+                <span class="badge warning">Inactiva</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="actions" style="display:flex;flex-wrap:wrap;gap:.35rem;">
+                <a class="btn btn-secondary" href="{{ url_for('skap_web.pregunta_editar', pregunta_id=pregunta.id) }}">Editar</a>
+                {% if pregunta.activo %}
+                  <form method="post" action="{{ url_for('skap_web.pregunta_desactivar', pregunta_id=pregunta.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-secondary" type="submit">Desactivar</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="{{ url_for('skap_web.pregunta_activar', pregunta_id=pregunta.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn" type="submit">Activar</button>
+                  </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9">No hay preguntas cargadas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

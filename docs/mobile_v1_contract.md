@@ -1,13 +1,14 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.21.5
-Fecha de corte: 2026-05-28
+Version de contrato: 1.22.0
+Fecha de corte: 2026-06-08
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
-Prefijo: `/api/v1/mobile`
+Prefijo principal: `/api/v1/mobile`
+Prefijos moviles complementarios: `/api/v1/feedback`, `/api/skap`
 
 Este documento fija el contrato para Flutter.
-Fuente tecnica: `routes/mobile_v1_routes.py`.
+Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `routes/skap_routes.py`.
 
 ## Autenticacion
 
@@ -529,6 +530,21 @@ final body = {'dni': dni, 'password': password, ...extras};
       "asistencia_fecha":"2026-02-14",
       "motivo":"Enfermedad con certificado medico",
       "archivo":"https://.../cert.pdf",
+      "legajo_evento_id":99,
+      "adjuntos_count":2,
+      "adjuntos":[
+        {
+          "id":88,
+          "evento_id":99,
+          "nombre_original":"certificado.pdf",
+          "mime_type":"application/pdf",
+          "extension":"pdf",
+          "tamano_bytes":1234,
+          "estado":"activo",
+          "created_at":"2026-02-15T09:00:00",
+          "download_url":"/api/v1/mobile/me/justificaciones/10/adjuntos/88"
+        }
+      ],
       "estado":"aprobada",
       "created_at":"2026-02-15T09:00:00"
     }
@@ -540,26 +556,35 @@ final body = {'dni': dni, 'password': password, ...extras};
 ```
 
 #### 19. `GET /api/v1/mobile/me/justificaciones/<id>`
-- Response 200: objeto justificacion (mismo esquema que items arriba).
+- Response 200: objeto justificacion (mismo esquema que items arriba, incluyendo `adjuntos` y `adjuntos_count`).
 - Response 404: `{"error":"Justificacion no encontrada"}`
 
 #### 20. `POST /api/v1/mobile/me/justificaciones`
-- Request:
+- Request JSON:
 ```json
 {"asistencia_id":1,"motivo":"Enfermedad con certificado medico","archivo":"https://.../cert.pdf"}
 ```
+- Request multipart/form-data:
+  - `asistencia_id` opcional.
+  - `motivo` obligatorio.
+  - `archivo` opcional; URL legacy.
+  - `adjuntos` opcional; uno o varios archivos (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`).
 - `asistencia_id`: opcional; si es null, la justificacion no tiene asistencia asociada.
 - `archivo`: opcional; URL al documento adjunto.
+- Los archivos subidos se normalizan y se guardan en la base de datos a traves del modulo de legajos.
 - Estado inicial siempre: `pendiente`.
 - Response 201: objeto justificacion creada.
 - Response 400: `{"error":"motivo es requerido"}`
 
 #### 21. `PUT /api/v1/mobile/me/justificaciones/<id>`
 - Solo permite editar justificaciones en estado `pendiente`.
-- Request:
+- Request JSON:
 ```json
 {"motivo":"Motivo actualizado","archivo":null}
 ```
+- Request multipart/form-data:
+  - mismos campos que `POST`
+  - `adjuntos` permite agregar nuevas evidencias
 - Response 200: objeto justificacion actualizada.
 - Response 404: `{"error":"Justificacion no encontrada"}`
 - Response 409: `{"error":"Solo se puede editar una justificacion pendiente (estado actual: 'aprobada')"}`
@@ -569,6 +594,35 @@ final body = {'dni': dni, 'password': password, ...extras};
 - Response 200: `{"ok":true}`
 - Response 404: `{"error":"Justificacion no encontrada"}`
 - Response 409: `{"error":"Solo se puede retirar una justificacion pendiente (estado actual: 'aprobada')"}`
+
+#### 22A. `GET /api/v1/mobile/me/justificaciones/<id>/adjuntos`
+- Lista los adjuntos de una justificacion propia.
+- Response 200:
+```json
+{
+  "items":[
+    {
+      "id":88,
+      "evento_id":99,
+      "nombre_original":"certificado.pdf",
+      "mime_type":"application/pdf",
+      "extension":"pdf",
+      "tamano_bytes":1234,
+      "estado":"activo",
+      "created_at":"2026-02-15T09:00:00",
+      "download_url":"/api/v1/mobile/me/justificaciones/10/adjuntos/88"
+    }
+  ],
+  "total":1
+}
+```
+- Response 404: `{"error":"Justificacion no encontrada"}`
+
+#### 22B. `GET /api/v1/mobile/me/justificaciones/<id>/adjuntos/<adjunto_id>`
+- Devuelve el archivo adjunto de una justificacion propia.
+- `download=true` fuerza descarga como attachment.
+- Response 200: binario del archivo normalizado (`application/pdf` en la practica).
+- Response 404: `{"error":"Adjunto no encontrado"}`
 
 ---
 
@@ -2437,6 +2491,420 @@ Implementado via `AppRatingService` + `FlutterSecureStorage` (con `encryptedShar
 
 ---
 
+### Feedback de calle
+
+Prefijo: `/api/v1/feedback`
+Auth: `Bearer JWT` mobile.
+
+Uso funcional: el empleado carga problemas surgidos en la calle, seleccionando cliente y motivo. El backend asigna automaticamente el `jefe_directo` desde la ficha del empleado (`reporta_a_empleado_id`). El jefe directo debe tomar/resolver el feedback dentro del SLA configurado en el motivo.
+
+Estados:
+- `estado`: `pendiente` | `en_proceso` | `resuelto`
+- `estado_actual`: `pendiente` | `en_proceso` | `resuelto` | `vencido`
+- `vencido` es calculado cuando `estado` es `pendiente`/`en_proceso` y la fecha actual supera `fecha_vencimiento`.
+
+Modelo base `FeedbackItem`:
+```json
+{
+  "id": 123,
+  "empresa_id": 1,
+  "estado": "pendiente",
+  "estado_actual": "pendiente",
+  "descripcion": "Cliente sin material POP y demora en entrega.",
+  "fecha_vencimiento": "2026-06-11",
+  "created_at": "2026-06-08 10:30",
+  "updated_at": "2026-06-08 10:30",
+  "resuelto_at": null,
+  "resuelto_en_sla": null,
+  "resolucion_descripcion": null,
+  "dias_restantes": 3,
+  "empleado": {"id": 10, "nombre": "Juan Perez", "legajo": "1020", "dni": "30111222"},
+  "jefe_directo": {"id": 2, "nombre": "Maria Gomez", "legajo": "2001", "dni": "28999888"},
+  "cliente": {"id": 55, "codigo": "CLI-001", "razon_social": "Cliente SA", "nombre_fantasia": "Cliente Centro", "tipo": "Minorista"},
+  "motivo": {"id": 4, "nombre": "Entrega"},
+  "resuelto_por": null
+}
+```
+
+#### 54A. `GET /api/v1/feedback/motivos`
+- Devuelve motivos activos para cargar feedback. La administracion de motivos se hace en el panel web.
+- Response 200:
+```json
+{
+  "items": [
+    {"id": 1, "nombre": "Cliente cerrado", "descripcion": "El local no pudo ser atendido.", "sla_dias": 2}
+  ],
+  "total": 1
+}
+```
+
+---
+
+#### 54B. `GET /api/v1/feedback/clientes?q=&page=&per_page=`
+- Devuelve clientes activos importados por CSV desde el panel web.
+- Query:
+  | Campo | Tipo | Default | Notas |
+  |---|---|---|---|
+  | `q` | string | null | Busca por codigo, razon social, fantasia, localidad, provincia o tipo |
+  | `page` | int | 1 | Pagina |
+  | `per_page` | int | 20 | Maximo 50 |
+
+- Response 200:
+```json
+{
+  "items": [
+    {
+      "id": 55,
+      "codigo": "CLI-001",
+      "sucursal_origen": "Norte",
+      "razon_social": "Cliente SA",
+      "nombre_fantasia": "Cliente Centro",
+      "telefonos": "1122334455",
+      "movil": "1199998888",
+      "email": "contacto@cliente.com",
+      "domicilio": "Av. Siempre Viva 123",
+      "localidad": "CABA",
+      "provincia": "Buenos Aires",
+      "tipo": "Minorista"
+    }
+  ],
+  "page": 1,
+  "per_page": 20,
+  "total": 1
+}
+```
+
+---
+
+#### 54C. `GET /api/v1/feedback/historial?page=&per_page=&estado=&q=`
+- Historial del empleado autenticado.
+- `estado`: opcional. Usar `pendiente`, `en_proceso`, `resuelto` o `vencido`.
+- `q`: busqueda por cliente, motivo o descripcion.
+- Response 200:
+```json
+{"items":[{"id":123,"estado":"pendiente","estado_actual":"pendiente","...":"..."}],"page":1,"per_page":20,"total":1}
+```
+
+---
+
+#### 54D. `GET /api/v1/feedback/bandeja?page=&per_page=&estado=&q=`
+- Bandeja del jefe directo autenticado. Devuelve los feedback asignados a ese empleado como `jefe_directo`.
+- Mismos filtros y paginacion que historial.
+- Response 200:
+```json
+{"items":[{"id":123,"estado":"pendiente","jefe_directo":{"id":2,"nombre":"Maria Gomez"},"...":"..."}],"page":1,"per_page":20,"total":1}
+```
+
+---
+
+#### 54E. `GET /api/v1/feedback/dashboard`
+- Dashboard del empleado autenticado dentro del alcance de su empresa.
+- Incluye totales, feedback resueltos, vencidos, motivos principales, ranking de carga y posicion personal contra el resto del personal.
+- Response 200:
+```json
+{
+  "resumen": {
+    "total": 42,
+    "resueltos": 20,
+    "pendientes": 12,
+    "en_proceso": 6,
+    "vencidos": 4,
+    "resueltos_en_sla": 18,
+    "resueltos_fuera_sla": 2,
+    "motivos_distintos": 5,
+    "clientes_distintos": 30,
+    "empleados_con_carga": 8
+  },
+  "top_motivos": [{"motivo_id": 1, "motivo_nombre": "Entrega", "total": 12, "resueltos": 8}],
+  "ranking": [{"empleado_id": 10, "legajo": "1020", "apellido": "Perez", "nombre": "Juan", "total": 7}],
+  "personal": {
+    "empleado_id": 10,
+    "total_cargados": 7,
+    "posicion_ranking": 3,
+    "total_personal_activo": 25,
+    "promedio_por_empleado": 1.68,
+    "porcentaje_sobre_total": 16.7
+  },
+  "totales": {"empleados_activos": 25, "empleados_con_carga": 8},
+  "empleado": {"id": 10, "nombre": "Juan", "apellido": "Perez", "legajo": "1020", "empresa_id": 1}
+}
+```
+
+---
+
+#### 54F. `POST /api/v1/feedback`
+- Crea un feedback para el empleado autenticado.
+- Request:
+```json
+{
+  "cliente_id": 55,
+  "motivo_id": 1,
+  "descripcion": "Cliente informa falta de producto y demora en reposicion."
+}
+```
+- Validaciones:
+  | Campo | Requerido | Notas |
+  |---|---|---|
+  | `cliente_id` | Si | Cliente activo importado por CSV |
+  | `motivo_id` | Si | Motivo activo con `sla_dias > 0` |
+  | `descripcion` | Si | Texto libre obligatorio |
+- Response 201:
+```json
+{"ok": true, "feedback": {"id": 123, "estado": "pendiente", "estado_actual": "pendiente", "...": "..."}}
+```
+- Response 400: `{"error":"Cliente es requerido."}` / `{"error":"La descripcion es obligatoria."}`
+- Response 403: empleado sin permisos o sin jefe directo disponible.
+
+---
+
+#### 54G. `GET /api/v1/feedback/<feedback_id>`
+- Detalle de un feedback.
+- Permiso: lo puede ver el empleado que lo cargo o su jefe directo asignado.
+- Response 200:
+```json
+{"feedback": {"id": 123, "estado": "pendiente", "estado_actual": "pendiente", "...": "..."}}
+```
+- Response 403: `{"error":"No tiene permisos para ver este feedback."}`
+- Response 404: `{"error":"Feedback no encontrado."}`
+
+---
+
+#### 54H. `POST /api/v1/feedback/<feedback_id>/tomar`
+- Marca el feedback como `en_proceso`.
+- Permiso: solo el jefe directo asignado.
+- No requiere body.
+- Response 200:
+```json
+{"ok": true, "feedback": {"id": 123, "estado": "en_proceso", "estado_actual": "en_proceso", "...": "..."}}
+```
+
+---
+
+#### 54I. `POST /api/v1/feedback/<feedback_id>/resolver`
+- Resuelve el feedback. Guarda fecha de resolucion, descripcion de lo gestionado y si se resolvio dentro del SLA.
+- Permiso: solo el jefe directo asignado.
+- Request:
+```json
+{"resolucion_descripcion": "Se coordino reposicion con deposito y se informo al cliente."}
+```
+- Response 200:
+```json
+{
+  "ok": true,
+  "feedback": {
+    "id": 123,
+    "estado": "resuelto",
+    "estado_actual": "resuelto",
+    "resuelto_at": "2026-06-09 12:20",
+    "resuelto_en_sla": true,
+    "resolucion_descripcion": "Se coordino reposicion con deposito y se informo al cliente.",
+    "...": "..."
+  }
+}
+```
+- Response 400: `{"error":"La descripcion de resolucion es obligatoria."}`
+
+#### Flujo recomendado Flutter - Feedback
+
+1. Al abrir el modulo: `GET /api/v1/feedback/dashboard` para KPIs, ranking y posicion personal.
+2. Para crear: cargar motivos con `GET /api/v1/feedback/motivos` y buscar cliente con `GET /api/v1/feedback/clientes?q=...`.
+3. Enviar `POST /api/v1/feedback` con `cliente_id`, `motivo_id` y `descripcion`.
+4. Mostrar historial con `GET /api/v1/feedback/historial`, filtrando por `estado` cuando corresponda.
+5. Si el empleado tambien tiene feedbacks como jefe directo, mostrar bandeja con `GET /api/v1/feedback/bandeja`.
+6. En bandeja, permitir `POST /tomar` y `POST /resolver`; al resolver exigir `resolucion_descripcion`.
+
+---
+
+### SKAP - Mi Desarrollo
+
+Prefijo: `/api/skap`
+Auth: `Bearer JWT` mobile.
+
+Uso funcional: SKAP mide `Skills`, `Knowledge`, `Attitude` y `Performance` por sector, genera evaluaciones anuales, ranking personal y plan de desarrollo (PDP).
+
+Envelope de respuesta:
+```json
+{"success": true, "data": {}, "message": "Opcional"}
+```
+Errores:
+```json
+{"success": false, "error": "mensaje"}
+```
+
+Categorias:
+- `S`: Skills
+- `K`: Knowledge
+- `A`: Attitude
+- `P`: Performance
+
+Escala de puntaje: enteros/decimales de `1` a `5`.
+
+Niveles:
+- `4.50` a `5.00`: `Excelente`
+- `4.00` a `4.49`: `Destacado`
+- `3.00` a `3.99`: `Cumple`
+- `2.00` a `2.99`: `Necesita Desarrollo`
+- `0.00` a `1.99`: `Critico`
+
+Badges: `Oro`, `Plata`, `Bronce` o `null`.
+
+#### 55A. `GET /api/skap/preguntas?sector_id=&empleado_id=&categoria=&activo=`
+- Devuelve catalogo de preguntas SKAP para un sector.
+- Resolucion de sector:
+  1. `sector_id` explicito.
+  2. `empleado_id` objetivo y su sector.
+  3. sector del empleado autenticado.
+- Query:
+  | Campo | Tipo | Default | Notas |
+  |---|---|---|---|
+  | `sector_id` | int | null | Sector a evaluar |
+  | `empleado_id` | int | null | Empleado objetivo para deducir sector |
+  | `categoria` | string | null | `S`, `K`, `A` o `P` |
+  | `activo` | bool | `1` | `1/true/si` o `0/false/no` |
+- Response 200:
+```json
+{
+  "success": true,
+  "data": {
+    "sector_id": 3,
+    "items": [
+      {
+        "id": 10,
+        "sector_id": 3,
+        "sector_nombre": "Ventas",
+        "categoria": "S",
+        "categoria_label": "Skills",
+        "descripcion": "Gestiona objeciones del cliente.",
+        "peso": 1.0,
+        "puntaje_esperado": 4.0,
+        "requiere_observacion": false,
+        "requiere_evidencia": false,
+        "activo": true,
+        "created_at": "2026-06-08 10:00",
+        "updated_at": "2026-06-08 10:00"
+      }
+    ],
+    "total": 1
+  }
+}
+```
+
+---
+
+#### 55B. `POST /api/skap/evaluacion`
+- Crea una evaluacion anual SKAP y genera/actualiza su PDP inicial.
+- Si `empleado_id` se omite, evalua al empleado autenticado.
+- Request:
+```json
+{
+  "empleado_id": 10,
+  "anio": 2026,
+  "observaciones_generales": "Buen desempeno general.",
+  "respuestas": [
+    {"pregunta_id": 10, "puntaje": 4, "observacion": "Resuelve objeciones.", "evidencia": "Visita supervisada"}
+  ]
+}
+```
+- `puntaje` tambien acepta alias `score`.
+- Response 200:
+```json
+{
+  "success": true,
+  "data": {
+    "evaluacion": {"id": 77, "anio": 2026, "promedios": {"general": 4.1}, "nivel": "Destacado", "...": "..."},
+    "plan": {"id": 30, "evaluacion_id": 77, "acciones": [], "...": "..."}
+  },
+  "message": "Evaluacion creada correctamente."
+}
+```
+- Response 409: ya existe evaluacion del empleado para ese anio.
+
+---
+
+#### 55C. `GET /api/skap/evaluacion/<evaluacion_id>`
+- Detalle de evaluacion con detalles por pregunta y plan asociado.
+- Permiso: empleado evaluado, evaluador, jefe directo o rol autorizado por backend.
+- Response 200:
+```json
+{"success": true, "data": {"evaluacion": {"id": 77, "detalles": [], "categoria_cards": []}, "plan": {"id": 30, "acciones": []}}}
+```
+
+---
+
+#### 55D. `GET /api/skap/mi_desarrollo?anio=YYYY`
+- Vista principal para el empleado autenticado.
+- Response 200:
+```json
+{
+  "success": true,
+  "data": {
+    "empleado": {"id": 10, "legajo": "1020", "dni": "30111222", "nombre": "Juan Perez"},
+    "anio_evaluado": 2026,
+    "evaluacion": {"id": 77, "promedios": {"general": 4.1}, "nivel": "Destacado"},
+    "categoria_cards": [{"categoria": "S", "label": "Skills", "promedio": 4.2, "esperado": 4.0, "nivel": "Destacado", "respuestas": 5, "badge": "Plata"}],
+    "historial": [],
+    "plan": {"id": 30, "acciones": []},
+    "ranking": {"posicion": 3, "total": 25, "puntaje": 4.1},
+    "badge": "Plata"
+  }
+}
+```
+
+---
+
+#### 55E. `GET /api/skap/ranking?anio=YYYY`
+- Ranking personal del empleado autenticado para el anio.
+- Response 200:
+```json
+{"success": true, "data": {"anio": 2026, "posicion": 3, "total": 25, "puntaje": 4.1, "nivel": "Destacado", "badge": "Plata"}}
+```
+
+---
+
+#### 55F. `GET /api/skap/planes?anio=YYYY`
+- Historial de planes PDP del empleado autenticado.
+- Response 200:
+```json
+{"success": true, "data": {"anio_seleccionado": 2026, "total": 1, "items": [{"id": 30, "acciones": []}], "current": {"id": 30, "acciones": []}}}
+```
+
+---
+
+#### 55G. `POST /api/skap/planes`
+- Crea o actualiza acciones extra del PDP de una evaluacion existente.
+- Permiso: empleado evaluado, evaluador, jefe directo o rol autorizado por backend.
+- Request:
+```json
+{
+  "evaluacion_id": 77,
+  "acciones": [
+    {
+      "categoria": "S",
+      "accion": "Acompanamiento en visitas complejas.",
+      "responsable_empleado_id": 2,
+      "fecha_compromiso": "2026-09-08",
+      "estado": "pendiente",
+      "comentarios": "Seguimiento mensual."
+    }
+  ]
+}
+```
+- Response 200:
+```json
+{"success": true, "data": {"plan": {"id": 30, "acciones": []}}, "message": "Plan actualizado correctamente."}
+```
+
+#### Flujo recomendado Flutter - SKAP
+
+1. Pantalla "Mi desarrollo": `GET /api/skap/mi_desarrollo?anio=YYYY`.
+2. Ranking: usar `data.ranking` de `mi_desarrollo` o refrescar con `GET /api/skap/ranking`.
+3. Plan PDP: listar con `GET /api/skap/planes?anio=YYYY`; mostrar `current.acciones`.
+4. Si la app permite evaluar: cargar preguntas con `GET /api/skap/preguntas?empleado_id=<id>` y enviar `POST /api/skap/evaluacion`.
+5. Para detalle historico: `GET /api/skap/evaluacion/<id>`.
+6. Para administrar PDP desde mobile: `POST /api/skap/planes` con `evaluacion_id` y `acciones`.
+
+---
+
 ## Errores estandar
 
 - `400`: validacion de payload/formato
@@ -2463,6 +2931,15 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ---
 
 ## Change log
+
+### 1.22.0 (2026-06-08)
+- Nuevo modulo mobile complementario **Feedback de calle** bajo `/api/v1/feedback`:
+  - Motivos, clientes importados por CSV, carga de feedback, historial, bandeja del jefe directo, toma/resolucion y dashboard.
+  - La resolucion guarda fecha, descripcion gestionada y `resuelto_en_sla`.
+  - El dashboard incluye totales, motivos principales, ranking de carga y posicion personal contra el resto del personal.
+- Nuevo modulo mobile complementario **SKAP - Mi Desarrollo** bajo `/api/skap`:
+  - Preguntas por sector, evaluacion anual, detalle de evaluacion, mi desarrollo, ranking personal y planes PDP.
+  - Usa el mismo Bearer JWT mobile que `/api/v1/mobile`, pero mantiene envelope `{"success":true,"data":...}` propio.
 
 ### 1.21.5 (2026-05-28)
 - Flutter — nueva solapa **"Mes en curso"** en `KpisSectorPage`:
@@ -2574,7 +3051,7 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ### 1.19.0 (2026-05-18)
 - **Legajo — documentacion bloqueada para empleados:**
   - `GET /me/legajo/adjuntos/<id>` siempre devuelve `403 No autorizado`. Los empleados no pueden descargar documentacion.
-  - `GET /me/legajo/eventos` y `GET /me/legajo/eventos/<id>`: eliminados los campos `adjuntos_count` y `adjuntos` de todas las respuestas.
+  - `GET /me/legajo/eventos` y `GET /me/legajo/eventos/<id>`: se mantiene `adjuntos_count` para mostrar trazabilidad, pero `adjuntos` sigue bloqueado para empleados.
   - `legajo.recientes` dentro de `GET /me/dashboard` actualizado con el mismo esquema reducido.
 - **Nuevo endpoint `GET /me/legajo/historial-por-tipo`:**
   - Devuelve todos los tipos de evento activos con `total`, `vigentes` y `ultima_fecha` para el empleado autenticado.

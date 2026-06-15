@@ -44,6 +44,28 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/kpis-sectoriales/resultados` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:resultados` |
 | `POST` | `/kpis-sectoriales/resultados/eliminar-mes` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:eliminar_resultados_mes` |
 | `GET,POST` | `/kpis-sectoriales/importar-resultados` | sesion web | admin, rrhh | `web/kpis_sectoriales/kpis_sectoriales_routes.py:importar_resultados` |
+| `GET` | `/feedback/` | sesion web | admin, rrhh | `web/feedback/feedback_routes.py:dashboard` |
+| `GET` | `/feedback/motivos` | sesion web | admin, rrhh | `web/feedback/feedback_routes.py:motivos_listado` |
+| `GET,POST` | `/feedback/motivos/nuevo` | sesion web | admin, rrhh | `web/feedback/feedback_routes.py:motivo_nuevo` |
+| `GET,POST` | `/feedback/motivos/editar/<int:motivo_id>` | sesion web | admin, rrhh | `web/feedback/feedback_routes.py:motivo_editar` |
+| `POST` | `/feedback/motivos/activar/<int:motivo_id>` | sesion web | admin, rrhh | `web/feedback/feedback_routes.py:motivo_activar` |
+| `POST` | `/feedback/motivos/desactivar/<int:motivo_id>` | sesion web | admin, rrhh | `web/feedback/feedback_routes.py:motivo_desactivar` |
+| `GET` | `/feedback/clientes` | sesion web | admin, rrhh | `web/feedback/feedback_routes.py:clientes_listado` |
+| `GET,POST` | `/feedback/clientes/importar` | sesion web | admin, rrhh | `web/feedback/feedback_routes.py:clientes_importar` |
+| `GET` | `/skap/` | sesion web | admin, rrhh, supervisor | `web/skap/skap_routes.py:dashboard` |
+| `GET` | `/skap/preguntas` | sesion web | admin, rrhh | `web/skap/skap_routes.py:preguntas_listado` |
+| `GET,POST` | `/skap/preguntas/nueva` | sesion web | admin, rrhh | `web/skap/skap_routes.py:pregunta_nueva` |
+| `GET,POST` | `/skap/preguntas/editar/<int:pregunta_id>` | sesion web | admin, rrhh | `web/skap/skap_routes.py:pregunta_editar` |
+| `POST` | `/skap/preguntas/activar/<int:pregunta_id>` | sesion web | admin, rrhh | `web/skap/skap_routes.py:pregunta_activar` |
+| `POST` | `/skap/preguntas/desactivar/<int:pregunta_id>` | sesion web | admin, rrhh | `web/skap/skap_routes.py:pregunta_desactivar` |
+| `GET` | `/skap/evaluaciones` | sesion web | admin, rrhh, supervisor | `web/skap/skap_routes.py:evaluaciones_listado` |
+| `GET` | `/skap/evaluaciones/<int:evaluacion_id>` | sesion web | admin, rrhh, supervisor | `web/skap/skap_routes.py:evaluacion_detalle` |
+| `GET` | `/skap/planes` | sesion web | admin, rrhh, supervisor | `web/skap/skap_routes.py:planes_listado` |
+| `GET` | `/skap/planes/<int:plan_id>` | sesion web | admin, rrhh, supervisor | `web/skap/skap_routes.py:plan_detalle` |
+| `POST` | `/skap/planes/<int:plan_id>/acciones` | sesion web | admin, rrhh, supervisor | `web/skap/skap_routes.py:plan_accion_nueva` |
+| `POST` | `/skap/planes/<int:plan_id>/acciones/<int:action_id>/editar` | sesion web | admin, rrhh, supervisor | `web/skap/skap_routes.py:plan_accion_editar` |
+| `POST` | `/skap/planes/<int:plan_id>/acciones/<int:action_id>/estado` | sesion web | admin, rrhh, supervisor | `web/skap/skap_routes.py:plan_accion_estado` |
+| `POST` | `/skap/planes/<int:plan_id>/acciones/<int:action_id>/eliminar` | sesion web | admin, rrhh, supervisor | `web/skap/skap_routes.py:plan_accion_eliminar` |
 | `GET` | `/premios-concursos/` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:listado` |
 | `GET,POST` | `/premios-concursos/nuevo` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:nuevo` |
 | `GET,POST` | `/premios-concursos/<int:concurso_id>/editar` | sesion web | admin, rrhh | `web/premios_concursos/premios_concursos_routes.py:editar` |
@@ -191,6 +213,22 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/api/v1/mobile/vacaciones/movimientos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:vacaciones_movimientos` |
 | `POST` | `/api/v1/mobile/me/qr` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_generar_qr` |
 | `POST` | `/api/v1/mobile/calificar-app` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:calificar_app` |
+| `GET` | `/api/v1/feedback/motivos` | token movil (Bearer) | empleado autenticado | `routes/feedback_routes.py:motivos` |
+| `GET` | `/api/v1/feedback/clientes` | token movil (Bearer) | empleado autenticado | `routes/feedback_routes.py:clientes` |
+| `GET` | `/api/v1/feedback/historial` | token movil (Bearer) | empleado autenticado | `routes/feedback_routes.py:historial` |
+| `GET` | `/api/v1/feedback/bandeja` | token movil (Bearer) | jefe directo autenticado | `routes/feedback_routes.py:bandeja` |
+| `GET` | `/api/v1/feedback/dashboard` | token movil (Bearer) | empleado autenticado | `routes/feedback_routes.py:dashboard` |
+| `POST` | `/api/v1/feedback` | token movil (Bearer) | empleado autenticado con jefe directo asignado | `routes/feedback_routes.py:crear` |
+| `GET` | `/api/v1/feedback/<int:feedback_id>` | token movil (Bearer) | empleado creador o jefe directo asignado | `routes/feedback_routes.py:detalle` |
+| `POST` | `/api/v1/feedback/<int:feedback_id>/tomar` | token movil (Bearer) | jefe directo asignado | `routes/feedback_routes.py:tomar` |
+| `POST` | `/api/v1/feedback/<int:feedback_id>/resolver` | token movil (Bearer) | jefe directo asignado | `routes/feedback_routes.py:resolver` |
+| `GET` | `/api/skap/preguntas` | token movil (Bearer) | empleado autenticado | `routes/skap_routes.py:preguntas` |
+| `POST` | `/api/skap/evaluacion` | token movil (Bearer) | empleado autenticado con permiso para evaluar objetivo | `routes/skap_routes.py:crear_evaluacion` |
+| `GET` | `/api/skap/evaluacion/<int:evaluacion_id>` | token movil (Bearer) | empleado evaluado, evaluador o jefe directo/autorizado | `routes/skap_routes.py:detalle_evaluacion` |
+| `GET` | `/api/skap/mi_desarrollo` | token movil (Bearer) | empleado autenticado | `routes/skap_routes.py:mi_desarrollo` |
+| `GET` | `/api/skap/ranking` | token movil (Bearer) | empleado autenticado | `routes/skap_routes.py:ranking` |
+| `GET` | `/api/skap/planes` | token movil (Bearer) | empleado autenticado | `routes/skap_routes.py:planes` |
+| `POST` | `/api/skap/planes` | token movil (Bearer) | empleado evaluado, evaluador o jefe directo/autorizado | `routes/skap_routes.py:crear_o_actualizar_plan` |
 | `GET` | `/api/v1/trivia/estado` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:estado` |
 | `GET` | `/api/v1/trivia/activa` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:activa` |
 | `POST` | `/api/v1/trivia/iniciar` | token movil (Bearer) | empleado autenticado | `routes/trivia_routes.py:iniciar` |

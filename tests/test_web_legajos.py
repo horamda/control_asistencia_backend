@@ -1,4 +1,7 @@
+import datetime
 import io
+
+from openpyxl import load_workbook
 
 import app as app_module
 import web.auth.decorators as auth_decorators
@@ -125,6 +128,190 @@ def test_legajo_empleado_muestra_fallback_si_no_tiene_foto(monkeypatch):
     resp = client.get("/legajos/empleado/7")
     assert resp.status_code == 200
     assert b"img/empleado-default.svg" in resp.data
+
+
+def test_dashboard_empleado_suma_tramos_y_muestra_antiguedad(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+
+    empleado = {
+        "id": 7,
+        "empresa_id": 3,
+        "empresa_nombre": "Empresa A",
+        "legajo": "L-99",
+        "dni": "30123456",
+        "nombre": "Ana",
+        "apellido": "Perez",
+        "fecha_ingreso": "2020-01-15",
+        "foto": None,
+    }
+    filas = [
+        {
+            "fecha": "2026-06-01",
+            "hora_entrada": datetime.timedelta(hours=7),
+            "hora_salida": datetime.timedelta(hours=12),
+            "estado": "ok",
+            "gps_ok_entrada": 1,
+            "gps_ok_salida": 1,
+            "metodo_entrada": "manual",
+            "metodo_salida": "manual",
+        },
+        {
+            "fecha": "2026-06-01",
+            "hora_entrada": datetime.timedelta(hours=14),
+            "hora_salida": datetime.timedelta(hours=17),
+            "estado": "ok",
+            "gps_ok_entrada": 1,
+            "gps_ok_salida": 1,
+            "metodo_entrada": "manual",
+            "metodo_salida": "manual",
+        },
+    ]
+
+    monkeypatch.setattr(legajos_routes, "_get_empleados_page", lambda *args, **kwargs: ([empleado], 1))
+    monkeypatch.setattr(legajos_routes, "get_empleado_by_id", lambda emp_id: dict(empleado))
+    monkeypatch.setattr(legajos_routes, "_get_asistencias_page", lambda *args, **kwargs: (list(filas), len(filas)))
+    monkeypatch.setattr(legajos_routes, "_get_justificaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(legajos_routes, "_get_vacaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(
+        legajos_routes,
+        "get_eventos_by_empleado",
+        lambda emp_id, include_anulados=True: [
+            {
+                "id": 1,
+                "estado": "vigente",
+                "fecha_evento": "2026-05-10",
+                "tipo_id": 10,
+                "tipo_nombre": "Vacaciones",
+                "tipo_codigo": "VAC",
+                "severidad": "leve",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        legajos_routes,
+        "get_conteo_por_tipo_for_empleado",
+        lambda emp_id: [
+            {"tipo_id": 10, "codigo": "VAC", "nombre": "Vacaciones", "total": 1, "vigentes": 1, "ultima_fecha": datetime.date(2026, 5, 10)},
+            {"tipo_id": 11, "codigo": "AMO", "nombre": "Amonestacion", "total": 2, "vigentes": 1, "ultima_fecha": datetime.date(2026, 5, 18)},
+        ],
+    )
+
+    resp = client.get("/legajos/dashboard-empleado?empleado_id=7")
+    assert resp.status_code == 200
+    assert b"6 anios, 4 meses, 25 dias" in resp.data
+    assert b"8.0h" in resp.data
+    assert b"2 tramos" in resp.data
+    assert b"Eventos de legajo por tipo (historico)" in resp.data
+    assert b"Vacaciones" in resp.data
+    assert b"Amonestacion" in resp.data
+
+
+def test_dashboard_empleado_export_xlsx_ok(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+
+    empleado = {
+        "id": 7,
+        "empresa_id": 3,
+        "empresa_nombre": "Empresa A",
+        "legajo": "L-99",
+        "dni": "30123456",
+        "nombre": "Ana",
+        "apellido": "Perez",
+        "fecha_ingreso": "2020-01-15",
+        "foto": None,
+    }
+    filas = [
+        {
+            "fecha": "2026-06-01",
+            "hora_entrada": datetime.timedelta(hours=7),
+            "hora_salida": datetime.timedelta(hours=12),
+            "estado": "ok",
+            "gps_ok_entrada": 1,
+            "gps_ok_salida": 1,
+            "metodo_entrada": "manual",
+            "metodo_salida": "manual",
+            "observaciones": "Sin novedad",
+        },
+        {
+            "fecha": "2026-06-01",
+            "hora_entrada": datetime.timedelta(hours=14),
+            "hora_salida": datetime.timedelta(hours=17),
+            "estado": "ok",
+            "gps_ok_entrada": 1,
+            "gps_ok_salida": 1,
+            "metodo_entrada": "manual",
+            "metodo_salida": "manual",
+            "observaciones": "Sin novedad",
+        },
+    ]
+
+    monkeypatch.setattr(legajos_routes, "_get_empleados_page", lambda *args, **kwargs: ([empleado], 1))
+    monkeypatch.setattr(legajos_routes, "get_empleado_by_id", lambda emp_id: dict(empleado))
+    monkeypatch.setattr(legajos_routes, "_get_asistencias_page", lambda *args, **kwargs: (list(filas), len(filas)))
+    monkeypatch.setattr(legajos_routes, "_get_justificaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(legajos_routes, "_get_vacaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(
+        legajos_routes,
+        "get_eventos_by_empleado",
+        lambda emp_id, include_anulados=True: [
+            {
+                "id": 1,
+                "estado": "vigente",
+                "fecha_evento": "2026-05-10",
+                "tipo_id": 10,
+                "tipo_nombre": "Vacaciones",
+                "tipo_codigo": "VAC",
+                "severidad": "leve",
+                "fecha_desde": "2026-05-09",
+                "fecha_hasta": "2026-05-11",
+                "titulo": "Vacaciones de invierno",
+                "descripcion": "Descanso programado",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        legajos_routes,
+        "get_conteo_por_tipo_for_empleado",
+        lambda emp_id: [
+            {"tipo_id": 10, "codigo": "VAC", "nombre": "Vacaciones", "total": 1, "vigentes": 1, "ultima_fecha": datetime.date(2026, 5, 10)},
+            {"tipo_id": 11, "codigo": "AMO", "nombre": "Amonestacion", "total": 2, "vigentes": 1, "ultima_fecha": datetime.date(2026, 5, 18)},
+        ],
+    )
+
+    resp = client.get("/legajos/dashboard-empleado/export.xls?empleado_id=7&desde=2026-05-01&hasta=2026-06-01&periodo=custom")
+    assert resp.status_code == 200
+    assert "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in resp.headers["Content-Type"]
+    assert "dashboard_Perez_Ana_2026-05-01_2026-06-01.xlsx" in resp.headers["Content-Disposition"]
+
+    wb = load_workbook(io.BytesIO(resp.data), data_only=True)
+    assert wb.sheetnames == ["Resumen", "Fichadas", "Serie diaria", "Legajo"]
+
+    resumen = wb["Resumen"]
+    assert resumen["A1"].value == "Dashboard por empleado"
+    assert resumen["A3"].value == "Datos del empleado"
+    assert resumen["A5"].value == "Empleado"
+    assert resumen["B5"].value == "Perez Ana"
+    assert any(cell.value == "Vacaciones" for row in resumen.iter_rows() for cell in row)
+    assert any(cell.value == "Amonestacion" for row in resumen.iter_rows() for cell in row)
+
+    fichadas = wb["Fichadas"]
+    assert fichadas["A5"].value == "2026-06-01"
+    assert fichadas["C5"].value == "07:00"
+    assert fichadas["D5"].value == "12:00"
+
+    serie = wb["Serie diaria"]
+    assert serie["A5"].value == "2026-06-01"
+    assert serie["C5"].value == 8.0
+    assert serie["D5"].value == 2
+
+    legajo = wb["Legajo"]
+    assert legajo["A5"].value == "2026-05-10"
+    assert legajo["B5"].value == "Vacaciones"
+    assert legajo["D5"].value == "Vacaciones de invierno"
 
 
 def test_legajos_crear_evento_con_adjunto(monkeypatch):

@@ -47,10 +47,14 @@ from web.legajos.legajo_tipos_evento_routes import legajo_tipos_evento_bp
 from web.kpis_sectoriales.kpis_sectoriales_routes import kpis_sectoriales_bp
 from web.premios_concursos.premios_concursos_routes import premios_concursos_bp
 from web.app_version.app_version_routes import app_version_bp
+from web.feedback.feedback_routes import feedback_web_bp
+from web.skap.skap_routes import skap_web_bp
 from routes.trivia_routes import trivia_bp
 from web.trivias.trivia_admin_routes import trivia_admin_bp
 from web.calificaciones_app.calificaciones_app_routes import calificaciones_app_bp
 from web.mobile_stats.mobile_stats_routes import mobile_stats_bp
+from routes.feedback_routes import feedback_bp
+from routes.skap_routes import skap_bp
 
 load_dotenv("/etc/secrets/.env", override=False)
 load_dotenv(override=False)
@@ -237,11 +241,15 @@ def create_app():
     csrf.exempt(auth_bp)
     csrf.exempt(external_api_bp)
     csrf.exempt(mobile_v1_bp)
+    csrf.exempt(feedback_bp)
+    csrf.exempt(skap_bp)
 
     # API
     app.register_blueprint(auth_bp)
     app.register_blueprint(external_api_bp)
     app.register_blueprint(mobile_v1_bp)
+    app.register_blueprint(feedback_bp)
+    app.register_blueprint(skap_bp)
     app.register_blueprint(media_bp)
     app.register_blueprint(public_media_bp)
 
@@ -279,6 +287,8 @@ def create_app():
     app.register_blueprint(trivia_admin_bp)
     app.register_blueprint(calificaciones_app_bp)
     app.register_blueprint(mobile_stats_bp)
+    app.register_blueprint(feedback_web_bp)
+    app.register_blueprint(skap_web_bp)
 
     # API móvil trivia (exento de CSRF como el resto de la API)
     csrf.exempt(trivia_bp)
@@ -331,7 +341,7 @@ def create_app():
         if code == 403:
             message = "Usuario no permitido."
 
-        if request.blueprint in {"auth", "external_api", "mobile_v1", "trivia"}:
+        if request.blueprint in {"auth", "external_api", "mobile_v1", "feedback", "skap", "trivia"}:
             return jsonify({
                 "success": False,
                 "error": message
@@ -381,6 +391,34 @@ def create_app():
             }
         )
         return response
+
+    @app.context_processor
+    def _inject_panel_notifications():
+        role = str(session.get("user_role") or "").strip().lower()
+        if not session.get("user_id") or role not in {"admin", "rrhh"}:
+            return {
+                "panel_notifications": {
+                    "enabled": False,
+                    "total": 0,
+                    "items": [],
+                    "has_items": False,
+                }
+            }
+
+        try:
+            from services.panel_notifications_service import build_panel_notifications
+
+            return {"panel_notifications": build_panel_notifications(role)}
+        except Exception:
+            app.logger.warning("panel_notifications_context_error", exc_info=True)
+            return {
+                "panel_notifications": {
+                    "enabled": True,
+                    "total": 0,
+                    "items": [],
+                    "has_items": False,
+                }
+            }
     
      
     return app

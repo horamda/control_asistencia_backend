@@ -1,3 +1,7 @@
+import io
+
+from openpyxl import load_workbook
+
 import app as app_module
 import web.auth.decorators as auth_decorators
 import web.vacaciones.vacaciones_routes as vacaciones_routes
@@ -134,6 +138,46 @@ def test_vacaciones_listado_envia_filtros(monkeypatch):
     assert captured["tipo"] == "tomado"
     assert captured["estado"] == "pendiente"
     assert captured["search"] == "ana"
+
+
+def test_vacaciones_reporte_export_xlsx_ok(monkeypatch):
+    client = _build_authed_client(monkeypatch)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
+    monkeypatch.setattr(
+        vacaciones_routes,
+        "get_empleados",
+        lambda include_inactive=True: [
+            {
+                "id": 10,
+                "nombre": "Ana",
+                "apellido": "Lopez",
+                "dni": "12345",
+                "legajo": "L-10",
+                "sector_id": 4,
+                "sector_nombre": "Ventas",
+                "empresa_nombre": "Acme",
+                "puesto_nombre": "Vendedora",
+                "activo": 1,
+            }
+        ],
+    )
+    monkeypatch.setattr(vacaciones_routes, "get_sectores", lambda include_inactive=True: [{"id": 4, "nombre": "Ventas", "empresa_nombre": "Acme"}])
+    monkeypatch.setattr(vacaciones_routes, "calcular_resumen_vacaciones", lambda empleado_id, anio: _stub_saldo())
+
+    resp = client.get("/vacaciones/reporte/export.xlsx?anio=2026&sector_id=4&activo=1&q=ana")
+
+    assert resp.status_code == 200
+    assert "spreadsheetml.sheet" in resp.headers["Content-Type"]
+    assert "vacaciones_reporte_2026_" in resp.headers["Content-Disposition"]
+
+    wb = load_workbook(io.BytesIO(resp.data))
+    ws = wb["Reporte"]
+    assert ws["A1"].value == "Reporte de vacaciones"
+    assert ws["A5"].value == "Anio"
+    assert ws["B6"].value == "Ventas"
+    assert ws["A12"].value == "Empleados"
+    assert ws["B12"].value == 1
+    assert ws["D24"].value == "Lopez Ana"
 
 
 def test_vacaciones_movimiento_nuevo_post(monkeypatch):

@@ -25,6 +25,12 @@
     >
       Exportar CSV
     </a>
+    <a
+      class="btn btn-secondary"
+      href="{{ url_for('vacaciones.reporte_export_xlsx', anio=anio, sector_id=sector_id or None, q=q or None, activo=(activo if activo != '1' else None)) }}"
+    >
+      Exportar Excel
+    </a>
   </div>
 
   <form method="get" action="{{ url_for('vacaciones.reporte') }}">

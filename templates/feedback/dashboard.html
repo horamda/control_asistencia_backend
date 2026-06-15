@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Feedback{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">Feedback</div>
+  <h2 class="section-title">Resumen general</h2>
+  <p class="helper-text">Motivos, clientes cargados y distribución general del feedback.</p>
+
+  <section class="grid-kpis dashboard-kpis">
+    <article class="panel">
+      <div class="kicker">Total</div>
+      <div class="kpi-value">{{ resumen.total }}</div>
+      <div class="helper-text">Feedbacks registrados</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Resueltos</div>
+      <div class="kpi-value">{{ resumen.resueltos }}</div>
+      <div class="helper-text">Dentro o fuera de SLA</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Vencidos</div>
+      <div class="kpi-value">{{ resumen.vencidos }}</div>
+      <div class="helper-text">Pendientes fuera de SLA</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Motivos</div>
+      <div class="kpi-value">{{ total_motivos }}</div>
+      <div class="helper-text">Motivos configurados</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Clientes</div>
+      <div class="kpi-value">{{ total_clientes }}</div>
+      <div class="helper-text">Base importada</div>
+    </article>
+    <article class="panel">
+      <div class="kicker">Carga propia</div>
+      <div class="kpi-value">{{ personal.total_cargados if personal else 0 }}</div>
+      <div class="helper-text">
+        {% if personal and personal.posicion_ranking %}
+          Posicion {{ personal.posicion_ranking }}
+        {% else %}
+          Sin ranking propio
+        {% endif %}
+      </div>
+    </article>
+  </section>
+
+  <div class="table-responsive" style="margin-top:1rem;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Estado</th>
+          <th>Cantidad</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Pendientes</td><td>{{ resumen.pendientes }}</td></tr>
+        <tr><td>En proceso</td><td>{{ resumen.en_proceso }}</td></tr>
+        <tr><td>Resueltos en SLA</td><td>{{ resumen.resueltos_en_sla }}</td></tr>
+        <tr><td>Resueltos fuera de SLA</td><td>{{ resumen.resueltos_fuera_sla }}</td></tr>
+        <tr><td>Empleados con carga</td><td>{{ totales.empleados_con_carga if totales else 0 }}</td></tr>
+        <tr><td>Personal activo</td><td>{{ totales.empleados_activos if totales else 0 }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" style="margin-top:1rem;">
+  <div class="section-kicker">Top motivos</div>
+  <h3 class="section-title">Motivos con mayor carga</h3>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Motivo</th>
+          <th>Total</th>
+          <th>Resueltos</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in top_motivos %}
+          <tr>
+            <td>{{ item.motivo_nombre }}</td>
+            <td>{{ item.total }}</td>
+            <td>{{ item.resueltos }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3">No hay feedback cargado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" style="margin-top:1rem;">
+  <div class="section-kicker">Ranking</div>
+  <h3 class="section-title">Carga por empleado</h3>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Empleado</th>
+          <th>Legajo</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in ranking %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ row.apellido }}, {{ row.nombre }}</td>
+            <td>{{ row.legajo or "-" }}</td>
+            <td>{{ row.total }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4">No hay ranking disponible.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" style="margin-top:1rem;">
+  <div class="section-kicker">Accesos</div>
+  <div class="actions" style="display:flex;flex-wrap:wrap;gap:.75rem;">
+    <a class="btn" href="{{ url_for('feedback_web.motivos_listado') }}">Motivos</a>
+    <a class="btn" href="{{ url_for('feedback_web.clientes_listado') }}">Clientes</a>
+    <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver al dashboard</a>
+  </div>
+</section>
+{% endblock %}

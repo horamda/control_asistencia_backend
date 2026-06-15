@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}SKAP - Evaluaciones{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">SKAP</div>
+  <h2 class="section-title">Evaluaciones</h2>
+  <p class="helper-text">Listado historico de evaluaciones cargadas.</p>
+
+  {% if error %}
+    <div class="alert alert-danger" style="margin-top:1rem;">{{ error }}</div>
+  {% endif %}
+  {% if msg %}
+    <div class="alert alert-success" style="margin-top:1rem;">{{ msg }}</div>
+  {% endif %}
+
+  <form method="get" class="form-grid" style="margin-top:1rem;">
+    <label>
+      <span>Ano</span>
+      <input type="number" name="anio" value="{{ anio }}" min="2020" max="2100" step="1">
+    </label>
+    <label>
+      <span>Sector</span>
+      <select name="sector_id">
+        <option value="">Todos</option>
+        {% for sector in sectores %}
+          <option value="{{ sector.id }}" {% if sector_id and sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Buscar</span>
+      <input type="text" name="q" value="{{ q }}" placeholder="Empleado, sector o evaluador">
+    </label>
+    <div class="actions" style="align-self:end;">
+      <button class="btn" type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('skap_web.evaluaciones_listado') }}">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="table-responsive" style="margin-top:1rem;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Empleado</th>
+          <th>Sector</th>
+          <th>Ano</th>
+          <th>Promedio</th>
+          <th>Nivel</th>
+          <th>Evaluador</th>
+          <th>Fecha</th>
+          <th>PDP</th>
+          <th>Detalle</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for evaluacion in evaluaciones %}
+          <tr>
+            <td>{{ evaluacion.empleado_apellido }}, {{ evaluacion.empleado_nombre }}</td>
+            <td>{{ evaluacion.sector_nombre or "-" }}</td>
+            <td>{{ evaluacion.anio }}</td>
+            <td>{{ "%.2f"|format(evaluacion.promedio_general) }}</td>
+            <td><span class="badge">{{ evaluacion.nivel }}</span></td>
+            <td>{{ evaluacion.evaluador_apellido }}, {{ evaluacion.evaluador_nombre }}</td>
+            <td>{{ evaluacion.fecha_evaluacion }}</td>
+            <td>
+              {% if evaluacion.pdp_generado_at %}
+                <span class="badge success">Generado</span>
+              {% else %}
+                <span class="badge warning">Pendiente</span>
+              {% endif %}
+            </td>
+            <td><a class="btn btn-secondary" href="{{ url_for('skap_web.evaluacion_detalle', evaluacion_id=evaluacion.id) }}">Ver</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9">No hay evaluaciones para los filtros seleccionados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

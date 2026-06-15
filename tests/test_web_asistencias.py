@@ -1,4 +1,7 @@
+import io
 import datetime
+
+from openpyxl import load_workbook
 
 import app as app_module
 import web.auth.decorators as auth_decorators
@@ -358,6 +361,61 @@ def test_historial_marcas_csv_ok(monkeypatch):
     assert b"Empresa Test" in resp.data
 
 
+def test_historial_marcas_xlsx_ok(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(
+        asistencias_routes,
+        "get_empresas",
+        lambda include_inactive=True: [{"id": 1, "razon_social": "Empresa Test"}],
+    )
+    monkeypatch.setattr(
+        asistencias_routes,
+        "get_empleados",
+        lambda include_inactive=True: [{"id": 2, "apellido": "Perez", "nombre": "Ana"}],
+    )
+    monkeypatch.setattr(
+        asistencias_routes,
+        "get_marcas_admin_export",
+        lambda **kwargs: [
+            {
+                "id": 1,
+                "empresa_nombre": "Empresa Test",
+                "apellido": "Perez",
+                "nombre": "Ana",
+                "dni": "30111222",
+                "fecha": "2026-02-21",
+                "hora": "08:00:00",
+                "accion": "ingreso",
+                "tipo_marca": "jornada",
+                "metodo": "qr",
+                "gps_ok": 1,
+                "gps_distancia_m": 3.2,
+                "gps_tolerancia_m": 30.0,
+                "lat": -34.6,
+                "lon": -58.4,
+                "estado": "ok",
+                "observaciones": "",
+                "fecha_creacion": "2026-02-21 08:00:01",
+            }
+        ],
+    )
+
+    resp = client.get("/asistencias/marcas.xlsx?empresa_id=1&empleado_id=2")
+    assert resp.status_code == 200
+    assert "spreadsheetml.sheet" in resp.headers["Content-Type"]
+    assert "historial_marcas_" in resp.headers["Content-Disposition"]
+
+    wb = load_workbook(io.BytesIO(resp.data))
+    ws = wb["Historial"]
+    assert ws["A1"].value == "Historial de marcas"
+    assert ws["A5"].value == "Empresa"
+    assert ws["B5"].value == "Empresa Test"
+    assert ws["A16"].value == "ID"
+    assert ws["B17"].value == "Empresa Test"
+
+
 def test_historial_marcas_backfill_post_ok(monkeypatch):
     client = _build_client(monkeypatch)
     _login_session(client)
@@ -552,10 +610,22 @@ def test_planilla_diaria_export_excel_ok(monkeypatch):
 
     resp = client.get("/asistencias/planilla.xls?empresa_id=1&sucursal_id=10&fecha=2026-03-10")
     assert resp.status_code == 200
-    assert "application/vnd.ms-excel" in resp.headers["Content-Type"]
-    assert "planilla_fichadas_2026-03-10.xls" in resp.headers["Content-Disposition"]
-    assert b"Del Palacio S.A" in resp.data
-    assert b"07:00" in resp.data
+    assert "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in resp.headers["Content-Type"]
+    assert "planilla_fichadas_2026-03-10.xlsx" in resp.headers["Content-Disposition"]
+
+    wb = load_workbook(io.BytesIO(resp.data), data_only=True)
+    assert wb.sheetnames == ["Planilla"]
+
+    ws = wb["Planilla"]
+    assert ws["A1"].value == "Planilla diaria de fichadas"
+    assert ws["A5"].value == "Empleado"
+    assert ws["B5"].value == "DNI"
+    assert ws["C5"].value == "Ingreso 1"
+    assert ws["D5"].value == "Egreso 1"
+    assert ws["A6"].value == "Persona Uno"
+    assert ws["B6"].value == "123"
+    assert ws["C6"].value == "07:00"
+    assert ws["D6"].value == "12:00"
 
 
 def test_planilla_diaria_export_pdf_ok(monkeypatch):

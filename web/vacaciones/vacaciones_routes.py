@@ -26,6 +26,7 @@ from services.vacaciones_service import (
     editar_movimiento_vacaciones_pendiente,
     rechazar_movimiento_vacaciones,
 )
+from services.export_excel_service import generar_vacaciones_reporte_excel
 from utils.audit import log_audit
 from web.auth.decorators import role_required
 
@@ -459,6 +460,38 @@ def reporte_export_csv():
     return Response(
         "\ufeff" + out.getvalue(),
         mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@vacaciones_bp.route("/reporte/export.xlsx")
+@role_required("admin", "rrhh")
+def reporte_export_xlsx():
+    filters = _extract_reporte_filters(request.args)
+    rows, totals = _build_reporte_vacaciones(filters)
+    sectores = get_sectores(include_inactive=True)
+    sector_label = next(
+        (s.get("nombre") for s in sectores if int(s.get("id") or 0) == int(filters["sector_id"] or 0)),
+        None,
+    )
+    activo_label = "Activos" if filters["activo"] == 1 else "Inactivos" if filters["activo"] == 0 else "Todos"
+
+    workbook = generar_vacaciones_reporte_excel(
+        rows=rows,
+        totals=totals,
+        filters={
+            "anio": filters["anio"],
+            "sector_id": filters["sector_id"],
+            "sector_label": sector_label,
+            "activo_raw": filters["activo_raw"],
+            "activo_label": activo_label,
+            "search": filters["search"],
+        },
+    )
+    filename = f"vacaciones_reporte_{filters['anio']}_{datetime.date.today().isoformat()}.xlsx"
+    return Response(
+        workbook,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

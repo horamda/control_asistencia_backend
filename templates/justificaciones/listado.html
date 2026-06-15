@@ -29,6 +29,7 @@
   </div>
 
   <form method="get" action="/justificaciones/">
+    <input type="hidden" name="estado" value="{{ estado or '' }}">
     <div class="form-grid">
       <div class="row">
         <label>Empleado</label>
@@ -73,6 +74,7 @@
             <th>Empresa</th>
             <th>Empleado</th>
             <th>Asistencia</th>
+            <th>Adjuntos</th>
             <th>Estado</th>
             <th>Acciones</th>
           </tr>
@@ -83,6 +85,14 @@
             <td data-label="Empresa">{{ j.empresa_nombre or "-" }}</td>
             <td data-label="Empleado">{{ j.apellido }} {{ j.nombre }}</td>
             <td data-label="Asistencia">{{ j.asistencia_fecha or "-" }}</td>
+            <td data-label="Adjuntos">
+              {% set adj_count = j.adjuntos_count or 0 %}
+              {% if adj_count %}
+                <span class="badge ok">{{ adj_count }}</span>
+              {% else %}
+                -
+              {% endif %}
+            </td>
             <td data-label="Estado">
               {% set estado = (j.estado or "")|lower %}
               {% if estado == "aprobada" %}
@@ -132,10 +142,10 @@
 
   <div class="pager">
     {% if page > 1 %}
-      <a class="btn btn-secondary" href="/justificaciones/?page={{ page - 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Anterior</a>
+      <a class="btn btn-secondary" href="/justificaciones/?page={{ page - 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}&estado={{ estado or '' }}">Anterior</a>
     {% endif %}
     {% if page * per_page < total %}
-      <a class="btn btn-secondary" href="/justificaciones/?page={{ page + 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Siguiente</a>
+      <a class="btn btn-secondary" href="/justificaciones/?page={{ page + 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}&estado={{ estado or '' }}">Siguiente</a>
     {% endif %}
     <span class="summary">P&aacute;gina {{ page }}</span>
   </div>

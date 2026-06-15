@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == "edit" %}Editar pregunta{% else %}Nueva pregunta{% endif %}{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">SKAP</div>
+  <h2 class="section-title">{% if mode == "edit" %}Editar pregunta{% else %}Nueva pregunta{% endif %}</h2>
+
+  {% if errors %}
+    <div class="alert alert-danger">
+      <ul style="margin:0;padding-left:1.2rem;">
+        {% for err in errors %}
+          <li>{{ err }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" class="form-grid" style="margin-top:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>
+      <span>Sector</span>
+      <select name="sector_id" required>
+        <option value="">Seleccione</option>
+        {% for sector in sectores %}
+          <option value="{{ sector.id }}" {% if data.sector_id and data.sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Categoria</span>
+      <select name="categoria" required>
+        <option value="">Seleccione</option>
+        {% for code, label in categorias %}
+          <option value="{{ code }}" {% if data.categoria == code %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="grid-column:1/-1;">
+      <span>Descripcion</span>
+      <input type="text" name="descripcion" value="{{ data.descripcion or '' }}" required>
+    </label>
+    <label>
+      <span>Peso</span>
+      <input type="number" name="peso" min="0.1" step="0.1" value="{{ data.peso or 1 }}">
+    </label>
+    <label>
+      <span>Puntaje esperado</span>
+      <input type="number" name="puntaje_esperado" min="1" max="5" step="1" value="{{ data.puntaje_esperado or 4 }}">
+    </label>
+    <label>
+      <span>Requiere observacion</span>
+      <select name="requiere_observacion">
+        <option value="0" {% if not data.requiere_observacion %}selected{% endif %}>No</option>
+        <option value="1" {% if data.requiere_observacion %}selected{% endif %}>Si</option>
+      </select>
+    </label>
+    <label>
+      <span>Requiere evidencia</span>
+      <select name="requiere_evidencia">
+        <option value="0" {% if not data.requiere_evidencia %}selected{% endif %}>No</option>
+        <option value="1" {% if data.requiere_evidencia %}selected{% endif %}>Si</option>
+      </select>
+    </label>
+    <label>
+      <span>Activo</span>
+      <select name="activo">
+        <option value="1" {% if data.activo in [True, 1, "1", "true", "True"] %}selected{% endif %}>Si</option>
+        <option value="0" {% if data.activo in [False, 0, "0", "false", "False"] %}selected{% endif %}>No</option>
+      </select>
+    </label>
+    <div class="actions" style="grid-column:1/-1;">
+      <button class="btn" type="submit">Guardar</button>
+      <a class="btn btn-secondary" href="{{ url_for('skap_web.preguntas_listado') }}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

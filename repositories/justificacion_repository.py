@@ -6,7 +6,27 @@ def get_all():
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT j.*, e.nombre, e.apellido, a.fecha AS asistencia_fecha, emp.razon_social AS empresa_nombre
+            SELECT
+                j.*,
+                e.nombre,
+                e.apellido,
+                a.fecha AS asistencia_fecha,
+                emp.razon_social AS empresa_nombre,
+                (
+                    SELECT le.id
+                    FROM legajo_eventos le
+                    WHERE le.justificacion_id = j.id
+                    ORDER BY le.id DESC
+                    LIMIT 1
+                ) AS legajo_evento_id,
+                (
+                    SELECT COUNT(*)
+                    FROM legajo_eventos le
+                    JOIN legajo_evento_adjuntos a2
+                      ON a2.evento_id = le.id
+                     AND a2.estado = 'activo'
+                    WHERE le.justificacion_id = j.id
+                ) AS adjuntos_count
             FROM justificaciones j
             JOIN empleados e ON e.id = j.empleado_id
             JOIN empresas emp ON emp.id = e.empresa_id
@@ -45,7 +65,27 @@ def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_des
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
         cursor.execute(f"""
-            SELECT j.*, e.nombre, e.apellido, a.fecha AS asistencia_fecha, emp.razon_social AS empresa_nombre
+            SELECT
+                j.*,
+                e.nombre,
+                e.apellido,
+                a.fecha AS asistencia_fecha,
+                emp.razon_social AS empresa_nombre,
+                (
+                    SELECT le.id
+                    FROM legajo_eventos le
+                    WHERE le.justificacion_id = j.id
+                    ORDER BY le.id DESC
+                    LIMIT 1
+                ) AS legajo_evento_id,
+                (
+                    SELECT COUNT(*)
+                    FROM legajo_eventos le
+                    JOIN legajo_evento_adjuntos a2
+                      ON a2.evento_id = le.id
+                     AND a2.estado = 'activo'
+                    WHERE le.justificacion_id = j.id
+                ) AS adjuntos_count
             FROM justificaciones j
             JOIN empleados e ON e.id = j.empleado_id
             JOIN empresas emp ON emp.id = e.empresa_id
@@ -75,9 +115,25 @@ def get_by_id(justificacion_id: int):
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT *
-            FROM justificaciones
-            WHERE id = %s
+            SELECT
+                j.*,
+                (
+                    SELECT le.id
+                    FROM legajo_eventos le
+                    WHERE le.justificacion_id = j.id
+                    ORDER BY le.id DESC
+                    LIMIT 1
+                ) AS legajo_evento_id,
+                (
+                    SELECT COUNT(*)
+                    FROM legajo_eventos le
+                    JOIN legajo_evento_adjuntos a2
+                      ON a2.evento_id = le.id
+                     AND a2.estado = 'activo'
+                    WHERE le.justificacion_id = j.id
+                ) AS adjuntos_count
+            FROM justificaciones j
+            WHERE j.id = %s
         """, (justificacion_id,))
         return cursor.fetchone()
     finally:

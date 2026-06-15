@@ -1,5 +1,7 @@
 import io
 
+from openpyxl import load_workbook
+
 import app as app_module
 import web.auth.decorators as auth_decorators
 import web.premios_concursos.premios_concursos_routes as premios_routes
@@ -137,3 +139,54 @@ def test_premios_resultados_importar_ok(monkeypatch):
     )
     assert resp.status_code == 200
     assert b"Importacion completada" in resp.data
+
+
+def test_premios_resultados_export_xlsx_ok(monkeypatch):
+    monkeypatch.setattr(
+        premios_routes,
+        "get_resultados_export",
+        lambda **kw: [
+            {
+                "id": 7,
+                "empresa_nombre": "Acme",
+                "periodo_label": "2026-01",
+                "apellido": "Lopez",
+                "nombre": "Ana",
+                "dni": "123",
+                "legajo": "L001",
+                "legajo_snapshot": "L001",
+                "concurso_codigo": "SEGURIDAD",
+                "concurso_nombre": "Premio de seguridad",
+                "concurso_alcance": "global",
+                "concurso_codigo_snapshot": "SEGURIDAD",
+                "concurso_nombre_snapshot": "Premio de seguridad",
+                "sector_nombre": "Logistica",
+                "ranking": 1,
+                "observaciones": None,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        premios_routes,
+        "get_resultados_summary",
+        lambda **kw: {"total": 1, "primeros": 1, "podios": 1, "empleados": 1, "concursos": 1},
+    )
+    monkeypatch.setattr(premios_routes, "get_empresas", lambda **kw: _stub_empresas())
+    monkeypatch.setattr(premios_routes, "_get_sectores", _stub_sectores)
+    monkeypatch.setattr(premios_routes, "get_concursos_for_empresa", lambda *a, **kw: _stub_concursos())
+    monkeypatch.setattr(premios_routes, "get_empleados", lambda **kw: _stub_empleados())
+    client = _build_authed_client(monkeypatch)
+
+    resp = client.get("/premios-concursos/resultados/export.xlsx?empresa_id=1")
+
+    assert resp.status_code == 200
+    assert "spreadsheetml.sheet" in resp.headers["Content-Type"]
+    assert "premios_resultados_" in resp.headers["Content-Disposition"]
+
+    wb = load_workbook(io.BytesIO(resp.data))
+    ws = wb["Resultados"]
+    assert ws["A1"].value == "Resultados de premios"
+    assert ws["A15"].value == "Resultados"
+    assert ws["B15"].value == 1
+    assert ws["A27"].value == "ID"
+    assert ws["B28"].value == "Acme"

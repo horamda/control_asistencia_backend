@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Clientes Feedback{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">Base</div>
+  <h2 class="section-title">Clientes importados</h2>
+  <p class="helper-text">La base se carga desde CSV y solo persiste los campos relevantes para feedback.</p>
+
+  <form method="get" class="dashboard-filter-form" style="margin-top:1rem;">
+    <input type="text" name="q" value="{{ q }}" placeholder="Buscar por razon social, fantasia o codigo">
+    <select name="activo">
+      <option value="all" {% if activo == "all" %}selected{% endif %}>Todos</option>
+      <option value="1" {% if activo == "1" %}selected{% endif %}>Activos</option>
+      <option value="0" {% if activo == "0" %}selected{% endif %}>Inactivos</option>
+    </select>
+    <button class="btn" type="submit">Filtrar</button>
+    <a class="btn btn-secondary" href="{{ url_for('feedback_web.clientes_listado') }}">Limpiar</a>
+    <a class="btn" href="{{ url_for('feedback_web.clientes_importar') }}">Importar CSV</a>
+    <a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Volver</a>
+  </form>
+
+  <div class="table-responsive" style="margin-top:1rem;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Codigo</th>
+          <th>Razon social</th>
+          <th>Fantasia</th>
+          <th>Tipo</th>
+          <th>Localidad</th>
+          <th>Provincia</th>
+          <th>Activo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cliente in clientes %}
+          <tr>
+            <td>{{ cliente.codigo_externo }}</td>
+            <td>{{ cliente.razon_social }}</td>
+            <td>{{ cliente.nombre_fantasia or "-" }}</td>
+            <td>{{ cliente.tipo_descripcion or "-" }}</td>
+            <td>{{ cliente.localidad or "-" }}</td>
+            <td>{{ cliente.provincia or "-" }}</td>
+            <td>{{ "Si" if cliente.activo else "No" }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">No hay clientes cargados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

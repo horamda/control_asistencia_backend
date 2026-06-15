@@ -99,6 +99,7 @@
       <button type="submit">Aplicar filtros</button>
       <a class="btn btn-secondary" href="/asistencias/marcas">Limpiar</a>
       <a class="btn btn-secondary" href="{{ url_for('asistencias.marcas_csv', empresa_id=empresa_id or '', empleado_id=empleado_id or '', fecha_desde=fecha_desde or '', fecha_hasta=fecha_hasta or '', tipo_marca=tipo_marca or '', accion=accion or '', metodo=metodo or '', gps_ok=gps_ok if gps_ok in [0,1] else '', q=q or '') }}">Exportar CSV</a>
+      <a class="btn btn-secondary" href="{{ url_for('asistencias.marcas_xlsx', empresa_id=empresa_id or '', empleado_id=empleado_id or '', fecha_desde=fecha_desde or '', fecha_hasta=fecha_hasta or '', tipo_marca=tipo_marca or '', accion=accion or '', metodo=metodo or '', gps_ok=gps_ok if gps_ok in [0,1] else '', q=q or '') }}">Exportar Excel</a>
     </div>
   </form>
 

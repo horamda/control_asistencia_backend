@@ -166,7 +166,8 @@ def get_adjunto_by_id(adjunto_id: int):
                 a.*,
                 e.estado AS evento_estado,
                 e.empleado_id AS evento_empleado_id,
-                e.empresa_id AS evento_empresa_id
+                e.empresa_id AS evento_empresa_id,
+                e.justificacion_id AS evento_justificacion_id
             FROM legajo_evento_adjuntos a
             JOIN legajo_eventos e ON e.id = a.evento_id
             WHERE a.id = %s
@@ -199,7 +200,8 @@ def get_adjunto_by_id_for_empleado(adjunto_id: int, empleado_id: int, empresa_id
                 a.*,
                 e.estado AS evento_estado,
                 e.empleado_id AS evento_empleado_id,
-                e.empresa_id AS evento_empresa_id
+                e.empresa_id AS evento_empresa_id,
+                e.justificacion_id AS evento_justificacion_id
             FROM legajo_evento_adjuntos a
             JOIN legajo_eventos e ON e.id = a.evento_id
             WHERE {" AND ".join(where)}

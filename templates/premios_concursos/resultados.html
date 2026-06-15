@@ -24,6 +24,7 @@
     <a class="btn" href="{{ url_for('premios_concursos.resultado_nuevo', empresa_id=empresa_id or None) }}">+ Nuevo resultado</a>
     <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados_importar') }}">Importar CSV/XLSX</a>
     <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados_export_csv', empresa_id=empresa_id or None, sector_id=sector_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Exportar CSV</a>
+    <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados_export_xlsx', empresa_id=empresa_id or None, sector_id=sector_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Exportar Excel</a>
     <a class="btn btn-secondary" href="{{ url_for('premios_concursos.listado', empresa_id=empresa_id or None) }}">Concursos</a>
   </div>
 

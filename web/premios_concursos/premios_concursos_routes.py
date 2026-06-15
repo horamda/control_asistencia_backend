@@ -22,6 +22,7 @@ from repositories.premio_concurso_repository import (
 )
 from repositories.sector_repository import get_page as get_sectores_page
 from services.premio_concurso_import_service import PremioImportError, importar_premios_desde_archivo
+from services.export_excel_service import generar_premios_concursos_resultados_excel
 from utils.audit import log_audit
 from web.auth.decorators import role_required
 
@@ -502,6 +503,72 @@ def resultados_export_csv():
     return Response(
         csv_content,
         mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@premios_concursos_bp.route("/resultados/export.xlsx")
+@role_required("admin", "rrhh")
+def resultados_export_xlsx():
+    filters, error = _extract_resultado_filters(request.args)
+    if error:
+        return redirect(url_for("premios_concursos.resultados", error=error))
+
+    rows = get_resultados_export(
+        empresa_id=filters["empresa_id"],
+        empleado_id=filters["empleado_id"],
+        concurso_id=filters["concurso_id"],
+        sector_id=filters["sector_id"],
+        search=filters["search"],
+        periodo_year=filters["periodo_year"],
+        periodo_month=filters["periodo_month"],
+    )
+    summary = get_resultados_summary(
+        empresa_id=filters["empresa_id"],
+        empleado_id=filters["empleado_id"],
+        concurso_id=filters["concurso_id"],
+        sector_id=filters["sector_id"],
+        search=filters["search"],
+        periodo_year=filters["periodo_year"],
+        periodo_month=filters["periodo_month"],
+    )
+
+    empresas = get_empresas(include_inactive=True)
+    sectores = _get_sectores(filters["empresa_id"], include_inactive=True)
+    concursos = get_concursos_for_empresa(filters["empresa_id"], activo=None) if filters["empresa_id"] else []
+    empleados = get_empleados(include_inactive=True)
+
+    workbook = generar_premios_concursos_resultados_excel(
+        rows=rows,
+        summary=summary,
+        filters={
+            "empresa_label": next((e.get("razon_social") for e in empresas if int(e.get("id") or 0) == int(filters["empresa_id"] or 0)), None),
+            "sector_label": next((s.get("nombre") for s in sectores if int(s.get("id") or 0) == int(filters["sector_id"] or 0)), None),
+            "empleado_label": next(
+                (
+                    f"{e.get('apellido') or ''} {e.get('nombre') or ''}".strip()
+                    for e in empleados
+                    if int(e.get("id") or 0) == int(filters["empleado_id"] or 0)
+                ),
+                None,
+            ),
+            "concurso_label": next(
+                (
+                    f"{c.get('codigo') or ''} - {c.get('nombre') or ''}".strip(" -")
+                    for c in concursos
+                    if int(c.get("id") or 0) == int(filters["concurso_id"] or 0)
+                ),
+                None,
+            ),
+            "periodo_year": filters["periodo_year"],
+            "periodo_month": filters["periodo_month"],
+            "search": filters["search"],
+        },
+    )
+    filename = f"premios_resultados_{datetime.date.today().isoformat()}.xlsx"
+    return current_app.response_class(
+        workbook,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

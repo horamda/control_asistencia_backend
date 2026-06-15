@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Importar clientes{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">Importacion</div>
+  <h2 class="section-title">Cargar base de clientes</h2>
+  <p class="helper-text">Suba el CSV original. El sistema extrae solo los campos necesarios para feedback.</p>
+
+  <form method="post" enctype="multipart/form-data" style="margin-top:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>
+      <span>Archivo CSV</span>
+      <input type="file" name="archivo_csv" accept=".csv" required>
+    </label>
+    <div class="actions" style="margin-top:1rem;">
+      <button class="btn" type="submit">Importar</button>
+      <a class="btn btn-secondary" href="{{ url_for('feedback_web.clientes_listado') }}">Volver</a>
+    </div>
+  </form>
+</section>
+
+{% if resultado %}
+  <section class="panel" style="margin-top:1rem;">
+    <div class="section-kicker">Resultado</div>
+    {% if resultado.error %}
+      <div class="alert alert-danger">{{ resultado.error }}</div>
+    {% else %}
+      <section class="grid-kpis dashboard-kpis">
+        <article class="panel"><div class="kicker">Filas</div><div class="kpi-value">{{ resultado.total_filas }}</div></article>
+        <article class="panel"><div class="kicker">Importadas</div><div class="kpi-value">{{ resultado.importadas }}</div></article>
+        <article class="panel"><div class="kicker">Creadas</div><div class="kpi-value">{{ resultado.creados }}</div></article>
+        <article class="panel"><div class="kicker">Actualizadas</div><div class="kpi-value">{{ resultado.actualizados }}</div></article>
+        <article class="panel"><div class="kicker">Errores</div><div class="kpi-value">{{ resultado.errores }}</div></article>
+      </section>
+      {% if resultado.detalle_errores %}
+        <div class="table-responsive" style="margin-top:1rem;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Fila</th>
+                <th>Codigo</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for err in resultado.detalle_errores %}
+                <tr>
+                  <td>{{ err.fila }}</td>
+                  <td>{{ err.codigo_externo or "-" }}</td>
+                  <td>{{ err.motivo }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    {% endif %}
+  </section>
+{% endif %}
+{% endblock %}

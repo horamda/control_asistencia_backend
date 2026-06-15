@@ -63,6 +63,7 @@ def legajo_evento_to_mobile_dict(evento: dict, adjuntos: list[dict] | None = Non
         "estado": evento.get("estado") or "vigente",
         "severidad": evento.get("severidad"),
         "justificacion_id": evento.get("justificacion_id"),
+        "adjuntos_count": int(evento.get("adjuntos_count") or 0),
         "created_at": _to_datetime_str(evento.get("created_at")),
         "updated_at": _to_datetime_str(evento.get("updated_at")),
     }

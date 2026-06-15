@@ -2071,6 +2071,10 @@ def _auth_headers():
 def _setup_just_auth(monkeypatch):
     monkeypatch.setattr(jwt_guard, "verificar_token", lambda t: {"empleado_id": 10})
     monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda _: _FAKE_EMPLEADO_JUST)
+    monkeypatch.setattr(mobile_routes, "sync_justificacion_event", lambda *a, **kw: None)
+    monkeypatch.setattr(mobile_routes, "save_justificacion_adjuntos", lambda *a, **kw: [])
+    monkeypatch.setattr(mobile_routes, "list_justificacion_adjuntos", lambda *_: [])
+    monkeypatch.setattr(mobile_routes, "delete_justificacion_resources", lambda *a, **kw: None)
 
 
 def test_mobile_justificaciones_list_ok(monkeypatch):
@@ -2138,6 +2142,50 @@ def test_mobile_justificaciones_detail_ajena_retorna_404(monkeypatch):
     assert resp.status_code == 404
 
 
+def test_mobile_justificaciones_adjuntos_list_ok(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_justificacion_by_id", lambda _: _FAKE_JUST_ROW)
+    monkeypatch.setattr(
+        mobile_routes,
+        "list_justificacion_adjuntos",
+        lambda _: [
+            {
+                "id": 88,
+                "evento_id": 99,
+                "nombre_original": "certificado.pdf",
+                "mime_type": "application/pdf",
+                "extension": "pdf",
+                "tamano_bytes": 1234,
+                "estado": "activo",
+                "created_at": datetime.datetime(2026, 3, 1, 10, 0, 0),
+            }
+        ],
+    )
+
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/justificaciones/55/adjuntos", headers=_auth_headers())
+    body = resp.get_json()
+
+    assert resp.status_code == 200
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["download_url"].endswith("/api/v1/mobile/me/justificaciones/55/adjuntos/88")
+
+
+def test_mobile_justificaciones_adjuntos_list_ajena_retorna_404(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_justificacion_by_id",
+        lambda _: {**_FAKE_JUST_ROW, "empleado_id": 99},
+    )
+
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/justificaciones/55/adjuntos", headers=_auth_headers())
+
+    assert resp.status_code == 404
+
+
 def test_mobile_justificaciones_create_ok(monkeypatch):
     _setup_just_auth(monkeypatch)
     created_data = {}
@@ -2158,6 +2206,85 @@ def test_mobile_justificaciones_create_ok(monkeypatch):
     assert body["id"] == 55
     assert created_data["empleado_id"] == 10
     assert created_data["estado"] == "pendiente"
+
+
+def test_mobile_justificaciones_create_con_adjuntos_usa_actor_nulo(monkeypatch):
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda t: {"empleado_id": 10})
+    monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda _: _FAKE_EMPLEADO_JUST)
+
+    created_data = {}
+    captured = {}
+
+    def _fake_create(data):
+        created_data.update(data)
+        return 55
+
+    def _fake_sync(justificacion_id, *, actor_id=None):
+        captured["sync"] = {"justificacion_id": justificacion_id, "actor_id": actor_id}
+        return {"id": 99}
+
+    def _fake_save(justificacion_id, archivos, *, actor_id=None):
+        archivos = list(archivos)
+        captured["save"] = {
+            "justificacion_id": justificacion_id,
+            "actor_id": actor_id,
+            "filenames": [a.filename for a in archivos],
+        }
+        rows = [
+            {
+                "id": 88 + idx,
+                "evento_id": 99,
+                "nombre_original": archivo.filename,
+                "mime_type": "application/pdf",
+                "extension": "pdf",
+                "tamano_bytes": 1234,
+                "estado": "activo",
+                "created_at": datetime.datetime(2026, 3, 1, 10, 0, 0),
+            }
+            for idx, archivo in enumerate(archivos)
+        ]
+        captured["rows"] = rows
+        return rows
+
+    monkeypatch.setattr(mobile_routes, "create_justificacion_svc", _fake_create)
+    monkeypatch.setattr(mobile_routes, "sync_justificacion_event", _fake_sync)
+    monkeypatch.setattr(mobile_routes, "save_justificacion_adjuntos", _fake_save)
+    monkeypatch.setattr(mobile_routes, "list_justificacion_adjuntos", lambda _: captured.get("rows", []))
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_justificacion_by_id",
+        lambda _: {**_FAKE_JUST_ROW, "adjuntos_count": len(captured.get("rows", [])), "legajo_evento_id": 99},
+    )
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda usuario_id, accion, tabla, registro_id: captured.update({
+        "audit": {
+            "usuario_id": usuario_id,
+            "accion": accion,
+            "tabla": tabla,
+            "registro_id": registro_id,
+        }
+    }))
+
+    from werkzeug.datastructures import MultiDict
+
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/justificaciones",
+        data=MultiDict([
+            ("motivo", "Certificado medico"),
+            ("adjuntos", (io.BytesIO(b"\x89PNG\r\n\x1a\n"), "foto.png")),
+        ]),
+        content_type="multipart/form-data",
+        headers=_auth_headers(),
+    )
+    body = resp.get_json()
+    assert resp.status_code == 201
+    assert created_data["empleado_id"] == 10
+    assert captured["sync"]["actor_id"] is None
+    assert captured["save"]["actor_id"] is None
+    assert captured["save"]["filenames"] == ["foto.png"]
+    assert captured["audit"]["usuario_id"] is None
+    assert body["adjuntos_count"] == 1
+    assert body["adjuntos"][0]["download_url"].endswith("/api/v1/mobile/me/justificaciones/55/adjuntos/88")
 
 
 def test_mobile_justificaciones_create_sin_motivo_retorna_400(monkeypatch):
@@ -2195,6 +2322,59 @@ def test_mobile_justificaciones_update_pendiente_ok(monkeypatch):
     assert updated["motivo"] == "Nuevo motivo"
 
 
+def test_mobile_justificaciones_update_con_adjuntos_multipart(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_justificacion_by_id", lambda _: _FAKE_JUST_ROW)
+    updated = {}
+    saved = {}
+
+    def _fake_update(jid, data):
+        updated.update({"jid": jid, **data})
+
+    def _fake_save(justificacion_id, archivos, actor_id=None):
+        archivos = list(archivos)
+        saved["justificacion_id"] = justificacion_id
+        saved["filenames"] = [a.filename for a in archivos]
+        saved["rows"] = [
+            {
+                "id": 123,
+                "evento_id": 99,
+                "nombre_original": archivos[0].filename,
+                "mime_type": "application/pdf",
+                "extension": "pdf",
+                "tamano_bytes": 1234,
+                "estado": "activo",
+                "created_at": datetime.datetime(2026, 3, 1, 10, 0, 0),
+            }
+        ]
+        return saved["rows"]
+
+    monkeypatch.setattr(mobile_routes, "update_justificacion_svc", _fake_update)
+    monkeypatch.setattr(mobile_routes, "save_justificacion_adjuntos", _fake_save)
+    monkeypatch.setattr(mobile_routes, "list_justificacion_adjuntos", lambda _: saved.get("rows", []))
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+
+    from werkzeug.datastructures import MultiDict
+
+    client = _build_client(monkeypatch)
+    resp = client.put(
+        "/api/v1/mobile/me/justificaciones/55",
+        data=MultiDict([
+            ("motivo", "Motivo actualizado"),
+            ("adjuntos", (io.BytesIO(b"%PDF-1.4"), "certificado.pdf")),
+        ]),
+        content_type="multipart/form-data",
+        headers=_auth_headers(),
+    )
+    body = resp.get_json()
+    assert resp.status_code == 200
+    assert updated["motivo"] == "Motivo actualizado"
+    assert saved["justificacion_id"] == 55
+    assert saved["filenames"] == ["certificado.pdf"]
+    assert body["adjuntos_count"] == 1
+    assert body["adjuntos"][0]["download_url"].endswith("/api/v1/mobile/me/justificaciones/55/adjuntos/123")
+
+
 def test_mobile_justificaciones_update_aprobada_retorna_409(monkeypatch):
     _setup_just_auth(monkeypatch)
     monkeypatch.setattr(
@@ -2227,6 +2407,29 @@ def test_mobile_justificaciones_delete_pendiente_ok(monkeypatch):
     assert deleted["jid"] == 55
 
 
+def test_mobile_justificaciones_delete_desvincula_antes_de_borrar(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_justificacion_by_id", lambda _: _FAKE_JUST_ROW)
+    calls = []
+
+    def _fake_delete_resources(justificacion_id, actor_id=None):
+        calls.append(("resources", justificacion_id, actor_id))
+
+    def _fake_delete_row(justificacion_id):
+        calls.append(("delete", justificacion_id))
+
+    monkeypatch.setattr(mobile_routes, "delete_justificacion_resources", _fake_delete_resources)
+    monkeypatch.setattr(mobile_routes, "delete_justificacion_row", _fake_delete_row)
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+
+    client = _build_client(monkeypatch)
+    resp = client.delete("/api/v1/mobile/me/justificaciones/55", headers=_auth_headers())
+
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+    assert calls == [("resources", 55, None), ("delete", 55)]
+
+
 def test_mobile_justificaciones_delete_rechazada_retorna_409(monkeypatch):
     _setup_just_auth(monkeypatch)
     monkeypatch.setattr(
@@ -2236,6 +2439,110 @@ def test_mobile_justificaciones_delete_rechazada_retorna_409(monkeypatch):
     client = _build_client(monkeypatch)
     resp = client.delete("/api/v1/mobile/me/justificaciones/55", headers=_auth_headers())
     assert resp.status_code == 409
+
+
+def test_mobile_justificaciones_create_con_adjuntos_multipart(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    created_data = {}
+    saved = {}
+
+    def _fake_save(justificacion_id, archivos, actor_id=None):
+        archivos = list(archivos)
+        saved["justificacion_id"] = justificacion_id
+        saved["filenames"] = [a.filename for a in archivos]
+        rows = [
+            {
+                "id": 88 + idx,
+                "evento_id": 99,
+                "nombre_original": archivo.filename,
+                "mime_type": "application/pdf",
+                "extension": "pdf",
+                "tamano_bytes": 1234,
+                "estado": "activo",
+                "created_at": datetime.datetime(2026, 3, 1, 10, 0, 0),
+            }
+            for idx, archivo in enumerate(archivos)
+        ]
+        saved["rows"] = rows
+        return rows
+
+    monkeypatch.setattr(
+        mobile_routes, "create_justificacion_svc",
+        lambda data: (created_data.update(data) or 55)
+    )
+    monkeypatch.setattr(mobile_routes, "save_justificacion_adjuntos", _fake_save)
+    monkeypatch.setattr(mobile_routes, "list_justificacion_adjuntos", lambda _: saved.get("rows", []))
+    monkeypatch.setattr(
+        mobile_routes, "get_justificacion_by_id",
+        lambda _: {**_FAKE_JUST_ROW, "adjuntos_count": len(saved.get("rows", [])), "legajo_evento_id": 99}
+    )
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+
+    from werkzeug.datastructures import MultiDict
+
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/justificaciones",
+        data=MultiDict([
+            ("motivo", "Certificado medico"),
+            ("adjuntos", (io.BytesIO(b"%PDF-1.4"), "certificado.pdf")),
+            ("adjuntos", (io.BytesIO(b"\x89PNG\r\n\x1a\n"), "foto.png")),
+        ]),
+        content_type="multipart/form-data",
+        headers=_auth_headers(),
+    )
+    body = resp.get_json()
+    assert resp.status_code == 201
+    assert created_data["empleado_id"] == 10
+    assert saved["justificacion_id"] == 55
+    assert saved["filenames"] == ["certificado.pdf", "foto.png"]
+    assert body["adjuntos_count"] == 2
+    assert len(body["adjuntos"]) == 2
+    assert body["adjuntos"][0]["download_url"].endswith("/api/v1/mobile/me/justificaciones/55/adjuntos/88")
+
+
+def test_mobile_justificaciones_adjunto_descarga_ok(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(
+        mobile_routes, "get_justificacion_by_id",
+        lambda _: _FAKE_JUST_ROW
+    )
+    monkeypatch.setattr(
+        mobile_routes, "list_justificacion_adjuntos",
+        lambda _: [
+            {
+                "id": 88,
+                "evento_id": 99,
+                "nombre_original": "certificado.pdf",
+                "mime_type": "application/pdf",
+                "extension": "pdf",
+                "tamano_bytes": 1234,
+                "estado": "activo",
+                "created_at": datetime.datetime(2026, 3, 1, 10, 0, 0),
+            }
+        ]
+    )
+    monkeypatch.setattr(
+        mobile_routes, "get_adjunto_by_id",
+        lambda adjunto_id: {
+            "id": adjunto_id,
+            "evento_id": 99,
+            "evento_justificacion_id": 55,
+            "estado": "activo",
+            "evento_estado": "vigente",
+            "storage_backend": "db",
+            "storage_ruta": "db://legajos/abc.pdf",
+            "mime_type": "application/pdf",
+            "nombre_original": "certificado.pdf",
+        }
+    )
+    monkeypatch.setattr(mobile_routes, "get_adjunto_data_by_id", lambda _: b"%PDF-1.4 test")
+
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/justificaciones/55/adjuntos/88", headers=_auth_headers())
+    assert resp.status_code == 200
+    assert resp.data.startswith(b"%PDF-1.4")
+    assert resp.headers["Content-Type"].startswith("application/pdf")
 
 
 # ---------------------------------------------------------------------------
@@ -3109,6 +3416,7 @@ _FAKE_EVENTO_ROW = {
     "descripcion": "Tercer episodio en el mes",
     "estado": "vigente",
     "severidad": "leve",
+    "adjuntos_count": 1,
 }
 
 
@@ -3205,7 +3513,6 @@ def test_mobile_legajo_eventos_detail_ok(monkeypatch):
     assert resp.get_json()["id"] == 20
     assert resp.get_json()["fecha_desde"] is None
     assert resp.get_json()["adjuntos_count"] == 1
-    assert resp.get_json()["adjuntos"][0]["download_url"].endswith("/api/v1/mobile/me/legajo/adjuntos/99")
 
 
 def test_mobile_legajo_eventos_detail_ajeno_retorna_404(monkeypatch):
@@ -3268,32 +3575,16 @@ def test_mobile_legajo_tipos_evento_ok(monkeypatch):
 
 def test_mobile_legajo_adjunto_ok_db(monkeypatch):
     _setup_evento_auth(monkeypatch)
-    monkeypatch.setattr(
-        mobile_routes,
-        "get_adjunto_by_id_for_empleado",
-        lambda *args: {
-            "id": 99,
-            "estado": "activo",
-            "evento_estado": "vigente",
-            "storage_backend": "db",
-            "mime_type": "application/pdf",
-            "nombre_original": "certificado.pdf",
-        },
-    )
-    monkeypatch.setattr(mobile_routes, "get_adjunto_data_by_id", lambda _: b"%PDF mobile")
     client = _build_client(monkeypatch)
     resp = client.get("/api/v1/mobile/me/legajo/adjuntos/99", headers=_auth_headers())
-    assert resp.status_code == 200
-    assert b"%PDF mobile" in resp.data
-    assert "application/pdf" in resp.headers.get("Content-Type", "")
+    assert resp.status_code == 403
 
 
 def test_mobile_legajo_adjunto_ajeno_retorna_404(monkeypatch):
     _setup_evento_auth(monkeypatch)
-    monkeypatch.setattr(mobile_routes, "get_adjunto_by_id_for_empleado", lambda *args: None)
     client = _build_client(monkeypatch)
     resp = client.get("/api/v1/mobile/me/legajo/adjuntos/99", headers=_auth_headers())
-    assert resp.status_code == 404
+    assert resp.status_code == 403
 
 
 # ---------------------------------------------------------------------------

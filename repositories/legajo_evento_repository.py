@@ -38,6 +38,24 @@ def get_tipo_evento_by_id(tipo_id: int):
         db.close()
 
 
+def get_tipo_evento_by_codigo(codigo: str):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT id, codigo, nombre, requiere_rango_fechas, permite_adjuntos, activo
+            FROM legajo_tipos_evento
+            WHERE codigo = %s
+            """,
+            (codigo,),
+        )
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        db.close()
+
+
 def get_tipos_evento_page(
     page: int,
     per_page: int,
@@ -266,6 +284,38 @@ def get_evento_by_id(evento_id: int):
             WHERE e.id = %s
             """,
             (evento_id,),
+        )
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        db.close()
+
+
+def get_evento_by_justificacion_id(justificacion_id: int):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT
+                e.*,
+                t.codigo AS tipo_codigo,
+                t.nombre AS tipo_nombre,
+                t.requiere_rango_fechas AS tipo_requiere_rango_fechas,
+                t.permite_adjuntos AS tipo_permite_adjuntos,
+                (
+                    SELECT COUNT(*)
+                    FROM legajo_evento_adjuntos a
+                    WHERE a.evento_id = e.id
+                      AND a.estado = 'activo'
+                ) AS adjuntos_count
+            FROM legajo_eventos e
+            JOIN legajo_tipos_evento t ON t.id = e.tipo_id
+            WHERE e.justificacion_id = %s
+            ORDER BY e.id DESC
+            LIMIT 1
+            """,
+            (justificacion_id,),
         )
         return cursor.fetchone()
     finally:
@@ -534,6 +584,27 @@ def update_evento(evento_id: int, data: dict):
         )
         db.commit()
         return cursor.rowcount > 0
+    finally:
+        cursor.close()
+        db.close()
+
+
+def clear_justificacion_id(justificacion_id: int, updated_by_usuario_id: int | None = None) -> int:
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            """
+            UPDATE legajo_eventos
+            SET
+                justificacion_id = NULL,
+                updated_by_usuario_id = %s
+            WHERE justificacion_id = %s
+            """,
+            (updated_by_usuario_id, justificacion_id),
+        )
+        db.commit()
+        return cursor.rowcount
     finally:
         cursor.close()
         db.close()

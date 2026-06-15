@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}SKAP - Planes{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">SKAP</div>
+  <h2 class="section-title">Planes de desarrollo</h2>
+  <p class="helper-text">Listado de PDP generados a partir de evaluaciones.</p>
+
+  {% if error %}
+    <div class="alert alert-danger" style="margin-top:1rem;">{{ error }}</div>
+  {% endif %}
+  {% if msg %}
+    <div class="alert alert-success" style="margin-top:1rem;">{{ msg }}</div>
+  {% endif %}
+
+  <form method="get" class="form-grid" style="margin-top:1rem;">
+    <label>
+      <span>Ano</span>
+      <input type="number" name="anio" value="{{ anio }}" min="2020" max="2100" step="1">
+    </label>
+    <label>
+      <span>Sector</span>
+      <select name="sector_id">
+        <option value="">Todos</option>
+        {% for sector in sectores %}
+          <option value="{{ sector.id }}" {% if sector_id and sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Buscar</span>
+      <input type="text" name="q" value="{{ q }}" placeholder="Empleado, sector o evaluador">
+    </label>
+    <div class="actions" style="align-self:end;">
+      <button class="btn" type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('skap_web.planes_listado') }}">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="table-responsive" style="margin-top:1rem;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Empleado</th>
+          <th>Sector</th>
+          <th>Ano</th>
+          <th>Promedio</th>
+          <th>Nivel</th>
+          <th>Acciones</th>
+          <th>Completadas</th>
+          <th>Vencidas</th>
+          <th>Avance</th>
+          <th>Detalle</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for plan in planes %}
+          <tr>
+            <td>{{ plan.empleado_apellido }}, {{ plan.empleado_nombre }}</td>
+            <td>{{ plan.sector_nombre or "-" }}</td>
+            <td>{{ plan.anio }}</td>
+            <td>{{ "%.2f"|format(plan.promedio_general) }}</td>
+            <td><span class="badge">{{ plan.nivel }}</span></td>
+            <td>{{ plan.acciones_total }}</td>
+            <td>{{ plan.acciones_completadas }}</td>
+            <td>{{ plan.acciones_vencidas }}</td>
+            <td>{{ "%.1f"|format(plan.avance_pct or 0) }}%</td>
+            <td><a class="btn btn-secondary" href="{{ url_for('skap_web.plan_detalle', plan_id=plan.id) }}">Ver</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="10">No hay planes para los filtros seleccionados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
