@@ -1,7 +1,7 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - Mobile API v1
-  version: 1.22.0
+  version: 1.23.1
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -725,6 +725,15 @@ components:
           type: integer
         cantidad_bultos:
           type: integer
+          minimum: 0
+        cantidad_unidades:
+          type: integer
+          minimum: 0
+          description: Unidades sueltas adicionales a los bultos completos.
+        total_unidades:
+          type: integer
+          minimum: 0
+          description: cantidad_bultos * unidades_por_bulto + cantidad_unidades.
 
     PedidoMercaderiaItem:
       type: object
@@ -748,6 +757,8 @@ components:
         cantidad_items:
           type: integer
         total_bultos:
+          type: integer
+        total_unidades:
           type: integer
         motivo_rechazo:
           type: string
@@ -879,12 +890,23 @@ components:
           minItems: 1
           items:
             type: object
-            required: [articulo_id, cantidad_bultos]
+            required: [articulo_id]
+            description: Debe indicar al menos un bulto o una unidad; ambos valores pueden combinarse.
+            anyOf:
+              - required: [cantidad_bultos]
+              - required: [cantidad_unidades]
             properties:
               articulo_id:
                 type: integer
               cantidad_bultos:
                 type: integer
+                minimum: 0
+                default: 0
+              cantidad_unidades:
+                type: integer
+                minimum: 0
+                default: 0
+                description: Unidades sueltas adicionales a los bultos completos.
 
     # --- Horario ---
     AsignacionHorario:
@@ -4034,9 +4056,9 @@ paths:
           in: query
           schema:
             type: string
-          description: Busca por cliente, motivo, descripcion, resolucion, estado o nombres/legajos de participantes. Admite varias palabras.
           required: false
-          description: Busca por sucursal, codigo, razon social, fantasia, telefonos, movil, email, domicilio, localidad, provincia o tipo.
+          description: Busca clientes activos por id, sucursal, codigo, razon social, nombre de fantasia o negocio, telefonos, movil, email, domicilio o direccion, localidad, provincia o tipo. La coincidencia es parcial, no distingue mayusculas y admite varias palabras.
+          example: Siempre Viva 123
         - name: page
           in: query
           schema:
@@ -4047,7 +4069,7 @@ paths:
           schema:
             type: integer
             default: 20
-            maximum: 50
+            maximum: 200
       responses:
         '200':
           description: Clientes paginados
@@ -4089,7 +4111,7 @@ paths:
           in: query
           schema:
             type: string
-          description: Misma logica que historial: cliente, motivo, descripcion, resolucion, estado o nombres/legajos de participantes. Admite varias palabras.
+          description: "Misma logica que historial: cliente, motivo, descripcion, resolucion, estado o nombres/legajos de participantes. Admite varias palabras."
           required: false
       responses:
         '200':

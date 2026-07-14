@@ -291,7 +291,7 @@ def update_estado(
         db.close()
 
 
-def count_feedbacks(*, empresa_id: int | None = None) -> dict:
+def count_feedbacks(*, empresa_id: int | None = None, sector_id: int | None = None, empleado_activo: int | None = None) -> dict:
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -300,6 +300,12 @@ def count_feedbacks(*, empresa_id: int | None = None) -> dict:
         if empresa_id:
             where.append("f.empresa_id = %s")
             params.append(int(empresa_id))
+        if sector_id:
+            where.append("e.sector_id = %s")
+            params.append(int(sector_id))
+        if empleado_activo in (0, 1):
+            where.append("e.activo = %s")
+            params.append(int(empleado_activo))
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         cursor.execute(
             f"""
@@ -315,6 +321,7 @@ def count_feedbacks(*, empresa_id: int | None = None) -> dict:
                 COUNT(DISTINCT f.cliente_id) AS clientes_distintos,
                 COUNT(DISTINCT f.empleado_id) AS empleados_con_carga
             FROM feedbacks f
+            JOIN empleados e ON e.id = f.empleado_id
             {where_sql}
             """,
             tuple(params),
@@ -337,7 +344,7 @@ def count_feedbacks(*, empresa_id: int | None = None) -> dict:
         db.close()
 
 
-def get_top_motivos(*, empresa_id: int | None = None, limit: int = 5):
+def get_top_motivos(*, empresa_id: int | None = None, sector_id: int | None = None, empleado_activo: int | None = None, limit: int = 5):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -346,6 +353,12 @@ def get_top_motivos(*, empresa_id: int | None = None, limit: int = 5):
         if empresa_id:
             where.append("f.empresa_id = %s")
             params.append(int(empresa_id))
+        if sector_id:
+            where.append("e.sector_id = %s")
+            params.append(int(sector_id))
+        if empleado_activo in (0, 1):
+            where.append("e.activo = %s")
+            params.append(int(empleado_activo))
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         cursor.execute(
             f"""
@@ -355,6 +368,7 @@ def get_top_motivos(*, empresa_id: int | None = None, limit: int = 5):
                 COUNT(*) AS total,
                 SUM(CASE WHEN f.estado = 'resuelto' THEN 1 ELSE 0 END) AS resueltos
             FROM feedbacks f
+            JOIN empleados e ON e.id = f.empleado_id
             LEFT JOIN feedback_motivos m ON m.id = f.motivo_id
             {where_sql}
             GROUP BY f.motivo_id, motivo_nombre
@@ -369,16 +383,22 @@ def get_top_motivos(*, empresa_id: int | None = None, limit: int = 5):
         db.close()
 
 
-def get_ranking_carga(*, empresa_id: int | None = None, limit: int | None = 10):
+def get_ranking_carga(*, empresa_id: int | None = None, sector_id: int | None = None, empleado_activo: int | None = None, limit: int | None = 10):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
-        where = ["e.activo = 1"]
+        where = []
         params = []
         if empresa_id:
             where.append("e.empresa_id = %s")
             params.append(int(empresa_id))
-        where_sql = "WHERE " + " AND ".join(where)
+        if sector_id:
+            where.append("e.sector_id = %s")
+            params.append(int(sector_id))
+        if empleado_activo in (0, 1):
+            where.append("e.activo = %s")
+            params.append(int(empleado_activo))
+        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         join_filter = ""
         join_params = []
         if empresa_id:
@@ -414,16 +434,22 @@ def get_ranking_carga(*, empresa_id: int | None = None, limit: int | None = 10):
         db.close()
 
 
-def count_active_empleados(*, empresa_id: int | None = None) -> int:
+def count_active_empleados(*, empresa_id: int | None = None, sector_id: int | None = None, empleado_activo: int | None = None) -> int:
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
-        where = ["activo = 1"]
+        where = []
         params = []
         if empresa_id:
             where.append("empresa_id = %s")
             params.append(int(empresa_id))
-        where_sql = "WHERE " + " AND ".join(where)
+        if sector_id:
+            where.append("sector_id = %s")
+            params.append(int(sector_id))
+        if empleado_activo in (0, 1):
+            where.append("activo = %s")
+            params.append(int(empleado_activo))
+        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         cursor.execute(
             f"""
             SELECT COUNT(*) AS total

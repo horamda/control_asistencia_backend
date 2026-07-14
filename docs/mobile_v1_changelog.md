@@ -1,5 +1,25 @@
 ﻿# Change log
 
+### 1.23.1 (2026-07-14)
+- Se explicita el contrato de busqueda de clientes para cargar feedback:
+  - `q` busca por nombre del negocio (`nombre_fantasia`), razon social,
+    direccion (`domicilio`) y codigo, ademas de otros datos del cliente.
+  - Se documentan coincidencia parcial, busqueda de varias palabras, prioridad
+    de resultados y presentacion recomendada para Flutter.
+- OpenAPI corrige `per_page` maximo a 200, elimina una descripcion duplicada de
+  `q` y agrega un ejemplo de busqueda por direccion.
+- Sin cambios de comportamiento ni ruptura de compatibilidad.
+
+### 1.23.0 (2026-07-14)
+- Pedidos de mercaderia ahora admiten cantidades mixtas por articulo:
+  - `cantidad_bultos`: bultos completos, entero mayor o igual a cero.
+  - `cantidad_unidades`: unidades sueltas adicionales, entero mayor o igual a cero.
+  - Al menos uno de los dos valores debe ser mayor que cero.
+- Los items de respuesta agregan `cantidad_unidades` y `total_unidades`.
+- Los pedidos agregan `total_unidades`, calculado como la suma de
+  `cantidad_bultos * unidades_por_bulto + cantidad_unidades` de todos sus items.
+- Cambio retrocompatible: omitir `cantidad_unidades` equivale a enviar `0`.
+
 ### 1.22.0 (2026-06-08)
 - Nuevo modulo mobile complementario **Feedback de calle** bajo `/api/v1/feedback`:
   - Motivos, clientes importados por CSV, carga de feedback, historial, bandeja del jefe directo, toma/resolucion y dashboard.

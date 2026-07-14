@@ -262,12 +262,23 @@ def get_feedback_bandeja(
     return [serialize_feedback(row) for row in rows], total
 
 
-def get_feedback_dashboard(*, empresa_id: int | None = None, empleado_id: int | None = None) -> dict:
-    resumen = count_feedbacks(empresa_id=empresa_id)
-    top_motivos = get_top_motivos(empresa_id=empresa_id, limit=5)
-    ranking_completo = get_ranking_carga(empresa_id=empresa_id, limit=None)
+def get_feedback_dashboard(
+    *,
+    empresa_id: int | None = None,
+    empleado_id: int | None = None,
+    sector_id: int | None = None,
+    empleado_activo: int | None = 1,
+) -> dict:
+    filters = {
+        "empresa_id": empresa_id,
+        "sector_id": sector_id,
+        "empleado_activo": empleado_activo,
+    }
+    resumen = count_feedbacks(**filters)
+    top_motivos = get_top_motivos(**filters, limit=5)
+    ranking_completo = get_ranking_carga(**filters, limit=None)
     ranking = ranking_completo[:10]
-    total_activos = count_active_empleados(empresa_id=empresa_id)
+    total_activos = count_active_empleados(**filters)
 
     personal = None
     if empleado_id:

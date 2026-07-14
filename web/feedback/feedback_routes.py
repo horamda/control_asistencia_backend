@@ -12,6 +12,7 @@ from repositories.feedback_motivo_repository import (
     set_activo as set_motivo_activo,
     update as update_motivo,
 )
+from repositories.sector_repository import get_all as get_sectores
 from services.feedback_import_service import importar_clientes_desde_csv
 from services.feedback_service import get_feedback_dashboard
 from utils.audit import log_audit
@@ -40,7 +41,19 @@ def _extract_motivo_form(form) -> dict:
 @feedback_web_bp.route("/")
 @role_required("admin", "rrhh")
 def dashboard():
-    datos = get_feedback_dashboard()
+    sector_id = _parse_int(request.args.get("sector_id"))
+    empleado_activo_raw = (request.args.get("empleado_activo") or "1").strip().lower()
+    empleado_activo = None
+    if empleado_activo_raw == "1":
+        empleado_activo = 1
+    elif empleado_activo_raw == "0":
+        empleado_activo = 0
+    else:
+        empleado_activo_raw = "all"
+    datos = get_feedback_dashboard(
+        sector_id=sector_id,
+        empleado_activo=empleado_activo,
+    )
     return render_template(
         "feedback/dashboard.html",
         resumen=datos["resumen"],
@@ -50,6 +63,9 @@ def dashboard():
         totales=datos.get("totales"),
         total_motivos=count_motivos(include_inactive=True),
         total_clientes=count_clientes(include_inactive=True),
+        sectores=get_sectores(include_inactive=True),
+        sector_id=sector_id,
+        empleado_activo=empleado_activo_raw,
     )
 
 

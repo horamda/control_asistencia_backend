@@ -124,10 +124,11 @@ def test_web_feedback_dashboard_ok(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
     client = _build_client(monkeypatch)
     _login(client)
+    captured = {}
     monkeypatch.setattr(
         feedback_web_routes,
         "get_feedback_dashboard",
-        lambda **kw: {
+        lambda **kw: captured.update(kw) or {
             "resumen": {
                 "total": 3,
                 "resueltos": 2,
@@ -145,11 +146,21 @@ def test_web_feedback_dashboard_ok(monkeypatch):
     )
     monkeypatch.setattr(feedback_web_routes, "count_motivos", lambda include_inactive=True: 2)
     monkeypatch.setattr(feedback_web_routes, "count_clientes", lambda include_inactive=True: 15)
+    monkeypatch.setattr(
+        feedback_web_routes,
+        "get_sectores",
+        lambda include_inactive=True: [
+            {"id": 7, "nombre": "Ventas", "empresa_nombre": "Acme", "activo": 1}
+        ],
+    )
 
-    resp = client.get("/feedback/")
+    resp = client.get("/feedback/?sector_id=7&empleado_activo=0")
     assert resp.status_code == 200
     assert b"Resumen general" in resp.data
     assert b"Rotura" in resp.data
+    assert b"Sector del empleado" in resp.data
+    assert b"Ventas" in resp.data
+    assert captured == {"sector_id": 7, "empleado_activo": 0}
 
 
 def test_web_feedback_clientes_importar_ok(monkeypatch):

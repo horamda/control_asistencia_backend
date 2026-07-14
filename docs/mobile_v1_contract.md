@@ -1,7 +1,7 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.22.0
-Fecha de corte: 2026-06-08
+Version de contrato: 1.23.1
+Fecha de corte: 2026-07-14
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo principal: `/api/v1/mobile`
@@ -1040,6 +1040,7 @@ GET /vacaciones/resumen?anio=YYYY
   - `estado`: `pendiente` | `aprobado` | `rechazado` | `cancelado`
   - `cantidad_items`
   - `total_bultos`
+  - `total_unidades`: suma de las unidades equivalentes de todos los items
   - `motivo_rechazo`
   - `created_at`
   - `resuelto_at`
@@ -1052,6 +1053,12 @@ GET /vacaciones/resumen?anio=YYYY
   - `descripcion`
   - `unidades_por_bulto`
   - `cantidad_bultos`
+  - `cantidad_unidades`: unidades sueltas adicionales
+  - `total_unidades`: `cantidad_bultos * unidades_por_bulto + cantidad_unidades`
+
+`cantidad_bultos` y `cantidad_unidades` pueden combinarse. Si un campo no se
+envia se interpreta como `0`; al menos uno de los dos debe ser mayor que cero.
+Los clientes anteriores que solo envian `cantidad_bultos` siguen siendo compatibles.
 
 #### Flujo recomendado para Flutter
 1. Llamar `GET /api/v1/mobile/me/pedidos-mercaderia/resumen` al abrir la pantalla.
@@ -1079,6 +1086,7 @@ GET /vacaciones/resumen?anio=YYYY
     "estado":"pendiente",
     "cantidad_items":2,
     "total_bultos":3,
+    "total_unidades":31,
     "motivo_rechazo":null,
     "created_at":"2026-04-18T09:30:00",
     "resuelto_at":null,
@@ -1090,7 +1098,9 @@ GET /vacaciones/resumen?anio=YYYY
         "codigo_articulo":"A1",
         "descripcion":"Gaseosa",
         "unidades_por_bulto":8,
-        "cantidad_bultos":2
+        "cantidad_bultos":2,
+        "cantidad_unidades":3,
+        "total_unidades":19
       }
     ]
   },
@@ -1103,6 +1113,7 @@ GET /vacaciones/resumen?anio=YYYY
     "estado":"pendiente",
     "cantidad_items":2,
     "total_bultos":3,
+    "total_unidades":31,
     "motivo_rechazo":null,
     "created_at":"2026-04-18T09:30:00",
     "resuelto_at":null,
@@ -1118,6 +1129,7 @@ GET /vacaciones/resumen?anio=YYYY
     "estado":"aprobado",
     "cantidad_items":1,
     "total_bultos":2,
+    "total_unidades":16,
     "motivo_rechazo":null,
     "created_at":"2026-03-14T08:45:00",
     "resuelto_at":"2026-03-15T11:00:00",
@@ -1149,6 +1161,7 @@ GET /vacaciones/resumen?anio=YYYY
     "estado":"pendiente",
     "cantidad_items":2,
     "total_bultos":3,
+    "total_unidades":31,
     "motivo_rechazo":null,
     "created_at":"2026-04-18T09:30:00",
     "resuelto_at":null,
@@ -1160,7 +1173,9 @@ GET /vacaciones/resumen?anio=YYYY
         "codigo_articulo":"A1",
         "descripcion":"Gaseosa",
         "unidades_por_bulto":8,
-        "cantidad_bultos":2
+        "cantidad_bultos":2,
+        "cantidad_unidades":3,
+        "total_unidades":19
       }
     ]
   }
@@ -1215,6 +1230,7 @@ GET /vacaciones/resumen?anio=YYYY
       "estado":"pendiente",
       "cantidad_items":2,
       "total_bultos":3,
+      "total_unidades":31,
       "motivo_rechazo":null,
       "created_at":"2026-04-18T09:30:00",
       "resuelto_at":null,
@@ -1226,7 +1242,9 @@ GET /vacaciones/resumen?anio=YYYY
           "codigo_articulo":"A1",
           "descripcion":"Gaseosa",
           "unidades_por_bulto":8,
-          "cantidad_bultos":2
+          "cantidad_bultos":2,
+          "cantidad_unidades":3,
+          "total_unidades":19
         }
       ]
     }
@@ -1251,6 +1269,7 @@ GET /vacaciones/resumen?anio=YYYY
   "estado":"aprobado",
   "cantidad_items":2,
   "total_bultos":3,
+  "total_unidades":31,
   "motivo_rechazo":null,
   "created_at":"2026-04-18T09:30:00",
   "resuelto_at":"2026-04-19T11:10:00",
@@ -1262,7 +1281,9 @@ GET /vacaciones/resumen?anio=YYYY
       "codigo_articulo":"A1",
       "descripcion":"Gaseosa",
       "unidades_por_bulto":8,
-      "cantidad_bultos":2
+      "cantidad_bultos":2,
+      "cantidad_unidades":3,
+      "total_unidades":19
     }
   ]
 }
@@ -1275,14 +1296,16 @@ GET /vacaciones/resumen?anio=YYYY
 - Validaciones:
   - `items` es obligatorio
   - no se permite repetir el mismo `articulo_id` dentro del mismo pedido
-  - `cantidad_bultos` debe ser entero mayor a cero
+  - `cantidad_bultos` es opcional, debe ser entero mayor o igual a cero y por defecto vale `0`
+  - `cantidad_unidades` es opcional, representa unidades sueltas adicionales, debe ser entero mayor o igual a cero y por defecto vale `0`
+  - por cada item, al menos uno entre `cantidad_bultos` y `cantidad_unidades` debe ser mayor que cero
   - el articulo debe existir y estar habilitado para pedido
 - Request body:
 ```json
 {
   "items":[
-    {"articulo_id":5, "cantidad_bultos":2},
-    {"articulo_id":6, "cantidad_bultos":1}
+    {"articulo_id":5, "cantidad_bultos":2, "cantidad_unidades":3},
+    {"articulo_id":6, "cantidad_bultos":0, "cantidad_unidades":5}
   ]
 }
 ```
@@ -1297,6 +1320,7 @@ GET /vacaciones/resumen?anio=YYYY
   "estado":"pendiente",
   "cantidad_items":2,
   "total_bultos":3,
+  "total_unidades":31,
   "motivo_rechazo":null,
   "created_at":"2026-04-18T09:30:00",
   "resuelto_at":null,
@@ -1308,7 +1332,9 @@ GET /vacaciones/resumen?anio=YYYY
       "codigo_articulo":"A1",
       "descripcion":"Gaseosa",
       "unidades_por_bulto":8,
-      "cantidad_bultos":2
+      "cantidad_bultos":2,
+      "cantidad_unidades":3,
+      "total_unidades":19
     }
   ]
 }
@@ -1323,7 +1349,7 @@ GET /vacaciones/resumen?anio=YYYY
 ```json
 {
   "items":[
-    {"articulo_id":5, "cantidad_bultos":4}
+    {"articulo_id":5, "cantidad_bultos":4, "cantidad_unidades":2}
   ]
 }
 ```
@@ -2552,14 +2578,35 @@ Modelo base `FeedbackItem`:
 
 #### 54B. `GET /api/v1/feedback/clientes?q=&page=&per_page=`
 - Devuelve clientes activos importados por CSV desde el panel web.
+- El frontend debe enviar en `q` el texto ingresado por el usuario. El mismo campo
+  permite encontrar al cliente por nombre del negocio, razon social, direccion o codigo.
 - Query:
   | Campo | Tipo | Default | Notas |
   |---|---|---|---|
-  | `q` | string | null | Busca por id/numero de cliente, sucursal, codigo, razon social, fantasia, telefonos, movil, email, domicilio, localidad, provincia o tipo |
+  | `q` | string | null | Busca por id, sucursal, codigo, razon social, nombre de fantasia/negocio, telefonos, movil, email, domicilio/direccion, localidad, provincia o tipo |
   | `page` | int | 1 | Pagina |
   | `per_page` | int | 20 | Maximo 200 |
 
 - `sucursal_origen` es el codigo numerico de la sucursal original del CSV.
+- Mapeo para la interfaz:
+  - nombre del negocio -> `nombre_fantasia`
+  - razon social -> `razon_social`
+  - direccion -> `domicilio`
+  - codigo del cliente -> `codigo`
+- La busqueda es parcial, no distingue mayusculas/minusculas y admite varias
+  palabras. Cada palabra debe coincidir en alguno de los campos buscables.
+- Prioridad de resultados: codigo o id exacto; codigo o id que comienza con el
+  texto; razon social o fantasia exacta; razon social o fantasia que comienza
+  con el texto; coincidencia parcial; domicilio y demas campos.
+- Solo se devuelven clientes con `activo=1`.
+- Ejemplos:
+  - `GET /api/v1/feedback/clientes?q=CLI-001`
+  - `GET /api/v1/feedback/clientes?q=Cliente Centro`
+  - `GET /api/v1/feedback/clientes?q=Distribuidora SA`
+  - `GET /api/v1/feedback/clientes?q=Siempre Viva 123`
+- Presentacion recomendada en Flutter: mostrar `nombre_fantasia` como titulo
+  cuando exista, y debajo `razon_social`, `codigo` y `domicilio` para evitar
+  seleccionar un comercio equivocado.
 
 - Response 200:
 ```json

@@ -6,6 +6,30 @@
   <h2 class="section-title">Resumen general</h2>
   <p class="helper-text">Motivos, clientes cargados y distribución general del feedback.</p>
 
+  <form method="get" class="filters" style="margin:1rem 0;display:flex;gap:.75rem;align-items:end;flex-wrap:wrap;">
+    <label>
+      Sector del empleado
+      <select name="sector_id">
+        <option value="">Todos los sectores</option>
+        {% for sector in sectores %}
+          <option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>
+            {{ sector.empresa_nombre }} · {{ sector.nombre }}{% if not sector.activo %} (inactivo){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Estado del empleado
+      <select name="empleado_activo">
+        <option value="all" {% if empleado_activo == "all" %}selected{% endif %}>Todos</option>
+        <option value="1" {% if empleado_activo == "1" %}selected{% endif %}>Activos</option>
+        <option value="0" {% if empleado_activo == "0" %}selected{% endif %}>Inactivos</option>
+      </select>
+    </label>
+    <button class="btn" type="submit">Filtrar</button>
+    <a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Limpiar</a>
+  </form>
+
   <section class="grid-kpis dashboard-kpis">
     <article class="panel">
       <div class="kicker">Total</div>
@@ -59,7 +83,7 @@
         <tr><td>Resueltos en SLA</td><td>{{ resumen.resueltos_en_sla }}</td></tr>
         <tr><td>Resueltos fuera de SLA</td><td>{{ resumen.resueltos_fuera_sla }}</td></tr>
         <tr><td>Empleados con carga</td><td>{{ totales.empleados_con_carga if totales else 0 }}</td></tr>
-        <tr><td>Personal activo</td><td>{{ totales.empleados_activos if totales else 0 }}</td></tr>
+        <tr><td>Personal según filtro</td><td>{{ totales.empleados_activos if totales else 0 }}</td></tr>
       </tbody>
     </table>
   </div>
