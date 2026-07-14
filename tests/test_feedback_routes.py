@@ -160,6 +160,8 @@ def test_web_feedback_dashboard_ok(monkeypatch):
     assert b"Rotura" in resp.data
     assert b"Sector del empleado" in resp.data
     assert b"Ventas" in resp.data
+    assert b"Cargar feedback" in resp.data
+    assert b"Ver registros" in resp.data
     assert captured == {"sector_id": 7, "empleado_activo": 0}
 
 
