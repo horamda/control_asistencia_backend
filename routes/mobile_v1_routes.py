@@ -74,6 +74,8 @@ from services.justificacion_service import (
     update_justificacion as update_justificacion_svc,
 )
 from services.justificacion_attachment_service import (
+    MAX_JUSTIFICACION_ADJUNTOS,
+    delete_justificacion_adjunto,
     delete_justificacion_resources,
     justificacion_adjunto_to_mobile_dict,
     list_justificacion_adjuntos,
@@ -1459,6 +1461,8 @@ def _justificacion_to_dict(j: dict, adjuntos: list[dict] | None = None) -> dict:
         "estado": j.get("estado") or "pendiente",
         "legajo_evento_id": j.get("legajo_evento_id"),
         "adjuntos_count": adjuntos_count,
+        "adjuntos_max": MAX_JUSTIFICACION_ADJUNTOS,
+        "adjuntos_disponibles": max(0, MAX_JUSTIFICACION_ADJUNTOS - adjuntos_count),
         "adjuntos": [
             _justificacion_adjunto_to_dict(a, int(j["id"]))
             for a in adjuntos or []
@@ -1571,9 +1575,19 @@ def me_justificaciones_create():
         else:
             sync_justificacion_event(int(just_id), actor_id=None)
     except ValueError as e:
+        try:
+            delete_justificacion_resources(int(just_id), actor_id=None)
+            delete_justificacion_row(just_id)
+        except Exception:
+            current_app.logger.exception("mobile_justificaciones_create_rollback_error")
         return jsonify({"error": str(e)}), 400
     except Exception:
         current_app.logger.exception("mobile_justificaciones_create_error", extra={"extra": {"justificacion_id": just_id}})
+        try:
+            delete_justificacion_resources(int(just_id), actor_id=None)
+            delete_justificacion_row(just_id)
+        except Exception:
+            current_app.logger.exception("mobile_justificaciones_create_rollback_error")
         return jsonify({"error": "No se pudo guardar la justificacion."}), 500
 
     try:
@@ -1668,6 +1682,25 @@ def me_justificaciones_delete(justificacion_id):
         create_audit(None, "delete", "justificaciones", justificacion_id)
     except Exception:
         current_app.logger.warning("create_audit failed for justificaciones delete", exc_info=True)
+    return jsonify({"ok": True})
+
+
+@mobile_v1_bp.route("/me/justificaciones/<int:justificacion_id>/adjuntos/<int:adjunto_id>", methods=["DELETE"])
+@mobile_auth_required
+def me_justificaciones_adjunto_delete(justificacion_id, adjunto_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    j = get_justificacion_by_id(justificacion_id)
+    if not j or j.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Justificacion no encontrada"}), 404
+    try:
+        delete_justificacion_adjunto(justificacion_id, adjunto_id, actor_id=None)
+    except ValueError as exc:
+        message = str(exc)
+        status = 404 if "no encontrado" in message.lower() else 409
+        return jsonify({"error": message}), status
     return jsonify({"ok": True})
 
 

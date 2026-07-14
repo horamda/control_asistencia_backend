@@ -261,8 +261,12 @@ def create_justificacion(data: dict) -> int:
     Raises ValueError with the first error found.
     """
     normalized = dict(data)
-    if not normalized.get("estado"):
-        normalized["estado"] = "pendiente"
+    normalized["estado"] = "pendiente"
+
+    if not normalized.get("fecha_desde"):
+        raise ValueError("Fecha desde es requerida.")
+    if not normalized.get("fecha_hasta"):
+        raise ValueError("Fecha hasta es requerida.")
 
     errors = _validate_fields(normalized)
     if errors:

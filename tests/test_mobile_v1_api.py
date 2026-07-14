@@ -2186,6 +2186,29 @@ def test_mobile_justificaciones_adjuntos_list_ajena_retorna_404(monkeypatch):
     assert resp.status_code == 404
 
 
+def test_mobile_justificaciones_adjunto_delete_pendiente_ok(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_justificacion_by_id", lambda _: _FAKE_JUST_ROW)
+    captured = {}
+    monkeypatch.setattr(
+        mobile_routes,
+        "delete_justificacion_adjunto",
+        lambda justificacion_id, adjunto_id, actor_id=None: captured.update(
+            {"justificacion_id": justificacion_id, "adjunto_id": adjunto_id, "actor_id": actor_id}
+        ),
+    )
+
+    client = _build_client(monkeypatch)
+    resp = client.delete(
+        "/api/v1/mobile/me/justificaciones/55/adjuntos/88",
+        headers=_auth_headers(),
+    )
+
+    assert resp.status_code == 200
+    assert resp.get_json() == {"ok": True}
+    assert captured == {"justificacion_id": 55, "adjunto_id": 88, "actor_id": None}
+
+
 def test_mobile_justificaciones_create_ok(monkeypatch):
     _setup_just_auth(monkeypatch)
     created_data = {}

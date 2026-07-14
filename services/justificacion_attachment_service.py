@@ -24,6 +24,7 @@ from services.legajo_attachment_service import (
 
 JUSTIFICACION_EVENTO_CODIGO = "justificacion"
 JUSTIFICACION_EVENTO_TITULO = "Justificacion de asistencia"
+MAX_JUSTIFICACION_ADJUNTOS = 10
 
 
 def _to_date(value):
@@ -192,6 +193,12 @@ def save_justificacion_adjuntos(
 
     evento = get_or_create_justificacion_event(justificacion_id, actor_id=actor_id)
     existing_rows = get_adjuntos_by_evento(int(evento["id"]), include_deleted=False)
+    if len(existing_rows) + len(archivos_validos) > MAX_JUSTIFICACION_ADJUNTOS:
+        disponibles = max(0, MAX_JUSTIFICACION_ADJUNTOS - len(existing_rows))
+        raise ValueError(
+            f"La justificacion admite hasta {MAX_JUSTIFICACION_ADJUNTOS} adjuntos. "
+            f"Puede agregar {disponibles} archivo(s) mas."
+        )
     existing_sha256 = {
         str(row.get("sha256") or "").strip()
         for row in existing_rows
@@ -232,6 +239,30 @@ def save_justificacion_adjuntos(
             created_rows.append(row)
 
     return created_rows
+
+
+def delete_justificacion_adjunto(
+    justificacion_id: int,
+    adjunto_id: int,
+    *,
+    actor_id: int | None = None,
+) -> None:
+    justificacion = get_justificacion_by_id(justificacion_id)
+    if not justificacion:
+        raise ValueError("Justificacion no encontrada.")
+    if str(justificacion.get("estado") or "pendiente").strip().lower() != "pendiente":
+        raise ValueError("Solo se pueden eliminar adjuntos de una justificacion pendiente.")
+
+    adjunto = get_adjunto_by_id(adjunto_id)
+    if (
+        not adjunto
+        or int(adjunto.get("evento_justificacion_id") or 0) != int(justificacion_id)
+        or str(adjunto.get("estado") or "").strip().lower() != "activo"
+    ):
+        raise ValueError("Adjunto no encontrado.")
+
+    mark_deleted(adjunto_id, actor_id)
+    _cleanup_saved_storage(adjunto)
 
 
 def delete_justificacion_resources(justificacion_id: int, *, actor_id: int | None = None) -> None:

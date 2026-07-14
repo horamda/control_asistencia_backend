@@ -72,11 +72,11 @@
         <div class="form-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin-top: 0.35rem;">
           <div class="row">
             <label>Desde</label>
-            <input id="fecha-desde" name="fecha_desde" type="date" value="{{ data.fecha_desde or data.fecha or data.asistencia_fecha or '' }}" max="{{ today or '' }}">
+            <input id="fecha-desde" name="fecha_desde" type="date" value="{{ data.fecha_desde or data.fecha or data.asistencia_fecha or '' }}" max="{{ today or '' }}" required>
           </div>
           <div class="row">
             <label>Hasta</label>
-            <input id="fecha-hasta" name="fecha_hasta" type="date" value="{{ data.fecha_hasta or data.fecha or data.asistencia_fecha or '' }}" max="{{ today or '' }}">
+            <input id="fecha-hasta" name="fecha_hasta" type="date" value="{{ data.fecha_hasta or data.fecha or data.asistencia_fecha or '' }}" max="{{ today or '' }}" required>
           </div>
         </div>
         <div id="fecha-rango-help" class="helper-text">
@@ -95,8 +95,9 @@
 
       <div class="row span-2">
         <label>Adjuntos</label>
-        <input type="file" name="adjuntos" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
-        <div class="helper-text">Puede subir una o varias fotos/PDFs desde web o Flutter.</div>
+        <input id="justificacion-adjuntos" type="file" name="adjuntos" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
+        <div class="helper-text">Opcional. Hasta 10 archivos entre fotos JPG/PNG/WEBP y PDFs.</div>
+        <div id="adjuntos-seleccionados" class="chip-row" style="flex-wrap:wrap;margin-top:.5rem;"></div>
       </div>
 
       {% if mode == "edit" %}
@@ -105,14 +106,14 @@
           {% if adjuntos %}
             <div class="chip-row" style="flex-wrap: wrap;">
               {% for adjunto in adjuntos %}
-                <a
-                  class="chip"
-                  href="{{ url_for('media.legajo_adjunto', adjunto_id=adjunto.id) }}"
-                  target="_blank"
-                  rel="noopener"
-                >
-                  {{ adjunto.nombre_original or ('Adjunto ' ~ adjunto.id) }}
-                </a>
+                <span class="chip">
+                  <a href="{{ url_for('media.legajo_adjunto', adjunto_id=adjunto.id) }}" target="_blank" rel="noopener">
+                    {{ adjunto.nombre_original or ('Adjunto ' ~ adjunto.id) }}
+                  </a>
+                  {% if (data.estado or 'pendiente') == 'pendiente' %}
+                    <button type="submit" class="btn-danger" style="margin-left:.35rem;" formaction="{{ url_for('justificaciones.eliminar_adjunto', justificacion_id=data.id, adjunto_id=adjunto.id) }}" formmethod="post">Quitar</button>
+                  {% endif %}
+                </span>
               {% endfor %}
             </div>
             <div class="helper-text">Los adjuntos ya se pueden revisar antes de aprobar o rechazar la justificacion.</div>
@@ -122,18 +123,7 @@
         </div>
       {% endif %}
 
-      {% if mode == "new" %}
-        <div class="row">
-          <label>Estado inicial</label>
-          <select name="estado">
-            {% for s in ["pendiente", "aprobada", "rechazada"] %}
-              <option value="{{ s }}" {% if (data.estado or "pendiente") == s %}selected{% endif %}>
-                {{ s | capitalize }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-      {% endif %}
+      {% if mode == "new" %}<input type="hidden" name="estado" value="pendiente">{% endif %}
     </div>
 
     {% if mode == "edit" %}
@@ -177,6 +167,25 @@
     fromInput.addEventListener("input", refreshRangeHelp);
     toInput.addEventListener("input", refreshRangeHelp);
     refreshRangeHelp();
+
+    const filesInput = document.getElementById("justificacion-adjuntos");
+    const filesList = document.getElementById("adjuntos-seleccionados");
+    if (filesInput && filesList) {
+      filesInput.addEventListener("change", function () {
+        filesList.innerHTML = "";
+        Array.from(filesInput.files).forEach(function (file) {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = file.name;
+          filesList.appendChild(chip);
+        });
+        if (filesInput.files.length > 10) {
+          filesInput.setCustomValidity("Puede seleccionar hasta 10 archivos.");
+        } else {
+          filesInput.setCustomValidity("");
+        }
+      });
+    }
   })();
 </script>
 {% endblock %}

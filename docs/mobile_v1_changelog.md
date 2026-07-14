@@ -1,5 +1,14 @@
 ﻿# Change log
 
+### 1.24.0 (2026-07-14)
+- Justificaciones requieren `fecha_desde`, `fecha_hasta` y `motivo` al crear.
+- Web y Flutter admiten hasta 10 fotos o PDFs por justificacion.
+- Todas las altas quedan inicialmente en estado `pendiente`.
+- Nuevo `DELETE /me/justificaciones/{id}/adjuntos/{adjunto_id}` para quitar
+  evidencias individuales mientras la justificacion siga pendiente.
+- Si falla el guardado de evidencias durante el alta, el backend revierte la
+  justificacion para evitar registros parciales.
+
 ### 1.23.1 (2026-07-14)
 - Se explicita el contrato de busqueda de clientes para cargar feedback:
   - `q` busca por nombre del negocio (`nombre_fantasia`), razon social,

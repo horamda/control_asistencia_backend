@@ -6,6 +6,7 @@ from repositories.asistencia_repository import get_all as get_asistencias
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.justificacion_repository import delete, get_by_id, get_page
 from services.justificacion_attachment_service import (
+    delete_justificacion_adjunto,
     delete_justificacion_resources,
     list_justificacion_adjuntos,
     save_justificacion_adjuntos,
@@ -109,6 +110,7 @@ def nuevo():
         data = _extract_form_data(request.form)
         if not data["asistencia_id_present"]:
             data["asistencia_id"] = None
+        data["estado"] = "pendiente"
         try:
             just_id = create_justificacion(data)
         except ValueError as exc:
@@ -126,7 +128,12 @@ def nuevo():
             adjuntos = _extract_adjuntos_from_request()
             if adjuntos:
                 save_justificacion_adjuntos(int(just_id), adjuntos, actor_id=session.get("user_id"))
-        except ValueError as exc:
+        except Exception as exc:
+            try:
+                delete_justificacion_resources(int(just_id), actor_id=session.get("user_id"))
+                delete(just_id)
+            except Exception:
+                current_app.logger.exception("web_justificaciones_create_rollback_error")
             return render_template(
                 "justificaciones/form.html",
                 mode="new",
@@ -147,6 +154,21 @@ def nuevo():
         asistencias=asistencias,
         today=today,
     )
+
+
+@justificaciones_bp.post("/<int:justificacion_id>/adjuntos/<int:adjunto_id>/eliminar")
+@role_required("admin", "rrhh", "supervisor")
+def eliminar_adjunto(justificacion_id: int, adjunto_id: int):
+    try:
+        delete_justificacion_adjunto(
+            justificacion_id,
+            adjunto_id,
+            actor_id=session.get("user_id"),
+        )
+    except ValueError as exc:
+        return redirect(url_for("justificaciones.editar", justificacion_id=justificacion_id, error=str(exc)))
+    log_audit(session, "delete_attachment", "justificaciones", justificacion_id)
+    return redirect(url_for("justificaciones.editar", justificacion_id=justificacion_id, msg="Adjunto eliminado."))
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +232,7 @@ def editar(justificacion_id):
         "justificaciones/form.html",
         mode="edit",
         data=justificacion,
+        errors=[request.args.get("error")] if request.args.get("error") else None,
         empleados=empleados,
         asistencias=asistencias,
         adjuntos=adjuntos_existentes,

@@ -1,6 +1,6 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.23.1
+Version de contrato: 1.24.0
 Fecha de corte: 2026-07-14
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
@@ -540,6 +540,8 @@ final body = {'dni': dni, 'password': password, ...extras};
       "archivo":"https://.../cert.pdf",
       "legajo_evento_id":99,
       "adjuntos_count":2,
+      "adjuntos_max":10,
+      "adjuntos_disponibles":8,
       "adjuntos":[
         {
           "id":88,
@@ -570,15 +572,15 @@ final body = {'dni': dni, 'password': password, ...extras};
 #### 20. `POST /api/v1/mobile/me/justificaciones`
 - Request JSON:
 ```json
-{"fecha":"2026-02-14","motivo":"Enfermedad con certificado medico","archivo":"https://.../cert.pdf"}
+{"fecha_desde":"2026-02-14","fecha_hasta":"2026-02-16","motivo":"Enfermedad con certificado medico","archivo":"https://.../cert.pdf"}
 ```
 - Request multipart/form-data:
-  - `fecha` opcional; fecha operativa de la justificacion. Si no se envia, el backend la infiere desde `asistencia_id` o usa la fecha actual del alta.
+  - `fecha_desde` obligatoria (`YYYY-MM-DD`).
+  - `fecha_hasta` obligatoria (`YYYY-MM-DD`) y no puede ser anterior a `fecha_desde`.
   - `asistencia_id` opcional.
   - `motivo` obligatorio.
   - `archivo` opcional; URL legacy.
-  - `adjuntos` opcional; uno o varios archivos (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`).
-- `fecha`: fecha operativa de la justificacion (`YYYY-MM-DD`).
+  - `adjuntos` opcional; hasta 10 archivos totales (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`).
 - `asistencia_id`: opcional; si es null, la justificacion no tiene asistencia asociada.
 - `archivo`: opcional; URL al documento adjunto.
 - Los archivos subidos se normalizan y se guardan en la base de datos a traves del modulo de legajos.
@@ -590,7 +592,7 @@ final body = {'dni': dni, 'password': password, ...extras};
 - Solo permite editar justificaciones en estado `pendiente`.
 - Request JSON:
 ```json
-{"fecha":"2026-02-15","motivo":"Motivo actualizado","archivo":null}
+{"fecha_desde":"2026-02-15","fecha_hasta":"2026-02-18","motivo":"Motivo actualizado","archivo":null}
 ```
 - Request multipart/form-data:
   - mismos campos que `POST`
@@ -633,6 +635,13 @@ final body = {'dni': dni, 'password': password, ...extras};
 - `download=true` fuerza descarga como attachment.
 - Response 200: binario del archivo normalizado (`application/pdf` en la practica).
 - Response 404: `{"error":"Adjunto no encontrado"}`
+
+#### 22C. `DELETE /api/v1/mobile/me/justificaciones/<id>/adjuntos/<adjunto_id>`
+- Elimina individualmente un adjunto propio.
+- Solo se permite mientras la justificacion este `pendiente`.
+- Response 200: `{"ok":true}`
+- Response 404: justificacion o adjunto no encontrado.
+- Response 409: la justificacion ya fue aprobada o rechazada.
 
 ---
 

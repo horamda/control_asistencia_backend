@@ -1,7 +1,7 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - Mobile API v1
-  version: 1.23.1
+  version: 1.24.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -301,6 +301,12 @@ components:
           type: string
           format: date
           nullable: true
+        fecha_desde:
+          type: string
+          format: date
+        fecha_hasta:
+          type: string
+          format: date
         motivo:
           type: string
         archivo:
@@ -312,6 +318,11 @@ components:
         adjuntos_count:
           type: integer
           default: 0
+        adjuntos_max:
+          type: integer
+          example: 10
+        adjuntos_disponibles:
+          type: integer
         adjuntos:
           type: array
           items:
@@ -350,8 +361,14 @@ components:
 
     JustificacionCreateRequest:
       type: object
-      required: [motivo]
+      required: [fecha_desde, fecha_hasta, motivo]
       properties:
+        fecha_desde:
+          type: string
+          format: date
+        fecha_hasta:
+          type: string
+          format: date
         asistencia_id:
           type: integer
           nullable: true
@@ -365,8 +382,14 @@ components:
 
     JustificacionCreateMultipartRequest:
       type: object
-      required: [motivo]
+      required: [fecha_desde, fecha_hasta, motivo]
       properties:
+        fecha_desde:
+          type: string
+          format: date
+        fecha_hasta:
+          type: string
+          format: date
         asistencia_id:
           type: integer
           nullable: true
@@ -377,6 +400,7 @@ components:
           nullable: true
         adjuntos:
           type: array
+          maxItems: 10
           items:
             type: string
             format: binary
@@ -3134,6 +3158,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Justificaciones]
+      summary: Elimina un adjunto de una justificacion pendiente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: adjunto_id
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: Adjunto eliminado
+        '404':
+          description: Justificacion o adjunto no encontrado
+        '409':
+          description: La justificacion ya no esta pendiente
 
   # ---- Vacaciones ----
   /vacaciones/resumen:
