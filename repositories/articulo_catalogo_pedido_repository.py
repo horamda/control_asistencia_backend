@@ -1,4 +1,5 @@
 from extensions import get_db
+from utils.search import build_tokenized_like_clause
 
 
 def count_all(*, habilitado_only: bool = False) -> int:
@@ -36,11 +37,31 @@ def get_page(
         if habilitado_only:
             where.append("a.habilitado_pedido = 1")
         if search:
-            like = f"%{search}%"
-            where.append(
-                "(a.codigo_articulo LIKE %s OR a.descripcion LIKE %s OR a.marca LIKE %s OR a.familia LIKE %s OR a.sabor LIKE %s)"
+            clause, clause_params = build_tokenized_like_clause(
+                [
+                    "CAST(a.id AS CHAR)",
+                    "a.codigo_articulo",
+                    "a.descripcion",
+                    "a.marca",
+                    "a.familia",
+                    "a.sabor",
+                    "a.division",
+                    "a.codigo_barras",
+                    "a.codigo_barras_unidad",
+                    "a.presentacion_bulto",
+                    "a.descripcion_presentacion_bulto",
+                    "a.presentacion_unidad",
+                    "a.descripcion_presentacion_unidad",
+                    "CAST(a.unidades_por_bulto AS CHAR)",
+                    "CAST(a.bultos_por_pallet AS CHAR)",
+                    "a.tipo_producto_fuente",
+                ],
+                search,
+                max_terms=5,
             )
-            params.extend([like, like, like, like, like])
+            if clause:
+                where.append(clause)
+                params.extend(clause_params)
 
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         cursor.execute(

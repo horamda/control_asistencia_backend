@@ -234,6 +234,7 @@ def generar_dashboard_empleado_excel(
     wb = Workbook()
 
     asistencia = stats.get("asistencia", {})
+    vac_anual = asistencia.get("vacaciones_resumen") or {}
 
     # Resumen
     ws = wb.active
@@ -283,6 +284,33 @@ def generar_dashboard_empleado_excel(
             ["Vacaciones dias", asistencia.get("vacaciones", {}).get("dias", 0)],
         ],
     )
+
+    if vac_anual:
+        row = _write_table_block(
+            ws,
+            row,
+            "Vacaciones",
+            ["Metrica", "Valor"],
+            [
+                ["Anio", vac_anual.get("anio", "")],
+                ["Corresponden", vac_anual.get("corresponden", 0)],
+                ["Tomados", vac_anual.get("tomados", 0)],
+                ["Disponibles", vac_anual.get("disponibles", 0)],
+                ["Disponibles con pendientes", vac_anual.get("disponibles_con_pendientes", 0)],
+                ["Pendientes", vac_anual.get("pendientes", 0)],
+                ["Base", vac_anual.get("base", 0)],
+                ["Compensatorios", vac_anual.get("compensatorios", 0)],
+                ["Ajustes", vac_anual.get("ajustes", 0)],
+            ],
+        )
+    else:
+        row = _write_table_block(
+            ws,
+            row,
+            "Vacaciones",
+            ["Metrica", "Valor"],
+            [["Resumen anual", "No disponible"]],
+        )
 
     row = _write_table_block(
         ws,

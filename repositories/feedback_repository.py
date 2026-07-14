@@ -1,4 +1,5 @@
 from extensions import get_db
+from utils.search import build_tokenized_like_clause
 
 
 def _base_select_sql() -> str:
@@ -93,23 +94,36 @@ def _build_where(
             where.append("fb.estado_actual = %s")
             params.append(estado_norm)
     if search:
-        like = f"%{search}%"
-        where.append(
-            "("
-            "fb.cliente_razon_social LIKE %s OR "
-            "fb.cliente_nombre_fantasia LIKE %s OR "
-            "fb.cliente_codigo LIKE %s OR "
-            "fb.cliente_razon_social_snapshot LIKE %s OR "
-            "fb.cliente_nombre_fantasia_snapshot LIKE %s OR "
-            "fb.cliente_codigo_snapshot LIKE %s OR "
-            "fb.motivo_nombre LIKE %s OR "
-            "fb.motivo_nombre_snapshot LIKE %s OR "
-            "fb.descripcion LIKE %s OR "
-            "fb.empleado_nombre LIKE %s OR "
-            "fb.jefe_directo_nombre LIKE %s"
-            ")"
+        clause, clause_params = build_tokenized_like_clause(
+            [
+                "CAST(fb.id AS CHAR)",
+                "fb.estado",
+                "fb.estado_actual",
+                "fb.cliente_razon_social",
+                "fb.cliente_nombre_fantasia",
+                "fb.cliente_codigo",
+                "fb.cliente_razon_social_snapshot",
+                "fb.cliente_nombre_fantasia_snapshot",
+                "fb.cliente_codigo_snapshot",
+                "fb.motivo_nombre",
+                "fb.motivo_nombre_snapshot",
+                "fb.descripcion",
+                "fb.resolucion_descripcion",
+                "fb.empleado_nombre",
+                "fb.empleado_legajo",
+                "fb.empleado_dni",
+                "fb.jefe_directo_nombre",
+                "fb.jefe_directo_legajo",
+                "fb.jefe_directo_dni",
+                "fb.resuelto_por_nombre",
+                "fb.resuelto_por_legajo",
+            ],
+            search,
+            max_terms=5,
         )
-        params.extend([like, like, like, like, like, like, like, like, like, like, like])
+        if clause:
+            where.append(clause)
+            params.extend(clause_params)
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
     return where_sql, params

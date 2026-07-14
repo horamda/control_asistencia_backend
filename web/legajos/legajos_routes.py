@@ -35,6 +35,7 @@ from repositories.legajo_evento_repository import (
 from repositories.empleado_horario_repository import get_actual_by_empleado as _get_horario_actual
 from services.horario_service import get_horario_estructurado as _get_horario_estructurado
 from services.export_excel_service import generar_dashboard_empleado_excel
+from services.vacaciones_service import VacacionesError, calcular_resumen_vacaciones
 from services.legajo_attachment_service import save_legajo_attachment_local
 from utils.audit import log_audit
 from web.auth.decorators import role_required
@@ -901,6 +902,7 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
                 vac_dates.add(cur_v.isoformat())
                 cur_v += datetime.timedelta(days=1)
     vacaciones = {"eventos": len(vac_rows), "dias": vac_dias}
+    vacaciones_resumen = _compute_vacaciones_resumen_dashboard(empleado_id, hasta)
 
     # Ausencias cubiertas por vacaciones (no deben contarse como "sin justificar")
     ausencias_en_vacaciones = sum(
@@ -1182,6 +1184,7 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
             "justificaciones": justificaciones,
             "ausencias": ausencias,
             "vacaciones": vacaciones,
+            "vacaciones_resumen": vacaciones_resumen,
             "racha_ok": racha_ok,
         },
         "asistencia_status_rows": asistencia_status_rows,
@@ -1330,6 +1333,43 @@ def _get_horas_teoricas_por_dia_semana(empleado_id: int) -> dict[int, float] | N
         return None
 
 
+def _compute_vacaciones_resumen_dashboard(empleado_id: int, hasta) -> dict:
+    referencia = _to_date(hasta) or datetime.date.today()
+    anio = referencia.year
+
+    def _empty():
+        return {}
+
+    try:
+        resumen = calcular_resumen_vacaciones(int(empleado_id), anio)
+        vacaciones = resumen.get("vacaciones") or {}
+        return {
+            "anio": int(resumen.get("anio") or anio),
+            "base": vacaciones.get("dias_base", 0),
+            "corresponden": vacaciones.get("dias_corresponden", 0),
+            "tomados": vacaciones.get("dias_tomados", 0),
+            "disponibles": vacaciones.get("dias_disponibles", 0),
+            "disponibles_con_pendientes": vacaciones.get("dias_disponibles_con_pendientes", 0),
+            "pendientes": vacaciones.get("dias_pendientes", 0),
+            "compensatorios": vacaciones.get("dias_compensatorios", 0),
+            "ajustes": vacaciones.get("dias_ajustes", 0),
+            "aplica_control_proporcional": bool(vacaciones.get("aplica_control_proporcional")),
+            "calculo_proporcional": bool(vacaciones.get("calculo_proporcional")),
+            "antiguedad_al_31_12": vacaciones.get("antiguedad_al_31_12"),
+            "desglose_corresponde": vacaciones.get("desglose_corresponde", []),
+            "fecha_evaluacion_trabajo": vacaciones.get("fecha_evaluacion_trabajo"),
+        }
+    except VacacionesError:
+        return _empty()
+    except Exception:
+        current_app.logger.exception(
+            "dashboard_empleado_vacaciones_error empleado_id=%s anio=%s",
+            empleado_id,
+            anio,
+        )
+        return _empty()
+
+
 def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos):
     empleados, empleados_total = _get_empleados_page(
         1, 50,
@@ -1473,6 +1513,20 @@ def dashboard_empleado_export_csv():
     writer.writerow(["Puntualidad %", asistencia["kpis"].get("puntualidad_pct", 0)])
     writer.writerow(["Ausentismo %", asistencia["kpis"].get("ausentismo_pct", 0)])
     writer.writerow(["Justificaciones pendientes", asistencia["justificaciones"].get("pendientes", 0)])
+    vac_anual = asistencia.get("vacaciones_resumen") or {}
+    if vac_anual:
+        writer.writerow(["Vacaciones anuales"])
+        writer.writerow(["Anio", vac_anual.get("anio", "")])
+        writer.writerow(["Corresponden", vac_anual.get("corresponden", 0)])
+        writer.writerow(["Tomados", vac_anual.get("tomados", 0)])
+        writer.writerow(["Disponibles", vac_anual.get("disponibles", 0)])
+        writer.writerow(["Disponibles con pendientes", vac_anual.get("disponibles_con_pendientes", 0)])
+        writer.writerow(["Pendientes", vac_anual.get("pendientes", 0)])
+        writer.writerow(["Base", vac_anual.get("base", 0)])
+        writer.writerow(["Compensatorios", vac_anual.get("compensatorios", 0)])
+        writer.writerow(["Ajustes", vac_anual.get("ajustes", 0)])
+    else:
+        writer.writerow(["Vacaciones anuales", "No disponible"])
     writer.writerow(["Vacaciones (eventos)", asistencia["vacaciones"].get("eventos", 0)])
     writer.writerow(["Vacaciones (dias)", asistencia["vacaciones"].get("dias", 0)])
     writer.writerow([])
@@ -1596,4 +1650,4 @@ def dashboard_empleado_print():
     ctx = _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos)
     ctx["auto_print"] = auto_print
 
-    return render_template("legajos/dashboard_empleado.html", **ctx)
+    return render_template("legajos/dashboard_empleado_print.html", **ctx)

@@ -17,6 +17,17 @@ SESSION_COOKIE_SAMESITE=Lax
 CORS_ALLOWED_ORIGINS=https://<frontend>
 ```
 
+Para habilitar la API externa de reportes con usuario, contrasena y token:
+
+```env
+EXTERNAL_API_USERNAME=ApiFichaYa
+EXTERNAL_API_PASSWORD_HASH=<hash-generado-con-werkzeug>
+EXTERNAL_API_JWT_SECRET=<clave-aleatoria-minimo-32-caracteres>
+EXTERNAL_API_TOKEN_TTL_MINUTES=60
+```
+
+`EXTERNAL_API_KEY` queda disponible como mecanismo anterior opcional. El contrato y los comandos para generar los secretos estan en `docs/external_api_contract.md`.
+
 Para MySQL de Railway se pueden usar directamente las variables que expone el
 servicio de base:
 

@@ -32,6 +32,7 @@
     {% set justificaciones = asistencia.get("justificaciones", {}) %}
     {% set ausencias = asistencia.get("ausencias", {}) %}
     {% set vacaciones = asistencia.get("vacaciones", {}) %}
+    {% set vacaciones_resumen = asistencia.get("vacaciones_resumen", {}) %}
 
     <h1>Dashboard por empleado</h1>
     <p class="meta">
@@ -67,6 +68,16 @@
           <li>Justificaciones pendientes: {{ justificaciones.get("pendientes", 0) }}</li>
           <li>Ausencias sin justificacion: {{ ausencias.get("sin_justificacion", 0) }}</li>
           <li>Vacaciones eventos/dias: {{ vacaciones.get("eventos", 0) }} / {{ vacaciones.get("dias", 0) }}</li>
+          {% if vacaciones_resumen %}
+            <li>Vacaciones anuales: {{ vacaciones_resumen.get("anio") or "-" }}</li>
+            <li>Corresponden: {{ vacaciones_resumen.get("corresponden", 0) }}</li>
+            <li>Tomados aprobados: {{ vacaciones_resumen.get("tomados", 0) }}</li>
+            <li>Disponibles: {{ vacaciones_resumen.get("disponibles", 0) }}</li>
+            <li>Disponibles con pendientes: {{ vacaciones_resumen.get("disponibles_con_pendientes", 0) }}</li>
+            <li>Pendientes: {{ vacaciones_resumen.get("pendientes", 0) }}</li>
+          {% else %}
+            <li>Vacaciones anuales: No disponible</li>
+          {% endif %}
         </ul>
       </div>
       <div class="box">

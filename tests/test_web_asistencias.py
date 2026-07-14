@@ -321,6 +321,7 @@ def test_historial_marcas_get_ok(monkeypatch):
     resp = client.get("/asistencias/marcas")
     assert resp.status_code == 200
     assert b"Historial de marcas" in resp.data
+    assert b"Reporte CSV" in resp.data
 
 
 def test_historial_marcas_csv_ok(monkeypatch):
@@ -359,6 +360,61 @@ def test_historial_marcas_csv_ok(monkeypatch):
     assert "text/csv" in resp.headers["Content-Type"]
     assert "historial_marcas_" in resp.headers["Content-Disposition"]
     assert b"Empresa Test" in resp.data
+
+
+def test_historial_marcas_reporte_csv_ok(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    captured = {}
+
+    rows = [
+        {
+            "id": 2,
+            "empleado_id": 20,
+            "fecha": datetime.date(2026, 6, 11),
+            "hora": datetime.time(16, 54),
+            "accion": "egreso",
+            "legajo": "803",
+            "apellido": "Gonzalez",
+            "nombre": "Lucas",
+            "sucursal_nombre": "Porton Lateral",
+            "sector_nombre": "Almacen",
+            "dni": "803",
+        },
+        {
+            "id": 1,
+            "empleado_id": 10,
+            "fecha": datetime.date(2026, 6, 11),
+            "hora": datetime.time(13, 50),
+            "accion": "ingreso",
+            "legajo": "58",
+            "apellido": "Pereyra",
+            "nombre": "Gabriel",
+            "sucursal_nombre": "Porton Lateral",
+            "sector_nombre": "Reparto",
+            "dni": "58",
+        },
+    ]
+
+    def _fake_export(**kwargs):
+        captured["kwargs"] = kwargs
+        if kwargs.get("order_asc"):
+            return list(reversed(rows))
+        return list(rows)
+
+    monkeypatch.setattr(asistencias_routes, "get_marcas_admin_export", _fake_export)
+
+    resp = client.get("/asistencias/marcas/reporte.csv?empresa_id=1&fecha_desde=2026-06-11&fecha_hasta=2026-06-11")
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["Content-Type"]
+    assert "reporte_asistencia_" in resp.headers["Content-Disposition"]
+    assert captured["kwargs"]["order_asc"] is True
+
+    lines = resp.data.decode("utf-8-sig").splitlines()
+    assert lines[0] == "MES,FECHA,HORA,PUERTA,TIPO MOV,CODIGO,NOMBRE,SECTOR"
+    assert lines[1] == "6,11/6/2026,13:50,Porton Lateral,Entrada,58,PEREYRA GABRIEL,Reparto"
+    assert lines[2] == "6,11/6/2026,16:54,Porton Lateral,Salida,803,GONZALEZ LUCAS,Almacen"
 
 
 def test_historial_marcas_xlsx_ok(monkeypatch):

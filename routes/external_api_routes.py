@@ -4,13 +4,27 @@ import hmac
 import math
 import os
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 
+from repositories.asistencia_marca_repository import (
+    get_for_export_admin as get_marcas_admin_export,
+)
 from repositories.external_api_repository import (
     get_empresas as get_empresas_external,
     get_sucursales as get_sucursales_external,
     list_empleados as list_empleados_external,
 )
+from services.asistencia_reporte_service import build_asistencia_reporte_csv
+from services.external_api_auth_service import (
+    EXTERNAL_API_SCOPE,
+    ExternalApiAuthConfigError,
+    ExternalApiTokenError,
+    authenticate_external_credentials,
+    external_credentials_configured,
+    issue_external_access_token,
+    verify_external_access_token,
+)
+from utils.limiter import limiter
 
 external_api_bp = Blueprint("external_api", __name__, url_prefix="/api/v1/external")
 
@@ -26,10 +40,10 @@ def _configured_api_key() -> str | None:
 
 
 def _request_api_key() -> str:
-    header_key = (request.headers.get("X-API-Key") or "").strip()
-    if header_key:
-        return header_key
+    return (request.headers.get("X-API-Key") or "").strip()
 
+
+def _request_bearer_token() -> str:
     auth_header = (request.headers.get("Authorization") or "").strip()
     if auth_header.lower().startswith("bearer "):
         return auth_header[7:].strip()
@@ -39,22 +53,68 @@ def _request_api_key() -> str:
 def _api_auth_error(message: str, status_code: int):
     response = jsonify({"error": message})
     response.headers["WWW-Authenticate"] = 'ApiKey realm="external"'
+    response.headers.add("WWW-Authenticate", 'Bearer realm="external"')
     return response, status_code
 
 
 @external_api_bp.before_request
 def _require_external_api_key():
-    if request.method == "OPTIONS":
+    if request.method == "OPTIONS" or request.endpoint == "external_api.auth_token":
         return None
 
     expected_key = _configured_api_key()
-    if not expected_key:
-        return jsonify({"error": "EXTERNAL_API_KEY no configurada."}), 503
+    if not expected_key and not external_credentials_configured():
+        return jsonify({
+            "error": "EXTERNAL_API_KEY o credenciales de API externa no configuradas."
+        }), 503
 
     provided_key = _request_api_key()
-    if not provided_key or not hmac.compare_digest(provided_key, expected_key):
+    if provided_key:
+        if expected_key and hmac.compare_digest(provided_key, expected_key):
+            return None
         return _api_auth_error("API key invalida o ausente.", 401)
-    return None
+
+    bearer_token = _request_bearer_token()
+    if bearer_token:
+        if expected_key and hmac.compare_digest(bearer_token, expected_key):
+            return None
+        try:
+            verify_external_access_token(bearer_token)
+            return None
+        except ExternalApiAuthConfigError as exc:
+            return jsonify({"error": str(exc)}), 503
+        except ExternalApiTokenError:
+            return _api_auth_error("API key invalida o ausente.", 401)
+
+    return _api_auth_error("API key invalida o ausente.", 401)
+
+
+@external_api_bp.route("/auth/token", methods=["POST"])
+@limiter.limit("5 per minute")
+def auth_token():
+    data = request.get_json(silent=True) or {}
+    username = str(data.get("username") or "").strip()
+    password = str(data.get("password") or "")
+    if not username or not password:
+        return jsonify({"error": "username y password son requeridos."}), 400
+
+    try:
+        authenticated = authenticate_external_credentials(username, password)
+        if not authenticated:
+            return _api_auth_error("Credenciales invalidas.", 401)
+        token, expires_in = issue_external_access_token(username)
+    except ExternalApiAuthConfigError as exc:
+        return jsonify({"error": str(exc)}), 503
+
+    response = jsonify({
+        "access_token": token,
+        "token_type": "Bearer",
+        "expires_in": expires_in,
+        "scope": EXTERNAL_API_SCOPE,
+    })
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 
 def _split_values(*names: str) -> list[str]:
@@ -255,6 +315,59 @@ def _pagination(page: int, per_page: int, total: int) -> dict:
     }
 
 
+def _parse_optional_date(name: str) -> tuple[str | None, str | None]:
+    raw = str(request.args.get(name) or "").strip()
+    if not raw:
+        return None, None
+    try:
+        return datetime.date.fromisoformat(raw).isoformat(), None
+    except ValueError:
+        return None, f"{name} debe usar formato YYYY-MM-DD."
+
+
+def _report_filters() -> tuple[dict | None, str | None]:
+    empresa_id, error = _parse_optional_int("empresa_id")
+    if error:
+        return None, error
+    empleado_id, error = _parse_optional_int("empleado_id")
+    if error:
+        return None, error
+    fecha_desde, error = _parse_optional_date("fecha_desde")
+    if error:
+        return None, error
+    fecha_hasta, error = _parse_optional_date("fecha_hasta")
+    if error:
+        return None, error
+    if fecha_desde and fecha_hasta and fecha_desde > fecha_hasta:
+        return None, "fecha_desde no puede ser posterior a fecha_hasta."
+
+    gps_ok, error = _parse_activo("gps_ok", default=None)
+    if error:
+        return None, error
+
+    limit_raw = str(request.args.get("limit") or "20000").strip()
+    try:
+        limit = int(limit_raw)
+    except (TypeError, ValueError):
+        return None, "limit debe ser numerico."
+    if limit <= 0:
+        return None, "limit debe ser mayor a cero."
+
+    return {
+        "empresa_id": empresa_id,
+        "empleado_id": empleado_id,
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta,
+        "tipo_marca": str(request.args.get("tipo_marca") or "").strip() or None,
+        "accion": str(request.args.get("accion") or "").strip() or None,
+        "metodo": str(request.args.get("metodo") or "").strip() or None,
+        "search": str(request.args.get("q") or "").strip() or None,
+        "gps_ok": gps_ok,
+        "limit": min(limit, 20000),
+        "order_asc": True,
+    }, None
+
+
 @external_api_bp.route("/empresas", methods=["GET"])
 def empresas():
     activa, error = _parse_activo("activa", default=1)
@@ -326,3 +439,24 @@ def catalogo():
             empleados_total,
         ),
     })
+
+
+@external_api_bp.route("/reportes/asistencia.csv", methods=["GET"])
+@limiter.limit("30 per minute")
+def reporte_asistencia_csv():
+    filters, error = _report_filters()
+    if error:
+        return jsonify({"error": error}), 400
+
+    rows = get_marcas_admin_export(**filters)
+    csv_content = build_asistencia_reporte_csv(rows)
+    filename = f"reporte_asistencia_{datetime.date.today().isoformat()}.csv"
+    return Response(
+        csv_content,
+        mimetype="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+            "X-Report-Row-Count": str(len(rows)),
+        },
+    )

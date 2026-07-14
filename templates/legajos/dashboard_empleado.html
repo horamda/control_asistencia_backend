@@ -8,6 +8,7 @@
 {% set justificaciones = asistencia.get("justificaciones", {}) %}
 {% set ausencias = asistencia.get("ausencias", {}) %}
 {% set vacaciones = asistencia.get("vacaciones", {}) %}
+{% set vacaciones_resumen = asistencia.get("vacaciones_resumen", {}) %}
 {% set racha_ok = asistencia.get("racha_ok", 0) %}
 <div class="content-stack">
   <div class="section-head">
@@ -15,7 +16,7 @@
       <div class="section-kicker">Legajo + Ficha</div>
       <h2>Dashboard por empleado</h2>
       <p class="module-intro">
-        Busque un empleado y vea sus tardanzas, ausencias, justificaciones y eventos de legajo por tipo.
+        Busque un empleado y vea sus indicadores de asistencia, saldo anual de vacaciones y eventos de legajo por tipo.
       </p>
     </div>
     <div class="chip-row">
@@ -258,6 +259,24 @@
         <div class="kpi-desc">{{ justificaciones.get("aprobadas", 0) }} aprobadas de {{ totales.get("ausente", 0) }} ausencias</div>
       </article>
 
+      <article class="kpi-card {% if vacaciones_resumen and vacaciones_resumen.get('disponibles', 0) < 0 %}tone-bad{% elif vacaciones_resumen and vacaciones_resumen.get('pendientes', 0) > 0 %}tone-warn{% elif vacaciones_resumen %}tone-ok{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Vacaciones {{ vacaciones_resumen.get("anio") or "anuales" }}
+          <span class="kpi-help" tabindex="0" data-tooltip="Dias que corresponden al cierre del anio seleccionado, cuantos ya se tomaron y el saldo disponible.">?</span>
+        </div>
+        <div class="kpi-value">
+          {% if vacaciones_resumen %}{{ vacaciones_resumen.get("corresponden", 0) }}{% else %}-{% endif %}
+        </div>
+        <div class="kpi-desc">
+          {% if vacaciones_resumen %}
+            {{ vacaciones_resumen.get("tomados", 0) }} tomados / {{ vacaciones_resumen.get("disponibles", 0) }} disponibles
+            {% if vacaciones_resumen.get("pendientes", 0) %} / {{ vacaciones_resumen.get("pendientes", 0) }} pendientes{% endif %}
+          {% else %}
+            No disponible
+          {% endif %}
+        </div>
+      </article>
+
       <article class="kpi-card {% if racha_ok >= 10 %}tone-ok{% elif racha_ok >= 3 %}tone-warn{% endif %}">
         <div class="kpi-label kpi-label-inline">
           Racha OK
@@ -385,6 +404,31 @@
           <li>Periodo (leves): <strong>{{ legajo.periodo.get("leve", 0) }}</strong></li>
         </ul>
       </article>
+    </section>
+
+    <section class="panel">
+      <h3>Vacaciones anuales</h3>
+      {% if vacaciones_resumen %}
+        <p class="helper-text" style="margin-top:-2px;">
+          Resumen calculado al cierre del anio {{ vacaciones_resumen.get("anio") }}.
+          Tomados = aprobados. Disponibles = saldo restante sin descontar pendientes.
+        </p>
+        <ul class="list-clean">
+          <li>Corresponden: <strong>{{ vacaciones_resumen.get("corresponden", 0) }}</strong> dias</li>
+          <li>Tomados aprobados: <strong>{{ vacaciones_resumen.get("tomados", 0) }}</strong> dias</li>
+          <li>Disponibles: <strong>{{ vacaciones_resumen.get("disponibles", 0) }}</strong> dias</li>
+          <li>Disponibles con pendientes: <strong>{{ vacaciones_resumen.get("disponibles_con_pendientes", 0) }}</strong> dias</li>
+          <li>Pendientes: <strong>{{ vacaciones_resumen.get("pendientes", 0) }}</strong> dias</li>
+          <li>Base legal: <strong>{{ vacaciones_resumen.get("base", 0) }}</strong> dias</li>
+          <li>Compensatorios: <strong>{{ vacaciones_resumen.get("compensatorios", 0) }}</strong> dias</li>
+          <li>Ajustes: <strong>{{ vacaciones_resumen.get("ajustes", 0) }}</strong> dias</li>
+        </ul>
+      {% else %}
+        <p class="helper-text">No fue posible calcular el saldo anual de vacaciones para este empleado.</p>
+      {% endif %}
+      <div class="helper-text" style="margin-top:10px;">
+        Vacaciones registradas en el periodo: {{ vacaciones.get("dias", 0) }} dia(s) en {{ vacaciones.get("eventos", 0) }} registro(s).
+      </div>
     </section>
 
     {# ---- Charts ---- #}

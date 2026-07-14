@@ -57,7 +57,7 @@
       </div>
       <div class="row span-2">
         <label>Asistencia</label>
-        <select name="asistencia_id" {% if mode == "edit" %}disabled{% endif %}>
+        <select name="asistencia_id">
           <option value="">Seleccione</option>
           {% for a in asistencias %}
             <option value="{{ a.id }}" {% if data.asistencia_id == a.id %}selected{% endif %}>
@@ -65,10 +65,23 @@
             </option>
           {% endfor %}
         </select>
-        {% if mode == "edit" %}
-          <input type="hidden" name="asistencia_id" value="{{ data.asistencia_id or '' }}">
-        {% endif %}
-        <div class="helper-text">Puede dejarlo vacio si la justificacion no referencia una asistencia puntual.</div>
+        <div class="helper-text">Puede dejarlo vacio si la justificacion no referencia una asistencia puntual o si cubre varios dias.</div>
+      </div>
+      <div class="row span-2">
+        <label>Periodo</label>
+        <div class="form-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin-top: 0.35rem;">
+          <div class="row">
+            <label>Desde</label>
+            <input id="fecha-desde" name="fecha_desde" type="date" value="{{ data.fecha_desde or data.fecha or data.asistencia_fecha or '' }}" max="{{ today or '' }}">
+          </div>
+          <div class="row">
+            <label>Hasta</label>
+            <input id="fecha-hasta" name="fecha_hasta" type="date" value="{{ data.fecha_hasta or data.fecha or data.asistencia_fecha or '' }}" max="{{ today or '' }}">
+          </div>
+        </div>
+        <div id="fecha-rango-help" class="helper-text">
+          Si la justificacion corresponde a un solo dia, elegi la misma fecha en ambos campos.
+        </div>
       </div>
       <div class="row span-3">
         <label>Motivo</label>
@@ -85,6 +98,29 @@
         <input type="file" name="adjuntos" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
         <div class="helper-text">Puede subir una o varias fotos/PDFs desde web o Flutter.</div>
       </div>
+
+      {% if mode == "edit" %}
+        <div class="row span-3">
+          <label>Adjuntos cargados</label>
+          {% if adjuntos %}
+            <div class="chip-row" style="flex-wrap: wrap;">
+              {% for adjunto in adjuntos %}
+                <a
+                  class="chip"
+                  href="{{ url_for('media.legajo_adjunto', adjunto_id=adjunto.id) }}"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  {{ adjunto.nombre_original or ('Adjunto ' ~ adjunto.id) }}
+                </a>
+              {% endfor %}
+            </div>
+            <div class="helper-text">Los adjuntos ya se pueden revisar antes de aprobar o rechazar la justificacion.</div>
+          {% else %}
+            <div class="helper-text">No hay adjuntos cargados para esta justificacion.</div>
+          {% endif %}
+        </div>
+      {% endif %}
 
       {% if mode == "new" %}
         <div class="row">
@@ -112,4 +148,36 @@
     </div>
   </form>
 </div>
+{% block extra_scripts %}
+<script>
+  (function () {
+    const fromInput = document.getElementById("fecha-desde");
+    const toInput = document.getElementById("fecha-hasta");
+    const help = document.getElementById("fecha-rango-help");
+    if (!fromInput || !toInput || !help) return;
+
+    function refreshRangeHelp() {
+      const fromDate = fromInput.value;
+      const toDate = toInput.value;
+      if (!fromDate || !toDate) {
+        help.textContent = "Si la justificacion corresponde a un solo dia, elegi la misma fecha en ambos campos.";
+        return;
+      }
+      if (fromDate > toDate) {
+        help.textContent = "El rango es invalido: la fecha desde no puede ser mayor que la fecha hasta.";
+        return;
+      }
+      if (fromDate === toDate) {
+        help.textContent = "Se guardara como una justificacion de un solo dia.";
+        return;
+      }
+      help.textContent = "Se guardara como una justificacion que cubre varios dias.";
+    }
+
+    fromInput.addEventListener("input", refreshRangeHelp);
+    toInput.addEventListener("input", refreshRangeHelp);
+    refreshRangeHelp();
+  })();
+</script>
+{% endblock %}
 {% endblock %}

@@ -98,6 +98,7 @@
           <th>Localidad</th>
           <th>Empleado</th>
           <th>Legajo / DNI</th>
+          <th>Vacaciones</th>
           <th>Email</th>
           <th>Estado</th>
           <th>Acciones</th>
@@ -143,6 +144,17 @@
           <td data-label="Legajo / DNI">
             <div>Legajo: {{ e.legajo or "-" }}</div>
             <div class="helper-text">DNI: {{ e.dni or "-" }}</div>
+          </td>
+          <td data-label="Vacaciones">
+            {% if e.vacaciones_resumen %}
+              <div><strong>{{ e.vacaciones_resumen.corresponden }} dias</strong></div>
+              <div class="helper-text">
+                {{ e.vacaciones_resumen.tomados }} tomados / {{ e.vacaciones_resumen.disponibles }} disponibles
+                {% if e.vacaciones_resumen.pendientes %} / {{ e.vacaciones_resumen.pendientes }} pendientes{% endif %}
+              </div>
+            {% else %}
+              <span class="helper-text">No disponible</span>
+            {% endif %}
           </td>
           <td data-label="Email">{{ e.email }}</td>
           <td data-label="Estado">

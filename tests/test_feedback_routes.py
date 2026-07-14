@@ -78,6 +78,48 @@ def test_mobile_feedback_historial_ok(monkeypatch):
     assert resp.get_json()["total"] == 1
 
 
+def test_mobile_feedback_clientes_search_and_limit_ok(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 10})
+    captured = {}
+
+    def fake_get_clientes_page(page, per_page, *, search=None, activo=None):
+        captured.update({"page": page, "per_page": per_page, "search": search, "activo": activo})
+        return (
+            [
+                {
+                    "id": 55,
+                    "codigo_externo": "CLI-001",
+                    "sucursal_origen": "7",
+                    "razon_social": "Cliente SA",
+                    "nombre_fantasia": "Cliente Centro",
+                    "telefonos": "1122334455",
+                    "movil": "1199998888",
+                    "email": "contacto@cliente.com",
+                    "domicilio": "Av. Siempre Viva 123",
+                    "localidad": "CABA",
+                    "provincia": "Buenos Aires",
+                    "tipo_descripcion": "Minorista",
+                }
+            ],
+            1,
+        )
+
+    monkeypatch.setattr(feedback_routes, "get_clientes_page", fake_get_clientes_page)
+
+    resp = client.get(
+        "/api/v1/feedback/clientes?q=cliente&page=2&per_page=500",
+        headers={"Authorization": "Bearer token-demo"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert captured == {"page": 2, "per_page": 200, "search": "cliente", "activo": 1}
+    assert body["page"] == 2
+    assert body["per_page"] == 200
+    assert body["items"][0]["sucursal_origen"] == 7
+
+
 def test_web_feedback_dashboard_ok(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
     client = _build_client(monkeypatch)
@@ -135,3 +177,32 @@ def test_web_feedback_clientes_importar_ok(monkeypatch):
     )
     assert resp.status_code == 200
     assert b"Importacion" in resp.data
+
+
+def test_web_feedback_clientes_listado_paginado(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
+    client = _build_client(monkeypatch)
+    _login(client)
+    monkeypatch.setattr(
+        feedback_web_routes,
+        "get_clientes_page",
+        lambda page, per_page, *, search=None, activo=None: (
+            [
+                {
+                    "codigo_externo": "CLI-001",
+                    "razon_social": "Cliente SA",
+                    "nombre_fantasia": "Cliente Centro",
+                    "tipo_descripcion": "Minorista",
+                    "localidad": "CABA",
+                    "provincia": "Buenos Aires",
+                    "activo": 1,
+                }
+            ],
+            21,
+        ),
+    )
+
+    resp = client.get("/feedback/clientes?page=2&per=10&q=cli&activo=1")
+    assert resp.status_code == 200
+    assert b"Anterior" in resp.data
+    assert b"Siguiente" in resp.data

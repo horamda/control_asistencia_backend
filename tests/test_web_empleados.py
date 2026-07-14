@@ -112,6 +112,63 @@ def test_empleados_listado_muestra_foto_y_fallback(monkeypatch):
     assert b"img/empleado-default.svg" in resp.data
 
 
+def test_empleados_listado_muestra_vacaciones_resumen(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(
+        empleados_routes,
+        "get_page",
+        lambda *args, **kwargs: (
+            [
+                {
+                    "id": 7,
+                    "activo": 1,
+                    "foto": None,
+                    "apellido": "Perez",
+                    "nombre": "Ana",
+                    "legajo": "L-1",
+                    "dni": "30123456",
+                    "email": "ana@example.com",
+                    "empresa_nombre": "Empresa A",
+                    "empresa_id": 1,
+                    "sucursal_nombre": "Casa",
+                    "sucursal_id": 1,
+                    "sector_nombre": "RRHH",
+                    "sector_id": 1,
+                    "puesto_nombre": "Analista",
+                    "puesto_id": 1,
+                    "localidad_nombre": "CABA",
+                    "codigo_postal": "1000",
+                }
+            ],
+            1,
+        ),
+    )
+    monkeypatch.setattr(
+        empleados_routes,
+        "calcular_resumen_vacaciones",
+        lambda empleado_id, anio: {
+            "anio": anio,
+            "vacaciones": {
+                "dias_base": 14,
+                "dias_corresponden": 14,
+                "dias_tomados": 4,
+                "dias_disponibles": 10,
+                "dias_disponibles_con_pendientes": 8,
+                "dias_pendientes": 2,
+            },
+        },
+    )
+    monkeypatch.setattr(empleados_routes, "get_empresas", lambda *args, **kwargs: [])
+
+    resp = client.get("/empleados/")
+    assert resp.status_code == 200
+    assert b"Vacaciones" in resp.data
+    assert b"14 dias" in resp.data
+    assert b"4 tomados / 10 disponibles" in resp.data
+
+
 def test_empleados_nuevo_sube_foto_file(monkeypatch):
     client = _build_client(monkeypatch)
     _login_session(client)

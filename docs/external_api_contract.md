@@ -1,17 +1,77 @@
 # Contrato API Externa v1
 
-Version de contrato: 1.0.0
-Fecha de corte: 2026-05-22
+Version de contrato: 1.1.0
+Fecha de corte: 2026-07-10
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`
 Prefijo: `/api/v1/external`
 
-Este documento fija el contrato para aplicaciones externas que necesiten consultar empresas, sucursales y empleados.
+Este documento fija el contrato para aplicaciones externas que necesiten consultar empresas, sucursales, empleados y reportes de asistencia.
 Fuente tecnica: `routes/external_api_routes.py`.
 
 ## Autenticacion
 
-Todas las rutas requieren API key.
+El mecanismo recomendado es iniciar sesion con el usuario tecnico y la contrasena entregados por la empresa. El login devuelve un Bearer token temporal.
+
+### Obtener token
+
+```http
+POST /api/v1/external/auth/token
+Content-Type: application/json
+
+{
+  "username": "<USUARIO_TECNICO>",
+  "password": "<CONTRASENA>"
+}
+```
+
+Respuesta `200`:
+
+```json
+{
+  "access_token": "<TOKEN_JWT>",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "external:read reports:read"
+}
+```
+
+El consumidor debe solicitar un token nuevo cuando venza. No existe refresh token.
+
+### Usar token
+
+```http
+Authorization: Bearer <TOKEN_JWT>
+```
+
+### Configuracion del backend
+
+Las credenciales tecnicas no usan la tabla de usuarios del panel. Se configuran en Railway:
+
+```env
+EXTERNAL_API_USERNAME=ApiFichaYa
+EXTERNAL_API_PASSWORD_HASH=<HASH_DE_LA_CONTRASENA>
+EXTERNAL_API_JWT_SECRET=<CLAVE_ALEATORIA_DE_AL_MENOS_32_CARACTERES>
+EXTERNAL_API_TOKEN_TTL_MINUTES=60
+```
+
+Generar el hash sin guardar la contrasena en el repositorio:
+
+```bash
+python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('REEMPLAZAR_CONTRASENA'))"
+```
+
+Generar el secreto de firma:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Si `EXTERNAL_API_JWT_SECRET` no esta configurada, se usa `JWT_SECRET`. Se recomienda una clave separada para la integracion.
+
+### API key anterior
+
+La API key estatica se mantiene por compatibilidad. No es necesaria para la integracion por usuario y contrasena.
 
 Header recomendado:
 
@@ -25,13 +85,13 @@ Tambien se acepta:
 Authorization: Bearer <EXTERNAL_API_KEY>
 ```
 
-La clave se configura en el backend:
+La API key se configura en el backend:
 
 ```env
 EXTERNAL_API_KEY=clave_larga_y_segura
 ```
 
-La clave no esta incluida en este contrato. Debe crearse y guardarse como variable
+La API key no esta incluida en este contrato. Debe crearse y guardarse como variable
 de entorno en Railway, en el servicio del backend:
 
 ```text
@@ -49,6 +109,16 @@ exponerla en frontend publico y no subirla al repositorio.
 ```json
 {
   "error": "API key invalida o ausente."
+}
+```
+
+El mismo `401` se devuelve si el Bearer token es invalido o esta vencido.
+
+### 401 usuario o contrasena invalidos
+
+```json
+{
+  "error": "Credenciales invalidas."
 }
 ```
 
@@ -319,9 +389,59 @@ X-API-Key: <EXTERNAL_API_KEY>
 }
 ```
 
+### 5. `GET /api/v1/external/reportes/asistencia.csv`
+
+Descarga el reporte de fichadas en CSV, ordenado por fecha y hora ascendente, con el mismo formato que el boton `Reporte CSV` del panel.
+
+#### Query params
+
+| Parametro | Tipo | Default | Descripcion |
+|---|---:|---:|---|
+| `empresa_id` | int | - | Filtra por empresa. |
+| `empleado_id` | int | - | Filtra por empleado. |
+| `fecha_desde` | date | - | Fecha inicial inclusive, formato `YYYY-MM-DD`. |
+| `fecha_hasta` | date | - | Fecha final inclusive, formato `YYYY-MM-DD`. |
+| `tipo_marca` | string | - | Filtra el tipo de marca, por ejemplo `jornada`. |
+| `accion` | string | - | `ingreso` o `egreso`. |
+| `metodo` | string | - | Filtra el metodo, por ejemplo `qr` o `manual`. |
+| `gps_ok` | bool/all | `all` | `1`, `0` o `all`. |
+| `q` | string | - | Busca por apellido, nombre, DNI o legajo. |
+| `limit` | int | `20000` | Maximo de filas. El backend limita el valor a `20000`. |
+
+#### Columnas y orden
+
+```csv
+MES,FECHA,HORA,PUERTA,TIPO MOV,CODIGO,NOMBRE,SECTOR
+6,11/6/2026,13:50,Porton Lateral,Salida,58,PEREYRA GABRIEL,Reparto
+```
+
+- `PUERTA` usa actualmente el nombre de la sucursal del empleado porque la marca no guarda una puerta independiente.
+- `CODIGO` usa legajo; si no existe, usa DNI y luego ID de empleado.
+- La respuesta incluye `X-Report-Row-Count` con la cantidad de filas exportadas.
+
+#### Ejemplo
+
+```http
+GET /api/v1/external/reportes/asistencia.csv?empresa_id=1&fecha_desde=2026-06-01&fecha_hasta=2026-06-30
+Authorization: Bearer <TOKEN_JWT>
+```
+
 ## Ejemplos de integracion
 
-### curl
+### Login y descarga con curl
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"username":"<USUARIO_TECNICO>","password":"<CONTRASENA>"}' \
+  "https://control-asistencia.up.railway.app/api/v1/external/auth/token"
+
+curl -H "Authorization: Bearer <TOKEN_JWT>" \
+  -o reporte_asistencia.csv \
+  "https://control-asistencia.up.railway.app/api/v1/external/reportes/asistencia.csv?fecha_desde=2026-06-01&fecha_hasta=2026-06-30"
+```
+
+### API key anterior con curl
 
 ```bash
 curl -H "X-API-Key: <EXTERNAL_API_KEY>" \
@@ -376,7 +496,20 @@ data = res.json()
 ## Reglas operativas
 
 - Solo usar HTTPS en produccion.
-- Guardar la API key como secreto de entorno en la app externa.
-- No exponer la API key en frontend publico, URL, logs ni repositorios.
+- Guardar usuario, contrasena, token o API key como secretos de entorno en la app externa.
+- No exponer credenciales en frontend publico, URL, logs ni repositorios.
+- Renovar el token al recibir `401`; el valor default vence a los 60 minutos.
 - Paginacion: si `empleados_pagination.pages` es mayor a `1`, pedir las paginas siguientes con `page=2`, `page=3`, etc.
 - El contrato es solo lectura. No crea, edita ni elimina registros.
+
+## Paquete para entregar al integrador
+
+Entregar:
+
+1. Este archivo `docs/external_api_contract.md`.
+2. `docs/external_reports_openapi.yaml`, importable en Postman o Swagger.
+3. La Base URL de produccion.
+4. El valor de `EXTERNAL_API_USERNAME`.
+5. La contrasena original usada para generar `EXTERNAL_API_PASSWORD_HASH`.
+
+Enviar el usuario y la contrasena por un canal seguro, idealmente por canales separados. No entregar `EXTERNAL_API_PASSWORD_HASH`, `EXTERNAL_API_JWT_SECRET`, `JWT_SECRET`, credenciales de Railway ni credenciales de MySQL.

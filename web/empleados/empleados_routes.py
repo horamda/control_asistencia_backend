@@ -1,3 +1,5 @@
+import datetime
+
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session, current_app, Response
 from werkzeug.security import generate_password_hash
 import time
@@ -5,6 +7,7 @@ from utils.forms import parse_int as _parse_int, safe_next_url as _safe_next_url
 from services.empleado_export_service import exportar_empleados_excel
 from services.empleado_import_service import importar_desde_csv
 from services.empleado_template_service import generar_template_excel
+from services.vacaciones_service import VacacionesError, calcular_resumen_vacaciones
 
 from repositories.empleado_repository import (
     create,
@@ -163,6 +166,43 @@ def _save_puestos_adicionales(emp_id, data):
     )
 
 
+def _get_empleados_lista_para_form():
+    try:
+        return get_empleados_all(include_inactive=False)
+    except Exception:
+        current_app.logger.warning("empleados_form_lista_error", exc_info=True)
+        return []
+
+
+def _vacaciones_resumen_para_empleado(empleado, anio: int) -> dict | None:
+    try:
+        emp_id = int((empleado or {}).get("id"))
+    except (TypeError, ValueError):
+        return None
+
+    try:
+        resumen = calcular_resumen_vacaciones(emp_id, anio)
+        vac = resumen.get("vacaciones") or {}
+        return {
+            "anio": int(resumen.get("anio") or anio),
+            "base": vac.get("dias_base", 0),
+            "corresponden": vac.get("dias_corresponden", 0),
+            "tomados": vac.get("dias_tomados", 0),
+            "disponibles": vac.get("dias_disponibles", 0),
+            "disponibles_con_pendientes": vac.get("dias_disponibles_con_pendientes", 0),
+            "pendientes": vac.get("dias_pendientes", 0),
+        }
+    except VacacionesError:
+        return None
+    except Exception:
+        current_app.logger.warning(
+            "empleados_vacaciones_resumen_error",
+            extra={"extra": {"empleado_id": emp_id, "anio": anio}},
+            exc_info=True,
+        )
+        return None
+
+
 @empleados_bp.route("/")
 @role_required("admin", "rrhh")
 def listado():
@@ -188,6 +228,10 @@ def listado():
         empresa_id=empresa_id,
         activo=activo,
     )
+    anio_vacaciones = datetime.date.today().year
+    for empleado in empleados:
+        empleado["vacaciones_resumen"] = _vacaciones_resumen_para_empleado(empleado, anio_vacaciones)
+
     return_to = url_for(
         "empleados.listado",
         page=page,
@@ -220,7 +264,6 @@ def nuevo():
     sectores = get_sectores(include_inactive=True)
     puestos = get_puestos(include_inactive=True)
     localidades = get_localidades()
-    empleados_lista = get_empleados_all(include_inactive=False)
     if request.method == "POST":
         validator = EmpleadoValidator()
         errors = validator.validate(
@@ -257,7 +300,7 @@ def nuevo():
                 sectores=sectores,
                 puestos=puestos,
                 localidades=localidades,
-                empleados_lista=empleados_lista,
+                empleados_lista=_get_empleados_lista_para_form(),
                 photo_cache_buster=int(time.time()),
             )
 
@@ -280,7 +323,7 @@ def nuevo():
         sectores=sectores,
         puestos=puestos,
         localidades=localidades,
-        empleados_lista=empleados_lista,
+        empleados_lista=_get_empleados_lista_para_form(),
         photo_cache_buster=int(time.time()),
     )
 
@@ -299,7 +342,6 @@ def editar(emp_id):
     sectores = get_sectores(include_inactive=True)
     puestos = get_puestos(include_inactive=True)
     localidades = get_localidades()
-    empleados_lista = get_empleados_all(include_inactive=False)
 
     if request.method == "POST":
         validator = EmpleadoValidator()
@@ -343,7 +385,7 @@ def editar(emp_id):
                 sectores=sectores,
                 puestos=puestos,
                 localidades=localidades,
-                empleados_lista=empleados_lista,
+                empleados_lista=_get_empleados_lista_para_form(),
                 photo_cache_buster=int(time.time()),
             )
 
@@ -369,7 +411,7 @@ def editar(emp_id):
         sectores=sectores,
         puestos=puestos,
         localidades=localidades,
-        empleados_lista=empleados_lista,
+        empleados_lista=_get_empleados_lista_para_form(),
         photo_cache_buster=int(time.time()),
     )
 

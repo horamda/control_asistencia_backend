@@ -55,13 +55,13 @@ def motivos():
 def clientes():
     q = (request.args.get("q") or "").strip() or None
     page = _to_int(request.args.get("page"), 1)
-    per_page = min(_to_int(request.args.get("per_page"), 20), 50)
+    per_page = min(_to_int(request.args.get("per_page"), 20), 200)
     rows, total = get_clientes_page(page, per_page, search=q, activo=1)
     items = [
         {
             "id": row.get("id"),
             "codigo": row.get("codigo_externo"),
-            "sucursal_origen": row.get("sucursal_origen"),
+            "sucursal_origen": int(row.get("sucursal_origen")) if row.get("sucursal_origen") is not None else None,
             "razon_social": row.get("razon_social"),
             "nombre_fantasia": row.get("nombre_fantasia"),
             "telefonos": row.get("telefonos"),

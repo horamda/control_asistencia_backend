@@ -402,6 +402,7 @@ def get_for_export_admin(
     search: str | None = None,
     gps_ok: int | None = None,
     limit: int = 5000,
+    order_asc: bool = False,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -418,6 +419,7 @@ def get_for_export_admin(
             gps_ok=gps_ok,
         )
 
+        order_direction = "ASC" if order_asc else "DESC"
         cursor.execute(
             f"""
             SELECT
@@ -438,15 +440,20 @@ def get_for_export_admin(
                 am.estado,
                 am.observaciones,
                 am.fecha_creacion,
+                e.legajo,
                 e.apellido,
                 e.nombre,
                 e.dni,
+                suc.nombre AS sucursal_nombre,
+                sec.nombre AS sector_nombre,
                 emp.razon_social AS empresa_nombre
             FROM asistencia_marcas am
             JOIN empleados e ON e.id = am.empleado_id
             JOIN empresas emp ON emp.id = am.empresa_id
+            LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
+            LEFT JOIN sectores sec ON sec.id = e.sector_id
             WHERE {where_sql}
-            ORDER BY am.fecha DESC, am.hora DESC, am.id DESC
+            ORDER BY am.fecha {order_direction}, am.hora {order_direction}, am.id {order_direction}
             LIMIT %s
             """,
             (*params, max(1, min(limit, 20000))),

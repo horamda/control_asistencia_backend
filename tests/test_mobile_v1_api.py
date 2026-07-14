@@ -2208,6 +2208,48 @@ def test_mobile_justificaciones_create_ok(monkeypatch):
     assert created_data["estado"] == "pendiente"
 
 
+def test_mobile_justificaciones_create_rango_ok(monkeypatch):
+    _setup_just_auth(monkeypatch)
+    created_data = {}
+    monkeypatch.setattr(
+        mobile_routes, "create_justificacion_svc",
+        lambda data: (created_data.update(data) or None) or 55
+    )
+    monkeypatch.setattr(mobile_routes, "sync_justificacion_event", lambda *a, **kw: {"id": 99})
+    monkeypatch.setattr(mobile_routes, "list_justificacion_adjuntos", lambda _: [])
+    monkeypatch.setattr(
+        mobile_routes,
+        "get_justificacion_by_id",
+        lambda _: {
+            **_FAKE_JUST_ROW,
+            "id": 55,
+            "fecha": "2026-03-01",
+            "fecha_desde": "2026-03-01",
+            "fecha_hasta": "2026-03-05",
+            "adjuntos_count": 0,
+            "legajo_evento_id": 99,
+        },
+    )
+    monkeypatch.setattr(mobile_routes, "create_audit", lambda *a: None)
+    client = _build_client(monkeypatch)
+    resp = client.post(
+        "/api/v1/mobile/me/justificaciones",
+        json={
+            "motivo": "Reposo prolongado",
+            "fecha_desde": "2026-03-01",
+            "fecha_hasta": "2026-03-05",
+            "asistencia_id": None,
+        },
+        headers=_auth_headers(),
+    )
+    body = resp.get_json()
+    assert resp.status_code == 201
+    assert created_data["fecha_desde"] == "2026-03-01"
+    assert created_data["fecha_hasta"] == "2026-03-05"
+    assert body["fecha_desde"] == "2026-03-01"
+    assert body["fecha_hasta"] == "2026-03-05"
+
+
 def test_mobile_justificaciones_create_con_adjuntos_usa_actor_nulo(monkeypatch):
     monkeypatch.setattr(jwt_guard, "verificar_token", lambda t: {"empleado_id": 10})
     monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda _: _FAKE_EMPLEADO_JUST)
@@ -2279,7 +2321,7 @@ def test_mobile_justificaciones_create_con_adjuntos_usa_actor_nulo(monkeypatch):
     body = resp.get_json()
     assert resp.status_code == 201
     assert created_data["empleado_id"] == 10
-    assert captured["sync"]["actor_id"] is None
+    assert "sync" not in captured
     assert captured["save"]["actor_id"] is None
     assert captured["save"]["filenames"] == ["foto.png"]
     assert captured["audit"]["usuario_id"] is None

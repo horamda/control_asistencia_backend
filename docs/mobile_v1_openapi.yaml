@@ -1,12 +1,14 @@
-openapi: 3.0.3
+﻿openapi: 3.0.3
 info:
-  title: FichaYa — Mobile API v1
+  title: FichaYa - Mobile API v1
   version: 1.22.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
     Los modulos complementarios Feedback (`/api/v1/feedback`) y SKAP (`/api/skap`)
     usan el mismo Bearer JWT mobile, aunque no cuelgan del prefijo `/api/v1/mobile`.
+    La campana de Alertas del home agrupa adelantos, pedidos de mercaderia y feedback
+    para mostrar novedades o aprobaciones pendientes sin cambiar los flujos existentes.
   contact:
     name: Equipo Backend
 servers:
@@ -1312,7 +1314,7 @@ components:
         - type: object
           properties:
             sucursal_origen:
-              type: string
+              type: integer
               nullable: true
             telefonos:
               type: string
@@ -2117,10 +2119,10 @@ components:
         condicion:
           type: string
           enum: [gte, lte, eq, between]
-          description: "gte=≥  lte=≤  eq==  between=rango [valor_min, valor_max]"
+          description: "gte=â‰¥  lte=â‰¤  eq==  between=rango [valor_min, valor_max]"
         condicion_simbolo:
           type: string
-          example: "≥"
+          example: "â‰¥"
         objetivo_anual:
           type: number
           description: "Objetivo simple del sector (0 si condicion=between o sin configurar)"
@@ -2134,13 +2136,13 @@ components:
           description: "Limite superior del rango (solo condicion=between)"
         resultado_acumulado:
           type: number
-          description: "Acumulado del empleado en el año segun tipo_acumulacion"
+          description: "Acumulado del empleado en el aÃ±o segun tipo_acumulacion"
         progreso_pct:
           type: number
           description: "resultado_acumulado / objetivo_anual * 100 (0 para between)"
         progreso_esperado_pct:
           type: number
-          description: "Fraccion del año transcurrida * 100 (100 para promedio/ultimo/between)"
+          description: "Fraccion del aÃ±o transcurrida * 100 (100 para promedio/ultimo/between)"
         semaforo:
           type: string
           enum: [verde, amarillo, rojo, gris]
@@ -2544,7 +2546,7 @@ paths:
   /me/fichadas/scan:
     post:
       tags: [Fichadas]
-      summary: Fichada via QR (ingreso/egreso automatico) — recomendado
+      summary: Fichada via QR (ingreso/egreso automatico) â€” recomendado
       requestBody:
         required: true
         content:
@@ -2669,7 +2671,7 @@ paths:
     post:
       tags: [Fichadas]
       deprecated: true
-      summary: Registra entrada (deprecated — usar /scan)
+      summary: Registra entrada (deprecated â€” usar /scan)
       requestBody:
         content:
           application/json:
@@ -2692,7 +2694,7 @@ paths:
     post:
       tags: [Fichadas]
       deprecated: true
-      summary: Registra salida (deprecated — usar /scan)
+      summary: Registra salida (deprecated â€” usar /scan)
       requestBody:
         content:
           application/json:
@@ -3475,6 +3477,7 @@ paths:
           in: query
           schema:
             type: string
+          description: Busca por codigo, descripcion, marca, familia, sabor, division, codigos de barras, presentaciones y tipo de producto. Admite varias palabras.
         - name: page
           in: query
           schema:
@@ -3968,7 +3971,7 @@ paths:
           schema:
             type: integer
             example: 2026
-          description: "Año a consultar (default: año actual del servidor)"
+          description: "AÃ±o a consultar (default: aÃ±o actual del servidor)"
       responses:
         '200':
           description: KPIs del sector con semaforo
@@ -3977,7 +3980,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/KpisSectorResponse'
         '400':
-          description: Año invalido
+          description: AÃ±o invalido
           content:
             application/json:
               schema:
@@ -4031,8 +4034,9 @@ paths:
           in: query
           schema:
             type: string
+          description: Busca por cliente, motivo, descripcion, resolucion, estado o nombres/legajos de participantes. Admite varias palabras.
           required: false
-          description: Busca por codigo, razon social, fantasia, localidad, provincia o tipo.
+          description: Busca por sucursal, codigo, razon social, fantasia, telefonos, movil, email, domicilio, localidad, provincia o tipo.
         - name: page
           in: query
           schema:
@@ -4085,6 +4089,7 @@ paths:
           in: query
           schema:
             type: string
+          description: Misma logica que historial: cliente, motivo, descripcion, resolucion, estado o nombres/legajos de participantes. Admite varias palabras.
           required: false
       responses:
         '200':
@@ -4604,3 +4609,4 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+

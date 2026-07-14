@@ -1407,12 +1407,19 @@ def _extract_justificacion_payload():
     source = request.form if request.form else (request.get_json(silent=True) or {})
     motivo = (source.get("motivo") or "").strip()
     archivo = (source.get("archivo") or "").strip() or None
+    fecha_desde = (source.get("fecha_desde") or "").strip() or None
+    fecha_hasta = (source.get("fecha_hasta") or "").strip() or None
+    fecha = (source.get("fecha") or "").strip() or None
     raw_asistencia_id = source.get("asistencia_id")
     asistencia_id = _parse_int(raw_asistencia_id, "asistencia_id", default=None)
     return {
         "motivo": motivo,
         "archivo": archivo,
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta,
+        "fecha": fecha,
         "asistencia_id": asistencia_id,
+        "asistencia_id_present": "asistencia_id" in source,
     }
 
 
@@ -1443,6 +1450,9 @@ def _justificacion_to_dict(j: dict, adjuntos: list[dict] | None = None) -> dict:
     return {
         "id": j["id"],
         "asistencia_id": j.get("asistencia_id"),
+        "fecha": _to_date_str(j.get("fecha")) if j.get("fecha") else None,
+        "fecha_desde": _to_date_str(j.get("fecha_desde")) if j.get("fecha_desde") else None,
+        "fecha_hasta": _to_date_str(j.get("fecha_hasta")) if j.get("fecha_hasta") else None,
         "asistencia_fecha": _to_date_str(j.get("asistencia_fecha")) if j.get("asistencia_fecha") else None,
         "motivo": j.get("motivo"),
         "archivo": archivo,
@@ -1532,10 +1542,14 @@ def me_justificaciones_create():
 
     payload = _extract_justificacion_payload()
     archivos = _extract_justificacion_files()
+    adjuntos_guardados = []
 
     data = {
         "empleado_id": int(empleado["id"]),
         "asistencia_id": payload["asistencia_id"],
+        "fecha_desde": payload["fecha_desde"],
+        "fecha_hasta": payload["fecha_hasta"],
+        "fecha": payload["fecha"],
         "motivo": payload["motivo"],
         "archivo": payload["archivo"],
         "estado": "pendiente",
@@ -1548,13 +1562,14 @@ def me_justificaciones_create():
     try:
         # En mobile autenticamos como empleado, pero estos campos apuntan a usuarios.
         # No existe un usuario equivalente para todos los empleados, así que se dejan nulos.
-        sync_justificacion_event(int(just_id), actor_id=None)
         if archivos:
-            save_justificacion_adjuntos(
+            adjuntos_guardados = save_justificacion_adjuntos(
                 int(just_id),
                 archivos,
                 actor_id=None,
             )
+        else:
+            sync_justificacion_event(int(just_id), actor_id=None)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception:
@@ -1566,7 +1581,7 @@ def me_justificaciones_create():
     except Exception:
         current_app.logger.warning("create_audit failed for justificaciones create", exc_info=True)
     j = get_justificacion_by_id(just_id)
-    adjuntos = list_justificacion_adjuntos(just_id)
+    adjuntos = adjuntos_guardados or list_justificacion_adjuntos(just_id)
     return jsonify(_justificacion_to_dict(j, adjuntos)), 201
 
 
@@ -1588,9 +1603,13 @@ def me_justificaciones_update(justificacion_id):
     archivos = _extract_justificacion_files()
 
     try:
+        asistencia_id = payload["asistencia_id"] if payload["asistencia_id_present"] else j.get("asistencia_id")
         update_justificacion_svc(justificacion_id, {
             "empleado_id": j["empleado_id"],
-            "asistencia_id": j.get("asistencia_id"),
+            "asistencia_id": asistencia_id,
+            "fecha": payload["fecha"] or j.get("fecha"),
+            "fecha_desde": payload["fecha_desde"] or j.get("fecha_desde") or payload["fecha"] or j.get("fecha"),
+            "fecha_hasta": payload["fecha_hasta"] or j.get("fecha_hasta") or payload["fecha"] or j.get("fecha"),
             "motivo": payload["motivo"],
             "archivo": payload["archivo"],
             "estado": j.get("estado") or "pendiente",
@@ -1599,13 +1618,14 @@ def me_justificaciones_update(justificacion_id):
         return jsonify({"error": str(e)}), 400
 
     try:
-        sync_justificacion_event(int(justificacion_id), actor_id=None)
         if archivos:
             save_justificacion_adjuntos(
                 int(justificacion_id),
                 archivos,
                 actor_id=None,
             )
+        else:
+            sync_justificacion_event(int(justificacion_id), actor_id=None)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception:

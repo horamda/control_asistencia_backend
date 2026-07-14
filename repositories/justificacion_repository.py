@@ -50,10 +50,10 @@ def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_des
             where.append("j.empleado_id = %s")
             params.append(empleado_id)
         if fecha_desde:
-            where.append("a.fecha >= %s")
+            where.append("COALESCE(j.fecha_hasta, j.fecha) >= %s")
             params.append(fecha_desde)
         if fecha_hasta:
-            where.append("a.fecha <= %s")
+            where.append("COALESCE(j.fecha_desde, j.fecha) <= %s")
             params.append(fecha_hasta)
         if search:
             where.append("(e.apellido LIKE %s OR e.nombre LIKE %s)")
@@ -117,6 +117,7 @@ def get_by_id(justificacion_id: int):
         cursor.execute("""
             SELECT
                 j.*,
+                a.fecha AS asistencia_fecha,
                 (
                     SELECT le.id
                     FROM legajo_eventos le
@@ -133,6 +134,7 @@ def get_by_id(justificacion_id: int):
                     WHERE le.justificacion_id = j.id
                 ) AS adjuntos_count
             FROM justificaciones j
+            LEFT JOIN asistencias a ON a.id = j.asistencia_id
             WHERE j.id = %s
         """, (justificacion_id,))
         return cursor.fetchone()
@@ -150,14 +152,20 @@ def create(data: dict):
             (
                 empleado_id,
                 asistencia_id,
+                fecha,
+                fecha_desde,
+                fecha_hasta,
                 motivo,
                 archivo,
                 estado
             )
-            VALUES (%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             data.get("empleado_id"),
             data.get("asistencia_id"),
+            data.get("fecha"),
+            data.get("fecha_desde"),
+            data.get("fecha_hasta"),
             data.get("motivo"),
             data.get("archivo"),
             data.get("estado")
@@ -178,6 +186,9 @@ def update(justificacion_id: int, data: dict):
             SET
                 empleado_id = %s,
                 asistencia_id = %s,
+                fecha = %s,
+                fecha_desde = %s,
+                fecha_hasta = %s,
                 motivo = %s,
                 archivo = %s,
                 estado = %s
@@ -185,6 +196,9 @@ def update(justificacion_id: int, data: dict):
         """, (
             data.get("empleado_id"),
             data.get("asistencia_id"),
+            data.get("fecha"),
+            data.get("fecha_desde"),
+            data.get("fecha_hasta"),
             data.get("motivo"),
             data.get("archivo"),
             data.get("estado"),
@@ -218,10 +232,33 @@ def get_by_asistencia(asistencia_id: int) -> list:
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT id, empleado_id, asistencia_id, estado
+            SELECT id, empleado_id, asistencia_id, fecha, fecha_desde, fecha_hasta, estado
             FROM justificaciones
             WHERE asistencia_id = %s
         """, (asistencia_id,))
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        db.close()
+
+
+def get_by_fecha(empleado_id: int, fecha: str) -> list:
+    """Returns all justificaciones for an employee and operative date."""
+    return get_by_rango(empleado_id, fecha, fecha)
+
+
+def get_by_rango(empleado_id: int, fecha_desde: str, fecha_hasta: str) -> list:
+    """Returns all justificaciones that overlap the given date range."""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT id, empleado_id, asistencia_id, fecha, fecha_desde, fecha_hasta, estado
+            FROM justificaciones
+            WHERE empleado_id = %s
+              AND COALESCE(fecha_desde, fecha) <= %s
+              AND COALESCE(fecha_hasta, fecha) >= %s
+        """, (empleado_id, fecha_hasta, fecha_desde))
         return cursor.fetchall()
     finally:
         cursor.close()

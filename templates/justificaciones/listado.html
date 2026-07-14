@@ -73,7 +73,7 @@
           <tr>
             <th>Empresa</th>
             <th>Empleado</th>
-            <th>Asistencia</th>
+            <th>Periodo</th>
             <th>Adjuntos</th>
             <th>Estado</th>
             <th>Acciones</th>
@@ -84,11 +84,32 @@
           <tr>
             <td data-label="Empresa">{{ j.empresa_nombre or "-" }}</td>
             <td data-label="Empleado">{{ j.apellido }} {{ j.nombre }}</td>
-            <td data-label="Asistencia">{{ j.asistencia_fecha or "-" }}</td>
+            {% set fecha_inicio = j.fecha_desde or j.fecha or j.asistencia_fecha %}
+            {% set fecha_fin = j.fecha_hasta or j.fecha or j.asistencia_fecha %}
+            <td data-label="Periodo">
+              {% if fecha_inicio and fecha_fin and fecha_inicio != fecha_fin %}
+                {{ fecha_inicio }} al {{ fecha_fin }}
+              {% else %}
+                {{ fecha_inicio or fecha_fin or "-" }}
+              {% endif %}
+            </td>
             <td data-label="Adjuntos">
-              {% set adj_count = j.adjuntos_count or 0 %}
+              {% set adjuntos = adjuntos_por_justificacion.get(j.id, []) %}
+              {% set adj_count = j.adjuntos_count or (adjuntos|length) %}
               {% if adj_count %}
-                <span class="badge ok">{{ adj_count }}</span>
+                <div class="chip-row" style="flex-wrap: wrap;">
+                  <span class="badge ok">{{ adj_count }}</span>
+                  {% for adjunto in adjuntos %}
+                    <a
+                      class="chip"
+                      href="{{ url_for('media.legajo_adjunto', adjunto_id=adjunto.id) }}"
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      {{ adjunto.nombre_original or ('Adjunto ' ~ adjunto.id) }}
+                    </a>
+                  {% endfor %}
+                </div>
               {% else %}
                 -
               {% endif %}

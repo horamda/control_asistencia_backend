@@ -58,5 +58,15 @@
       </tbody>
     </table>
   </div>
+
+  <div class="pager" style="margin-top:1rem;">
+    {% if page > 1 %}
+      <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado', page=page - 1, per=per_page, q=q, activo=activo) }}">Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado', page=page + 1, per=per_page, q=q, activo=activo) }}">Siguiente</a>
+    {% endif %}
+    <span class="summary">P&aacute;gina {{ page }}</span>
+  </div>
 </section>
 {% endblock %}

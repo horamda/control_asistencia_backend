@@ -84,7 +84,9 @@ def get_by_empleado(empleado_id: int, fecha_desde: str, fecha_hasta: str):
               AND NOT EXISTS (
                   SELECT 1
                   FROM justificaciones j
-                  WHERE j.asistencia_id = a.id
+                  WHERE j.empleado_id = a.empleado_id
+                    AND COALESCE(j.fecha_desde, j.fecha) <= a.fecha
+                    AND COALESCE(j.fecha_hasta, j.fecha) >= a.fecha
                     AND LOWER(COALESCE(j.estado, '')) = 'aprobada'
               )
             """,
@@ -100,14 +102,11 @@ def get_by_empleado(empleado_id: int, fecha_desde: str, fecha_hasta: str):
                 SUM(CASE WHEN LOWER(COALESCE(j.estado, 'pendiente')) = 'aprobada' THEN 1 ELSE 0 END) AS aprobadas,
                 SUM(CASE WHEN LOWER(COALESCE(j.estado, 'pendiente')) = 'rechazada' THEN 1 ELSE 0 END) AS rechazadas
             FROM justificaciones j
-            LEFT JOIN asistencias a ON a.id = j.asistencia_id
             WHERE j.empleado_id = %s
-              AND (
-                  (a.id IS NOT NULL AND a.fecha BETWEEN %s AND %s)
-                  OR (a.id IS NULL AND DATE(j.created_at) BETWEEN %s AND %s)
-              )
+              AND COALESCE(j.fecha_desde, j.fecha) <= %s
+              AND COALESCE(j.fecha_hasta, j.fecha) >= %s
             """,
-            (empleado_id, fecha_desde, fecha_hasta, fecha_desde, fecha_hasta),
+            (empleado_id, fecha_hasta, fecha_desde),
         )
 
         vacaciones_row = _safe_fetchone(

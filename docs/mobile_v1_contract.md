@@ -1,4 +1,4 @@
-# Contrato API Mobile v1
+﻿# Contrato API Mobile v1
 
 Version de contrato: 1.22.0
 Fecha de corte: 2026-06-08
@@ -9,6 +9,13 @@ Prefijos moviles complementarios: `/api/v1/feedback`, `/api/skap`
 
 Este documento fija el contrato para Flutter.
 Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `routes/skap_routes.py`.
+
+## Resumen rapido
+
+- Autenticacion: `Bearer JWT` en todos los endpoints salvo `POST /auth/login`, `POST /auth/refresh` y `GET /api/v1/mobile/version`.
+- Prefijo core: `/api/v1/mobile`.
+- Prefijos complementarios: `/api/v1/feedback` y `/api/skap`.
+- La campana de **Alertas** en el home agrupa adelantos, pedidos de mercaderia y feedback para mostrar novedades o aprobaciones pendientes.
 
 ## Autenticacion
 
@@ -21,12 +28,12 @@ Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `rout
 
 ## Endpoints
 
-### Versión de la app
+### VersiÃ³n de la app
 
 #### 0. `GET /api/v1/mobile/version?platform=android`
-- Público — **no requiere token**.
-- Devuelve la versión mínima y recomendada de la app para la plataforma dada.
-- `platform`: `"android"` o `"ios"` (default `"android"` si se omite o es inválido).
+- PÃºblico â€” **no requiere token**.
+- Devuelve la versiÃ³n mÃ­nima y recomendada de la app para la plataforma dada.
+- `platform`: `"android"` o `"ios"` (default `"android"` si se omite o es invÃ¡lido).
 - Response 200:
 ```json
 {
@@ -38,18 +45,18 @@ Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `rout
   "mensaje": null
 }
 ```
-- `version_minima`: versión por debajo de la cual la app debe bloquearse y forzar actualización.
-- `version_recomendada`: versión sugerida; la app puede mostrar un banner no bloqueante.
-- `url_descarga`: URL de la tienda, o `null` si no está configurado.
+- `version_minima`: versiÃ³n por debajo de la cual la app debe bloquearse y forzar actualizaciÃ³n.
+- `version_recomendada`: versiÃ³n sugerida; la app puede mostrar un banner no bloqueante.
+- `url_descarga`: URL de la tienda, o `null` si no estÃ¡ configurado.
 - `mensaje`: texto libre opcional para mostrar al usuario (novedad, aviso de mantenimiento, etc.), o `null`.
-- Si no hay configuración en base para la plataforma, devuelve `version_minima: "1.0.0"`, `version_recomendada: "1.0.0"` y el resto `null`.
+- Si no hay configuraciÃ³n en base para la plataforma, devuelve `version_minima: "1.0.0"`, `version_recomendada: "1.0.0"` y el resto `null`.
 
 ---
 
 ### Auth
 
 #### 1. `POST /api/v1/mobile/auth/login`
-- Request — campos obligatorios + campos opcionales de telemetría:
+- Request â€” campos obligatorios + campos opcionales de telemetrÃ­a:
 ```json
 {
   "dni": "30111222",
@@ -61,11 +68,11 @@ Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `rout
 ```
   | Campo | Tipo | Requerido | Notas |
   |---|---|---|---|
-  | `dni` | string | Sí | |
-  | `password` | string | Sí | |
+  | `dni` | string | SÃ­ | |
+  | `password` | string | SÃ­ | |
   | `platform` | string | No | `"android"` o `"ios"`. Si se omite se guarda como nulo. |
   | `device_model` | string | No | Modelo del dispositivo (ej. `"Samsung Galaxy A54"`). |
-  | `app_version` | string | No | Versión instalada de la app (ej. `"1.20.4"`). |
+  | `app_version` | string | No | VersiÃ³n instalada de la app (ej. `"1.20.4"`). |
 
 - Response 200:
 ```json
@@ -82,18 +89,18 @@ Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `rout
   }
 }
 ```
-- El JWT incluye internamente `sesion_id` para tracking de último request. Flutter no necesita leerlo.
+- El JWT incluye internamente `sesion_id` para tracking de Ãºltimo request. Flutter no necesita leerlo.
 
 #### 2. `POST /api/v1/mobile/auth/refresh`
-- Actualiza `fecha_ultimo_request` de la sesión en curso (si el token tiene `sesion_id`).
+- Actualiza `fecha_ultimo_request` de la sesiÃ³n en curso (si el token tiene `sesion_id`).
 - No requiere body.
 - Response 200:
 ```json
 {"token": "<jwt>"}
 ```
-- El nuevo token mantiene el mismo `sesion_id` de la sesión original.
+- El nuevo token mantiene el mismo `sesion_id` de la sesiÃ³n original.
 
-#### Flujo recomendado Flutter — Login con telemetría
+#### Flujo recomendado Flutter â€” Login con telemetrÃ­a
 
 ```dart
 import 'package:device_info_plus/device_info_plus.dart';
@@ -122,7 +129,7 @@ Future<Map<String, String>> buildLoginExtras() async {
 final extras = await buildLoginExtras();
 final body = {'dni': dni, 'password': password, ...extras};
 ```
-- `device_info_plus` ya está disponible si usás `package_info_plus`. Verificar en `pubspec.yaml`.
+- `device_info_plus` ya estÃ¡ disponible si usÃ¡s `package_info_plus`. Verificar en `pubspec.yaml`.
 
 ---
 
@@ -503,7 +510,7 @@ final body = {'dni': dni, 'password': password, ...extras};
   "horario_actual":{
     "id":5,
     "horario_id":2,
-    "horario_nombre":"Turno mañana",
+    "horario_nombre":"Turno maÃ±ana",
     "fecha_desde":"2026-01-01",
     "fecha_hasta":null,
     "dias":[{"dia_semana":1},{"dia_semana":2},{"dia_semana":3},{"dia_semana":4},{"dia_semana":5}]
@@ -526,6 +533,7 @@ final body = {'dni': dni, 'password': password, ...extras};
   "items":[
     {
       "id":10,
+      "fecha":"2026-02-14",
       "asistencia_id":1,
       "asistencia_fecha":"2026-02-14",
       "motivo":"Enfermedad con certificado medico",
@@ -562,13 +570,15 @@ final body = {'dni': dni, 'password': password, ...extras};
 #### 20. `POST /api/v1/mobile/me/justificaciones`
 - Request JSON:
 ```json
-{"asistencia_id":1,"motivo":"Enfermedad con certificado medico","archivo":"https://.../cert.pdf"}
+{"fecha":"2026-02-14","motivo":"Enfermedad con certificado medico","archivo":"https://.../cert.pdf"}
 ```
 - Request multipart/form-data:
+  - `fecha` opcional; fecha operativa de la justificacion. Si no se envia, el backend la infiere desde `asistencia_id` o usa la fecha actual del alta.
   - `asistencia_id` opcional.
   - `motivo` obligatorio.
   - `archivo` opcional; URL legacy.
   - `adjuntos` opcional; uno o varios archivos (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`).
+- `fecha`: fecha operativa de la justificacion (`YYYY-MM-DD`).
 - `asistencia_id`: opcional; si es null, la justificacion no tiene asistencia asociada.
 - `archivo`: opcional; URL al documento adjunto.
 - Los archivos subidos se normalizan y se guardan en la base de datos a traves del modulo de legajos.
@@ -580,7 +590,7 @@ final body = {'dni': dni, 'password': password, ...extras};
 - Solo permite editar justificaciones en estado `pendiente`.
 - Request JSON:
 ```json
-{"motivo":"Motivo actualizado","archivo":null}
+{"fecha":"2026-02-15","motivo":"Motivo actualizado","archivo":null}
 ```
 - Request multipart/form-data:
   - mismos campos que `POST`
@@ -675,13 +685,13 @@ final body = {'dni': dni, 'password': password, ...extras};
 - `dias_base`: dias por antiguedad al 31/12 segun LCT Art. 150 (14 / 21 / 28 / 35 dias).
 - `dias_compensatorios`: dias extra acreditados por RRHH (ej. feriados trabajados, beneficios). Se cargan desde el panel web por empleado o por sector. Son adicionales al saldo base.
 - `dias_ajustes`: correcciones manuales positivas o negativas.
-- `dias_corresponden = dias_base + dias_compensatorios + dias_ajustes` ← total disponible del anio.
+- `dias_corresponden = dias_base + dias_compensatorios + dias_ajustes` â† total disponible del anio.
 - `dias_tomados`: dias ya aprobados como tomados.
 - `dias_pendientes`: solicitudes aun sin resolver.
 - `dias_disponibles = dias_corresponden - dias_tomados`
-- `dias_disponibles_con_pendientes = dias_disponibles - dias_pendientes` ← saldo real para solicitar.
+- `dias_disponibles_con_pendientes = dias_disponibles - dias_pendientes` â† saldo real para solicitar.
 
-**Ejemplo:** base=28, compensatorios=2 → corresponden=30. Toma 15 → disponibles=15.
+**Ejemplo:** base=28, compensatorios=2 â†’ corresponden=30. Toma 15 â†’ disponibles=15.
 
 **Regla proporcional (nuevos ingresos):** si `aplica_control_proporcional=true` (antiguedad < 1 anio al 31/12) y el empleado trabajo menos de la mitad de los dias habiles de su propio periodo de empleo, `dias_base` se recalcula como `dias_trabajados_anio // 20`.
 
@@ -730,12 +740,12 @@ final body = {'dni': dni, 'password': password, ...extras};
 | `dias_pendientes` | Solicitudes aun sin resolver. |
 | `dias_disponibles` | `dias_corresponden - dias_tomados`. |
 | `dias_disponibles_con_pendientes` | Saldo real para solicitar (`dias_disponibles - dias_pendientes`). |
-| `desglose_corresponde` | Array con cada concepto que compone `dias_corresponden`. Mostrar como "21 base + 2 comp. = 23 días". Solo incluye conceptos con valor > 0. |
+| `desglose_corresponde` | Array con cada concepto que compone `dias_corresponden`. Mostrar como "21 base + 2 comp. = 23 dÃ­as". Solo incluye conceptos con valor > 0. |
 | `dias_trabajados_anio` | Dias efectivamente trabajados en el periodo evaluado. |
-| `dias_trabajados_porcentaje` | `dias_trabajados_anio / dias_habiles_anio * 100`. Para mostrar como "66 de 102 días hábiles (64.7%)". |
+| `dias_trabajados_porcentaje` | `dias_trabajados_anio / dias_habiles_anio * 100`. Para mostrar como "66 de 102 dÃ­as hÃ¡biles (64.7%)". |
 | `umbral_proporcional_pct` | Siempre `50.0`. El empleado necesita superar este porcentaje para no sufrir reduccion proporcional. |
 | `aplica_control_proporcional` | `true` si tiene < 1 anio de antiguedad al 31/12 (unico caso en que puede activarse la regla). |
-| `calculo_proporcional` | `true` si efectivamente se aplicó reduccion. Cuando es `true`, `dias_base` ya refleja el valor reducido. |
+| `calculo_proporcional` | `true` si efectivamente se aplicÃ³ reduccion. Cuando es `true`, `dias_base` ya refleja el valor reducido. |
 | `dias_habiles_anio_total` | Dias habiles del anio completo (261 aprox). Referencia. |
 | `dias_habiles_evaluados` | Dias habiles desde la fecha de ingreso hasta `fecha_evaluacion_trabajo`. |
 | `fecha_evaluacion_trabajo` | Hasta que fecha se evaluo asistencia (hoy si el anio es el actual). |
@@ -749,10 +759,10 @@ GET /vacaciones/resumen?anio=YYYY
          dias_tomados, dias_corresponden.
 
 2. Desglose "Corresponde": iterar desglose_corresponde y mostrar cada concepto:
-   "21 Base LCT  +  2 Compensatorios  =  23 días"
+   "21 Base LCT  +  2 Compensatorios  =  23 dÃ­as"
 
 3. Dias trabajados: mostrar como
-   "${dias_trabajados_anio} de ${dias_habiles_anio} días hábiles (${dias_trabajados_porcentaje}%)"
+   "${dias_trabajados_anio} de ${dias_habiles_anio} dÃ­as hÃ¡biles (${dias_trabajados_porcentaje}%)"
    Si aplica_control_proporcional=true, agregar nota sobre la regla proporcional.
    Si calculo_proporcional=true, mostrar aviso "Vacaciones calculadas proporcionalmente".
 
@@ -818,30 +828,30 @@ GET /vacaciones/resumen?anio=YYYY
 ```
 
 **Estructura de la respuesta:**
-| campo raíz | descripcion |
+| campo raÃ­z | descripcion |
 |---|---|
 | `ok` | `true` si la solicitud fue exitosa. |
-| `anio` | Año consultado (entero). |
-| `movimientos` | Array de objetos movimiento (puede ser vacío). |
+| `anio` | AÃ±o consultado (entero). |
+| `movimientos` | Array de objetos movimiento (puede ser vacÃ­o). |
 
 **Campos de cada movimiento:**
 | campo | descripcion |
 |---|---|
 | `id` | Identificador del movimiento. |
 | `tipo` | `tomado` \| `compensatorio` \| `ajuste`. |
-| `dias` | Cantidad de días del movimiento (entero o decimal). |
+| `dias` | Cantidad de dÃ­as del movimiento (entero o decimal). |
 | `fecha_desde` | Fecha de inicio (`YYYY-MM-DD`) o `null` para ajustes sin rango. |
 | `fecha_hasta` | Fecha de fin (`YYYY-MM-DD`) o `null` para ajustes sin rango. |
 | `estado` | `pendiente` \| `aprobado` \| `rechazado`. |
 | `observacion` | Texto libre o `null`. |
 | `es_reversion` | `true` si el movimiento fue generado para revertir otro. Mostrar con estilo atenuado / tachado. |
-| `afecta_saldo` | `false` para rechazados y reversiones. Cuando es `false` el movimiento se muestra a modo de historial pero **no impacta el saldo**. Usar para acompañar el número con un aviso tipo "Este movimiento no afecta tu saldo". |
+| `afecta_saldo` | `false` para rechazados y reversiones. Cuando es `false` el movimiento se muestra a modo de historial pero **no impacta el saldo**. Usar para acompaÃ±ar el nÃºmero con un aviso tipo "Este movimiento no afecta tu saldo". |
 
 **UX recomendada para movimientos:**
-- `afecta_saldo=true` → estilo normal con chip de estado (verde/azul/naranja).
-- `afecta_saldo=false, estado="rechazado"` → chip rojo "Rechazado", texto atenuado (opacity 0.6), agregar tooltip "No afecta tu saldo".
-- `afecta_saldo=false, es_reversion=true` → fila gris/punteada, icono de reversión, sin chip de estado principal.
-- Agregar padding inferior de al menos 80px a la lista de movimientos para que el FAB flotante no tape el último item.
+- `afecta_saldo=true` â†’ estilo normal con chip de estado (verde/azul/naranja).
+- `afecta_saldo=false, estado="rechazado"` â†’ chip rojo "Rechazado", texto atenuado (opacity 0.6), agregar tooltip "No afecta tu saldo".
+- `afecta_saldo=false, es_reversion=true` â†’ fila gris/punteada, icono de reversiÃ³n, sin chip de estado principal.
+- Agregar padding inferior de al menos 80px a la lista de movimientos para que el FAB flotante no tape el Ãºltimo item.
 
 - Response 400:
 ```json
@@ -1160,7 +1170,7 @@ GET /vacaciones/resumen?anio=YYYY
 
 #### 27K. `GET /api/v1/mobile/me/pedidos-mercaderia/articulos?q=&page=&per_page=`
 - Catalogo paginado de articulos habilitados para pedido.
-- `q` es opcional y busca por codigo, descripcion, marca, familia o sabor.
+- `q` es opcional, admite varias palabras y busca por codigo, descripcion, marca, familia, sabor, division, codigos de barras, presentaciones y tipo de producto.
 - Solo expone articulos importados desde CSV con:
   - `Activo = SI`
   - `Anulado = NO`
@@ -1341,7 +1351,7 @@ GET /vacaciones/resumen?anio=YYYY
   {
     "id":5,
     "horario_id":2,
-    "horario_nombre":"Turno mañana",
+    "horario_nombre":"Turno maÃ±ana",
     "fecha_desde":"2026-01-01",
     "fecha_hasta":null
   }
@@ -1353,7 +1363,7 @@ GET /vacaciones/resumen?anio=YYYY
 - Response 200 (con horario asignado):
 ```json
 {
-  "asignacion":{"id":5,"horario_id":2,"horario_nombre":"Turno mañana","fecha_desde":"2026-01-01","fecha_hasta":null},
+  "asignacion":{"id":5,"horario_id":2,"horario_nombre":"Turno maÃ±ana","fecha_desde":"2026-01-01","fecha_hasta":null},
   "dias":[{"dia_semana":1},{"dia_semana":2},{"dia_semana":3},{"dia_semana":4},{"dia_semana":5}]
 }
 ```
@@ -1497,7 +1507,7 @@ GET /vacaciones/resumen?anio=YYYY
 ```
 - Response 404: `{"ok":false,"error":"Evento no encontrado"}`
 
-#### 36. `GET /api/v1/mobile/me/legajo/adjuntos/<id>` — BLOQUEADO
+#### 36. `GET /api/v1/mobile/me/legajo/adjuntos/<id>` â€” BLOQUEADO
 - Acceso a documentacion deshabilitado para empleados.
 - Response 403: `{"ok":false,"error":"No autorizado"}`
 
@@ -1550,8 +1560,8 @@ GET /vacaciones/resumen?anio=YYYY
 ### KPIs Sectoriales
 
 #### 37. `GET /api/v1/mobile/me/kpis-sector?anio=YYYY`
-- KPIs del sector del empleado autenticado para el año solicitado.
-- `anio`: año a consultar (opcional, default = año actual del servidor).
+- KPIs del sector del empleado autenticado para el aÃ±o solicitado.
+- `anio`: aÃ±o a consultar (opcional, default = aÃ±o actual del servidor).
 - Para cada KPI muestra resultado acumulado vs objetivo anual del sector, con semaforo y recomendacion.
 - Fuente de datos: resultados cargados por CSV desde el panel web. Los codigos KPI se interpretan dentro del sector actual del empleado.
 - Regla de refresco de datos: si una importacion web contiene filas del mes actual del servidor, backend reemplaza ese mes solo para los empleados incluidos en el CSV antes de insertar los nuevos datos. Los meses historicos no se borran masivamente; se insertan/actualizan registros coincidentes.
@@ -1572,7 +1582,7 @@ GET /vacaciones/resumen?anio=YYYY
       "tipo_acumulacion": "suma",
       "mayor_es_mejor": true,
       "condicion": "gte",
-      "condicion_simbolo": "≥",
+      "condicion_simbolo": "â‰¥",
       "objetivo_anual": 1200.0,
       "valor_min": null,
       "valor_max": null,
@@ -1598,30 +1608,30 @@ GET /vacaciones/resumen?anio=YYYY
       "progreso_pct": 0.0,
       "progreso_esperado_pct": 100.0,
       "semaforo": "verde",
-      "recomendacion": "Dentro del rango objetivo (8.0 – 12.0)."
+      "recomendacion": "Dentro del rango objetivo (8.0 â€“ 12.0)."
     }
   ]
 }
 ```
 - Campos del KPI:
   - `tipo_acumulacion`: `suma` | `promedio` | `ultimo`
-    - `suma`: `resultado_acumulado` = suma de todos los registros diarios del año. Ideal para conteos (bultos, entregas).
-    - `promedio`: `resultado_acumulado` = promedio de todos los registros del año. Ideal para tasas o porcentajes (satisfaccion, calidad).
-    - `ultimo`: `resultado_acumulado` = el valor mas reciente cargado en el año (por fecha). Ideal para indicadores tipo snapshot que se reemplazan al cambiar (NPS, stock, tasas que no se promedian).
+    - `suma`: `resultado_acumulado` = suma de todos los registros diarios del aÃ±o. Ideal para conteos (bultos, entregas).
+    - `promedio`: `resultado_acumulado` = promedio de todos los registros del aÃ±o. Ideal para tasas o porcentajes (satisfaccion, calidad).
+    - `ultimo`: `resultado_acumulado` = el valor mas reciente cargado en el aÃ±o (por fecha). Ideal para indicadores tipo snapshot que se reemplazan al cambiar (NPS, stock, tasas que no se promedian).
   - `mayor_es_mejor`: `true` si mayor valor es mejor resultado
   - `condicion`: `gte` | `lte` | `eq` | `between`
-  - `condicion_simbolo`: `≥` | `≤` | `=` | `entre`
+  - `condicion_simbolo`: `â‰¥` | `â‰¤` | `=` | `entre`
   - `objetivo_anual`: objetivo simple del sector (0 si condicion es `between` o no configurado)
   - `valor_min` / `valor_max`: limites del rango (`null` salvo condicion `between`)
-  - `resultado_acumulado`: valor acumulado del empleado en el año segun `tipo_acumulacion` (ver arriba)
+  - `resultado_acumulado`: valor acumulado del empleado en el aÃ±o segun `tipo_acumulacion` (ver arriba)
   - `progreso_pct`: porcentaje del objetivo cubierto (`resultado / objetivo * 100`); 0 para `between`
-  - `progreso_esperado_pct`: porcentaje del año transcurrido (ritmo lineal); 100 para `promedio`/`ultimo`/`between`
+  - `progreso_esperado_pct`: porcentaje del aÃ±o transcurrido (ritmo lineal); 100 para `promedio`/`ultimo`/`between`
   - `semaforo`: `verde` | `amarillo` | `rojo` | `gris`
     - `gris`: sin objetivo definido
-    - Condicion `gte`: verde ≥90% ritmo, amarillo 70-90%, rojo <70%
-    - Condicion `lte`: verde ≤110% del limite, amarillo ≤130%, rojo >130%
-    - Condicion `eq`: verde ±10%, amarillo ±25%, rojo fuera
-    - Condicion `between`: verde dentro del rango, amarillo ≤10% del margen exterior, rojo fuera
+    - Condicion `gte`: verde â‰¥90% ritmo, amarillo 70-90%, rojo <70%
+    - Condicion `lte`: verde â‰¤110% del limite, amarillo â‰¤130%, rojo >130%
+    - Condicion `eq`: verde Â±10%, amarillo Â±25%, rojo fuera
+    - Condicion `between`: verde dentro del rango, amarillo â‰¤10% del margen exterior, rojo fuera
   - `recomendacion`: texto corto para mostrar al empleado
 - Si el empleado no tiene sector asignado, `sector.id` es `null` y `kpis` es `[]`.
 - Response 400: `{"error":"Ano invalido."}`
@@ -1636,7 +1646,7 @@ GET /vacaciones/resumen?anio=YYYY
 - Usa la misma fuente y regla de refresco de datos que `GET /me/kpis-sector`.
 - `anio`: anio a consultar (opcional, default = anio actual del servidor).
 - `limit_meses`: cantidad de meses cerrados a devolver, entero entre 1 y 12 (opcional, default = 6).
-- `include_series`: `true` o `1` para incluir `series_diaria` en la respuesta (opcional, default omitido → no se incluye).
+- `include_series`: `true` o `1` para incluir `series_diaria` en la respuesta (opcional, default omitido â†’ no se incluye).
 - `series_dias`: cantidad de dias de historia a mostrar en `series_diaria`, entero entre 1 y 365 (opcional, default = 60). Solo aplica si `include_series=true`.
 - Un mes cerrado es un mes calendario completo anterior al mes actual del servidor. Ejemplo: si hoy es 2026-05-28, el ultimo mes cerrado es 2026-04.
 - `meses_cerrados` se devuelve de mas reciente a mas antiguo.
@@ -1738,7 +1748,7 @@ GET /vacaciones/resumen?anio=YYYY
   }
 }
 ```
-- Response 200 con `include_series=true` — agrega el campo `series_diaria` y actualiza `meta`:
+- Response 200 con `include_series=true` â€” agrega el campo `series_diaria` y actualiza `meta`:
 ```json
 {
   "meta": {
@@ -1754,7 +1764,7 @@ GET /vacaciones/resumen?anio=YYYY
       "unidad": "bultos",
       "tipo_acumulacion": "suma",
       "condicion": "gte",
-      "condicion_simbolo": "≥",
+      "condicion_simbolo": "â‰¥",
       "objetivo_anual": 1200.0,
       "valor_min": null,
       "valor_max": null,
@@ -1787,7 +1797,7 @@ GET /vacaciones/resumen?anio=YYYY
 - `objetivo_dia` y `objetivo_acumulado_a_fecha` por tipo:
   | tipo_acumulacion | condicion | objetivo_dia | objetivo_acumulado_a_fecha |
   |---|---|---|---|
-  | `suma` | cualquiera menos `between` | `objetivo_anual / dias_en_año` | `objetivo_anual × (dia_del_año / total_dias)` |
+  | `suma` | cualquiera menos `between` | `objetivo_anual / dias_en_aÃ±o` | `objetivo_anual Ã— (dia_del_aÃ±o / total_dias)` |
   | `promedio` | cualquiera menos `between` | `objetivo_anual` | `objetivo_anual` |
   | `ultimo` | cualquiera menos `between` | `objetivo_anual` | `objetivo_anual` |
   | cualquiera | `between` | `null` | `null` (usar `valor_min`/`valor_max`) |
@@ -1810,8 +1820,8 @@ GET /vacaciones/resumen?anio=YYYY
 #### 37B. `GET /api/v1/mobile/me/kpis-sector/dia?fecha=YYYY-MM-DD`
 - Snapshot de todos los KPIs activos del sector del empleado autenticado para una fecha concreta.
 - `fecha`: requerido, formato `YYYY-MM-DD`. No puede ser futura.
-- Siempre devuelve una fila por KPI, haya o no resultado cargado para ese día exacto.
-- El acumulado se calcula desde el 1 de enero del año de la fecha consultada.
+- Siempre devuelve una fila por KPI, haya o no resultado cargado para ese dÃ­a exacto.
+- El acumulado se calcula desde el 1 de enero del aÃ±o de la fecha consultada.
 - Response 200:
 ```json
 {
@@ -1829,7 +1839,7 @@ GET /vacaciones/resumen?anio=YYYY
       "tipo_acumulacion": "suma",
       "mayor_es_mejor": true,
       "condicion": "gte",
-      "condicion_simbolo": "≥",
+      "condicion_simbolo": "â‰¥",
       "objetivo_anual": 1200.0,
       "valor_min": null,
       "valor_max": null,
@@ -1871,7 +1881,7 @@ GET /vacaciones/resumen?anio=YYYY
 - Campos del KPI:
   - `tiene_resultado`: `true` si hay un valor cargado para esa fecha exacta.
   - `resultado_dia`: valor del dia (`null` si `tiene_resultado` es `false`).
-  - `objetivo_dia`: objetivo del dia. Para `suma`: `objetivo_anual / dias_en_anio` (proporcional). Para `promedio`/`ultimo`: `objetivo_anual` (fijo — no se proratea). Para `between`: `null`.
+  - `objetivo_dia`: objetivo del dia. Para `suma`: `objetivo_anual / dias_en_anio` (proporcional). Para `promedio`/`ultimo`: `objetivo_anual` (fijo â€” no se proratea). Para `between`: `null`.
   - `resultado_acumulado_a_fecha`: acumulado del empleado desde el 1 de enero hasta la fecha (segun `tipo_acumulacion`). `null` si no hay ningun resultado en el periodo.
   - `objetivo_acumulado_a_fecha`: objetivo proporcional acumulado hasta la fecha. `null` para `between`.
   - `semaforo_dia`: `"gris"` si `tiene_resultado` es `false`.
@@ -1994,8 +2004,8 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
 ---
 
 #### 40. `GET /api/v1/trivia/estado`
-- Estado general del módulo trivia para el empleado autenticado.
-- Indica si hay trivia activa, si ya participó o tiene una participación en progreso, y los datos de su última participación.
+- Estado general del mÃ³dulo trivia para el empleado autenticado.
+- Indica si hay trivia activa, si ya participÃ³ o tiene una participaciÃ³n en progreso, y los datos de su Ãºltima participaciÃ³n.
 - Response 200 (sin trivia activa):
 ```json
 {
@@ -2008,7 +2018,7 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
   }
 }
 ```
-- Response 200 (con trivia activa, sin participar aún):
+- Response 200 (con trivia activa, sin participar aÃºn):
 ```json
 {
   "success": true,
@@ -2017,12 +2027,12 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
     "trivia": {
       "id": 3,
       "titulo": "Trivia Mayo 2026",
-      "descripcion": "Preguntas de logística y seguridad.",
+      "descripcion": "Preguntas de logÃ­stica y seguridad.",
       "fecha_inicio": "2026-05-24T08:00:00",
       "fecha_fin": "2026-05-31T23:59:00",
       "estado": "activa",
       "premio": "Vale de consumo $5000",
-      "mensaje_ganador": "¡Sos el campeón del mes!",
+      "mensaje_ganador": "Â¡Sos el campeÃ³n del mes!",
       "anio": 2026
     },
     "ya_participo": false,
@@ -2031,7 +2041,7 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
   }
 }
 ```
-- Response 200 (ya completó):
+- Response 200 (ya completÃ³):
 ```json
 {
   "success": true,
@@ -2064,12 +2074,12 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
   "data": {
     "id": 3,
     "titulo": "Trivia Mayo 2026",
-    "descripcion": "Preguntas de logística y seguridad.",
+    "descripcion": "Preguntas de logÃ­stica y seguridad.",
     "fecha_inicio": "2026-05-24T08:00:00",
     "fecha_fin": "2026-05-31T23:59:00",
     "estado": "activa",
     "premio": "Vale de consumo $5000",
-    "mensaje_ganador": "¡Sos el campeón del mes!",
+    "mensaje_ganador": "Â¡Sos el campeÃ³n del mes!",
     "anio": 2026
   }
 }
@@ -2079,7 +2089,7 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
 ---
 
 #### 42. `POST /api/v1/trivia/iniciar`
-- Registra el inicio de la participación del empleado y devuelve las preguntas.
+- Registra el inicio de la participaciÃ³n del empleado y devuelve las preguntas.
 - **Las respuestas correctas NO se incluyen en la respuesta.**
 - No requiere body.
 - Response 200:
@@ -2089,13 +2099,13 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
   "data": {
     "trivia_id": 3,
     "titulo": "Trivia Mayo 2026",
-    "descripcion": "Preguntas de logística y seguridad.",
+    "descripcion": "Preguntas de logÃ­stica y seguridad.",
     "fecha_fin": "2026-05-31T23:59:00",
     "preguntas": [
       {
         "id": 101,
         "trivia_id": 3,
-        "texto": "¿Cuántos bultos caben en un pallet estándar?",
+        "texto": "Â¿CuÃ¡ntos bultos caben en un pallet estÃ¡ndar?",
         "opcion_a": "60",
         "opcion_b": "72",
         "opcion_c": "80",
@@ -2106,7 +2116,7 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
       {
         "id": 102,
         "trivia_id": 3,
-        "texto": "¿Cuál es el EPP obligatorio en almacén?",
+        "texto": "Â¿CuÃ¡l es el EPP obligatorio en almacÃ©n?",
         "opcion_a": "Guantes",
         "opcion_b": "Casco",
         "opcion_c": "Casco y calzado de seguridad",
@@ -2118,12 +2128,12 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
   }
 }
 ```
-- Response 200 (participación en progreso ya existente — Flutter debe reanudar):
+- Response 200 (participaciÃ³n en progreso ya existente â€” Flutter debe reanudar):
 ```json
 {
   "success": true,
   "en_progreso": true,
-  "message": "Tenés una participación en progreso para esta trivia.",
+  "message": "TenÃ©s una participaciÃ³n en progreso para esta trivia.",
   "data": {
     "trivia_id": 3,
     "titulo": "Trivia Mayo 2026",
@@ -2132,13 +2142,13 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
 }
 ```
 - Response 404: `{"success":false,"error":"No hay trivia activa disponible para vos."}`
-- Response 409 (ya completó): `{"success":false,"error":"Ya participaste en esta trivia."}`
+- Response 409 (ya completÃ³): `{"success":false,"error":"Ya participaste en esta trivia."}`
 - Nota: la respuesta correcta (`respuesta_correcta`) nunca se incluye en `preguntas`.
 
 ---
 
 #### 43. `POST /api/v1/trivia/finalizar`
-- Envía todas las respuestas del empleado. El backend calcula puntaje, correctas, incorrectas y tiempo.
+- EnvÃ­a todas las respuestas del empleado. El backend calcula puntaje, correctas, incorrectas y tiempo.
 - Request:
 ```json
 {
@@ -2157,8 +2167,8 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
   ]
 }
 ```
-- `respuesta`: `"A"` | `"B"` | `"C"` | `"D"` (mayúscula).
-- `tiempo_respuesta_segundos`: opcional; segundos que tardó el empleado en responder esa pregunta.
+- `respuesta`: `"A"` | `"B"` | `"C"` | `"D"` (mayÃºscula).
+- `tiempo_respuesta_segundos`: opcional; segundos que tardÃ³ el empleado en responder esa pregunta.
 - Response 200:
 ```json
 {
@@ -2174,7 +2184,7 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
 }
 ```
 - Response 400: `{"success":false,"error":"trivia_id requerido."}`
-- Response 404: `{"success":false,"error":"No iniciaste la participación en esta trivia."}`
+- Response 404: `{"success":false,"error":"No iniciaste la participaciÃ³n en esta trivia."}`
 - Response 409: `{"success":false,"error":"Ya enviaste tus respuestas para esta trivia."}`
 - Response 410: `{"success":false,"error":"Esta trivia ya fue finalizada."}`
 - Importante: el backend valida las respuestas contra las preguntas activas de la trivia. Si el empleado omite una pregunta, se cuenta como incorrecta.
@@ -2183,7 +2193,7 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
 
 #### 44. `GET /api/v1/trivia/ranking/<trivia_id>`
 - Ranking de una trivia. Disponible para trivias activas y finalizadas.
-- Orden: mayor puntaje → menor tiempo → inicio más temprano → fin más temprano.
+- Orden: mayor puntaje â†’ menor tiempo â†’ inicio mÃ¡s temprano â†’ fin mÃ¡s temprano.
 - Response 200:
 ```json
 {
@@ -2237,12 +2247,12 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
     {
       "id": 3,
       "titulo": "Trivia Mayo 2026",
-      "descripcion": "Preguntas de logística y seguridad.",
+      "descripcion": "Preguntas de logÃ­stica y seguridad.",
       "fecha_inicio": "2026-05-24T08:00:00",
       "fecha_fin": "2026-05-31T23:59:00",
       "estado": "finalizada",
       "premio": "Vale de consumo $5000",
-      "mensaje_ganador": "¡Sos el campeón del mes!",
+      "mensaje_ganador": "Â¡Sos el campeÃ³n del mes!",
       "anio": 2026,
       "ganador_nombre": "Lopez Ana",
       "ganador_dni": "30111222",
@@ -2297,7 +2307,7 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
     "trivia_id": 3,
     "titulo": "Trivia Mayo 2026",
     "premio": "Vale de consumo $5000",
-    "mensaje_ganador": "¡Sos el campeón del mes!",
+    "mensaje_ganador": "Â¡Sos el campeÃ³n del mes!",
     "empleado_id": 12,
     "empleado_dni": "30111222",
     "empleado_nombre": "Lopez Ana",
@@ -2307,13 +2317,13 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
   }
 }
 ```
-- Response 404: `{"success":false,"error":"Ganador no disponible aún."}`
+- Response 404: `{"success":false,"error":"Ganador no disponible aÃºn."}`
 
 ---
 
 #### 48. `GET /api/v1/trivia/ranking-anual/<anio>`
 - Ranking anual acumulado de todos los empleados.
-- Orden: mayor puntos acumulados → más trivias ganadas → más correctas → menor tiempo → más participaciones.
+- Orden: mayor puntos acumulados â†’ mÃ¡s trivias ganadas â†’ mÃ¡s correctas â†’ menor tiempo â†’ mÃ¡s participaciones.
 - Response 200:
 ```json
 {
@@ -2342,7 +2352,7 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
 ---
 
 #### 49. `GET /api/v1/trivia/ganador-anual/<anio>`
-- Ganador anual definitivo del año indicado.
+- Ganador anual definitivo del aÃ±o indicado.
 - Response 200:
 ```json
 {
@@ -2364,13 +2374,13 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
   }
 }
 ```
-- Response 404: `{"success":false,"error":"Ganador anual 2026 no disponible aún."}`
+- Response 404: `{"success":false,"error":"Ganador anual 2026 no disponible aÃºn."}`
 
 ---
 
 #### 50. `GET /api/v1/trivia/notificaciones`
-- Devuelve las notificaciones de trivia no leídas del empleado.
-- Diseñado para polling desde Flutter (no usa push).
+- Devuelve las notificaciones de trivia no leÃ­das del empleado.
+- DiseÃ±ado para polling desde Flutter (no usa push).
 - Response 200:
 ```json
 {
@@ -2381,7 +2391,7 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
       "trivia_id": 3,
       "trivia_titulo": "Trivia Mayo 2026",
       "tipo": "recordatorio_2h",
-      "mensaje": "¡Quedan solo 2 horas para participar en 'Trivia Mayo 2026'! No te lo pierdas.",
+      "mensaje": "Â¡Quedan solo 2 horas para participar en 'Trivia Mayo 2026'! No te lo pierdas.",
       "enviada_en": "2026-05-31T21:59:00",
       "fecha_fin_trivia": "2026-05-31T23:59:00"
     }
@@ -2393,39 +2403,39 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
 ---
 
 #### 51. `POST /api/v1/trivia/notificaciones/<id>/leer`
-- Marca una notificación puntual como leída.
+- Marca una notificaciÃ³n puntual como leÃ­da.
 - No requiere body.
 - Response 200: `{"success":true,"data":{"marcada":true}}`
 
 ---
 
 #### 52. `POST /api/v1/trivia/notificaciones/leer-todas`
-- Marca todas las notificaciones del empleado como leídas.
+- Marca todas las notificaciones del empleado como leÃ­das.
 - No requiere body.
 - Response 200: `{"success":true,"data":{"marcadas":true}}`
 
 ---
 
-### Calificación de la app
+### CalificaciÃ³n de la app
 
 #### 53. `POST /api/v1/mobile/calificar-app`
-- Envía la valoración del empleado autenticado sobre la experiencia de uso de la app.
-- Un empleado solo puede calificar **una vez por versión**. Si envía `version_app: null` o lo omite, solo puede calificar una vez con versión nula.
+- EnvÃ­a la valoraciÃ³n del empleado autenticado sobre la experiencia de uso de la app.
+- Un empleado solo puede calificar **una vez por versiÃ³n**. Si envÃ­a `version_app: null` o lo omite, solo puede calificar una vez con versiÃ³n nula.
 - Request:
 ```json
 {
   "puntuacion": 4,
-  "comentario": "Muy fácil de usar, solo falta el modo oscuro",
+  "comentario": "Muy fÃ¡cil de usar, solo falta el modo oscuro",
   "pantalla": "asistencia",
   "version_app": "1.20.3"
 }
 ```
   | Campo | Tipo | Requerido | Notas |
   |---|---|---|---|
-  | `puntuacion` | int | Sí | Entero entre 1 y 5 |
-  | `comentario` | string | No | Texto libre, máx. recomendado 500 chars |
-  | `pantalla` | string | No | Nombre de la pantalla o sección desde donde se lanzó el diálogo |
-  | `version_app` | string | No | Versión de la app instalada. Si se omite se registra como nula |
+  | `puntuacion` | int | SÃ­ | Entero entre 1 y 5 |
+  | `comentario` | string | No | Texto libre, mÃ¡x. recomendado 500 chars |
+  | `pantalla` | string | No | Nombre de la pantalla o secciÃ³n desde donde se lanzÃ³ el diÃ¡logo |
+  | `version_app` | string | No | VersiÃ³n de la app instalada. Si se omite se registra como nula |
 
 - Response 201:
 ```json
@@ -2435,59 +2445,59 @@ Respuestas de error: `{"success": false, "error": "mensaje"}`
 ```json
 {"ok": false, "error": "puntuacion debe ser un entero entre 1 y 5"}
 ```
-- Response 409 (ya calificó esa versión):
+- Response 409 (ya calificÃ³ esa versiÃ³n):
 ```json
-{"ok": false, "error": "Ya calificaste esta versión de la app"}
+{"ok": false, "error": "Ya calificaste esta versiÃ³n de la app"}
 ```
 
-#### Flujo recomendado Flutter — Calificación de la app
+#### Flujo recomendado Flutter â€” CalificaciÃ³n de la app
 
 Implementado via `AppRatingService` + `FlutterSecureStorage` (con `encryptedSharedPreferences: true` en Android).
 
-**Claves de storage por versión (`version` = valor de `PackageInfo.version`):**
+**Claves de storage por versiÃ³n (`version` = valor de `PackageInfo.version`):**
 | Clave | Descripcion |
 |---|---|
-| `rating_sessions_{version}` | Contador de sesiones acumuladas para esta versión |
-| `rating_rated_{version}` | `"1"` si el usuario ya calificó esta versión |
-| `rating_dismissals_{version}` | Contador de veces que el usuario descartó el diálogo |
+| `rating_sessions_{version}` | Contador de sesiones acumuladas para esta versiÃ³n |
+| `rating_rated_{version}` | `"1"` si el usuario ya calificÃ³ esta versiÃ³n |
+| `rating_dismissals_{version}` | Contador de veces que el usuario descartÃ³ el diÃ¡logo |
 
-**Lógica `shouldShowDialog()`:**
-1. Si `rating_rated_{version} == "1"` → no mostrar.
-2. Si `rating_dismissals_{version} >= maxDismissals` (default 2) → no mostrar.
-3. Incrementar `rating_sessions_{version}`; si el nuevo valor >= `minSessions` (default 3) → mostrar.
+**LÃ³gica `shouldShowDialog()`:**
+1. Si `rating_rated_{version} == "1"` â†’ no mostrar.
+2. Si `rating_dismissals_{version} >= maxDismissals` (default 2) â†’ no mostrar.
+3. Incrementar `rating_sessions_{version}`; si el nuevo valor >= `minSessions` (default 3) â†’ mostrar.
 
-**Al enviar calificación (`submitRating`):**
-- Obtiene versión actual via `PackageInfo.fromPlatform()` y llama `POST /calificar-app` con `version_app`.
-- Si `ok: true` → escribe `rating_rated_{version} = "1"` en storage.
-- Si `409` → el backend ya tiene la calificación; marcar igualmente `rating_rated_{version} = "1"`.
+**Al enviar calificaciÃ³n (`submitRating`):**
+- Obtiene versiÃ³n actual via `PackageInfo.fromPlatform()` y llama `POST /calificar-app` con `version_app`.
+- Si `ok: true` â†’ escribe `rating_rated_{version} = "1"` en storage.
+- Si `409` â†’ el backend ya tiene la calificaciÃ³n; marcar igualmente `rating_rated_{version} = "1"`.
 
 **Al descartar (`markDismissed`):**
-- Incrementa `rating_dismissals_{version}`. Cuando llega a `maxDismissals`, no se vuelve a mostrar para esta versión.
+- Incrementa `rating_dismissals_{version}`. Cuando llega a `maxDismissals`, no se vuelve a mostrar para esta versiÃ³n.
 
 ---
 
-#### Flujo recomendado Flutter — Trivia
+#### Flujo recomendado Flutter â€” Trivia
 
-1. Al abrir el módulo: `GET /api/v1/trivia/estado`
-   - Si `hay_trivia_activa=false` → mostrar pantalla de "sin trivia disponible".
-   - Si `ya_participo=true` → mostrar resultado previo y ranking.
-   - Si `en_progreso=true` → ir directamente a `POST /iniciar` para recuperar preguntas.
-   - Si ninguna de las anteriores → mostrar botón "Jugar".
+1. Al abrir el mÃ³dulo: `GET /api/v1/trivia/estado`
+   - Si `hay_trivia_activa=false` â†’ mostrar pantalla de "sin trivia disponible".
+   - Si `ya_participo=true` â†’ mostrar resultado previo y ranking.
+   - Si `en_progreso=true` â†’ ir directamente a `POST /iniciar` para recuperar preguntas.
+   - Si ninguna de las anteriores â†’ mostrar botÃ³n "Jugar".
 2. Al tocar "Jugar": `POST /api/v1/trivia/iniciar`
    - Guardar localmente el `trivia_id` y `fecha_fin`.
 3. El empleado responde todas las preguntas.
 4. Al finalizar: `POST /api/v1/trivia/finalizar` con todas las respuestas.
 5. Mostrar resultado (`puntos_total`, `correctas`, `incorrectas`).
-6. Opcional: `GET /api/v1/trivia/ranking/<trivia_id>` para ver la posición en tiempo real.
-7. Para notificaciones: polling periódico a `GET /api/v1/trivia/notificaciones` y marcar leídas.
+6. Opcional: `GET /api/v1/trivia/ranking/<trivia_id>` para ver la posiciÃ³n en tiempo real.
+7. Para notificaciones: polling periÃ³dico a `GET /api/v1/trivia/notificaciones` y marcar leÃ­das.
 
-#### Reglas de negocio — Trivia
+#### Reglas de negocio â€” Trivia
 
 - Un empleado solo puede participar **una vez** por trivia. El backend valida esto independientemente del frontend.
 - Las preguntas se entregan **sin la respuesta correcta**. Nunca se expone `respuesta_correcta` en respuestas de la API.
-- Solo se puede responder una trivia mientras su estado sea `activa` y esté dentro del horario `fecha_inicio` – `fecha_fin`.
+- Solo se puede responder una trivia mientras su estado sea `activa` y estÃ© dentro del horario `fecha_inicio` â€“ `fecha_fin`.
 - Si el empleado omite una pregunta en el body de `/finalizar`, se cuenta como incorrecta con 0 puntos.
-- El ranking definitivo se calcula automáticamente cuando la trivia finaliza (scheduler o finalización manual desde el panel admin).
+- El ranking definitivo se calcula automÃ¡ticamente cuando la trivia finaliza (scheduler o finalizaciÃ³n manual desde el panel admin).
 
 ---
 
@@ -2545,9 +2555,11 @@ Modelo base `FeedbackItem`:
 - Query:
   | Campo | Tipo | Default | Notas |
   |---|---|---|---|
-  | `q` | string | null | Busca por codigo, razon social, fantasia, localidad, provincia o tipo |
+  | `q` | string | null | Busca por id/numero de cliente, sucursal, codigo, razon social, fantasia, telefonos, movil, email, domicilio, localidad, provincia o tipo |
   | `page` | int | 1 | Pagina |
-  | `per_page` | int | 20 | Maximo 50 |
+  | `per_page` | int | 20 | Maximo 200 |
+
+- `sucursal_origen` es el codigo numerico de la sucursal original del CSV.
 
 - Response 200:
 ```json
@@ -2556,7 +2568,7 @@ Modelo base `FeedbackItem`:
     {
       "id": 55,
       "codigo": "CLI-001",
-      "sucursal_origen": "Norte",
+      "sucursal_origen": 1,
       "razon_social": "Cliente SA",
       "nombre_fantasia": "Cliente Centro",
       "telefonos": "1122334455",
@@ -2579,7 +2591,8 @@ Modelo base `FeedbackItem`:
 #### 54C. `GET /api/v1/feedback/historial?page=&per_page=&estado=&q=`
 - Historial del empleado autenticado.
 - `estado`: opcional. Usar `pendiente`, `en_proceso`, `resuelto` o `vencido`.
-- `q`: busqueda por cliente, motivo o descripcion.
+- `q`: busqueda por cliente, motivo, descripcion, resolucion, estado o nombres/legajos de participantes.
+- Admite varias palabras; cada palabra debe coincidir con algun campo para que el resultado entre.
 - Response 200:
 ```json
 {"items":[{"id":123,"estado":"pendiente","estado_actual":"pendiente","...":"..."}],"page":1,"per_page":20,"total":1}
@@ -2590,6 +2603,7 @@ Modelo base `FeedbackItem`:
 #### 54D. `GET /api/v1/feedback/bandeja?page=&per_page=&estado=&q=`
 - Bandeja del jefe directo autenticado. Devuelve los feedback asignados a ese empleado como `jefe_directo`.
 - Mismos filtros y paginacion que historial.
+- `q` usa la misma logica de busqueda por multiples palabras que historial.
 - Response 200:
 ```json
 {"items":[{"id":123,"estado":"pendiente","jefe_directo":{"id":2,"nombre":"Maria Gomez"},"...":"..."}],"page":1,"per_page":20,"total":1}
@@ -2929,292 +2943,6 @@ Desde esta fecha, Flutter debe integrarse solo con este contrato.
 Si cambia una clave o status code, subir version (`v2`) o registrar change log explicito.
 
 ---
-
 ## Change log
 
-### 1.22.0 (2026-06-08)
-- Nuevo modulo mobile complementario **Feedback de calle** bajo `/api/v1/feedback`:
-  - Motivos, clientes importados por CSV, carga de feedback, historial, bandeja del jefe directo, toma/resolucion y dashboard.
-  - La resolucion guarda fecha, descripcion gestionada y `resuelto_en_sla`.
-  - El dashboard incluye totales, motivos principales, ranking de carga y posicion personal contra el resto del personal.
-- Nuevo modulo mobile complementario **SKAP - Mi Desarrollo** bajo `/api/skap`:
-  - Preguntas por sector, evaluacion anual, detalle de evaluacion, mi desarrollo, ranking personal y planes PDP.
-  - Usa el mismo Bearer JWT mobile que `/api/v1/mobile`, pero mantiene envelope `{"success":true,"data":...}` propio.
-
-### 1.21.5 (2026-05-28)
-- Flutter — nueva solapa **"Mes en curso"** en `KpisSectorPage`:
-  - Se agrega una segunda pestaña ("Mes en curso") junto a la existente ("Resumen"). El contenido de "Resumen" queda intacto.
-  - Muestra un **calendario mensual del mes en curso** (semana lunes–domingo). Los días pasados y hoy son tapeables; los días futuros están deshabilitados.
-  - **Dots de datos sin llamada extra**: los días que ya tienen al menos un resultado cargado muestran un punto debajo del número. Se derivan de `series_diaria[].puntos[].resultado_dia` ya cargados en la llamada a endpoint 37A (`GET /me/kpis-sector/resumen?include_series=true`), sin llamadas adicionales.
-  - **Tap en un día**: llama al endpoint 37B (`GET /me/kpis-sector/dia?fecha=YYYY-MM-DD`) y muestra las tarjetas de KPI para esa fecha. Las respuestas se cachean en memoria durante la sesión — tocar un día ya consultado no genera nueva llamada a la red.
-  - Cada tarjeta de KPI muestra: nombre, código, semaforo, `resultado_dia`, `objetivo_dia` y `resultado_acumulado_a_fecha`.
-  - Si el día no tiene ningún registro (`tiene_resultado = false` para todos los KPIs), se muestra un estado vacío "Sin registros para este día."
-  - Sin cambios de payload ni status codes en el backend.
-
-### 1.21.4 (2026-05-28)
-- Documentacion explicita de `tipo_acumulacion = "ultimo"` en endpoints 37, 37A y 37B:
-  - `resultado_acumulado` / `resultado_mes` para `ultimo` es el **valor mas reciente por fecha**, no un promedio ni una suma.
-  - Ideal para indicadores tipo snapshot que se reemplazan al cambiar (NPS, stock, tasas).
-  - `objetivo_dia` para `ultimo` es `objetivo_anual` (fijo, igual que `promedio`); no se proratea.
-  - Sin cambio de payload ni status codes — solo aclaracion semantica y de negocio.
-- Panel web: formulario de KPI actualizado con descripciones claras por tipo de acumulacion e indicaciones de uso (NPS → Ultimo, satisfaccion → Promedio, bultos → Suma).
-- Panel web: listado de KPIs ahora muestra el tipo de acumulacion con badge de color (azul=suma, naranja=promedio, verde=ultimo) para facilitar la revision de configuracion.
-
-### 1.21.3 (2026-05-28)
-- Nuevo endpoint `GET /me/kpis-sector/dia?fecha=YYYY-MM-DD` (endpoint 37B):
-  - Snapshot de todos los KPIs activos del sector para una fecha concreta.
-  - Siempre devuelve una fila por KPI aunque no haya resultado ese día exacto.
-  - Cada fila incluye: `tiene_resultado`, `resultado_dia`, `objetivo_dia`, `resultado_acumulado_a_fecha`, `objetivo_acumulado_a_fecha`, `progreso_dia_pct`, `progreso_acumulado_pct`, `semaforo_dia`, `semaforo_acumulado`.
-  - Acumulado calculado desde el 1 de enero del año de la fecha consultada.
-  - `fecha` requerida, no puede ser futura. 400 si falta, es inválida o es futura.
-
-### 1.21.2 (2026-05-28)
-- `GET /me/kpis-sector/resumen` — nueva serie diaria opcional:
-  - Params opcionales: `include_series=true` y `series_dias=N` (1–365, default 60).
-  - Si `include_series=true`, el payload incluye `series_diaria`: lista de KPIs del sector con campo `puntos` (una entrada por dia con resultado real).
-  - Cada punto expone: `resultado_dia`, `objetivo_dia`, `resultado_acumulado_a_fecha`, `objetivo_acumulado_a_fecha`, `progreso_dia_pct`, `progreso_acumulado_pct`, `semaforo_dia`, `semaforo_acumulado`.
-  - Los acumulados se computan desde el inicio del anio aunque la ventana de display sea menor.
-  - Para KPIs `between`, `objetivo_dia` y `objetivo_acumulado_a_fecha` son `null`; se usa `valor_min`/`valor_max`.
-  - `meta` ahora incluye siempre `include_series` (bool) y `series_dias` (int o null).
-  - Sin `include_series`, el payload es identico al de 1.21.1 (compatible).
-  - Nuevo 400: `{"error":"series_dias invalido. Use un entero entre 1 y 365."}`.
-
-### 1.21.1 (2026-05-28)
-- Aclaracion de contrato para KPIs mobile:
-  - Los resultados provienen de importaciones CSV del panel web.
-  - `codigo_kpi` se resuelve por el sector del empleado.
-  - Al importar datos del mes actual, backend reemplaza ese mes para los empleados incluidos en el CSV antes de insertar los nuevos datos.
-  - Los meses historicos no se limpian masivamente; solo se insertan/actualizan registros coincidentes.
-- No cambia el payload ni los status codes de `GET /me/kpis-sector` ni `GET /me/kpis-sector/resumen`.
-
-### 1.21.0 (2026-05-28)
-- Nuevo endpoint mobile de KPIs sectoriales enriquecidos:
-  - `GET /me/kpis-sector/resumen?anio=YYYY&limit_meses=N`
-- No modifica el endpoint existente `GET /me/kpis-sector`.
-- Agrega vistas para Flutter:
-  - `vista_actual.kpis`: misma informacion de la vista anual actual.
-  - `ultimo_cargado`: ultimo resultado de KPI cargado, con `fecha_resultado` y `cargado_at`.
-  - `meses_cerrados`: resultados por KPI agrupados por meses calendario cerrados.
-- `limit_meses` permite pedir de 1 a 12 meses cerrados; default 6.
-
-### 1.20.5 (2026-05-25)
-- **Corrección de flujo calificación (endpoint 53):** el flujo recomendado ahora describe la implementación real con `AppRatingService` + `FlutterSecureStorage`. Se documentan las claves de storage, la lógica de `shouldShowDialog` (`minSessions=3`, `maxDismissals=2`) y el comportamiento ante `409`.
-- **Panel web:** sección "Pedidos Empleados" separada del grupo "Asistencia" en la navegación lateral. Incluye Adelantos, Pedidos mercadería e Importar catálogo.
-
-### 1.20.4 (2026-05-24)
-- **Telemetría de sesiones mobile** — registro automático de cada login en tabla `mobile_sesiones`.
-  - `POST /auth/login` acepta 3 campos opcionales nuevos: `platform`, `device_model`, `app_version`. Totalmente retrocompatible — si Flutter no los envía, funciona igual y se guardan como nulos.
-  - `POST /auth/refresh` actualiza `fecha_ultimo_request` de la sesión en curso (sin cambios en la respuesta).
-  - El JWT ahora incluye `sesion_id` internamente. Flutter no necesita leerlo.
-  - Panel admin web en `/mobile-stats/` (solo admin): KPIs de sesiones hoy/7d/30d, distribución Android/iOS, versiones activas y gráfico de actividad diaria.
-  - Requiere `device_info_plus` en Flutter para enviar modelo del dispositivo. Ver flujo recomendado en endpoint 1.
-
-### 1.20.3 (2026-05-24)
-- **Nuevo módulo: Calificación de la app** — endpoint 53.
-  - `POST /api/v1/mobile/calificar-app` — envía puntuación 1–5, comentario opcional, pantalla y versión de la app.
-  - Un empleado puede calificar una vez por versión de app (`version_app` nullable; la unicidad por NULL se controla a nivel aplicación).
-  - Panel admin web en `/admin/calificaciones-app/` con KPIs, barra de distribución de estrellas y tabla filtrable por fecha, versión, puntuación y sector.
-  - Tabla MySQL: `app_calificaciones` (migración `20260524_03`).
-
-### 1.20.2 (2026-05-24)
-- Changelog reorganizado: entrada 1.20.2 ya documentada — ver abajo.
-
-### 1.20.0 (2026-05-24)
-- **Nuevo módulo: Trivia Operativa** — prefijo `/api/v1/trivia/`
-- Nuevos endpoints (40–52):
-  - `GET /trivia/estado` — estado general para el empleado (hay trivia, ya participó, resultado propio).
-  - `GET /trivia/activa` — datos de la trivia activa disponible.
-  - `POST /trivia/iniciar` — registra inicio de participación; devuelve preguntas sin respuesta correcta.
-  - `POST /trivia/finalizar` — recibe todas las respuestas, calcula puntaje, correctas, tiempo.
-  - `GET /trivia/ranking/<trivia_id>` — ranking en tiempo real de una trivia.
-  - `GET /trivia/historial` — trivias finalizadas con ganador (paginado).
-  - `GET /trivia/mi-historial` — historial de participaciones del empleado autenticado.
-  - `GET /trivia/ganador/<trivia_id>` — ganador oficial de una trivia.
-  - `GET /trivia/ranking-anual/<anio>` — ranking anual acumulado.
-  - `GET /trivia/ganador-anual/<anio>` — ganador anual definitivo.
-  - `GET /trivia/notificaciones` — notificaciones no leídas (polling Flutter).
-  - `POST /trivia/notificaciones/<id>/leer` — marca una notificación como leída.
-  - `POST /trivia/notificaciones/leer-todas` — marca todas como leídas.
-- Reglas de negocio:
-  - Un empleado solo puede participar una vez por trivia (validación backend con UNIQUE constraint).
-  - La respuesta correcta nunca se expone en la API.
-  - Solo se puede jugar dentro del horario `fecha_inicio`–`fecha_fin` con estado `activa`.
-  - Preguntas omitidas en `/finalizar` se cuentan como incorrectas.
-  - Ranking definitivo: mayor puntaje → menor tiempo → inicio más temprano → fin más temprano.
-  - Ranking anual: mayor puntaje acumulado → más trivias ganadas → más correctas → menor tiempo → más participaciones.
-- Scheduler automático (APScheduler):
-  - Activa trivias cuya `fecha_inicio` llegó (cada 2 minutos).
-  - Finaliza trivias vencidas y calcula ranking definitivo (cada 2 minutos).
-  - Genera notificaciones a empleados sin participar: recordatorio 24h y 2h antes del fin (cada 1 hora).
-- Panel admin web: `/admin/trivias/` con CRUD de trivias, preguntas, visualización de ranking y finalización manual.
-
-### 1.19.0 (2026-05-18)
-- **Legajo — documentacion bloqueada para empleados:**
-  - `GET /me/legajo/adjuntos/<id>` siempre devuelve `403 No autorizado`. Los empleados no pueden descargar documentacion.
-  - `GET /me/legajo/eventos` y `GET /me/legajo/eventos/<id>`: se mantiene `adjuntos_count` para mostrar trazabilidad, pero `adjuntos` sigue bloqueado para empleados.
-  - `legajo.recientes` dentro de `GET /me/dashboard` actualizado con el mismo esquema reducido.
-- **Nuevo endpoint `GET /me/legajo/historial-por-tipo`:**
-  - Devuelve todos los tipos de evento activos con `total`, `vigentes` y `ultima_fecha` para el empleado autenticado.
-  - Incluye tipos con `total: 0`.
-  - Ordenado por total descendente, luego nombre.
-
-### 1.18.0 (2026-05-16)
-- Se completa el contrato mobile de legajo:
-  - `GET /me/legajo/resumen`
-  - `GET /me/legajo/tipos-evento`
-  - `GET /me/legajo/eventos` con filtros `desde`, `hasta`, `severidad`, `q`, `tipo_id`, `estado`
-  - `GET /me/legajo/eventos/<id>` con adjuntos
-  - `GET /me/legajo/adjuntos/<id>` para descarga con Bearer JWT
-- Las respuestas nuevas de legajo usan `ok` y errores JSON con `ok=false`.
-- Los adjuntos mobile quedan scoped al empleado autenticado.
-
-### 1.20.2 (2026-05-24)
-- `GET /vacaciones/resumen` — campos nuevos:
-  - `desglose_corresponde`: array `[{concepto, dias}]` listo para renderizar cada componente de `dias_corresponden`. Solo incluye conceptos con valor > 0. Soluciona el problema de mostrar "48 días" sin contexto; el app puede armar "35 Base LCT + 13 Compensatorios = 48 días".
-  - `dias_trabajados_porcentaje`: porcentaje de dias trabajados sobre el total habil del periodo. Para mostrar "66 de 102 días hábiles (64.7%)" en lugar de la fraccion cruda.
-  - `umbral_proporcional_pct`: siempre `50.0`. Indica el minimo % para no sufrir reduccion proporcional. Util para mostrar un indicador de progreso en la pantalla de saldo.
-- `GET /vacaciones/movimientos` — campos nuevos por movimiento:
-  - `es_reversion`: `true` si el movimiento revierte otro (no afecta saldo, mostrar atenuado).
-  - `afecta_saldo`: `false` para rechazados y reversiones. Cuando es `false`, el item debe mostrarse como historial, sin impactar el saldo visible. Incluye aviso UX recomendado.
-- Documentacion UX recomendada: padding inferior minimo de 80px en la lista de movimientos para evitar que el FAB flotante tape el ultimo item.
-- Tabla completa de referencia de todos los campos de `vacaciones` en el resumen.
-
-### 1.20.1 (2026-05-24)
-- `GET /vacaciones/resumen`: respuesta completa documentada con todos los campos devueltos (`dias_habiles_anio_total`, `dias_habiles_evaluados`, `fecha_evaluacion_trabajo`, `aplica_control_proporcional`).
-- Se documenta la logica de `dias_compensatorios`: dias extra acreditados por RRHH por sector o empleado, independientes de las vacaciones base. Se suman a `dias_corresponden`.
-- Formula explicita: `dias_corresponden = dias_base + dias_compensatorios + dias_ajustes`. Tomar vacaciones descuenta de este total indiferentemente de su origen.
-- Flujo Flutter recomendado para pantalla de saldo de vacaciones incluido.
-- Correccion del calculo proporcional para nuevos ingresos: el denominador ahora usa los dias habiles desde la fecha de ingreso (no desde el 1 de enero), evitando penalizar incorrectamente a empleados con ingreso posterior a enero.
-
-### 1.17.0 (2026-05-15)
-- Nuevos endpoints mobile para vacaciones con saldo LCT:
-  - `GET /vacaciones/resumen?anio=YYYY`
-  - `GET /vacaciones/movimientos?anio=YYYY`
-  - `POST /vacaciones/solicitar`
-- `POST /vacaciones/solicitar` valida saldo disponible contra `dias_disponibles_con_pendientes` y crea un movimiento `tomado` en estado `pendiente`.
-- Se documenta que `/me/vacaciones*` queda como compatibilidad sobre movimientos, mientras el flujo mobile recomendado usa los endpoints de saldo/movimientos.
-
-### 1.16.1 (2026-05-13)
-- `POST /me/fichadas/scan`: `qr_token` acepta JWT directo, `Bearer`, URL con query o JSON con `qr_token`.
-- `POST /me/fichadas/scan`: errores QR devuelven `code` especifico (`qr_token_invalid_signature`, `qr_token_expired`, `qr_inactive`, etc.).
-- `POST /me/qr`: default real de `vigencia_segundos` alineado al contrato (`2592000`, 30 dias).
-- QR puerta: los QRs generados desde el panel quedan registrados y pueden inactivarse; un QR inactivo se rechaza en mobile.
-
-### 1.15.0 (2026-04-20)
-- `GET /me/kpis-sector`: nuevos campos por KPI: `condicion`, `condicion_simbolo`, `valor_min`, `valor_max`.
-- Soporte condicion `between`: el semaforo evalua si el resultado cae dentro del rango [valor_min, valor_max].
-- Semaforo `between`: verde=dentro del rango, amarillo=dentro del 10% del margen exterior, rojo=fuera.
-- Para KPIs `promedio`/`ultimo`, el ritmo esperado ya no aplica fraccion anual (siempre compara contra el objetivo completo).
-
-### 1.14.0 (2026-04-19)
-- Nuevo endpoint KPIs sectoriales:
-  - `GET /me/kpis-sector?anio=YYYY`
-- Devuelve por KPI: objetivo anual del sector, resultado acumulado del empleado, semaforo y recomendacion.
-- Semaforo: `verde` / `amarillo` / `rojo` basado en ritmo esperado lineal vs real.
-- Los resultados se cargan diariamente via CSV en el panel web.
-
-### 1.13.1 (2026-04-19)
-- Se completa el contrato mobile de pedidos de mercaderia con:
-  - esquema explicito de `PedidoMercaderiaItem`
-  - flujo recomendado para Flutter
-  - validaciones de alta
-  - respuestas de error para edicion y cancelacion
-
-### 1.13.0 (2026-04-18)
-- Nuevos endpoints de pedidos de mercaderia para mobile:
-  - `GET /me/pedidos-mercaderia/resumen`
-  - `GET /me/pedidos-mercaderia/estado`
-  - `GET /me/pedidos-mercaderia/articulos`
-  - `GET /me/pedidos-mercaderia`
-  - `GET /me/pedidos-mercaderia/<id>`
-  - `POST /me/pedidos-mercaderia`
-  - `PUT /me/pedidos-mercaderia/<id>`
-  - `DELETE /me/pedidos-mercaderia/<id>`
-- Reglas nuevas de negocio:
-  - solo se permite un pedido de mercaderia por empleado por mes calendario
-  - un pedido `pendiente` puede editarse o cancelarse
-  - las cantidades se informan solo en `bultos`
-- `GET /me/pedidos-mercaderia/articulos` expone solo articulos importados con:
-  - `Activo = SI`
-  - `Anulado = NO`
-  - `Usado en dispositivo movil = SI`
-  - `TIPO DE PRODUCTO = MERCADERIA`
-
-### 1.12.3 (2026-04-18)
-- Nuevo endpoint mobile de resumen para la pantalla inicial:
-  - `GET /me/adelantos/resumen`
-- Devuelve:
-  - `adelanto_mes_actual`
-  - `ultimo_adelanto`
-  - `total_historial`
-  - `pendientes_total`
-
-### 1.12.2 (2026-04-18)
-- Nuevo endpoint mobile de detalle de adelanto:
-  - `GET /me/adelantos/<id>`
-
-### 1.12.1 (2026-04-18)
-- Nuevo endpoint mobile de historial de adelantos:
-  - `GET /me/adelantos` (lista paginada con filtro opcional `estado`)
-- `AdelantoItem` ahora puede incluir:
-  - `resuelto_at`
-  - `resuelto_by_usuario`
-
-### 1.12.0 (2026-04-17)
-- Nuevos endpoints de adelantos para mobile:
-  - `GET /me/adelantos/estado` (consulta si ya existe solicitud en el mes actual)
-  - `POST /me/adelantos` (crea la solicitud del mes actual)
-- Regla nueva de negocio:
-  - solo se permite un adelanto por empleado por mes calendario
-
-### 1.11.0 (2026-03-26)
-- Nuevos endpoints: CRUD completo de justificaciones:
-  - `GET /me/justificaciones` (lista paginada con filtros `desde`, `hasta`, `estado`)
-  - `GET /me/justificaciones/<id>`
-  - `POST /me/justificaciones`
-  - `PUT /me/justificaciones/<id>` (solo estado `pendiente`)
-  - `DELETE /me/justificaciones/<id>` (solo estado `pendiente`)
-- Nuevos endpoints: CRUD completo de vacaciones:
-  - `GET /me/vacaciones`, `GET /me/vacaciones/<id>`
-  - `POST /me/vacaciones`, `PUT /me/vacaciones/<id>`, `DELETE /me/vacaciones/<id>`
-- Nuevos endpoints: horarios asignaciones:
-  - `GET /me/horarios-asignaciones` (historial)
-  - `GET /me/horarios-asignaciones/actual` (con dias de la semana)
-- Nuevos endpoints: francos:
-  - `GET /me/francos`, `GET /me/francos/<id>`
-- Nuevos endpoints: legajo:
-  - `GET /me/legajo/eventos` (con filtros `tipo_id`, `estado`)
-  - `GET /me/legajo/eventos/<id>`
-- Nuevo endpoint dashboard consolidado: `GET /me/dashboard`
-  - Combina estadisticas de asistencia + eventos de legajo + vacaciones activas + francos proximos + horario actual
-  - Params: `periodo` (`7d`|`30d`|`mes_actual`|`90d`) + override `desde`/`hasta`
-- `GET /me/estadisticas` ampliado:
-  - 7 nuevos campos en `kpis`: `adherencia_pct`, `horas_promedio`, `horas_totales`, `gps_incidencias`, `dias_laborables`, `dias_con_registro`, `racha_ok`
-  - Nuevo campo en `justificaciones`: `tasa_justificacion_pct`
-  - Nueva serie en `series`: `semanal` (resumen por semana ISO)
-
-### 1.10.0 (2026-03-09)
-- `POST /api/v1/mobile/auth/login` agrega `empleado.imagen_version`.
-- `GET /api/v1/mobile/me` agrega `imagen_version`.
-- `PUT /api/v1/mobile/me/perfil` agrega `imagen_version` en response.
-- `DELETE /api/v1/mobile/me/perfil/foto` agrega `imagen_version` en response (`null`).
-- Nuevo endpoint de imagen para cliente mobile: `GET /empleados/imagen/<dni>?v=<imagen_version>` con soporte `ETag/304`.
-
-### 1.9.0 (2026-02-28)
-- `PUT /api/v1/mobile/me/perfil` agrega `eliminar_foto=true` para baja de foto.
-- Nuevo endpoint `DELETE /api/v1/mobile/me/perfil/foto`.
-
-### 1.8.0 (2026-02-28)
-- `PUT /api/v1/mobile/me/perfil` soporta `multipart/form-data` con `foto_file`.
-
-### 1.7.0 (2026-02-27)
-- Nuevo endpoint: `GET /api/v1/mobile/me/estadisticas`.
-
-### 1.6.0 (2026-02-25)
-- `GET /api/v1/mobile/me/config-asistencia` agrega `cooldown_scan_segundos` e `intervalo_minimo_fichadas_minutos`.
-- `POST /api/v1/mobile/me/fichadas/scan` agrega `code` y `cooldown_segundos_restantes` en 409 por doble scan.
-
-### 1.5.0 (2026-02-24)
-- Se mantiene `POST /api/v1/mobile/me/fichadas/scan` como endpoint recomendado.
-- Se marcan `deprecated`: `/fichadas/entrada` y `/fichadas/salida`.
-- Se agrega base URL de produccion.
+Historial completo: [mobile_v1_changelog.md](mobile_v1_changelog.md)

@@ -363,6 +363,13 @@
           </header>
 
           <main class="page-content">
+            {% if export_toolbar["enabled"] and export_toolbar["items"] %}
+              <div class="toolbar">
+                {% for item in export_toolbar["items"] %}
+                  <a class="btn btn-secondary" href="{{ item.url }}">{{ item.label }}</a>
+                {% endfor %}
+              </div>
+            {% endif %}
             {{ rendered_content }}
           </main>
         </div>

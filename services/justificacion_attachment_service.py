@@ -49,6 +49,13 @@ def _get_tipo_evento_id() -> int:
 
 
 def _resolve_fecha_evento(justificacion: dict) -> str:
+    fecha_desde = _to_date(justificacion.get("fecha_desde"))
+    fecha_justificacion = _to_date(justificacion.get("fecha"))
+    if fecha_desde:
+        return fecha_desde.isoformat()
+    if fecha_justificacion:
+        return fecha_justificacion.isoformat()
+
     if justificacion.get("asistencia_id"):
         asistencia = get_asistencia_by_id(int(justificacion["asistencia_id"]))
         if asistencia and asistencia.get("fecha"):
@@ -64,13 +71,17 @@ def _resolve_fecha_evento(justificacion: dict) -> str:
 
 
 def _build_event_payload(justificacion: dict, *, actor_id: int | None):
+    fecha_desde = _to_date(justificacion.get("fecha_desde")) or _to_date(justificacion.get("fecha"))
+    fecha_hasta = _to_date(justificacion.get("fecha_hasta")) or _to_date(justificacion.get("fecha"))
+    if fecha_desde and fecha_hasta and fecha_hasta < fecha_desde:
+        fecha_hasta = fecha_desde
     return {
         "empresa_id": int(justificacion["empresa_id"]),
         "empleado_id": int(justificacion["empleado_id"]),
         "tipo_id": _get_tipo_evento_id(),
         "fecha_evento": _resolve_fecha_evento(justificacion),
-        "fecha_desde": None,
-        "fecha_hasta": None,
+        "fecha_desde": fecha_desde.isoformat() if fecha_desde else None,
+        "fecha_hasta": fecha_hasta.isoformat() if fecha_hasta else None,
         "titulo": JUSTIFICACION_EVENTO_TITULO,
         "descripcion": justificacion.get("motivo") or JUSTIFICACION_EVENTO_TITULO,
         "severidad": None,

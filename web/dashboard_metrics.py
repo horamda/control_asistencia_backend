@@ -744,7 +744,9 @@ def _dashboard_metrics():
               AND NOT EXISTS (
                   SELECT 1
                   FROM justificaciones j
-                  WHERE j.asistencia_id = a.id
+                  WHERE j.empleado_id = a.empleado_id
+                    AND COALESCE(j.fecha_desde, j.fecha) <= a.fecha
+                    AND COALESCE(j.fecha_hasta, j.fecha) >= a.fecha
                     AND j.estado = 'aprobada'
               )
             """,
@@ -1352,7 +1354,9 @@ def _dashboard_metrics():
                   AND NOT EXISTS (
                       SELECT 1
                       FROM justificaciones j
-                      WHERE j.asistencia_id = a.id
+                      WHERE j.empleado_id = a.empleado_id
+                        AND COALESCE(j.fecha_desde, j.fecha) <= a.fecha
+                        AND COALESCE(j.fecha_hasta, j.fecha) >= a.fecha
                         AND j.estado = 'aprobada'
                   )
                 """,
@@ -1473,65 +1477,64 @@ def _dashboard_metrics():
                 f"""
                 SELECT COUNT(*)
                 FROM justificaciones j
-                JOIN asistencias a ON a.id = j.asistencia_id
-                JOIN empleados e ON e.id = a.empleado_id
+                JOIN empleados e ON e.id = j.empleado_id
                 WHERE 1 = 1
-                {scope_sql}
-                  AND DATE(j.created_at) BETWEEN %s AND %s
+                  {scope_sql}
+                  AND COALESCE(j.fecha_desde, j.fecha) <= %s
+                  AND COALESCE(j.fecha_hasta, j.fecha) >= %s
                 """,
-                (*scoped_params, month_start, today),
+                (*scoped_params, today, month_start),
             )
             stats["justificaciones_mes_pendientes"] = _safe_count(
                 cursor,
                 f"""
                 SELECT COUNT(*)
                 FROM justificaciones j
-                JOIN asistencias a ON a.id = j.asistencia_id
-                JOIN empleados e ON e.id = a.empleado_id
+                JOIN empleados e ON e.id = j.empleado_id
                 WHERE 1 = 1
-                {scope_sql}
-                  AND DATE(j.created_at) BETWEEN %s AND %s
+                  {scope_sql}
+                  AND COALESCE(j.fecha_desde, j.fecha) <= %s
+                  AND COALESCE(j.fecha_hasta, j.fecha) >= %s
                   AND LOWER(COALESCE(j.estado, 'pendiente')) = 'pendiente'
                 """,
-                (*scoped_params, month_start, today),
+                (*scoped_params, today, month_start),
             )
             stats["justificaciones_mes_aprobadas"] = _safe_count(
                 cursor,
                 f"""
                 SELECT COUNT(*)
                 FROM justificaciones j
-                JOIN asistencias a ON a.id = j.asistencia_id
-                JOIN empleados e ON e.id = a.empleado_id
+                JOIN empleados e ON e.id = j.empleado_id
                 WHERE 1 = 1
-                {scope_sql}
-                  AND DATE(j.created_at) BETWEEN %s AND %s
+                  {scope_sql}
+                  AND COALESCE(j.fecha_desde, j.fecha) <= %s
+                  AND COALESCE(j.fecha_hasta, j.fecha) >= %s
                   AND LOWER(COALESCE(j.estado, 'pendiente')) = 'aprobada'
                 """,
-                (*scoped_params, month_start, today),
+                (*scoped_params, today, month_start),
             )
             stats["justificaciones_mes_rechazadas"] = _safe_count(
                 cursor,
                 f"""
                 SELECT COUNT(*)
                 FROM justificaciones j
-                JOIN asistencias a ON a.id = j.asistencia_id
-                JOIN empleados e ON e.id = a.empleado_id
+                JOIN empleados e ON e.id = j.empleado_id
                 WHERE 1 = 1
-                {scope_sql}
-                  AND DATE(j.created_at) BETWEEN %s AND %s
+                  {scope_sql}
+                  AND COALESCE(j.fecha_desde, j.fecha) <= %s
+                  AND COALESCE(j.fecha_hasta, j.fecha) >= %s
                   AND LOWER(COALESCE(j.estado, 'pendiente')) = 'rechazada'
                 """,
-                (*scoped_params, month_start, today),
+                (*scoped_params, today, month_start),
             )
             stats["justificaciones_pendientes_total"] = _safe_count(
                 cursor,
                 f"""
                 SELECT COUNT(*)
                 FROM justificaciones j
-                JOIN asistencias a ON a.id = j.asistencia_id
-                JOIN empleados e ON e.id = a.empleado_id
+                JOIN empleados e ON e.id = j.empleado_id
                 WHERE 1 = 1
-                {scope_sql}
+                  {scope_sql}
                   AND LOWER(COALESCE(j.estado, 'pendiente')) = 'pendiente'
                 """,
                 scoped_params,
@@ -1759,11 +1762,14 @@ def _dashboard_metrics():
             FROM asistencias a
             JOIN empleados e ON e.id = a.empleado_id
             LEFT JOIN (
-                SELECT asistencia_id, MIN(created_at) AS first_created_at
+                SELECT empleado_id, fecha_desde, fecha_hasta, MIN(created_at) AS first_created_at
                 FROM justificaciones
-                WHERE asistencia_id IS NOT NULL
-                GROUP BY asistencia_id
-            ) j ON j.asistencia_id = a.id
+                WHERE fecha_desde IS NOT NULL
+                  AND fecha_hasta IS NOT NULL
+                GROUP BY empleado_id, fecha_desde, fecha_hasta
+            ) j ON j.empleado_id = a.empleado_id
+               AND j.fecha_desde <= a.fecha
+               AND j.fecha_hasta >= a.fecha
             WHERE a.fecha BETWEEN %s AND %s
               AND a.estado IN ('ausente', 'tarde', 'salida_anticipada')
               {scope_sql}
@@ -1782,13 +1788,13 @@ def _dashboard_metrics():
                 LOWER(COALESCE(j.estado, 'pendiente')) AS estado,
                 COUNT(*) AS total
             FROM justificaciones j
-            JOIN asistencias a ON a.id = j.asistencia_id
-            JOIN empleados e ON e.id = a.empleado_id
-            WHERE DATE(j.created_at) BETWEEN %s AND %s
+            JOIN empleados e ON e.id = j.empleado_id
+            WHERE COALESCE(j.fecha_desde, j.fecha) <= %s
+              AND COALESCE(j.fecha_hasta, j.fecha) >= %s
               {scope_sql}
             GROUP BY LOWER(COALESCE(j.estado, 'pendiente'))
             """,
-            (month_start, today, *scope_params),
+            (today, month_start, *scope_params),
         )
         just_totals = {}
         for row in just_rows:

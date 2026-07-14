@@ -20,6 +20,17 @@ Documento generado automaticamente desde rutas activas del backend.
 | `POST` | `/asistencias/generar-ausentes` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:generar_ausentes_post` |
 | `GET` | `/asistencias/horario-esperado` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:horario_esperado` |
 | `GET,POST` | `/asistencias/nuevo` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:nuevo` |
+| `GET` | `/asistencias/planilla` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:planilla` |
+| `GET` | `/asistencias/planilla.xls` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:planilla_xls` |
+| `GET` | `/asistencias/planilla.pdf` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:planilla_pdf` |
+| `GET,POST` | `/asistencias/planilla/marca/agregar` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:planilla_marca_agregar` |
+| `GET,POST` | `/asistencias/planilla/marca/editar/<int:marca_id>` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:planilla_marca_editar` |
+| `POST` | `/asistencias/planilla/marca/eliminar/<int:marca_id>` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:planilla_marca_eliminar` |
+| `GET` | `/asistencias/marcas` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:marcas` |
+| `GET` | `/asistencias/marcas.csv` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:marcas_csv` |
+| `GET` | `/asistencias/marcas/reporte.csv` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:marcas_reporte_csv` |
+| `GET` | `/asistencias/marcas.xlsx` | sesion web | admin, rrhh, supervisor | `web/asistencias/asistencias_routes.py:marcas_xlsx` |
+| `POST` | `/asistencias/marcas/backfill` | sesion web | admin | `web/asistencias/asistencias_routes.py:marcas_backfill` |
 | `GET` | `/auditoria/` | sesion web | admin | `web/auditoria/auditoria_routes.py:listado` |
 | `GET` | `/configuracion-empresa/` | sesion web | admin | `web/configuracion/configuracion_empresa_routes.py:listado` |
 | `GET,POST` | `/configuracion-empresa/editar/<int:empresa_id>` | sesion web | admin | `web/configuracion/configuracion_empresa_routes.py:editar` |
@@ -172,6 +183,12 @@ Documento generado automaticamente desde rutas activas del backend.
 
 | Metodo(s) | Endpoint | Auth | Roles | Handler |
 |---|---|---|---|---|
+| `POST` | `/api/v1/external/auth/token` | usuario tecnico y contrasena | integracion externa | `routes/external_api_routes.py:auth_token` |
+| `GET` | `/api/v1/external/catalogo` | token externo (Bearer) o API key | solo lectura | `routes/external_api_routes.py:catalogo` |
+| `GET` | `/api/v1/external/empresas` | token externo (Bearer) o API key | solo lectura | `routes/external_api_routes.py:empresas` |
+| `GET` | `/api/v1/external/sucursales` | token externo (Bearer) o API key | solo lectura | `routes/external_api_routes.py:sucursales` |
+| `GET` | `/api/v1/external/empleados` | token externo (Bearer) o API key | solo lectura | `routes/external_api_routes.py:empleados` |
+| `GET` | `/api/v1/external/reportes/asistencia.csv` | token externo (Bearer) o API key | solo lectura | `routes/external_api_routes.py:reporte_asistencia_csv` |
 | `POST` | `/api/v1/mobile/auth/login` | publico | - | `routes/mobile_v1_routes.py:auth_login` |
 | `POST` | `/api/v1/mobile/auth/refresh` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:auth_refresh` |
 | `GET` | `/api/v1/mobile/me` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me` |

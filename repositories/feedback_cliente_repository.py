@@ -1,4 +1,139 @@
 from extensions import get_db
+from utils.search import build_tokenized_like_clause, normalize_search_terms
+
+
+_FEEDBACK_CLIENTE_SEARCH_FIELDS = (
+    "id",
+    "codigo_externo",
+    "razon_social",
+    "nombre_fantasia",
+    "telefonos",
+    "movil",
+    "email",
+    "domicilio",
+    "localidad",
+    "descripcion_localidad",
+    "provincia",
+    "descripcion_provincia",
+    "tipo_codigo",
+    "tipo_descripcion",
+)
+
+
+def _normalize_search_query(value: str | None) -> str:
+    return " ".join(str(value or "").split()).strip().lower()
+
+
+def _row_value(row: dict, field: str) -> str:
+    return _normalize_search_query(row.get(field))
+
+
+def _feedback_cliente_matches_search(row: dict, search: str | None) -> bool:
+    terms = normalize_search_terms(search, max_terms=6)
+    if not terms:
+        return True
+
+    searchable_values = [_row_value(row, field) for field in _FEEDBACK_CLIENTE_SEARCH_FIELDS]
+    return all(
+        any(term in value for value in searchable_values)
+        for term in terms
+    )
+
+
+def _feedback_cliente_search_rank(row: dict, search: str | None) -> int | None:
+    phrase = _normalize_search_query(search)
+    if not phrase:
+        return 0
+
+    if not _feedback_cliente_matches_search(row, phrase):
+        return None
+
+    codigo = _row_value(row, "codigo_externo")
+    cliente_id = _row_value(row, "id")
+    razon_social = _row_value(row, "razon_social")
+    nombre_fantasia = _row_value(row, "nombre_fantasia")
+
+    if codigo == phrase or cliente_id == phrase:
+        return 0
+    if codigo.startswith(phrase) or cliente_id.startswith(phrase):
+        return 1
+    if razon_social == phrase or nombre_fantasia == phrase:
+        return 2
+    if razon_social.startswith(phrase) or nombre_fantasia.startswith(phrase):
+        return 3
+    if phrase in codigo or phrase in razon_social or phrase in nombre_fantasia:
+        return 4
+    return 5
+
+
+def _feedback_cliente_ranked_rows(rows: list[dict], search: str | None) -> list[dict]:
+    phrase = _normalize_search_query(search)
+    if not phrase:
+        return list(rows)
+
+    ranked_rows = []
+    for index, row in enumerate(rows):
+        rank = _feedback_cliente_search_rank(row, phrase)
+        if rank is None:
+            continue
+        ranked_rows.append(
+            (
+                rank,
+                _row_value(row, "razon_social"),
+                _row_value(row, "codigo_externo"),
+                index,
+                row,
+            )
+        )
+
+    ranked_rows.sort(key=lambda item: (item[0], item[1], item[2], item[3]))
+    return [row for _, _, _, _, row in ranked_rows]
+
+
+def _build_feedback_cliente_rank_sql(search: str | None) -> tuple[str, tuple[str, ...]]:
+    phrase = _normalize_search_query(search)
+    if not phrase:
+        return "", ()
+
+    prefix = f"{phrase}%"
+    like = f"%{phrase}%"
+
+    def _norm(column: str) -> str:
+        return f"LOWER(TRIM(COALESCE({column}, '')))"
+
+    sql = f"""
+    CASE
+        WHEN {_norm('codigo_externo')} = %s OR {_norm('CAST(id AS CHAR)')} = %s THEN 0
+        WHEN {_norm('codigo_externo')} LIKE %s OR {_norm('CAST(id AS CHAR)')} LIKE %s THEN 1
+        WHEN {_norm('razon_social')} = %s OR {_norm('nombre_fantasia')} = %s THEN 2
+        WHEN {_norm('razon_social')} LIKE %s OR {_norm('nombre_fantasia')} LIKE %s THEN 3
+        WHEN {_norm('razon_social')} LIKE %s OR {_norm('nombre_fantasia')} LIKE %s OR {_norm('codigo_externo')} LIKE %s THEN 4
+        WHEN {_norm('telefonos')} LIKE %s OR {_norm('movil')} LIKE %s OR {_norm('email')} LIKE %s OR {_norm('domicilio')} LIKE %s OR {_norm('localidad')} LIKE %s OR {_norm('descripcion_localidad')} LIKE %s OR {_norm('provincia')} LIKE %s OR {_norm('descripcion_provincia')} LIKE %s OR {_norm('tipo_codigo')} LIKE %s OR {_norm('tipo_descripcion')} LIKE %s THEN 5
+        ELSE 99
+    END
+    """.strip()
+
+    params = (
+        phrase,
+        phrase,
+        prefix,
+        prefix,
+        phrase,
+        phrase,
+        prefix,
+        prefix,
+        like,
+        like,
+        like,
+        like,
+        like,
+        like,
+        like,
+        like,
+        like,
+        like,
+    )
+    return sql, params
 
 
 def get_by_id(cliente_id: int):
@@ -57,28 +192,48 @@ def get_page(
         where = []
         params = []
         if search:
-            like = f"%{search}%"
-            where.append(
-                "("
-                "codigo_externo LIKE %s OR razon_social LIKE %s OR nombre_fantasia LIKE %s OR "
-                "tipo_descripcion LIKE %s OR localidad LIKE %s OR provincia LIKE %s"
-                ")"
+            clause, clause_params = build_tokenized_like_clause(
+                [
+                    "CAST(id AS CHAR)",
+                    "CAST(sucursal_origen AS CHAR)",
+                    "codigo_externo",
+                    "razon_social",
+                    "nombre_fantasia",
+                    "telefonos",
+                    "movil",
+                    "email",
+                    "domicilio",
+                    "localidad",
+                    "descripcion_localidad",
+                    "provincia",
+                    "descripcion_provincia",
+                    "tipo_codigo",
+                    "tipo_descripcion",
+                ],
+                search,
+                max_terms=6,
             )
-            params.extend([like, like, like, like, like, like])
+            if clause:
+                where.append(clause)
+                params.extend(clause_params)
         if activo in (0, 1):
             where.append("activo = %s")
             params.append(int(activo))
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+        rank_sql, rank_params = _build_feedback_cliente_rank_sql(search)
+        order_sql = "ORDER BY razon_social ASC, codigo_externo ASC"
+        if rank_sql:
+            order_sql = f"ORDER BY {rank_sql}, razon_social ASC, codigo_externo ASC"
 
         cursor.execute(
             f"""
             SELECT *
             FROM feedback_clientes
             {where_sql}
-            ORDER BY razon_social ASC, codigo_externo ASC
+            {order_sql}
             LIMIT %s OFFSET %s
             """,
-            (*params, int(per_page), offset),
+            (*params, *rank_params, int(per_page), offset),
         )
         rows = cursor.fetchall()
 

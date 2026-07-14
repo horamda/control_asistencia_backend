@@ -1,5 +1,6 @@
 import app as app_module
 import routes.external_api_routes as external_routes
+from werkzeug.security import generate_password_hash
 
 
 def _build_client(monkeypatch, api_key="secret-api-key"):
@@ -15,6 +16,13 @@ def _build_client(monkeypatch, api_key="secret-api-key"):
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
     return app.test_client()
+
+
+def _configure_token_auth(monkeypatch, *, username="reportes", password="clave-segura"):
+    monkeypatch.setenv("EXTERNAL_API_USERNAME", username)
+    monkeypatch.setenv("EXTERNAL_API_PASSWORD_HASH", generate_password_hash(password))
+    monkeypatch.setenv("EXTERNAL_API_JWT_SECRET", "e" * 48)
+    monkeypatch.setenv("EXTERNAL_API_TOKEN_TTL_MINUTES", "60")
 
 
 def test_external_api_requires_configured_key(monkeypatch):
@@ -34,6 +42,102 @@ def test_external_api_rejects_missing_key(monkeypatch):
     assert resp.status_code == 401
     assert resp.get_json()["error"] == "API key invalida o ausente."
     assert resp.headers["WWW-Authenticate"] == 'ApiKey realm="external"'
+
+
+def test_external_auth_token_accepts_configured_credentials(monkeypatch):
+    _configure_token_auth(monkeypatch)
+    client = _build_client(monkeypatch, api_key=None)
+
+    resp = client.post(
+        "/api/v1/external/auth/token",
+        json={"username": "reportes", "password": "clave-segura"},
+    )
+    body = resp.get_json()
+
+    assert resp.status_code == 200
+    assert body["token_type"] == "Bearer"
+    assert body["expires_in"] == 3600
+    assert "external:read" in body["scope"]
+    assert body["access_token"].count(".") == 2
+    assert resp.headers["Cache-Control"] == "no-store"
+
+
+def test_external_auth_token_rejects_invalid_credentials(monkeypatch):
+    _configure_token_auth(monkeypatch)
+    client = _build_client(monkeypatch, api_key=None)
+
+    resp = client.post(
+        "/api/v1/external/auth/token",
+        json={"username": "reportes", "password": "incorrecta"},
+    )
+
+    assert resp.status_code == 401
+    assert resp.get_json()["error"] == "Credenciales invalidas."
+
+
+def test_external_asistencia_report_accepts_bearer_token(monkeypatch):
+    _configure_token_auth(monkeypatch)
+    client = _build_client(monkeypatch, api_key=None)
+    captured = {}
+
+    def _fake_export(**kwargs):
+        captured.update(kwargs)
+        return [
+            {
+                "empleado_id": 10,
+                "fecha": "2026-06-11",
+                "hora": "13:50:00",
+                "accion": "ingreso",
+                "legajo": "58",
+                "apellido": "Pereyra",
+                "nombre": "Gabriel",
+                "sucursal_nombre": "Porton Lateral",
+                "sector_nombre": "Reparto",
+            }
+        ]
+
+    monkeypatch.setattr(external_routes, "get_marcas_admin_export", _fake_export)
+    token_resp = client.post(
+        "/api/v1/external/auth/token",
+        json={"username": "reportes", "password": "clave-segura"},
+    )
+    token = token_resp.get_json()["access_token"]
+
+    resp = client.get(
+        "/api/v1/external/reportes/asistencia.csv"
+        "?empresa_id=1&fecha_desde=2026-06-11&fecha_hasta=2026-06-11",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["Content-Type"]
+    assert resp.headers["X-Report-Row-Count"] == "1"
+    assert captured["empresa_id"] == 1
+    assert captured["fecha_desde"] == "2026-06-11"
+    assert captured["fecha_hasta"] == "2026-06-11"
+    assert captured["order_asc"] is True
+    lines = resp.data.decode("utf-8-sig").splitlines()
+    assert lines[0] == "MES,FECHA,HORA,PUERTA,TIPO MOV,CODIGO,NOMBRE,SECTOR"
+    assert lines[1] == "6,11/6/2026,13:50,Porton Lateral,Entrada,58,PEREYRA GABRIEL,Reparto"
+
+
+def test_external_asistencia_report_rejects_invalid_date_range(monkeypatch):
+    _configure_token_auth(monkeypatch)
+    client = _build_client(monkeypatch, api_key=None)
+    token_resp = client.post(
+        "/api/v1/external/auth/token",
+        json={"username": "reportes", "password": "clave-segura"},
+    )
+    token = token_resp.get_json()["access_token"]
+
+    resp = client.get(
+        "/api/v1/external/reportes/asistencia.csv"
+        "?fecha_desde=2026-06-12&fecha_hasta=2026-06-11",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 400
+    assert "fecha_desde" in resp.get_json()["error"]
 
 
 def test_external_empresas_accepts_bearer_key(monkeypatch):

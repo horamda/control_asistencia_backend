@@ -176,6 +176,28 @@ def test_dashboard_empleado_suma_tramos_y_muestra_antiguedad(monkeypatch):
     monkeypatch.setattr(legajos_routes, "_get_vacaciones_page", lambda *args, **kwargs: ([], 0))
     monkeypatch.setattr(
         legajos_routes,
+        "calcular_resumen_vacaciones",
+        lambda empleado_id, anio: {
+            "anio": anio,
+            "vacaciones": {
+                "dias_base": 14,
+                "dias_corresponden": 14,
+                "dias_tomados": 4,
+                "dias_disponibles": 10,
+                "dias_disponibles_con_pendientes": 8,
+                "dias_pendientes": 2,
+                "dias_compensatorios": 0,
+                "dias_ajustes": 0,
+                "aplica_control_proporcional": False,
+                "calculo_proporcional": False,
+                "antiguedad_al_31_12": 6,
+                "desglose_corresponde": [{"concepto": "Base LCT", "dias": 14}],
+                "fecha_evaluacion_trabajo": "2026-12-31",
+            },
+        },
+    )
+    monkeypatch.setattr(
+        legajos_routes,
         "get_eventos_by_empleado",
         lambda emp_id, include_anulados=True: [
             {
@@ -198,11 +220,14 @@ def test_dashboard_empleado_suma_tramos_y_muestra_antiguedad(monkeypatch):
         ],
     )
 
-    resp = client.get("/legajos/dashboard-empleado?empleado_id=7")
+    resp = client.get("/legajos/dashboard-empleado?empleado_id=7&desde=2026-05-01&hasta=2026-06-30&periodo=custom")
     assert resp.status_code == 200
-    assert b"6 anios, 4 meses, 25 dias" in resp.data
+    assert b"6 anios, 5 meses, 15 dias" in resp.data
     assert b"8.0h" in resp.data
     assert b"2 tramos" in resp.data
+    assert b"Vacaciones 2026" in resp.data
+    assert b"4 tomados / 10 disponibles" in resp.data
+    assert b"Vacaciones anuales" in resp.data
     assert b"Eventos de legajo por tipo (historico)" in resp.data
     assert b"Vacaciones" in resp.data
     assert b"Amonestacion" in resp.data
@@ -256,6 +281,28 @@ def test_dashboard_empleado_export_xlsx_ok(monkeypatch):
     monkeypatch.setattr(legajos_routes, "_get_vacaciones_page", lambda *args, **kwargs: ([], 0))
     monkeypatch.setattr(
         legajos_routes,
+        "calcular_resumen_vacaciones",
+        lambda empleado_id, anio: {
+            "anio": anio,
+            "vacaciones": {
+                "dias_base": 14,
+                "dias_corresponden": 14,
+                "dias_tomados": 4,
+                "dias_disponibles": 10,
+                "dias_disponibles_con_pendientes": 8,
+                "dias_pendientes": 2,
+                "dias_compensatorios": 0,
+                "dias_ajustes": 0,
+                "aplica_control_proporcional": False,
+                "calculo_proporcional": False,
+                "antiguedad_al_31_12": 6,
+                "desglose_corresponde": [{"concepto": "Base LCT", "dias": 14}],
+                "fecha_evaluacion_trabajo": "2026-12-31",
+            },
+        },
+    )
+    monkeypatch.setattr(
+        legajos_routes,
         "get_eventos_by_empleado",
         lambda emp_id, include_anulados=True: [
             {
@@ -296,6 +343,8 @@ def test_dashboard_empleado_export_xlsx_ok(monkeypatch):
     assert resumen["A5"].value == "Empleado"
     assert resumen["B5"].value == "Perez Ana"
     assert any(cell.value == "Vacaciones" for row in resumen.iter_rows() for cell in row)
+    assert any(cell.value == "Corresponden" for row in resumen.iter_rows() for cell in row)
+    assert any(cell.value == "Disponibles con pendientes" for row in resumen.iter_rows() for cell in row)
     assert any(cell.value == "Amonestacion" for row in resumen.iter_rows() for cell in row)
 
     fichadas = wb["Fichadas"]
@@ -312,6 +361,91 @@ def test_dashboard_empleado_export_xlsx_ok(monkeypatch):
     assert legajo["A5"].value == "2026-05-10"
     assert legajo["B5"].value == "Vacaciones"
     assert legajo["D5"].value == "Vacaciones de invierno"
+
+
+def test_dashboard_empleado_print_ok(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+
+    empleado = {
+        "id": 7,
+        "empresa_id": 3,
+        "empresa_nombre": "Empresa A",
+        "legajo": "L-99",
+        "dni": "30123456",
+        "nombre": "Ana",
+        "apellido": "Perez",
+        "fecha_ingreso": "2020-01-15",
+        "foto": None,
+    }
+    filas = [
+        {
+            "fecha": "2026-06-01",
+            "hora_entrada": datetime.timedelta(hours=7),
+            "hora_salida": datetime.timedelta(hours=12),
+            "estado": "ok",
+            "gps_ok_entrada": 1,
+            "gps_ok_salida": 1,
+            "metodo_entrada": "manual",
+            "metodo_salida": "manual",
+        }
+    ]
+
+    monkeypatch.setattr(legajos_routes, "_get_empleados_page", lambda *args, **kwargs: ([empleado], 1))
+    monkeypatch.setattr(legajos_routes, "get_empleado_by_id", lambda emp_id: dict(empleado))
+    monkeypatch.setattr(legajos_routes, "_get_asistencias_page", lambda *args, **kwargs: (list(filas), len(filas)))
+    monkeypatch.setattr(legajos_routes, "_get_justificaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(legajos_routes, "_get_vacaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(
+        legajos_routes,
+        "calcular_resumen_vacaciones",
+        lambda empleado_id, anio: {
+            "anio": anio,
+            "vacaciones": {
+                "dias_base": 14,
+                "dias_corresponden": 14,
+                "dias_tomados": 4,
+                "dias_disponibles": 10,
+                "dias_disponibles_con_pendientes": 8,
+                "dias_pendientes": 2,
+                "dias_compensatorios": 0,
+                "dias_ajustes": 0,
+                "aplica_control_proporcional": False,
+                "calculo_proporcional": False,
+                "antiguedad_al_31_12": 6,
+                "desglose_corresponde": [{"concepto": "Base LCT", "dias": 14}],
+                "fecha_evaluacion_trabajo": "2026-12-31",
+            },
+        },
+    )
+    monkeypatch.setattr(
+        legajos_routes,
+        "get_eventos_by_empleado",
+        lambda emp_id, include_anulados=True: [
+            {
+                "id": 1,
+                "estado": "vigente",
+                "fecha_evento": "2026-05-10",
+                "tipo_id": 10,
+                "tipo_nombre": "Vacaciones",
+                "tipo_codigo": "VAC",
+                "severidad": "leve",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        legajos_routes,
+        "get_conteo_por_tipo_for_empleado",
+        lambda emp_id: [
+            {"tipo_id": 10, "codigo": "VAC", "nombre": "Vacaciones", "total": 1, "vigentes": 1, "ultima_fecha": datetime.date(2026, 5, 10)},
+        ],
+    )
+
+    resp = client.get("/legajos/dashboard-empleado/print?empleado_id=7&desde=2026-05-01&hasta=2026-06-30&periodo=custom&auto_print=1")
+    assert resp.status_code == 200
+    assert b"Vacaciones anuales" in resp.data
+    assert b"Tomados aprobados" in resp.data
 
 
 def test_legajos_crear_evento_con_adjunto(monkeypatch):

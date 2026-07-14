@@ -1,3 +1,5 @@
+from datetime import date
+
 from flask import Blueprint, abort, current_app, redirect, render_template, request, session, url_for
 
 from repositories.asistencia_repository import get_all as get_asistencias
@@ -5,6 +7,7 @@ from repositories.empleado_repository import get_all as get_empleados
 from repositories.justificacion_repository import delete, get_by_id, get_page
 from services.justificacion_attachment_service import (
     delete_justificacion_resources,
+    list_justificacion_adjuntos,
     save_justificacion_adjuntos,
     sync_justificacion_event,
 )
@@ -26,6 +29,10 @@ def _extract_form_data(form) -> dict:
     return {
         "empleado_id": int(form.get("empleado_id")) if (form.get("empleado_id") or "").isdigit() else None,
         "asistencia_id": int(form.get("asistencia_id")) if (form.get("asistencia_id") or "").isdigit() else None,
+        "asistencia_id_present": "asistencia_id" in form,
+        "fecha": (form.get("fecha") or "").strip() or None,
+        "fecha_desde": (form.get("fecha_desde") or "").strip() or None,
+        "fecha_hasta": (form.get("fecha_hasta") or "").strip() or None,
         "motivo": (form.get("motivo") or "").strip(),
         "archivo": (form.get("archivo") or "").strip(),
         "estado": (form.get("estado") or "").strip() or None,
@@ -62,12 +69,18 @@ def listado():
     if estado and estado not in ESTADOS_VALIDOS:
         estado = None
     justificaciones, total = get_page(page, per_page, empleado_id, fecha_desde, fecha_hasta, search, estado)
+    adjuntos_por_justificacion = {
+        int(justificacion["id"]): list_justificacion_adjuntos(int(justificacion["id"]))
+        for justificacion in justificaciones
+        if justificacion.get("adjuntos_count")
+    }
     empleados = get_empleados(include_inactive=True)
     error = (request.args.get("error") or "").strip() or None
     msg = (request.args.get("msg") or "").strip() or None
     return render_template(
         "justificaciones/listado.html",
         justificaciones=justificaciones,
+        adjuntos_por_justificacion=adjuntos_por_justificacion,
         empleados=empleados,
         empleado_id=empleado_id,
         fecha_desde=fecha_desde,
@@ -91,8 +104,11 @@ def listado():
 def nuevo():
     empleados = get_empleados(include_inactive=True)
     asistencias = get_asistencias()
+    today = date.today().isoformat()
     if request.method == "POST":
         data = _extract_form_data(request.form)
+        if not data["asistencia_id_present"]:
+            data["asistencia_id"] = None
         try:
             just_id = create_justificacion(data)
         except ValueError as exc:
@@ -103,6 +119,7 @@ def nuevo():
                 errors=[str(exc)],
                 empleados=empleados,
                 asistencias=asistencias,
+                today=today,
             )
         try:
             sync_justificacion_event(int(just_id), actor_id=session.get("user_id"))
@@ -117,6 +134,7 @@ def nuevo():
                 errors=[str(exc)],
                 empleados=empleados,
                 asistencias=asistencias,
+                today=today,
             )
         log_audit(session, "create", "justificaciones", just_id)
         return redirect(url_for("justificaciones.listado", msg="Justificacion creada."))
@@ -127,6 +145,7 @@ def nuevo():
         data={},
         empleados=empleados,
         asistencias=asistencias,
+        today=today,
     )
 
 
@@ -143,10 +162,14 @@ def editar(justificacion_id):
 
     empleados = get_empleados(include_inactive=True)
     asistencias = get_asistencias()
+    adjuntos_existentes = list_justificacion_adjuntos(justificacion_id)
+    today = date.today().isoformat()
     if request.method == "POST":
         data = _extract_form_data(request.form)
         # Preserve current estado — estado only changes via dedicated endpoints
         data["estado"] = justificacion.get("estado") or "pendiente"
+        if not data["asistencia_id_present"]:
+            data["asistencia_id"] = justificacion.get("asistencia_id")
         try:
             update_justificacion(justificacion_id, data)
         except ValueError as exc:
@@ -159,6 +182,8 @@ def editar(justificacion_id):
                 errors=[str(exc)],
                 empleados=empleados,
                 asistencias=asistencias,
+                adjuntos=adjuntos_existentes,
+                today=today,
             )
         try:
             sync_justificacion_event(int(justificacion_id), actor_id=session.get("user_id"))
@@ -175,6 +200,8 @@ def editar(justificacion_id):
                 errors=[str(exc)],
                 empleados=empleados,
                 asistencias=asistencias,
+                adjuntos=adjuntos_existentes,
+                today=today,
             )
         log_audit(session, "update", "justificaciones", justificacion_id)
         return redirect(url_for("justificaciones.listado", msg="Justificacion actualizada."))
@@ -185,6 +212,8 @@ def editar(justificacion_id):
         data=justificacion,
         empleados=empleados,
         asistencias=asistencias,
+        adjuntos=adjuntos_existentes,
+        today=today,
     )
 
 

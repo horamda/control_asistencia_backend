@@ -1,0 +1,201 @@
+openapi: 3.0.3
+info:
+  title: Control de Asistencia - API externa de reportes
+  version: 1.1.0
+  description: API de solo lectura para obtener un token y descargar reportes de asistencia.
+servers:
+  - url: https://control-asistencia.up.railway.app/api/v1/external
+    description: Produccion
+  - url: http://localhost:5000/api/v1/external
+    description: Desarrollo local
+paths:
+  /auth/token:
+    post:
+      summary: Obtener token de acceso
+      operationId: externalAuthToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+            example:
+              username: ApiFichaYa
+              password: CONTRASENA_ENTREGADA
+      responses:
+        "200":
+          description: Token generado
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: Limite de intentos excedido
+        "503":
+          $ref: "#/components/responses/NotConfigured"
+  /reportes/asistencia.csv:
+    get:
+      summary: Descargar reporte CSV de asistencia
+      operationId: downloadAttendanceReport
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EmpresaId"
+        - $ref: "#/components/parameters/EmpleadoId"
+        - $ref: "#/components/parameters/FechaDesde"
+        - $ref: "#/components/parameters/FechaHasta"
+        - name: tipo_marca
+          in: query
+          schema:
+            type: string
+          example: jornada
+        - name: accion
+          in: query
+          schema:
+            type: string
+            enum: [ingreso, egreso]
+        - name: metodo
+          in: query
+          schema:
+            type: string
+          example: qr
+        - name: gps_ok
+          in: query
+          schema:
+            type: string
+            enum: ["1", "0", all]
+            default: all
+        - name: q
+          in: query
+          description: Busca por apellido, nombre, DNI o legajo.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20000
+            default: 20000
+      responses:
+        "200":
+          description: CSV con columnas MES, FECHA, HORA, PUERTA, TIPO MOV, CODIGO, NOMBRE y SECTOR.
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+            X-Report-Row-Count:
+              schema:
+                type: integer
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: Limite de solicitudes excedido
+        "503":
+          $ref: "#/components/responses/NotConfigured"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  parameters:
+    EmpresaId:
+      name: empresa_id
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+    EmpleadoId:
+      name: empleado_id
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+    FechaDesde:
+      name: fecha_desde
+      in: query
+      description: Fecha inicial inclusive.
+      schema:
+        type: string
+        format: date
+    FechaHasta:
+      name: fecha_hasta
+      in: query
+      description: Fecha final inclusive.
+      schema:
+        type: string
+        format: date
+  schemas:
+    TokenRequest:
+      type: object
+      required: [username, password]
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+    TokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in, scope]
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          example: 3600
+        scope:
+          type: string
+          example: "external:read reports:read"
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+  responses:
+    BadRequest:
+      description: Parametros o cuerpo invalidos
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Credenciales o token invalidos
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotConfigured:
+      description: La autenticacion externa no esta configurada en el backend
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

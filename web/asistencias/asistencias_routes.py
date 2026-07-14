@@ -22,6 +22,7 @@ from utils.asistencia import generar_ausentes, generar_ausentes_rango, get_horar
 from utils.audit import log_audit
 from web.auth.decorators import role_required
 from services.export_excel_service import generar_historial_marcas_excel, generar_planilla_fichadas_excel
+from services.asistencia_reporte_service import build_asistencia_reporte_csv
 
 from web.asistencias.planilla_helpers import (
     DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN,
@@ -779,6 +780,46 @@ def marcas_csv():
 
     csv_content = "\ufeff" + out.getvalue()
     filename = f"historial_marcas_{datetime.date.today().isoformat()}.csv"
+    return Response(
+        csv_content,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@asistencias_bp.route("/marcas/reporte.csv")
+@role_required("admin", "rrhh", "supervisor")
+def marcas_reporte_csv():
+    empresa_id = request.args.get("empresa_id", type=int)
+    empleado_id = request.args.get("empleado_id", type=int)
+    q = (request.args.get("q") or "").strip()
+    tipo_marca = (request.args.get("tipo_marca") or "").strip() or None
+    accion = (request.args.get("accion") or "").strip() or None
+    metodo = (request.args.get("metodo") or "").strip() or None
+    gps_ok = request.args.get("gps_ok", type=int)
+
+    try:
+        fecha_desde = _parse_date_iso(request.args.get("fecha_desde"))
+        fecha_hasta = _parse_date_iso(request.args.get("fecha_hasta"))
+    except ValueError:
+        return redirect(url_for("asistencias.marcas"))
+
+    rows = get_marcas_admin_export(
+        empresa_id=empresa_id,
+        empleado_id=empleado_id,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        tipo_marca=tipo_marca,
+        accion=accion,
+        metodo=metodo,
+        search=q or None,
+        gps_ok=gps_ok if gps_ok in (0, 1) else None,
+        limit=20000,
+        order_asc=True,
+    )
+
+    csv_content = build_asistencia_reporte_csv(rows)
+    filename = f"reporte_asistencia_{datetime.date.today().isoformat()}.csv"
     return Response(
         csv_content,
         mimetype="text/csv; charset=utf-8",

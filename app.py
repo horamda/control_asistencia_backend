@@ -294,6 +294,9 @@ def create_app():
     csrf.exempt(trivia_bp)
     app.register_blueprint(trivia_bp)
 
+    from services.panel_export_service import build_export_toolbar, wrap_exportable_views
+    wrap_exportable_views(app)
+
     # Scheduler de trivia (solo en entornos no-test y cuando se usa gunicorn/run)
     if _app_env() not in {"test", "testing"}:
         from utils.trivia_scheduler import init_trivia_scheduler
@@ -402,13 +405,17 @@ def create_app():
                     "total": 0,
                     "items": [],
                     "has_items": False,
-                }
+                },
+                "export_toolbar": build_export_toolbar(request.endpoint),
             }
 
         try:
             from services.panel_notifications_service import build_panel_notifications
 
-            return {"panel_notifications": build_panel_notifications(role)}
+            return {
+                "panel_notifications": build_panel_notifications(role),
+                "export_toolbar": build_export_toolbar(request.endpoint),
+            }
         except Exception:
             app.logger.warning("panel_notifications_context_error", exc_info=True)
             return {
@@ -417,7 +424,8 @@ def create_app():
                     "total": 0,
                     "items": [],
                     "has_items": False,
-                }
+                },
+                "export_toolbar": build_export_toolbar(request.endpoint),
             }
     
      

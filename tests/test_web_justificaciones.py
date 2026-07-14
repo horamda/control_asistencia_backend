@@ -9,6 +9,9 @@ import services.justificacion_service as just_service
 import web.auth.decorators as auth_decorators
 import web.justificaciones.justificaciones_routes as just_routes
 
+just_service.get_by_fecha = lambda *_: []
+just_service.get_by_rango = lambda *_: []
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -32,6 +35,7 @@ def _login(client, role="admin"):
 _VALID_DATA = {
     "empleado_id": 1,
     "asistencia_id": None,
+    "fecha": "2026-03-01",
     "motivo": "Certificado medico adjunto",
     "archivo": "",
     "estado": "pendiente",
@@ -114,6 +118,25 @@ def test_validate_duplicate_skips_self(monkeypatch):
         current=existing,
     )
     assert errors == []
+
+
+def test_validate_rango_superpuesto(monkeypatch):
+    monkeypatch.setattr(just_service, "get_empleado_by_id", lambda _: _EMPLEADO)
+    monkeypatch.setattr(
+        just_service,
+        "get_by_rango",
+        lambda *_: [{"id": 99, "empleado_id": 1, "fecha_desde": "2026-03-02", "fecha_hasta": "2026-03-04"}],
+    )
+    errors = just_service._validate_fields(
+        {
+            "empleado_id": 1,
+            "motivo": "algo",
+            "fecha_desde": "2026-03-01",
+            "fecha_hasta": "2026-03-05",
+            "estado": "pendiente",
+        }
+    )
+    assert any("superpone" in e.lower() for e in errors)
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +246,7 @@ def _build_authed_client(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
     monkeypatch.setattr(just_routes, "sync_justificacion_event", lambda *a, **kw: None)
     monkeypatch.setattr(just_routes, "save_justificacion_adjuntos", lambda *a, **kw: [])
+    monkeypatch.setattr(just_routes, "list_justificacion_adjuntos", lambda *_: [])
     monkeypatch.setattr(just_routes, "delete_justificacion_resources", lambda *a, **kw: None)
     client = _build_client(monkeypatch)
     _login(client)
@@ -245,29 +269,88 @@ def test_listado_ok(monkeypatch):
     assert resp.status_code == 200
 
 
+def test_listado_muestra_adjuntos_existentes(monkeypatch):
+    monkeypatch.setattr(
+        just_routes,
+        "get_page",
+        lambda *a, **kw: (
+            [
+                {
+                    "id": 7,
+                    "empresa_nombre": "ACME",
+                    "apellido": "Lopez",
+                    "nombre": "Ana",
+                    "fecha": "2026-03-01",
+                    "adjuntos_count": 1,
+                    "estado": "pendiente",
+                }
+            ],
+            1,
+        ),
+    )
+    monkeypatch.setattr(just_routes, "get_empleados", lambda **kw: _stub_empleados())
+    client = _build_authed_client(monkeypatch)
+    monkeypatch.setattr(
+        just_routes,
+        "list_justificacion_adjuntos",
+        lambda jid: [{"id": 88, "nombre_original": "certificado.pdf"}] if jid == 7 else [],
+    )
+    resp = client.get("/justificaciones/")
+    assert resp.status_code == 200
+    assert b"certificado.pdf" in resp.data
+    assert b"/media/legajos/adjunto/88" in resp.data
+
+
 def test_nuevo_get_ok(monkeypatch):
     monkeypatch.setattr(just_routes, "get_empleados", lambda **kw: _stub_empleados())
     monkeypatch.setattr(just_routes, "get_asistencias", lambda: _stub_asistencias())
     client = _build_authed_client(monkeypatch)
     resp = client.get("/justificaciones/nuevo")
     assert resp.status_code == 200
+    assert b'name="fecha_desde"' in resp.data
+    assert b'name="fecha_hasta"' in resp.data
 
 
 def test_nuevo_post_valido(monkeypatch):
     monkeypatch.setattr(just_routes, "get_empleados", lambda **kw: _stub_empleados())
     monkeypatch.setattr(just_routes, "get_asistencias", lambda: _stub_asistencias())
-    monkeypatch.setattr(just_routes, "create_justificacion", lambda data: 42)
+    captured = {}
+    monkeypatch.setattr(just_routes, "create_justificacion", lambda data: captured.update(data) or 42)
     monkeypatch.setattr(just_routes, "log_audit", lambda *a, **kw: None)
     client = _build_authed_client(monkeypatch)
     resp = client.post("/justificaciones/nuevo", data={
         "empleado_id": "1",
         "asistencia_id": "",
+        "fecha": "2026-03-01",
         "motivo": "Certificado medico",
         "archivo": "",
         "estado": "pendiente",
     })
     assert resp.status_code == 302
     assert "msg=" in resp.headers["Location"]
+    assert captured["fecha"] == "2026-03-01"
+
+
+def test_nuevo_post_rango(monkeypatch):
+    monkeypatch.setattr(just_routes, "get_empleados", lambda **kw: _stub_empleados())
+    monkeypatch.setattr(just_routes, "get_asistencias", lambda: _stub_asistencias())
+    captured = {}
+    monkeypatch.setattr(just_routes, "create_justificacion", lambda data: captured.update(data) or 42)
+    monkeypatch.setattr(just_routes, "log_audit", lambda *a, **kw: None)
+    client = _build_authed_client(monkeypatch)
+    resp = client.post("/justificaciones/nuevo", data={
+        "empleado_id": "1",
+        "asistencia_id": "",
+        "fecha_desde": "2026-03-01",
+        "fecha_hasta": "2026-03-05",
+        "motivo": "Certificado medico",
+        "archivo": "",
+        "estado": "pendiente",
+    })
+    assert resp.status_code == 302
+    assert "msg=" in resp.headers["Location"]
+    assert captured["fecha_desde"] == "2026-03-01"
+    assert captured["fecha_hasta"] == "2026-03-05"
 
 
 def test_nuevo_post_con_adjuntos(monkeypatch):
@@ -319,6 +402,22 @@ def test_nuevo_post_invalido_muestra_errores(monkeypatch):
     })
     assert resp.status_code == 200
     assert b"requerido" in resp.data.lower()
+
+
+def test_editar_muestra_adjuntos_existentes(monkeypatch):
+    monkeypatch.setattr(just_routes, "get_by_id", lambda _: {**_VALID_DATA, "id": 7})
+    monkeypatch.setattr(just_routes, "get_empleados", lambda **kw: _stub_empleados())
+    monkeypatch.setattr(just_routes, "get_asistencias", lambda: _stub_asistencias())
+    client = _build_authed_client(monkeypatch)
+    monkeypatch.setattr(
+        just_routes,
+        "list_justificacion_adjuntos",
+        lambda _: [{"id": 88, "nombre_original": "certificado.pdf"}],
+    )
+    resp = client.get("/justificaciones/editar/7")
+    assert resp.status_code == 200
+    assert b"certificado.pdf" in resp.data
+    assert b"/media/legajos/adjunto/88" in resp.data
 
 
 def test_aprobar_redirige_con_msg(monkeypatch):
