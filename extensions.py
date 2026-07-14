@@ -142,9 +142,26 @@ def _ensure_justificaciones_schema():
         conn.close()
 
 
+def _ensure_pedidos_mercaderia_schema():
+    conn = get_raw_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        if not _column_exists(cursor, "pedidos_mercaderia_items", "cantidad_unidades"):
+            cursor.execute(
+                "ALTER TABLE pedidos_mercaderia_items "
+                "ADD COLUMN cantidad_unidades INT UNSIGNED NOT NULL DEFAULT 0 "
+                "AFTER cantidad_bultos"
+            )
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def init_db():
     init_orm()
     _ensure_justificaciones_schema()
+    _ensure_pedidos_mercaderia_schema()
     _ensure_required_indexes()
 
 

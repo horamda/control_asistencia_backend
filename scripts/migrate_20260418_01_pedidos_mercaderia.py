@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS pedidos_mercaderia_items (
   pedido_id BIGINT UNSIGNED NOT NULL,
   articulo_id BIGINT UNSIGNED NOT NULL,
   cantidad_bultos INT UNSIGNED NOT NULL,
+  cantidad_unidades INT UNSIGNED NOT NULL DEFAULT 0,
   codigo_articulo_snapshot VARCHAR(64) NOT NULL,
   descripcion_snapshot VARCHAR(255) NOT NULL,
   unidades_por_bulto_snapshot INT UNSIGNED NOT NULL,
@@ -93,6 +94,14 @@ def migrate():
         cursor.execute(DDL_ARTICULOS)
         cursor.execute(DDL_PEDIDOS)
         cursor.execute(DDL_PEDIDOS_ITEMS)
+        cursor.execute("SHOW COLUMNS FROM pedidos_mercaderia_items")
+        existing_columns = {row[0] for row in cursor.fetchall()}
+        if "cantidad_unidades" not in existing_columns:
+            cursor.execute(
+                "ALTER TABLE pedidos_mercaderia_items "
+                "ADD COLUMN cantidad_unidades INT UNSIGNED NOT NULL DEFAULT 0 "
+                "AFTER cantidad_bultos"
+            )
         db.commit()
         print("[done] migration 20260418_01_pedidos_mercaderia")
     finally:

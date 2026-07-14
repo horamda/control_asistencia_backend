@@ -72,6 +72,7 @@
             <th>Codigo</th>
             <th>Descripcion</th>
             <th>Bultos</th>
+            <th>Unidades sueltas</th>
             <th>Unid./bulto</th>
             <th>Total unidades</th>
           </tr>
@@ -85,13 +86,10 @@
               </td>
               <td data-label="Descripcion">{{ item.descripcion_snapshot or "-" }}</td>
               <td data-label="Bultos"><strong>{{ item.cantidad_bultos or 0 }}</strong></td>
+              <td data-label="Unidades sueltas"><strong>{{ item.cantidad_unidades or 0 }}</strong></td>
               <td data-label="Unid./bulto">{{ item.unidades_por_bulto_snapshot or "-" }}</td>
               <td data-label="Total unidades">
-                {% if item.cantidad_bultos and item.unidades_por_bulto_snapshot %}
-                  {{ item.cantidad_bultos * item.unidades_por_bulto_snapshot }}
-                {% else %}
-                  -
-                {% endif %}
+                {{ (item.cantidad_bultos or 0) * (item.unidades_por_bulto_snapshot or 0) + (item.cantidad_unidades or 0) }}
               </td>
             </tr>
           {% endfor %}
@@ -100,14 +98,21 @@
           <tr>
             <td colspan="3"><strong>Total</strong></td>
             <td><strong>{{ pedido.total_bultos or 0 }} bultos</strong></td>
+            <td>
+              <strong>
+                {% set total_sueltas = namespace(v=0) %}
+                {% for item in items %}
+                  {% set total_sueltas.v = total_sueltas.v + (item.cantidad_unidades or 0) %}
+                {% endfor %}
+                {{ total_sueltas.v }} sueltas
+              </strong>
+            </td>
             <td></td>
             <td>
               <strong>
                 {% set total_unidades = namespace(v=0) %}
                 {% for item in items %}
-                  {% if item.cantidad_bultos and item.unidades_por_bulto_snapshot %}
-                    {% set total_unidades.v = total_unidades.v + item.cantidad_bultos * item.unidades_por_bulto_snapshot %}
-                  {% endif %}
+                  {% set total_unidades.v = total_unidades.v + (item.cantidad_bultos or 0) * (item.unidades_por_bulto_snapshot or 0) + (item.cantidad_unidades or 0) %}
                 {% endfor %}
                 {{ total_unidades.v }} unidades
               </strong>

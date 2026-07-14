@@ -88,6 +88,7 @@ def test_pedidos_mercaderia_export_csv_ok(monkeypatch):
                 "codigo_articulo_snapshot": "A1",
                 "descripcion_snapshot": "Gaseosa",
                 "cantidad_bultos": 2,
+                "cantidad_unidades": 3,
                 "unidades_por_bulto_snapshot": 8,
                 "resuelto_by_usuario": "rrhh",
                 "resuelto_at": "2026-04-18 12:00:00",
@@ -101,6 +102,8 @@ def test_pedidos_mercaderia_export_csv_ok(monkeypatch):
     assert resp.mimetype == "text/csv"
     assert b"Acme" in resp.data
     assert b"Gaseosa" in resp.data
+    assert b"cantidad_unidades" in resp.data
+    assert b"total_unidades" in resp.data
 
 
 def test_pedidos_mercaderia_aprobar_redirige_con_msg(monkeypatch):

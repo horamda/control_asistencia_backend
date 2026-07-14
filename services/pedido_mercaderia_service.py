@@ -61,14 +61,22 @@ def _normalize_items(items_payload) -> list[dict]:
             raise ValueError(f"Item #{index}: articulo_id invalido.")
 
         try:
-            cantidad_bultos = int(raw_item.get("cantidad_bultos"))
+            cantidad_bultos = int(raw_item.get("cantidad_bultos") or 0)
         except (TypeError, ValueError):
             raise ValueError(f"Item #{index}: cantidad_bultos invalida.")
+        try:
+            cantidad_unidades = int(raw_item.get("cantidad_unidades") or 0)
+        except (TypeError, ValueError):
+            raise ValueError(f"Item #{index}: cantidad_unidades invalida.")
 
         if articulo_id <= 0:
             raise ValueError(f"Item #{index}: articulo_id invalido.")
-        if cantidad_bultos <= 0:
-            raise ValueError(f"Item #{index}: cantidad_bultos debe ser mayor a cero.")
+        if cantidad_bultos < 0:
+            raise ValueError(f"Item #{index}: cantidad_bultos no puede ser negativa.")
+        if cantidad_unidades < 0:
+            raise ValueError(f"Item #{index}: cantidad_unidades no puede ser negativa.")
+        if cantidad_bultos == 0 and cantidad_unidades == 0:
+            raise ValueError(f"Item #{index}: indique al menos un bulto o una unidad.")
         if articulo_id in seen_articulos:
             raise ValueError("No puede repetir un articulo dentro del mismo pedido.")
 
@@ -77,6 +85,7 @@ def _normalize_items(items_payload) -> list[dict]:
             {
                 "articulo_id": articulo_id,
                 "cantidad_bultos": cantidad_bultos,
+                "cantidad_unidades": cantidad_unidades,
             }
         )
 
@@ -92,6 +101,7 @@ def _normalize_items(items_payload) -> list[dict]:
             {
                 "articulo_id": item["articulo_id"],
                 "cantidad_bultos": item["cantidad_bultos"],
+                "cantidad_unidades": item["cantidad_unidades"],
                 "codigo_articulo_snapshot": articulo.get("codigo_articulo"),
                 "descripcion_snapshot": articulo.get("descripcion"),
                 "unidades_por_bulto_snapshot": int(articulo.get("unidades_por_bulto") or 0),

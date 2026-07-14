@@ -6,7 +6,8 @@ LEFT JOIN (
     SELECT
         pedido_id,
         COUNT(*) AS cantidad_items,
-        COALESCE(SUM(cantidad_bultos), 0) AS total_bultos
+        COALESCE(SUM(cantidad_bultos), 0) AS total_bultos,
+        COALESCE(SUM(cantidad_bultos * unidades_por_bulto_snapshot + cantidad_unidades), 0) AS total_unidades
     FROM pedidos_mercaderia_items
     GROUP BY pedido_id
 ) pi ON pi.pedido_id = p.id
@@ -23,7 +24,8 @@ def _base_select():
             emp.razon_social AS empresa_nombre,
             u.usuario AS resuelto_by_usuario,
             COALESCE(pi.cantidad_items, 0) AS cantidad_items,
-            COALESCE(pi.total_bultos, 0) AS total_bultos
+            COALESCE(pi.total_bultos, 0) AS total_bultos,
+            COALESCE(pi.total_unidades, 0) AS total_unidades
         FROM pedidos_mercaderia p
         JOIN empleados e ON e.id = p.empleado_id
         JOIN empresas emp ON emp.id = p.empresa_id
@@ -40,6 +42,7 @@ def _get_items(cursor, pedido_id: int):
             i.pedido_id,
             i.articulo_id,
             i.cantidad_bultos,
+            i.cantidad_unidades,
             i.codigo_articulo_snapshot,
             i.descripcion_snapshot,
             i.unidades_por_bulto_snapshot
@@ -65,6 +68,7 @@ def _attach_items(cursor, rows: list[dict]) -> list[dict]:
             i.pedido_id,
             i.articulo_id,
             i.cantidad_bultos,
+            i.cantidad_unidades,
             i.codigo_articulo_snapshot,
             i.descripcion_snapshot,
             i.unidades_por_bulto_snapshot
@@ -341,6 +345,7 @@ def get_export(
                 i.codigo_articulo_snapshot,
                 i.descripcion_snapshot,
                 i.cantidad_bultos,
+                i.cantidad_unidades,
                 i.unidades_por_bulto_snapshot
             FROM pedidos_mercaderia p
             JOIN empleados e ON e.id = p.empleado_id
@@ -416,17 +421,19 @@ def _insert_items(cursor, pedido_id: int, items: list[dict]) -> None:
             pedido_id,
             articulo_id,
             cantidad_bultos,
+            cantidad_unidades,
             codigo_articulo_snapshot,
             descripcion_snapshot,
             unidades_por_bulto_snapshot
         )
-        VALUES (%s,%s,%s,%s,%s,%s)
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
         """,
         [
             (
                 pedido_id,
                 item.get("articulo_id"),
                 item.get("cantidad_bultos"),
+                item.get("cantidad_unidades", 0),
                 item.get("codigo_articulo_snapshot"),
                 item.get("descripcion_snapshot"),
                 item.get("unidades_por_bulto_snapshot"),

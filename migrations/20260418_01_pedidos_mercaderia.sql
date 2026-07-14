@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS pedidos_mercaderia_items (
   pedido_id BIGINT UNSIGNED NOT NULL,
   articulo_id BIGINT UNSIGNED NOT NULL,
   cantidad_bultos INT UNSIGNED NOT NULL,
+  cantidad_unidades INT UNSIGNED NOT NULL DEFAULT 0,
   codigo_articulo_snapshot VARCHAR(64) NOT NULL,
   descripcion_snapshot VARCHAR(255) NOT NULL,
   unidades_por_bulto_snapshot INT UNSIGNED NOT NULL,

@@ -145,6 +145,7 @@
               <td data-label="Detalle">
                 <div>{{ p.cantidad_items or 0 }} item(s)</div>
                 <small>{{ p.total_bultos or 0 }} bulto(s)</small>
+                <small> · {{ p.total_unidades or 0 }} unidad(es) totales</small>
                 {% if p.motivo_rechazo %}
                   <div><small>Motivo: {{ p.motivo_rechazo }}</small></div>
                 {% endif %}

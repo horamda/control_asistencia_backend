@@ -3090,6 +3090,7 @@ _FAKE_PEDIDO_MERCADERIA_ROW = {
     "estado": "pendiente",
     "cantidad_items": 2,
     "total_bultos": 3,
+    "total_unidades": 31,
     "created_at": datetime.datetime(2026, 4, 18, 9, 30, 0),
     "resuelto_at": None,
     "resuelto_by_usuario": None,
@@ -3099,6 +3100,7 @@ _FAKE_PEDIDO_MERCADERIA_ROW = {
             "id": 1,
             "articulo_id": 5,
             "cantidad_bultos": 2,
+            "cantidad_unidades": 3,
             "codigo_articulo_snapshot": "A1",
             "descripcion_snapshot": "Gaseosa",
             "unidades_por_bulto_snapshot": 8,
@@ -3215,6 +3217,9 @@ def test_mobile_pedidos_mercaderia_detail_ok(monkeypatch):
     assert resp.status_code == 200
     assert body["id"] == 91
     assert body["items"][1]["descripcion"] == "Agua"
+    assert body["items"][0]["cantidad_unidades"] == 3
+    assert body["items"][0]["total_unidades"] == 19
+    assert body["total_unidades"] == 31
 
 
 def test_mobile_pedidos_mercaderia_create_ok(monkeypatch):
@@ -3231,13 +3236,13 @@ def test_mobile_pedidos_mercaderia_create_ok(monkeypatch):
     client = _build_client(monkeypatch)
     resp = client.post(
         "/api/v1/mobile/me/pedidos-mercaderia",
-        json={"items": [{"articulo_id": 5, "cantidad_bultos": 2}]},
+        json={"items": [{"articulo_id": 5, "cantidad_bultos": 2, "cantidad_unidades": 3}]},
         headers=_auth_headers(),
     )
     body = resp.get_json()
     assert resp.status_code == 201
     assert body["id"] == 91
-    assert created["items"] == [{"articulo_id": 5, "cantidad_bultos": 2}]
+    assert created["items"] == [{"articulo_id": 5, "cantidad_bultos": 2, "cantidad_unidades": 3}]
 
 
 def test_mobile_pedidos_mercaderia_update_ok(monkeypatch):

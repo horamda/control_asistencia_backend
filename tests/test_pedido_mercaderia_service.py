@@ -65,6 +65,7 @@ def test_solicitar_pedido_ok(monkeypatch):
         {
             "articulo_id": 5,
             "cantidad_bultos": 2,
+            "cantidad_unidades": 0,
             "codigo_articulo_snapshot": "A1",
             "descripcion_snapshot": "Gaseosa",
             "unidades_por_bulto_snapshot": 8,
@@ -100,6 +101,51 @@ def test_solicitar_pedido_rechaza_duplicado_logico(monkeypatch):
             empresa_id=3,
             fecha_pedido="2026-04-18",
             items=[{"articulo_id": 5, "cantidad_bultos": 2}],
+        )
+
+
+def test_solicitar_pedido_acepta_unidades_sueltas_sin_bultos(monkeypatch):
+    created = {}
+    monkeypatch.setattr(
+        pedido_service,
+        "get_empleado_by_id",
+        lambda empleado_id: {"id": empleado_id, "empresa_id": 3},
+    )
+    monkeypatch.setattr(pedido_service, "get_by_empleado_periodo", lambda *args: None)
+    monkeypatch.setattr(
+        pedido_service,
+        "get_articulos_by_ids",
+        lambda ids, **kw: [
+            {"id": 5, "codigo_articulo": "A1", "descripcion": "Gaseosa", "unidades_por_bulto": 8}
+        ],
+    )
+    monkeypatch.setattr(
+        pedido_service,
+        "create",
+        lambda data, items: created.update({"items": items}) or 91,
+    )
+
+    pedido_service.solicitar_pedido(
+        empleado_id=10,
+        fecha_pedido="2026-07-14",
+        items=[{"articulo_id": 5, "cantidad_unidades": 3}],
+    )
+
+    assert created["items"][0]["cantidad_bultos"] == 0
+    assert created["items"][0]["cantidad_unidades"] == 3
+
+
+def test_solicitar_pedido_rechaza_item_sin_cantidad(monkeypatch):
+    monkeypatch.setattr(
+        pedido_service,
+        "get_empleado_by_id",
+        lambda empleado_id: {"id": empleado_id, "empresa_id": 3},
+    )
+
+    with pytest.raises(ValueError, match="al menos un bulto o una unidad"):
+        pedido_service.solicitar_pedido(
+            empleado_id=10,
+            items=[{"articulo_id": 5, "cantidad_bultos": 0, "cantidad_unidades": 0}],
         )
 
 

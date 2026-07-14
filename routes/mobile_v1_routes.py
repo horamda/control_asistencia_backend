@@ -2169,13 +2169,18 @@ def me_adelantos_create():
 # ---------------------------------------------------------------------------
 
 def _pedido_mercaderia_item_to_dict(item: dict) -> dict:
+    cantidad_bultos = int(item.get("cantidad_bultos") or 0)
+    cantidad_unidades = int(item.get("cantidad_unidades") or 0)
+    unidades_por_bulto = int(item.get("unidades_por_bulto_snapshot") or 0)
     return {
         "id": item.get("id"),
         "articulo_id": item.get("articulo_id"),
         "codigo_articulo": item.get("codigo_articulo_snapshot"),
         "descripcion": item.get("descripcion_snapshot"),
-        "unidades_por_bulto": int(item.get("unidades_por_bulto_snapshot") or 0),
-        "cantidad_bultos": int(item.get("cantidad_bultos") or 0),
+        "unidades_por_bulto": unidades_por_bulto,
+        "cantidad_bultos": cantidad_bultos,
+        "cantidad_unidades": cantidad_unidades,
+        "total_unidades": cantidad_bultos * unidades_por_bulto + cantidad_unidades,
     }
 
 
@@ -2192,6 +2197,7 @@ def _pedido_mercaderia_to_dict(pedido: dict) -> dict:
         "estado": pedido.get("estado") or "pendiente",
         "cantidad_items": int(pedido.get("cantidad_items") or 0),
         "total_bultos": int(pedido.get("total_bultos") or 0),
+        "total_unidades": int(pedido.get("total_unidades") or 0),
         "motivo_rechazo": pedido.get("motivo_rechazo") or None,
         "created_at": pedido["created_at"].isoformat() if hasattr(pedido.get("created_at"), "isoformat") else str(pedido.get("created_at") or ""),
         "resuelto_at": resolved_at.isoformat() if hasattr(resolved_at, "isoformat") else (str(resolved_at) if resolved_at else None),
