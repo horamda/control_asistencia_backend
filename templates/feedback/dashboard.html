@@ -148,6 +148,8 @@
 <section class="panel" style="margin-top:1rem;">
   <div class="section-kicker">Accesos</div>
   <div class="actions" style="display:flex;flex-wrap:wrap;gap:.75rem;">
+    <a class="btn" href="{{ url_for('feedback_web.nuevo_feedback') }}">Cargar feedback</a>
+    <a class="btn" href="{{ url_for('feedback_web.registros_listado') }}">Ver registros</a>
     <a class="btn" href="{{ url_for('feedback_web.motivos_listado') }}">Motivos</a>
     <a class="btn" href="{{ url_for('feedback_web.clientes_listado') }}">Clientes</a>
     <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver al dashboard</a>

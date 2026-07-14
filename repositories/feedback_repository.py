@@ -38,6 +38,9 @@ def _base_select_sql() -> str:
             ee.legajo AS empleado_legajo,
             ee.dni AS empleado_dni,
             CONCAT(ee.apellido, ' ', ee.nombre) AS empleado_nombre,
+            ee.sector_id AS empleado_sector_id,
+            ee.activo AS empleado_activo,
+            sec.nombre AS empleado_sector_nombre,
             jd.legajo AS jefe_directo_legajo,
             jd.dni AS jefe_directo_dni,
             COALESCE(
@@ -53,6 +56,7 @@ def _base_select_sql() -> str:
             COALESCE(CONCAT(res.apellido, ' ', res.nombre), '') AS resuelto_por_nombre
         FROM feedbacks f
         JOIN empleados ee ON ee.id = f.empleado_id
+        LEFT JOIN sectores sec ON sec.id = ee.sector_id
         LEFT JOIN empleados jd ON jd.id = f.jefe_directo_id
         LEFT JOIN feedback_clientes c ON c.id = f.cliente_id
         LEFT JOIN feedback_motivos m ON m.id = f.motivo_id
@@ -69,6 +73,8 @@ def _build_where(
     search: str | None = None,
     cliente_id: int | None = None,
     motivo_id: int | None = None,
+    sector_id: int | None = None,
+    empleado_activo: int | None = None,
 ):
     where = []
     params: list = []
@@ -88,6 +94,12 @@ def _build_where(
     if motivo_id:
         where.append("fb.motivo_id = %s")
         params.append(int(motivo_id))
+    if sector_id:
+        where.append("fb.empleado_sector_id = %s")
+        params.append(int(sector_id))
+    if empleado_activo in (0, 1):
+        where.append("fb.empleado_activo = %s")
+        params.append(int(empleado_activo))
     if estado:
         estado_norm = str(estado).strip().lower()
         if estado_norm in {"pendiente", "en_proceso", "resuelto", "vencido"}:
@@ -191,6 +203,8 @@ def get_page(
     search: str | None = None,
     cliente_id: int | None = None,
     motivo_id: int | None = None,
+    sector_id: int | None = None,
+    empleado_activo: int | None = None,
 ):
     where_sql, params = _build_where(
         empresa_id=empresa_id,
@@ -200,6 +214,8 @@ def get_page(
         search=search,
         cliente_id=cliente_id,
         motivo_id=motivo_id,
+        sector_id=sector_id,
+        empleado_activo=empleado_activo,
     )
     return _fetch_page(page, per_page, where_sql, params)
 

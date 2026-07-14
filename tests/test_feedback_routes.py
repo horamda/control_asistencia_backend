@@ -163,6 +163,73 @@ def test_web_feedback_dashboard_ok(monkeypatch):
     assert captured == {"sector_id": 7, "empleado_activo": 0}
 
 
+def test_web_feedback_registros_filtra_sector_estado_y_empleado(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
+    client = _build_client(monkeypatch)
+    _login(client)
+    captured = {}
+
+    def fake_page(page, per_page, **kwargs):
+        captured.update({"page": page, "per_page": per_page, **kwargs})
+        return ([{
+            "id": 1,
+            "created_at": "2026-07-14 10:00",
+            "descripcion": "Visita comercial",
+            "estado_actual": "pendiente",
+            "empleado_nombre": "Lopez Ana",
+            "empleado_legajo": "L10",
+            "empleado_activo": 1,
+            "empleado_sector_id": 7,
+            "empleado_sector_nombre": "Ventas",
+            "cliente_razon_social": "Cliente SA",
+            "motivo_nombre": "Visita",
+        }], 1)
+
+    monkeypatch.setattr(feedback_web_routes, "get_feedbacks_page", fake_page)
+    monkeypatch.setattr(feedback_web_routes, "get_sectores", lambda include_inactive=True: [
+        {"id": 7, "nombre": "Ventas", "empresa_nombre": "Acme", "activo": 1}
+    ])
+
+    resp = client.get("/feedback/registros?sector_id=7&empleado_activo=1&estado=pendiente&q=cliente")
+
+    assert resp.status_code == 200
+    assert b"Visita comercial" in resp.data
+    assert b"Ventas" in resp.data
+    assert captured == {
+        "page": 1,
+        "per_page": 20,
+        "estado": "pendiente",
+        "search": "cliente",
+        "sector_id": 7,
+        "empleado_activo": 1,
+    }
+
+
+def test_web_feedback_nuevo_reutiliza_servicio_mobile(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
+    client = _build_client(monkeypatch)
+    _login(client)
+    captured = {}
+    monkeypatch.setattr(feedback_web_routes, "create_feedback", lambda **kwargs: captured.update(kwargs) or 77)
+    monkeypatch.setattr(feedback_web_routes, "log_audit", lambda *args, **kwargs: None)
+
+    resp = client.post("/feedback/nuevo", data={
+        "empleado_id": "10",
+        "cliente_id": "20",
+        "motivo_id": "30",
+        "descripcion": "Comentario desde el panel",
+    })
+
+    assert resp.status_code == 302
+    assert "/feedback/registros" in resp.headers["Location"]
+    assert captured == {
+        "empleado_id": 10,
+        "cliente_id": 20,
+        "motivo_id": 30,
+        "descripcion": "Comentario desde el panel",
+    }
+
+
 def test_web_feedback_clientes_importar_ok(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
     client = _build_client(monkeypatch)

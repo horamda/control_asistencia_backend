@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Cargar feedback{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">Feedback</div>
+  <h2 class="section-title">Nueva carga</h2>
+  <p class="helper-text">El responsable directo, el vencimiento por SLA y el estado pendiente se asignan automaticamente.</p>
+
+  {% if errors %}<div class="alert alert-error"><ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul></div>{% endif %}
+
+  <form method="get" class="dashboard-filter-form" style="margin:1rem 0;">
+    <input type="text" name="cliente_q" value="{{ cliente_q }}" placeholder="Buscar cliente por codigo, negocio, razon social o direccion">
+    <button class="btn btn-secondary" type="submit">Buscar cliente</button>
+  </form>
+
+  <form method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="cliente_q" value="{{ cliente_q }}">
+    <label>Empleado
+      <select name="empleado_id" required>
+        <option value="">Seleccione...</option>
+        {% for empleado in empleados %}<option value="{{ empleado.id }}" {% if data.empleado_id == empleado.id %}selected{% endif %}>{{ empleado.apellido }}, {{ empleado.nombre }} · {{ empleado.legajo or "Sin legajo" }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Cliente
+      <select name="cliente_id" required>
+        <option value="">Seleccione...</option>
+        {% for cliente in clientes %}<option value="{{ cliente.id }}" {% if data.cliente_id == cliente.id %}selected{% endif %}>{{ cliente.codigo_externo or "S/C" }} · {{ cliente.nombre_fantasia or cliente.razon_social }} · {{ cliente.domicilio or "Sin direccion" }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Motivo
+      <select name="motivo_id" required>
+        <option value="">Seleccione...</option>
+        {% for motivo in motivos %}<option value="{{ motivo.id }}" {% if data.motivo_id == motivo.id %}selected{% endif %}>{{ motivo.nombre }} (SLA: {{ motivo.sla_dias }} dias)</option>{% endfor %}
+      </select>
+    </label>
+    <label style="grid-column:1/-1;">Descripcion
+      <textarea name="descripcion" rows="5" required>{{ data.descripcion }}</textarea>
+    </label>
+    <div class="actions" style="grid-column:1/-1;display:flex;gap:.75rem;">
+      <button class="btn" type="submit">Guardar feedback</button>
+      <a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado') }}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

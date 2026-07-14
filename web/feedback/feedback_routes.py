@@ -4,6 +4,7 @@ from flask import Blueprint, current_app, redirect, render_template, request, se
 
 from repositories.feedback_cliente_repository import count_all as count_clientes
 from repositories.feedback_cliente_repository import get_page as get_clientes_page
+from repositories.empleado_repository import get_all as get_empleados
 from repositories.feedback_motivo_repository import (
     count_all as count_motivos,
     create as create_motivo,
@@ -11,10 +12,12 @@ from repositories.feedback_motivo_repository import (
     get_page as get_motivos_page,
     set_activo as set_motivo_activo,
     update as update_motivo,
+    get_all as get_motivos,
 )
+from repositories.feedback_repository import get_page as get_feedbacks_page
 from repositories.sector_repository import get_all as get_sectores
 from services.feedback_import_service import importar_clientes_desde_csv
-from services.feedback_service import get_feedback_dashboard
+from services.feedback_service import create_feedback, get_feedback_dashboard, serialize_feedback
 from utils.audit import log_audit
 from web.auth.decorators import role_required
 
@@ -66,6 +69,77 @@ def dashboard():
         sectores=get_sectores(include_inactive=True),
         sector_id=sector_id,
         empleado_activo=empleado_activo_raw,
+    )
+
+
+@feedback_web_bp.route("/registros")
+@role_required("admin", "rrhh")
+def registros_listado():
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = max(1, min(request.args.get("per", 20, type=int) or 20, 100))
+    sector_id = _parse_int(request.args.get("sector_id"))
+    estado = (request.args.get("estado") or "").strip().lower() or None
+    if estado not in {None, "pendiente", "en_proceso", "resuelto", "vencido"}:
+        estado = None
+    activo_raw = (request.args.get("empleado_activo") or "all").strip().lower()
+    empleado_activo = 1 if activo_raw == "1" else 0 if activo_raw == "0" else None
+    activo_raw = activo_raw if activo_raw in {"1", "0"} else "all"
+    search = (request.args.get("q") or "").strip() or None
+    rows, total = get_feedbacks_page(
+        page,
+        per_page,
+        estado=estado,
+        search=search,
+        sector_id=sector_id,
+        empleado_activo=empleado_activo,
+    )
+    return render_template(
+        "feedback/registros_listado.html",
+        feedbacks=[serialize_feedback(row) for row in rows],
+        sectores=get_sectores(include_inactive=True),
+        sector_id=sector_id,
+        empleado_activo=activo_raw,
+        estado=estado or "all",
+        q=search or "",
+        page=page,
+        per_page=per_page,
+        total=total,
+        msg=(request.args.get("msg") or "").strip() or None,
+        error=(request.args.get("error") or "").strip() or None,
+    )
+
+
+@feedback_web_bp.route("/nuevo", methods=["GET", "POST"])
+@role_required("admin", "rrhh")
+def nuevo_feedback():
+    data = {
+        "empleado_id": _parse_int(request.form.get("empleado_id")),
+        "cliente_id": _parse_int(request.form.get("cliente_id")),
+        "motivo_id": _parse_int(request.form.get("motivo_id")),
+        "descripcion": (request.form.get("descripcion") or "").strip(),
+    }
+    cliente_q = (request.values.get("cliente_q") or "").strip() or None
+    errors = []
+    if request.method == "POST":
+        try:
+            feedback_id = create_feedback(**data)
+            log_audit(session, "create", "feedbacks", feedback_id)
+            return redirect(url_for("feedback_web.registros_listado", msg="Feedback creado."))
+        except ValueError as exc:
+            errors.append(str(exc))
+        except Exception:
+            current_app.logger.exception("feedback_web_create_error")
+            errors.append("No se pudo crear el feedback.")
+
+    clientes, _ = get_clientes_page(1, 100, search=cliente_q, activo=1)
+    return render_template(
+        "feedback/feedback_form.html",
+        data=data,
+        errors=errors,
+        empleados=get_empleados(include_inactive=False),
+        clientes=clientes,
+        motivos=get_motivos(include_inactive=False),
+        cliente_q=cliente_q or "",
     )
 
 

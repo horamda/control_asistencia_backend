@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Registros de feedback{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">Feedback</div>
+  <h2 class="section-title">Registros</h2>
+  <p class="helper-text">Consulte la carga por empleado, sector y estado.</p>
+
+  {% if msg %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+  <form method="get" class="dashboard-filter-form" style="margin-top:1rem;">
+    <input type="text" name="q" value="{{ q }}" placeholder="Empleado, cliente, motivo o descripcion">
+    <select name="sector_id">
+      <option value="">Todos los sectores</option>
+      {% for sector in sectores %}
+        <option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>{{ sector.empresa_nombre }} · {{ sector.nombre }}</option>
+      {% endfor %}
+    </select>
+    <select name="empleado_activo">
+      <option value="all" {% if empleado_activo == "all" %}selected{% endif %}>Empleados activos e inactivos</option>
+      <option value="1" {% if empleado_activo == "1" %}selected{% endif %}>Empleados activos</option>
+      <option value="0" {% if empleado_activo == "0" %}selected{% endif %}>Empleados inactivos</option>
+    </select>
+    <select name="estado">
+      <option value="all" {% if estado == "all" %}selected{% endif %}>Todos los estados</option>
+      <option value="pendiente" {% if estado == "pendiente" %}selected{% endif %}>Pendiente</option>
+      <option value="en_proceso" {% if estado == "en_proceso" %}selected{% endif %}>En proceso</option>
+      <option value="resuelto" {% if estado == "resuelto" %}selected{% endif %}>Resuelto</option>
+      <option value="vencido" {% if estado == "vencido" %}selected{% endif %}>Vencido</option>
+    </select>
+    <button class="btn" type="submit">Filtrar</button>
+    <a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado') }}">Limpiar</a>
+    <a class="btn" href="{{ url_for('feedback_web.nuevo_feedback') }}">Nuevo feedback</a>
+    <a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Volver</a>
+  </form>
+
+  <div class="table-responsive" style="margin-top:1rem;">
+    <table class="table">
+      <thead><tr><th>Fecha</th><th>Empleado</th><th>Sector</th><th>Cliente</th><th>Motivo</th><th>Descripcion</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for item in feedbacks %}
+          <tr>
+            <td>{{ item.created_at or "-" }}</td>
+            <td>{{ item.empleado.nombre or "-" }}<br><small>{{ item.empleado.legajo or "Sin legajo" }} · {{ "Activo" if item.empleado.activo else "Inactivo" }}</small></td>
+            <td>{{ item.empleado.sector_nombre or "Sin sector" }}</td>
+            <td>{{ item.cliente.nombre_fantasia or item.cliente.razon_social or "-" }}</td>
+            <td>{{ item.motivo.nombre or "-" }}</td>
+            <td>{{ item.descripcion }}</td>
+            <td>{{ (item.estado_actual or "-")|replace("_", " ")|title }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">No hay feedback que coincida con los filtros.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pager" style="margin-top:1rem;">
+    {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado', page=page-1, per=per_page, q=q, sector_id=sector_id, empleado_activo=empleado_activo, estado=estado) }}">Anterior</a>{% endif %}
+    {% if page * per_page < total %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado', page=page+1, per=per_page, q=q, sector_id=sector_id, empleado_activo=empleado_activo, estado=estado) }}">Siguiente</a>{% endif %}
+    <span class="summary">Pagina {{ page }} · {{ total }} registros</span>
+  </div>
+</section>
+{% endblock %}

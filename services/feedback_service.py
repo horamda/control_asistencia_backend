@@ -66,6 +66,9 @@ def serialize_feedback(row: dict) -> dict:
             "nombre": row.get("empleado_nombre"),
             "legajo": row.get("empleado_legajo"),
             "dni": row.get("empleado_dni"),
+            "activo": bool(row.get("empleado_activo")),
+            "sector_id": row.get("empleado_sector_id"),
+            "sector_nombre": row.get("empleado_sector_nombre"),
         },
         "jefe_directo": {
             "id": row.get("jefe_directo_id"),
