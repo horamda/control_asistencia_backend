@@ -17,6 +17,14 @@ SESSION_COOKIE_SAMESITE=Lax
 CORS_ALLOWED_ORIGINS=https://<frontend>
 ```
 
+`JWT_SECRET` es una credencial permanente del servicio backend. Debe crearse una
+sola vez como variable de Railway y conservar exactamente el mismo valor entre
+deploys. No debe definirse en `railway.toml`, generarse durante el build ni
+reemplazarse con el valor de un `.env` local. Cambiarla invalida inmediatamente
+los QR vigentes y los tokens móviles firmados con la clave anterior. La
+aplicación valida esta variable al arrancar y rechaza el despliegue si falta, si
+es una clave de plantilla o si tiene menos de 32 caracteres.
+
 Para habilitar la API externa de reportes con usuario, contrasena y token:
 
 ```env

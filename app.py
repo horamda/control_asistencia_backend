@@ -128,6 +128,19 @@ def _require_secret_key() -> str:
     return secret
 
 
+def _require_jwt_secret() -> None:
+    """Impide iniciar la app sin la clave estable que firma tokens y QR."""
+    secret = str(os.getenv("JWT_SECRET") or "").strip()
+    if not secret:
+        raise AppConfigError("JWT_SECRET no configurada.")
+    if secret.lower() in _PLACEHOLDER_SECRET_VALUES:
+        raise AppConfigError(
+            "JWT_SECRET tiene un valor inseguro de plantilla. Configure una clave real y persistente."
+        )
+    if len(secret) < 32:
+        raise AppConfigError("JWT_SECRET debe tener al menos 32 caracteres.")
+
+
 def _session_cookie_samesite() -> str:
     raw = str(os.getenv("SESSION_COOKIE_SAMESITE") or "Lax").strip().lower()
     value = _VALID_SAMESITE_VALUES.get(raw)
@@ -143,6 +156,7 @@ def _session_cookie_secure_default() -> bool:
 
 
 def _build_security_config() -> dict:
+    _require_jwt_secret()
     session_cookie_secure = _parse_bool_env(
         "SESSION_COOKIE_SECURE",
         default=_session_cookie_secure_default(),

@@ -11,6 +11,24 @@ def test_create_app_requires_secret_key(monkeypatch):
         app_module.create_app()
 
 
+def test_create_app_requires_jwt_secret(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "prod_secret_key_0123456789abcdef")
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    monkeypatch.setattr(app_module, "init_db", lambda: None)
+
+    with pytest.raises(app_module.AppConfigError, match="JWT_SECRET no configurada"):
+        app_module.create_app()
+
+
+def test_create_app_rejects_short_jwt_secret(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "prod_secret_key_0123456789abcdef")
+    monkeypatch.setenv("JWT_SECRET", "demasiado-corta")
+    monkeypatch.setattr(app_module, "init_db", lambda: None)
+
+    with pytest.raises(app_module.AppConfigError, match="JWT_SECRET debe tener al menos 32"):
+        app_module.create_app()
+
+
 def test_create_app_configures_session_cookie_security(monkeypatch):
     monkeypatch.setattr(app_module, "init_db", lambda: None)
     monkeypatch.setenv("SECRET_KEY", "prod_secret_key_0123456789abcdef")
