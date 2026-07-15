@@ -1096,3 +1096,46 @@ def delete_plan_action(action_id: int):
     finally:
         cursor.close()
         db.close()
+
+
+def get_pendientes_evaluacion(*, sector_id: int, anio: int, sucursal_id: int | None = None):
+    """Empleados activos de un sector (opcionalmente filtrados por sucursal)
+    que todavia no tienen evaluacion SKAP cargada para el anio indicado."""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        where = ["e.activo = 1", "e.sector_id = %s"]
+        params: list = [int(sector_id)]
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(int(sucursal_id))
+        cursor.execute(
+            f"""
+            SELECT
+                e.id,
+                e.legajo,
+                e.apellido,
+                e.nombre,
+                e.dni,
+                e.sucursal_id,
+                suc.nombre AS sucursal_nombre,
+                e.puesto_id,
+                p.nombre AS puesto_nombre,
+                e.reporta_a_empleado_id,
+                jefe.apellido AS jefe_apellido,
+                jefe.nombre AS jefe_nombre
+            FROM empleados e
+            LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
+            LEFT JOIN puestos p ON p.id = e.puesto_id
+            LEFT JOIN empleados jefe ON jefe.id = e.reporta_a_empleado_id
+            LEFT JOIN skap_evaluaciones ev
+              ON ev.empleado_id = e.id AND ev.anio = %s
+            WHERE {" AND ".join(where)} AND ev.id IS NULL
+            ORDER BY e.apellido ASC, e.nombre ASC
+            """,
+            (int(anio), *params),
+        )
+        return cursor.fetchall() or []
+    finally:
+        cursor.close()
+        db.close()

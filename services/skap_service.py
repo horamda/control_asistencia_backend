@@ -34,6 +34,7 @@ from repositories.skap_repository import (
     get_plan_actions,
     get_plan_by_empleado_anio,
     get_plan_by_evaluacion_id,
+    get_pendientes_evaluacion as get_pendientes_evaluacion_rows,
     get_plan_by_id,
     get_planes_page,
     get_question_averages_rows,
@@ -1130,6 +1131,30 @@ def get_preguntas_catalogo(
 def get_preguntas_por_sector(sector_id: int, *, puesto_id: int | None = None, categoria: str | None = None):
     rows = get_all_active_for_sector(int(sector_id), puesto_id=puesto_id, categoria=categoria)
     return [serialize_pregunta(row) for row in rows]
+
+
+def get_pendientes_evaluacion(*, sector_id: int, anio: int, sucursal_id: int | None = None):
+    rows = get_pendientes_evaluacion_rows(sector_id=int(sector_id), anio=int(anio), sucursal_id=sucursal_id)
+    return [
+        {
+            "id": row.get("id"),
+            "legajo": row.get("legajo"),
+            "apellido": row.get("apellido"),
+            "nombre": row.get("nombre"),
+            "dni": row.get("dni"),
+            "sucursal_id": row.get("sucursal_id"),
+            "sucursal_nombre": row.get("sucursal_nombre"),
+            "puesto_id": row.get("puesto_id"),
+            "puesto_nombre": row.get("puesto_nombre"),
+            "reporta_a_empleado_id": row.get("reporta_a_empleado_id"),
+            "jefe_nombre": (
+                f"{row.get('jefe_apellido')}, {row.get('jefe_nombre')}"
+                if row.get("reporta_a_empleado_id")
+                else None
+            ),
+        }
+        for row in rows
+    ]
 
 
 def _normalize_puesto_id(data: dict) -> int | None:

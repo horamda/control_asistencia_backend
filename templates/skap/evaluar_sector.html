@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}SKAP - Evaluar empleados{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">SKAP</div>
+      <h2>Evaluar empleados por sector</h2>
+      <p class="module-intro">Elegi el sector (y opcionalmente la sucursal) y anda completando la evaluacion de cada empleado pendiente, uno tras otro.</p>
+    </div>
+    {% if sector_id %}
+      <div class="chip-row">
+        <span class="chip">{{ pendientes|length }} pendientes</span>
+      </div>
+    {% endif %}
+  </div>
+
+  {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+  {% if msg %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
+
+  <form method="get" class="dashboard-filter-form">
+    <div class="form-grid">
+      <div class="row">
+        <label>Sector</label>
+        <select name="sector_id" required>
+          <option value="">Seleccione un sector</option>
+          {% for sector in sectores %}
+            <option value="{{ sector.id }}" {% if sector_id and sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Sucursal (opcional)</label>
+        <select name="sucursal_id">
+          <option value="">Todas las sucursales</option>
+          {% for sucursal in sucursales %}
+            <option value="{{ sucursal.id }}" {% if sucursal_id and sucursal_id == sucursal.id %}selected{% endif %}>{{ sucursal.empresa_nombre }} &middot; {{ sucursal.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Año</label>
+        <input type="number" name="anio" value="{{ anio }}" min="2020" max="2100" step="1">
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Ver pendientes</button>
+      <a class="btn btn-secondary" href="{{ url_for('skap_web.evaluar_sector') }}">Limpiar</a>
+    </div>
+  </form>
+
+  {% if sector_id %}
+    <section class="panel">
+      <h3 class="section-title">Empleados sin evaluacion {{ anio }}</h3>
+      {% if pendientes %}
+        <div class="table-responsive table-cards dashboard-mobile-compact">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Empleado</th>
+                <th>Legajo</th>
+                <th>Sucursal</th>
+                <th>Puesto</th>
+                <th>Jefe directo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in pendientes %}
+                <tr>
+                  <td data-label="Empleado">{{ p.apellido }}, {{ p.nombre }}</td>
+                  <td data-label="Legajo">{{ p.legajo or "-" }}</td>
+                  <td data-label="Sucursal">{{ p.sucursal_nombre or "-" }}</td>
+                  <td data-label="Puesto">{{ p.puesto_nombre or "-" }}</td>
+                  <td data-label="Jefe directo">{{ p.jefe_nombre or "Sin jefe asignado" }}</td>
+                  <td data-label="">
+                    <a class="btn" href="{{ url_for('skap_web.evaluar_empleado', empleado_id=p.id, anio=anio, sector_id=sector_id, sucursal_id=sucursal_id) }}">Evaluar</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p>No quedan empleados pendientes de evaluar en este alcance para {{ anio }}.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+</div>
+{% endblock %}

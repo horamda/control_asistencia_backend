@@ -8,6 +8,7 @@ from repositories.empleado_repository import get_all as get_empleados
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.puesto_repository import get_all as get_puestos
 from repositories.sector_repository import get_page as get_sectores_page
+from repositories.sucursal_repository import get_all as get_sucursales
 from repositories.skap_pregunta_repository import (
     count_all as count_preguntas,
     get_by_id as get_pregunta_by_id,
@@ -34,9 +35,12 @@ from services.skap_service import (
     activar_pregunta,
     contar_preguntas,
     crear_pregunta,
+    create_evaluacion,
     get_dashboard_data,
     get_evaluacion_detalle_pack,
+    get_pendientes_evaluacion,
     get_preguntas_catalogo,
+    get_preguntas_por_sector,
     serialize_evaluacion,
     serialize_plan,
     actualizar_pregunta,
@@ -97,6 +101,10 @@ def _puesto_options(include_inactive: bool = True):
     return get_puestos(include_inactive=include_inactive)
 
 
+def _sucursal_options(include_inactive: bool = True):
+    return get_sucursales(include_inactive=include_inactive)
+
+
 def _pregunta_form_from_request(form) -> dict:
     return {
         "sector_id": _parse_int(form.get("sector_id")),
@@ -109,6 +117,24 @@ def _pregunta_form_from_request(form) -> dict:
         "requiere_evidencia": _parse_bool(form.get("requiere_evidencia")),
         "activo": _parse_bool(form.get("activo", "1")),
     }
+
+
+def _respuestas_from_form(form, preguntas: list[dict]) -> list[dict]:
+    respuestas = []
+    for pregunta in preguntas:
+        pregunta_id = pregunta["id"]
+        puntaje = _parse_int(form.get(f"puntaje_{pregunta_id}"))
+        if puntaje is None:
+            continue
+        respuestas.append(
+            {
+                "pregunta_id": pregunta_id,
+                "puntaje": puntaje,
+                "observacion": (form.get(f"observacion_{pregunta_id}") or "").strip() or None,
+                "evidencia": (form.get(f"evidencia_{pregunta_id}") or "").strip() or None,
+            }
+        )
+    return respuestas
 
 
 def _action_form_from_request(form) -> dict:
@@ -287,6 +313,100 @@ def preguntas_importar():
                 current_app.logger.exception("skap_preguntas_import_error")
                 resultado = {"error": f"No se pudo procesar el archivo: {exc}"}
     return render_template("skap/preguntas_importar.html", resultado=resultado, reactivate=reactivate)
+
+
+@skap_web_bp.route("/evaluar")
+@role_required("admin", "rrhh", "supervisor")
+def evaluar_sector():
+    anio = _parse_int(request.args.get("anio"), _dt.date.today().year) or _dt.date.today().year
+    sector_id = _parse_int(request.args.get("sector_id"))
+    sucursal_id = _parse_int(request.args.get("sucursal_id"))
+    pendientes = []
+    if sector_id:
+        pendientes = get_pendientes_evaluacion(sector_id=sector_id, anio=anio, sucursal_id=sucursal_id)
+    return render_template(
+        "skap/evaluar_sector.html",
+        anio=anio,
+        sector_id=sector_id,
+        sucursal_id=sucursal_id,
+        pendientes=pendientes,
+        sectores=_sector_options(),
+        sucursales=_sucursal_options(),
+        error=(request.args.get("error") or "").strip() or None,
+        msg=(request.args.get("msg") or "").strip() or None,
+    )
+
+
+@skap_web_bp.route("/evaluar/<int:empleado_id>", methods=["GET", "POST"])
+@role_required("admin", "rrhh", "supervisor")
+def evaluar_empleado(empleado_id: int):
+    anio = _parse_int(request.args.get("anio"), _dt.date.today().year) or _dt.date.today().year
+    sector_id = _parse_int(request.args.get("sector_id"))
+    sucursal_id = _parse_int(request.args.get("sucursal_id"))
+
+    empleado = get_empleado_by_id(empleado_id)
+    if not empleado:
+        return redirect(url_for("skap_web.evaluar_sector", sector_id=sector_id, sucursal_id=sucursal_id, anio=anio, error="Empleado no encontrado."))
+
+    preguntas = get_preguntas_por_sector(
+        int(empleado["sector_id"]),
+        puesto_id=empleado.get("puesto_id"),
+    )
+    errors = []
+
+    if request.method == "POST":
+        evaluador_empleado_id = _parse_int(request.form.get("evaluador_empleado_id"))
+        respuestas = _respuestas_from_form(request.form, preguntas)
+        try:
+            if not evaluador_empleado_id:
+                raise ValueError("Debe seleccionar quien realiza la evaluacion.")
+            create_evaluacion(
+                empleado_id=empleado_id,
+                evaluador_empleado_id=evaluador_empleado_id,
+                anio=anio,
+                respuestas=respuestas,
+                observaciones_generales=(request.form.get("observaciones_generales") or "").strip() or None,
+            )
+            log_audit(session, "create", "skap_evaluaciones", empleado_id)
+
+            siguiente = None
+            if sector_id:
+                pendientes = get_pendientes_evaluacion(sector_id=sector_id, anio=anio, sucursal_id=sucursal_id)
+                siguiente = pendientes[0] if pendientes else None
+            if siguiente:
+                return redirect(url_for(
+                    "skap_web.evaluar_empleado",
+                    empleado_id=siguiente["id"],
+                    anio=anio,
+                    sector_id=sector_id,
+                    sucursal_id=sucursal_id,
+                    msg="Evaluacion guardada. Continua con el siguiente empleado.",
+                ))
+            return redirect(url_for(
+                "skap_web.evaluar_sector",
+                anio=anio,
+                sector_id=sector_id,
+                sucursal_id=sucursal_id,
+                msg="Evaluacion guardada. No quedan pendientes en este alcance.",
+            ))
+        except ValueError as exc:
+            errors.append(str(exc))
+        except Exception:
+            current_app.logger.exception("skap_evaluar_empleado_error")
+            errors.append("No se pudo guardar la evaluacion.")
+
+    return render_template(
+        "skap/evaluar_empleado.html",
+        empleado=empleado,
+        preguntas=preguntas,
+        categorias=_CATEGORIAS,
+        anio=anio,
+        sector_id=sector_id,
+        sucursal_id=sucursal_id,
+        empleados=_employee_options(),
+        errors=errors,
+        form_values=request.form if request.method == "POST" else None,
+    )
 
 
 @skap_web_bp.route("/evaluaciones")

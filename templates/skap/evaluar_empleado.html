@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}SKAP - Evaluar {{ empleado.apellido }}, {{ empleado.nombre }}{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">SKAP &middot; Año {{ anio }}</div>
+      <h2>{{ empleado.apellido }}, {{ empleado.nombre }}</h2>
+      <p class="module-intro">Legajo {{ empleado.legajo or "-" }} &middot; Cargue el puntaje de cada pregunta (escala 1 a 5).</p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">{{ preguntas|length }} preguntas</span>
+    </div>
+  </div>
+
+  {% if errors %}
+    <div class="alert alert-danger">
+      <ul style="margin:0;padding-left:1.2rem;">
+        {% for err in errors %}<li>{{ err }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  {% if not preguntas %}
+    <div class="alert alert-danger">Este empleado no tiene preguntas activas asignadas (sector/puesto). Revise SKAP &gt; Preguntas antes de evaluar.</div>
+  {% endif %}
+
+  <form method="post" class="panel">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="form-grid">
+      <div class="row">
+        <label>Evaluador (jefe / responsable de la evaluacion)</label>
+        <select name="evaluador_empleado_id" required>
+          <option value="">Seleccione...</option>
+          {% for ev in empleados %}
+            <option value="{{ ev.id }}"
+              {% if form_values and form_values.get('evaluador_empleado_id')|string == ev.id|string %}selected
+              {% elif not form_values and empleado.reporta_a_empleado_id and empleado.reporta_a_empleado_id == ev.id %}selected{% endif %}>
+              {{ ev.apellido }}, {{ ev.nombre }}{% if ev.id == empleado.reporta_a_empleado_id %} (jefe directo){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:1rem;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Categoria</th>
+            <th>Pregunta</th>
+            <th>Esperado</th>
+            <th>Puntaje</th>
+            <th>Observacion</th>
+            <th>Evidencia</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in preguntas %}
+            <tr>
+              <td data-label="Categoria"><span class="badge">{{ p.categoria_label }}</span></td>
+              <td data-label="Pregunta">{{ p.descripcion }}</td>
+              <td data-label="Esperado">{{ p.puntaje_esperado }}</td>
+              <td data-label="Puntaje">
+                <select name="puntaje_{{ p.id }}" required>
+                  <option value="">-</option>
+                  {% for n in [1, 2, 3, 4, 5] %}
+                    <option value="{{ n }}" {% if form_values and form_values.get('puntaje_' ~ p.id)|string == n|string %}selected{% endif %}>{{ n }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td data-label="Observacion">
+                <input type="text" name="observacion_{{ p.id }}" value="{{ form_values.get('observacion_' ~ p.id, '') if form_values else '' }}" {% if p.requiere_observacion %}required placeholder="Obligatoria"{% endif %}>
+              </td>
+              <td data-label="Evidencia">
+                <input type="text" name="evidencia_{{ p.id }}" value="{{ form_values.get('evidencia_' ~ p.id, '') if form_values else '' }}" {% if p.requiere_evidencia %}required placeholder="Obligatoria"{% endif %}>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="form-grid" style="margin-top:1rem;">
+      <div class="row" style="grid-column:1/-1;">
+        <label>Observaciones generales</label>
+        <textarea name="observaciones_generales" rows="3">{{ form_values.get('observaciones_generales', '') if form_values else '' }}</textarea>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" type="submit" {% if not preguntas %}disabled{% endif %}>Guardar y continuar</button>
+      <a class="btn btn-secondary" href="{{ url_for('skap_web.evaluar_sector', anio=anio, sector_id=sector_id, sucursal_id=sucursal_id) }}">Volver a la lista</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

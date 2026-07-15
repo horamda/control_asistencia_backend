@@ -3,6 +3,7 @@ from datetime import timedelta
 from flask import Flask, redirect, url_for, request, jsonify, render_template, session
 from flask_cors import CORS
 from dotenv import load_dotenv
+import hashlib
 import os
 import logging
 import json
@@ -249,6 +250,21 @@ def create_app():
     app.logger.addHandler(handler)
     app.logger.setLevel(logging.INFO)
     logging.getLogger("werkzeug").setLevel(logging.INFO)
+
+    # Huella no reversible del JWT_SECRET vigente. Compare este valor entre
+    # deploys en los logs de Railway: si cambia, los QR y tokens moviles
+    # firmados antes del deploy dejan de validar.
+    app.logger.info(
+        "app_boot",
+        extra={
+            "extra": {
+                "app_env": _app_env(),
+                "jwt_secret_fingerprint": hashlib.sha256(
+                    os.getenv("JWT_SECRET", "").encode("utf-8")
+                ).hexdigest()[:12],
+            }
+        },
+    )
 
     # Security
     csrf = CSRFProtect(app)
