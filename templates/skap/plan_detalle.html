@@ -14,32 +14,35 @@
   {% endif %}
 
   <section class="grid-kpis dashboard-kpis" style="margin-top:1rem;">
-    <article class="panel">
-      <div class="kicker">Promedio</div>
+    <article class="kpi-card {% if plan.promedio_general >= 4 %}tone-ok{% elif plan.promedio_general >= 3 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:1;">
+      <div class="kpi-label">Promedio</div>
       <div class="kpi-value">{{ "%.2f"|format(plan.promedio_general) }}</div>
-      <div class="helper-text">{{ plan.nivel }}</div>
+      <div class="kpi-desc">{{ plan.nivel }}</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Acciones</div>
+    <article class="kpi-card" style="--kpi-order:2;">
+      <div class="kpi-label">Acciones</div>
       <div class="kpi-value">{{ plan.acciones_total }}</div>
-      <div class="helper-text">Total PDP</div>
+      <div class="kpi-desc">Total PDP</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Completadas</div>
+    <article class="kpi-card tone-ok" style="--kpi-order:3;">
+      <div class="kpi-label">Completadas</div>
       <div class="kpi-value">{{ plan.acciones_completadas }}</div>
-      <div class="helper-text">Acciones terminadas</div>
+      <div class="kpi-desc">Acciones terminadas</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Vencidas</div>
+    <article class="kpi-card {% if plan.acciones_vencidas == 0 %}tone-ok{% else %}tone-bad{% endif %}" style="--kpi-order:4;">
+      <div class="kpi-label">Vencidas</div>
       <div class="kpi-value">{{ plan.acciones_vencidas }}</div>
-      <div class="helper-text">Acciones vencidas</div>
+      <div class="kpi-desc">Acciones vencidas</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Avance</div>
+    <article class="kpi-card {% if plan.avance_pct >= 80 %}tone-ok{% elif plan.avance_pct >= 40 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:5;">
+      <div class="kpi-label">Avance</div>
       <div class="kpi-value">{{ "%.1f"|format(plan.avance_pct) }}%</div>
-      <div class="helper-text">Progreso del plan</div>
+      <div class="kpi-desc">Progreso del plan</div>
     </article>
   </section>
+  <div class="mini-track" style="margin-top:.5rem;">
+    <span class="mini-fill {% if plan.avance_pct >= 80 %}ok{% elif plan.avance_pct >= 40 %}warning{% else %}danger{% endif %}" style="width: {{ plan.avance_pct | round(1) }}%"></span>
+  </div>
 </section>
 
 <section class="panel" style="margin-top:1rem;">
@@ -166,7 +169,7 @@
 
 <section class="panel" style="margin-top:1rem;">
   <div class="section-kicker">Seguimiento</div>
-  <div class="table-responsive">
+  <div class="table-responsive table-cards dashboard-mobile-compact">
     <table class="table">
       <thead>
         <tr>
@@ -182,26 +185,26 @@
       <tbody>
         {% for accion in plan.acciones %}
           <tr>
-            <td>{{ accion.categoria_label if accion.categoria_label else "-" }}</td>
-            <td>{{ accion.accion }}</td>
-            <td>{{ accion.responsable.nombre if accion.responsable else "-" }}</td>
-            <td>{{ accion.fecha_compromiso or "-" }}</td>
-            <td>
+            <td data-label="Categoria">{{ accion.categoria_label if accion.categoria_label else "-" }}</td>
+            <td data-label="Accion">{{ accion.accion }}</td>
+            <td data-label="Responsable">{{ accion.responsable.nombre if accion.responsable else "-" }}</td>
+            <td data-label="Compromiso">{{ accion.fecha_compromiso or "-" }}</td>
+            <td data-label="Estado">
               {% if accion.estado_actual == 'completado' %}
-                <span class="badge success">Completado</span>
+                <span class="badge ok">Completado</span>
               {% elif accion.estado_actual == 'en_proceso' %}
                 <span class="badge">En proceso</span>
               {% elif accion.estado_actual == 'cancelado' %}
                 <span class="badge warning">Cancelado</span>
               {% elif accion.estado_actual == 'vencido' %}
-                <span class="badge warning">Vencido</span>
+                <span class="badge danger">Vencido</span>
               {% else %}
                 <span class="badge">Pendiente</span>
               {% endif %}
             </td>
-            <td>{{ accion.comentarios or "-" }}</td>
-            <td>
-              <div class="actions" style="display:flex;flex-wrap:wrap;gap:.35rem;">
+            <td data-label="Comentarios">{{ accion.comentarios or "-" }}</td>
+            <td data-label="Acciones">
+              <div class="actions" style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:0;">
                 <a class="btn btn-secondary" href="{{ url_for('skap_web.plan_detalle', plan_id=plan.id, edit_action=accion.id) }}">Editar</a>
                 <form method="post" action="{{ url_for('skap_web.plan_accion_estado', plan_id=plan.id, action_id=accion.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

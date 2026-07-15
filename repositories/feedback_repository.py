@@ -39,8 +39,10 @@ def _base_select_sql() -> str:
             ee.dni AS empleado_dni,
             CONCAT(ee.apellido, ' ', ee.nombre) AS empleado_nombre,
             ee.sector_id AS empleado_sector_id,
+            ee.sucursal_id AS empleado_sucursal_id,
             ee.activo AS empleado_activo,
             sec.nombre AS empleado_sector_nombre,
+            suc.nombre AS empleado_sucursal_nombre,
             jd.legajo AS jefe_directo_legajo,
             jd.dni AS jefe_directo_dni,
             COALESCE(
@@ -57,6 +59,7 @@ def _base_select_sql() -> str:
         FROM feedbacks f
         JOIN empleados ee ON ee.id = f.empleado_id
         LEFT JOIN sectores sec ON sec.id = ee.sector_id
+        LEFT JOIN sucursales suc ON suc.id = ee.sucursal_id
         LEFT JOIN empleados jd ON jd.id = f.jefe_directo_id
         LEFT JOIN feedback_clientes c ON c.id = f.cliente_id
         LEFT JOIN feedback_motivos m ON m.id = f.motivo_id
@@ -74,6 +77,7 @@ def _build_where(
     cliente_id: int | None = None,
     motivo_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     empleado_activo: int | None = None,
 ):
     where = []
@@ -97,6 +101,9 @@ def _build_where(
     if sector_id:
         where.append("fb.empleado_sector_id = %s")
         params.append(int(sector_id))
+    if sucursal_id:
+        where.append("fb.empleado_sucursal_id = %s")
+        params.append(int(sucursal_id))
     if empleado_activo in (0, 1):
         where.append("fb.empleado_activo = %s")
         params.append(int(empleado_activo))
@@ -204,6 +211,7 @@ def get_page(
     cliente_id: int | None = None,
     motivo_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     empleado_activo: int | None = None,
 ):
     where_sql, params = _build_where(
@@ -215,6 +223,7 @@ def get_page(
         cliente_id=cliente_id,
         motivo_id=motivo_id,
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         empleado_activo=empleado_activo,
     )
     return _fetch_page(page, per_page, where_sql, params)
@@ -307,7 +316,7 @@ def update_estado(
         db.close()
 
 
-def count_feedbacks(*, empresa_id: int | None = None, sector_id: int | None = None, empleado_activo: int | None = None) -> dict:
+def count_feedbacks(*, empresa_id: int | None = None, sector_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None) -> dict:
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -319,6 +328,9 @@ def count_feedbacks(*, empresa_id: int | None = None, sector_id: int | None = No
         if sector_id:
             where.append("e.sector_id = %s")
             params.append(int(sector_id))
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(int(sucursal_id))
         if empleado_activo in (0, 1):
             where.append("e.activo = %s")
             params.append(int(empleado_activo))
@@ -360,7 +372,7 @@ def count_feedbacks(*, empresa_id: int | None = None, sector_id: int | None = No
         db.close()
 
 
-def get_top_motivos(*, empresa_id: int | None = None, sector_id: int | None = None, empleado_activo: int | None = None, limit: int = 5):
+def get_top_motivos(*, empresa_id: int | None = None, sector_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None, limit: int = 5):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -372,6 +384,9 @@ def get_top_motivos(*, empresa_id: int | None = None, sector_id: int | None = No
         if sector_id:
             where.append("e.sector_id = %s")
             params.append(int(sector_id))
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(int(sucursal_id))
         if empleado_activo in (0, 1):
             where.append("e.activo = %s")
             params.append(int(empleado_activo))
@@ -399,7 +414,7 @@ def get_top_motivos(*, empresa_id: int | None = None, sector_id: int | None = No
         db.close()
 
 
-def get_ranking_carga(*, empresa_id: int | None = None, sector_id: int | None = None, empleado_activo: int | None = None, limit: int | None = 10):
+def get_ranking_carga(*, empresa_id: int | None = None, sector_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None, limit: int | None = 10):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -411,6 +426,9 @@ def get_ranking_carga(*, empresa_id: int | None = None, sector_id: int | None = 
         if sector_id:
             where.append("e.sector_id = %s")
             params.append(int(sector_id))
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(int(sucursal_id))
         if empleado_activo in (0, 1):
             where.append("e.activo = %s")
             params.append(int(empleado_activo))
@@ -450,7 +468,7 @@ def get_ranking_carga(*, empresa_id: int | None = None, sector_id: int | None = 
         db.close()
 
 
-def count_active_empleados(*, empresa_id: int | None = None, sector_id: int | None = None, empleado_activo: int | None = None) -> int:
+def count_active_empleados(*, empresa_id: int | None = None, sector_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None) -> int:
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -462,6 +480,9 @@ def count_active_empleados(*, empresa_id: int | None = None, sector_id: int | No
         if sector_id:
             where.append("sector_id = %s")
             params.append(int(sector_id))
+        if sucursal_id:
+            where.append("sucursal_id = %s")
+            params.append(int(sucursal_id))
         if empleado_activo in (0, 1):
             where.append("activo = %s")
             params.append(int(empleado_activo))

@@ -37,7 +37,7 @@
     </div>
   </form>
 
-  <div class="table-responsive" style="margin-top:1rem;">
+  <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:1rem;">
     <table class="table">
       <thead>
         <tr>
@@ -56,16 +56,21 @@
       <tbody>
         {% for plan in planes %}
           <tr>
-            <td>{{ plan.empleado_apellido }}, {{ plan.empleado_nombre }}</td>
-            <td>{{ plan.sector_nombre or "-" }}</td>
-            <td>{{ plan.anio }}</td>
-            <td>{{ "%.2f"|format(plan.promedio_general) }}</td>
-            <td><span class="badge">{{ plan.nivel }}</span></td>
-            <td>{{ plan.acciones_total }}</td>
-            <td>{{ plan.acciones_completadas }}</td>
-            <td>{{ plan.acciones_vencidas }}</td>
-            <td>{{ "%.1f"|format(plan.avance_pct or 0) }}%</td>
-            <td><a class="btn btn-secondary" href="{{ url_for('skap_web.plan_detalle', plan_id=plan.id) }}">Ver</a></td>
+            <td data-label="Empleado">{{ plan.empleado_apellido }}, {{ plan.empleado_nombre }}</td>
+            <td data-label="Sector">{{ plan.sector_nombre or "-" }}</td>
+            <td data-label="Ano">{{ plan.anio }}</td>
+            <td data-label="Promedio">{{ "%.2f"|format(plan.promedio_general) }}</td>
+            <td data-label="Nivel"><span class="badge">{{ plan.nivel }}</span></td>
+            <td data-label="Acciones">{{ plan.acciones_total }}</td>
+            <td data-label="Completadas">{{ plan.acciones_completadas }}</td>
+            <td data-label="Vencidas"><span class="badge {{ 'ok' if plan.acciones_vencidas == 0 else 'danger' }}">{{ plan.acciones_vencidas }}</span></td>
+            <td data-label="Avance">
+              <div class="mini-track">
+                <span class="mini-fill {% if (plan.avance_pct or 0) >= 80 %}ok{% elif (plan.avance_pct or 0) >= 40 %}warning{% else %}danger{% endif %}" style="width: {{ plan.avance_pct or 0 }}%"></span>
+              </div>
+              <small>{{ "%.1f"|format(plan.avance_pct or 0) }}%</small>
+            </td>
+            <td data-label="Detalle"><a class="btn btn-secondary" href="{{ url_for('skap_web.plan_detalle', plan_id=plan.id) }}">Ver</a></td>
           </tr>
         {% else %}
           <tr><td colspan="10">No hay planes para los filtros seleccionados.</td></tr>

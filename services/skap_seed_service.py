@@ -6,6 +6,7 @@ import io
 import unicodedata
 
 from extensions import get_db
+from repositories.puesto_repository import get_all as get_puestos
 from repositories.sector_repository import get_all as get_sectores
 from repositories.skap_pregunta_repository import create as create_pregunta
 from repositories.skap_pregunta_repository import get_all_active_for_sector
@@ -181,8 +182,11 @@ def _normalize_payload(data: dict) -> dict:
     if puntaje_esperado is None or puntaje_esperado < 1 or puntaje_esperado > 5:
         raise ValueError("puntaje_esperado debe estar entre 1 y 5.")
 
+    puesto_id = _parse_int(data.get("puesto_id")) or None
+
     return {
         "sector_id": int(sector_id),
+        "puesto_id": puesto_id,
         "categoria": categoria,
         "descripcion": descripcion,
         "peso": peso,
@@ -227,12 +231,44 @@ def _resolve_sector_id(row: dict, by_id: dict, by_name: dict, by_company_name: d
     raise ValueError(f"Sector '{sector_name}' no encontrado.")
 
 
+def _puesto_lookup():
+    puestos = get_puestos(include_inactive=True)
+    by_id = {int(row["id"]): row for row in puestos if row.get("id")}
+    by_name: dict[str, list[dict]] = {}
+    for row in puestos:
+        name = str(row.get("nombre") or "").strip().lower()
+        if not name:
+            continue
+        by_name.setdefault(name, []).append(row)
+    return puestos, by_id, by_name
+
+
+def _resolve_puesto_id(row: dict, by_id: dict, by_name: dict) -> int | None:
+    puesto_id = _parse_int(_clean(row, "puesto_id", "id_puesto"))
+    if puesto_id:
+        if puesto_id not in by_id:
+            raise ValueError(f"Puesto {puesto_id} no encontrado.")
+        return puesto_id
+
+    puesto_name = str(_clean(row, "puesto", "puesto_nombre", "nombre_puesto", default="") or "").strip().lower()
+    if not puesto_name:
+        return None
+
+    candidates = by_name.get(puesto_name, [])
+    if len(candidates) == 1:
+        return int(candidates[0]["id"])
+    if len(candidates) > 1:
+        raise ValueError("puesto_nombre es ambiguo; use puesto_id.")
+    raise ValueError(f"Puesto '{puesto_name}' no encontrado.")
+
+
 def _upsert_question(payload: dict, *, reactivate: bool = False, dry_run: bool = False) -> tuple[int | None, str]:
     normalized = _normalize_payload(payload)
     existing = get_by_unique(
         int(normalized["sector_id"]),
         normalized["categoria"],
         normalized["descripcion"],
+        puesto_id=normalized.get("puesto_id"),
     )
     if existing:
         if reactivate and not existing.get("activo"):
@@ -345,6 +381,7 @@ def importar_preguntas_desde_csv(
     text = raw.decode("utf-8-sig", errors="replace") if isinstance(raw, bytes) else str(raw or "")
     reader, header_index = _parse_csv(text)
     _sectors, by_id, by_name, by_company_name = _sector_lookup()
+    _puestos, puesto_by_id, puesto_by_name = _puesto_lookup()
 
     result = {
         "total_filas": 0,
@@ -362,8 +399,10 @@ def importar_preguntas_desde_csv(
         result["total_filas"] += 1
         try:
             sector_id = _resolve_sector_id(row, by_id, by_name, by_company_name)
+            puesto_id = _resolve_puesto_id(row, puesto_by_id, puesto_by_name)
             payload = {
                 "sector_id": sector_id,
+                "puesto_id": puesto_id,
                 "categoria": _clean(row, "categoria"),
                 "descripcion": _clean(row, "descripcion"),
                 "peso": _clean(row, "peso", default=1),
@@ -413,6 +452,7 @@ def _find_example_employee(*, sector_id: int | None = None, empleado_id: int | N
                 e.apellido,
                 e.nombre,
                 e.sector_id,
+                e.puesto_id,
                 e.reporta_a_empleado_id,
                 boss.legajo AS jefe_legajo,
                 boss.apellido AS jefe_apellido,
@@ -442,9 +482,10 @@ def build_example_evaluacion_payload(
     if not resolved_sector_id:
         raise ValueError("No hay sector para generar el ejemplo.")
 
-    questions = get_all_active_for_sector(int(resolved_sector_id))
+    resolved_puesto_id = int(employee["puesto_id"]) if employee and employee.get("puesto_id") else None
+    questions = get_all_active_for_sector(int(resolved_sector_id), puesto_id=resolved_puesto_id)
     if not questions:
-        raise ValueError("No hay preguntas activas para el sector seleccionado.")
+        raise ValueError("No hay preguntas activas para el sector/puesto seleccionado.")
 
     scores_by_category = {"S": 4, "K": 4, "A": 5, "P": 4}
     respuestas = []

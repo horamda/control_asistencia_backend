@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}SKAP - Importar preguntas{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-kicker">SKAP</div>
+  <h2 class="section-title">Importar preguntas desde CSV</h2>
+  <p class="helper-text">Suba un CSV con columnas <code>sector</code> (o <code>sector_id</code>), <code>puesto</code> (o <code>puesto_id</code>, opcional), <code>categoria</code> (S/K/A/P), <code>descripcion</code>, <code>peso</code>, <code>puntaje_esperado</code>, <code>requiere_observacion</code>, <code>requiere_evidencia</code> y <code>activo</code>. Si no indica puesto, la pregunta queda como general para todo el sector.</p>
+
+  <form method="post" enctype="multipart/form-data" style="margin-top:1rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>
+      <span>Archivo CSV</span>
+      <input type="file" name="archivo_csv" accept=".csv" required>
+    </label>
+    <label>
+      <span>Reactivar preguntas inactivas que coincidan</span>
+      <select name="reactivate">
+        <option value="0" {% if not reactivate %}selected{% endif %}>No</option>
+        <option value="1" {% if reactivate %}selected{% endif %}>Si</option>
+      </select>
+    </label>
+    <div class="actions" style="margin-top:1rem;">
+      <button class="btn" type="submit">Importar</button>
+      <a class="btn btn-secondary" href="{{ url_for('skap_web.preguntas_listado') }}">Volver</a>
+    </div>
+  </form>
+</section>
+
+{% if resultado %}
+  <section class="panel" style="margin-top:1rem;">
+    <div class="section-kicker">Resultado</div>
+    {% if resultado.error %}
+      <div class="alert alert-danger">{{ resultado.error }}</div>
+    {% else %}
+      <section class="grid-kpis dashboard-kpis">
+        <article class="kpi-card"><div class="kpi-label">Filas</div><div class="kpi-value">{{ resultado.total_filas }}</div></article>
+        <article class="kpi-card tone-ok"><div class="kpi-label">Creadas</div><div class="kpi-value">{{ resultado.creadas }}</div></article>
+        <article class="kpi-card"><div class="kpi-label">Omitidas</div><div class="kpi-value">{{ resultado.omitidas }}</div></article>
+        <article class="kpi-card"><div class="kpi-label">Reactivadas</div><div class="kpi-value">{{ resultado.reactivadas }}</div></article>
+        <article class="kpi-card {{ 'tone-ok' if resultado.errores == 0 else 'tone-bad' }}"><div class="kpi-label">Errores</div><div class="kpi-value">{{ resultado.errores }}</div></article>
+      </section>
+      {% if resultado.detalle_errores %}
+        <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:1rem;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Fila</th>
+                <th>Descripcion</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for err in resultado.detalle_errores %}
+                <tr>
+                  <td data-label="Fila">{{ err.fila }}</td>
+                  <td data-label="Descripcion">{{ err.descripcion or "-" }}</td>
+                  <td data-label="Motivo">{{ err.motivo }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    {% endif %}
+  </section>
+{% endif %}
+{% endblock %}

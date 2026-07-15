@@ -1,265 +1,305 @@
 {% extends "base.html" %}
 {% block title %}SKAP{% endblock %}
 {% block content %}
-<section class="panel">
-  <div class="section-kicker">SKAP</div>
-  <h2 class="section-title">Dashboard de desarrollo {{ anio }}</h2>
-  <p class="helper-text">Seguimiento de evaluaciones, planes de desarrollo y competencias por sector.</p>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">SKAP</div>
+      <h2>Dashboard de desarrollo {{ anio }}</h2>
+      <p class="module-intro">
+        <span class="copy-desktop">Seguimiento de evaluaciones, planes de desarrollo y competencias por sector.</span>
+        <span class="copy-mobile">Evaluaciones, planes y competencias por sector.</span>
+      </p>
+    </div>
+    <div class="chip-row">
+      {% if sector_id %}
+        <span class="chip scope-chip-filtered">FILTRADO</span>
+      {% else %}
+        <span class="chip scope-chip-general">GENERAL</span>
+      {% endif %}
+      <span class="chip">Año {{ anio }}</span>
+    </div>
+  </div>
 
   {% if error %}
-    <div class="alert alert-danger" style="margin-top:1rem;">{{ error }}</div>
+    <div class="alert alert-danger">{{ error }}</div>
   {% endif %}
   {% if msg %}
-    <div class="alert alert-success" style="margin-top:1rem;">{{ msg }}</div>
+    <div class="alert alert-success">{{ msg }}</div>
   {% endif %}
 
-  <form method="get" class="form-grid" style="margin-top:1rem;">
-    <label>
-      <span>Ano</span>
-      <input type="number" name="anio" value="{{ anio }}" min="2020" max="2100" step="1">
-    </label>
-    <label>
-      <span>Sector</span>
-      <select name="sector_id">
-        <option value="">Todos</option>
-        {% for sector in sectores %}
-          <option value="{{ sector.id }}" {% if sector_id and sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <div class="actions" style="align-self:end;">
+  <form method="get" class="dashboard-filter-form">
+    <div class="form-grid">
+      <div class="row">
+        <label>Año</label>
+        <input type="number" name="anio" value="{{ anio }}" min="2020" max="2100" step="1">
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        <select name="sector_id">
+          <option value="">Todos</option>
+          {% for sector in sectores %}
+            <option value="{{ sector.id }}" {% if sector_id and sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="actions">
       <button class="btn" type="submit">Aplicar filtros</button>
       <a class="btn btn-secondary" href="{{ url_for('skap_web.dashboard') }}">Limpiar</a>
     </div>
   </form>
 
-  <section class="grid-kpis dashboard-kpis" style="margin-top:1rem;">
-    <article class="panel">
-      <div class="kicker">Activos</div>
+  {% set cobertura_pct = ((data.resumen.empleados_evaluados * 100) / data.resumen.empleados_activos) if data.resumen.empleados_activos else 0 %}
+
+  <section class="grid-kpis dashboard-kpis">
+    <article class="kpi-card" style="--kpi-order:1;">
+      <div class="kpi-label">Activos</div>
       <div class="kpi-value">{{ data.resumen.empleados_activos }}</div>
-      <div class="helper-text">Empleados activos</div>
+      <div class="kpi-desc">Empleados activos</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Evaluados</div>
-      <div class="kpi-value">{{ data.resumen.empleados_evaluados }}</div>
-      <div class="helper-text">Evaluaciones realizadas</div>
+    <article class="kpi-card kpi-critical {% if cobertura_pct >= 80 %}tone-ok{% elif cobertura_pct >= 50 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:2;">
+      <div class="kpi-label">Cobertura</div>
+      <div class="kpi-value">{{ "%.1f"|format(cobertura_pct) }}%</div>
+      <div class="kpi-desc">{{ data.resumen.empleados_evaluados }} evaluados. Bueno: &ge;80%</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Pendientes</div>
+    <article class="kpi-card kpi-critical {% if data.resumen.empleados_pendientes == 0 %}tone-ok{% elif data.resumen.empleados_pendientes <= 5 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:3;">
+      <div class="kpi-label">Pendientes</div>
       <div class="kpi-value">{{ data.resumen.empleados_pendientes }}</div>
-      <div class="helper-text">Sin evaluar este ano</div>
+      <div class="kpi-desc">Sin evaluar este año</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Promedio</div>
+    <article class="kpi-card kpi-critical {% if data.resumen.promedio_general >= 4 %}tone-ok{% elif data.resumen.promedio_general >= 3 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:4;">
+      <div class="kpi-label">Promedio</div>
       <div class="kpi-value">{{ "%.2f"|format(data.resumen.promedio_general or 0) }}</div>
-      <div class="helper-text">Promedio general</div>
+      <div class="kpi-desc">Promedio general (escala 1-5)</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Planes</div>
+    <article class="kpi-card" style="--kpi-order:5;">
+      <div class="kpi-label">Planes</div>
       <div class="kpi-value">{{ data.resumen.planes_total }}</div>
-      <div class="helper-text">PDP creados</div>
+      <div class="kpi-desc">PDP creados</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Vencidas</div>
+    <article class="kpi-card kpi-critical {% if data.resumen.acciones_vencidas == 0 %}tone-ok{% elif data.resumen.acciones_vencidas <= 5 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:6;">
+      <div class="kpi-label">Vencidas</div>
       <div class="kpi-value">{{ data.resumen.acciones_vencidas }}</div>
-      <div class="helper-text">Acciones vencidas</div>
+      <div class="kpi-desc">Acciones vencidas. Bueno: 0</div>
     </article>
   </section>
-</section>
 
-<section class="panel" style="margin-top:1rem;">
-  <div class="section-kicker">Supervisor</div>
-  <h3 class="section-title">Seguimiento operativo</h3>
-  <p class="helper-text">Pendientes, destacados y planes en seguimiento.</p>
+  <section class="panel">
+    <h3 class="section-title">Seguimiento operativo</h3>
+    <p class="helper-text">Pendientes, destacados y planes en seguimiento.</p>
 
-  <div class="table-responsive">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Metricas</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td>Evaluaciones realizadas</td><td>{{ data.resumen.empleados_evaluados }}</td></tr>
-        <tr><td>Evaluaciones pendientes</td><td>{{ data.resumen.empleados_pendientes }}</td></tr>
-        <tr><td>Acciones completadas</td><td>{{ data.resumen.acciones_completadas }}</td></tr>
-        <tr><td>Acciones en proceso</td><td>{{ data.resumen.acciones_en_proceso }}</td></tr>
-        <tr><td>Acciones canceladas</td><td>{{ data.resumen.acciones_canceladas }}</td></tr>
-        <tr><td>Planes de desarrollo</td><td>{{ data.resumen.planes_total }}</td></tr>
-      </tbody>
-    </table>
-  </div>
+    <div class="status-stack">
+      {% set acciones_total = data.resumen.acciones_completadas + data.resumen.acciones_en_proceso + data.resumen.acciones_canceladas %}
+      <div class="status-row">
+        <span class="status-label">Acciones completadas</span>
+        <div class="status-track"><span class="status-fill ok" style="width: {{ (data.resumen.acciones_completadas * 100 / acciones_total) | round(1) if acciones_total else 0 }}%"></span></div>
+        <strong>{{ data.resumen.acciones_completadas }}</strong>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Acciones en proceso</span>
+        <div class="status-track"><span class="status-fill neutral" style="width: {{ (data.resumen.acciones_en_proceso * 100 / acciones_total) | round(1) if acciones_total else 0 }}%"></span></div>
+        <strong>{{ data.resumen.acciones_en_proceso }}</strong>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Acciones canceladas</span>
+        <div class="status-track"><span class="status-fill danger" style="width: {{ (data.resumen.acciones_canceladas * 100 / acciones_total) | round(1) if acciones_total else 0 }}%"></span></div>
+        <strong>{{ data.resumen.acciones_canceladas }}</strong>
+      </div>
+    </div>
 
-  <div class="grid-kpis dashboard-kpis" style="margin-top:1rem;">
-    <article class="panel">
-      <div class="kicker">Destacados</div>
-      <div class="kpi-value">{{ data.destacados|length }}</div>
-      <div class="helper-text">Top evaluados</div>
-    </article>
-    <article class="panel">
-      <div class="kicker">Criticos</div>
-      <div class="kpi-value">{{ data.criticos|length }}</div>
-      <div class="helper-text">Menor promedio</div>
-    </article>
-  </div>
-
-  <div class="table-responsive" style="margin-top:1rem;">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Empleado</th>
-          <th>Sector</th>
-          <th>Promedio</th>
-          <th>Nivel</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in data.destacados %}
-          <tr>
-            <td>{{ row.apellido }}, {{ row.nombre }}</td>
-            <td>{{ row.sector_nombre or "-" }}</td>
-            <td>{{ "%.2f"|format(row.promedio_general) }}</td>
-            <td><span class="badge success">{{ row.nivel }}</span></td>
-          </tr>
+    <div class="panel-grid" style="margin-top:1rem;">
+      <article class="panel">
+        <h4 class="section-title">Destacados</h4>
+        {% if data.destacados %}
+          {% set max_dest = data.destacados | map(attribute='promedio_general') | max %}
+          <div class="mini-bars">
+            {% for row in data.destacados[:6] %}
+              <div class="mini-row">
+                <div class="mini-label">{{ row.apellido }}, {{ row.nombre }}</div>
+                <div class="mini-track">
+                  <span class="mini-fill ok" style="width: {{ ((row.promedio_general * 100) / (max_dest if max_dest > 0 else 1)) | round(1) }}%"></span>
+                </div>
+                <strong>{{ "%.2f"|format(row.promedio_general) }}</strong>
+              </div>
+            {% endfor %}
+          </div>
         {% else %}
-          <tr><td colspan="4">No hay empleados destacados.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+          <p>No hay empleados destacados.</p>
+        {% endif %}
+        <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:.75rem;">
+          <table>
+            <thead><tr><th>Empleado</th><th>Sector</th><th>Promedio</th><th>Nivel</th></tr></thead>
+            <tbody>
+              {% for row in data.destacados %}
+                <tr>
+                  <td data-label="Empleado">{{ row.apellido }}, {{ row.nombre }}</td>
+                  <td data-label="Sector">{{ row.sector_nombre or "-" }}</td>
+                  <td data-label="Promedio">{{ "%.2f"|format(row.promedio_general) }}</td>
+                  <td data-label="Nivel"><span class="badge ok">{{ row.nivel }}</span></td>
+                </tr>
+              {% else %}
+                <tr><td colspan="4">No hay empleados destacados.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
 
-  <div class="table-responsive" style="margin-top:1rem;">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Empleado</th>
-          <th>Sector</th>
-          <th>Promedio</th>
-          <th>Nivel</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in data.criticos %}
-          <tr>
-            <td>{{ row.apellido }}, {{ row.nombre }}</td>
-            <td>{{ row.sector_nombre or "-" }}</td>
-            <td>{{ "%.2f"|format(row.promedio_general) }}</td>
-            <td><span class="badge warning">{{ row.nivel }}</span></td>
-          </tr>
+      <article class="panel">
+        <h4 class="section-title">Criticos</h4>
+        {% if data.criticos %}
+          {% set max_crit = data.criticos | map(attribute='promedio_general') | max %}
+          <div class="mini-bars">
+            {% for row in data.criticos[:6] %}
+              <div class="mini-row">
+                <div class="mini-label">{{ row.apellido }}, {{ row.nombre }}</div>
+                <div class="mini-track">
+                  <span class="mini-fill danger" style="width: {{ ((row.promedio_general * 100) / (max_crit if max_crit > 0 else 1)) | round(1) }}%"></span>
+                </div>
+                <strong>{{ "%.2f"|format(row.promedio_general) }}</strong>
+              </div>
+            {% endfor %}
+          </div>
         {% else %}
-          <tr><td colspan="4">No hay empleados criticos.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
+          <p>No hay empleados criticos.</p>
+        {% endif %}
+        <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:.75rem;">
+          <table>
+            <thead><tr><th>Empleado</th><th>Sector</th><th>Promedio</th><th>Nivel</th></tr></thead>
+            <tbody>
+              {% for row in data.criticos %}
+                <tr>
+                  <td data-label="Empleado">{{ row.apellido }}, {{ row.nombre }}</td>
+                  <td data-label="Sector">{{ row.sector_nombre or "-" }}</td>
+                  <td data-label="Promedio">{{ "%.2f"|format(row.promedio_general) }}</td>
+                  <td data-label="Nivel"><span class="badge warning">{{ row.nivel }}</span></td>
+                </tr>
+              {% else %}
+                <tr><td colspan="4">No hay empleados criticos.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+  </section>
 
-{% if current_role in ["admin", "rrhh"] %}
-<section class="panel" style="margin-top:1rem;">
-  <div class="section-kicker">Gerencial</div>
-  <h3 class="section-title">Resumen estrategico</h3>
-  <p class="helper-text">Ranking de sectores, evolucion historica y competencias.</p>
+  {% if current_role in ["admin", "rrhh"] %}
+    <section class="panel">
+      <h3 class="section-title">Resumen estrategico</h3>
+      <p class="helper-text">Matriz S-K-A-P por sector, evolucion historica y competencias.</p>
 
-  <div class="table-responsive">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Sector</th>
-          <th>Evaluaciones</th>
-          <th>Promedio</th>
-          <th>Skills</th>
-          <th>Knowledge</th>
-          <th>Attitude</th>
-          <th>Performance</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in data.sector_ranking %}
-          <tr>
-            <td>{{ row.sector_nombre }}</td>
-            <td>{{ row.evaluaciones }}</td>
-            <td>{{ "%.2f"|format(row.promedio_general) }}</td>
-            <td>{{ "%.2f"|format(row.promedio_skills) }}</td>
-            <td>{{ "%.2f"|format(row.promedio_knowledge) }}</td>
-            <td>{{ "%.2f"|format(row.promedio_attitude) }}</td>
-            <td>{{ "%.2f"|format(row.promedio_performance) }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="7">No hay ranking de sectores.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+      {% if data.sector_ranking %}
+        <div class="table-responsive table-cards dashboard-mobile-compact">
+          <table class="table skap-matrix">
+            <thead>
+              <tr>
+                <th>Sector</th>
+                <th>Evaluaciones</th>
+                <th>Promedio</th>
+                <th>Skills</th>
+                <th>Knowledge</th>
+                <th>Attitude</th>
+                <th>Performance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in data.sector_ranking %}
+                <tr>
+                  <td data-label="Sector">{{ row.sector_nombre }}</td>
+                  <td data-label="Evaluaciones">{{ row.evaluaciones }}</td>
+                  <td data-label="Promedio"><span class="badge {% if row.promedio_general >= 4 %}ok{% elif row.promedio_general >= 3 %}warning{% else %}danger{% endif %}">{{ "%.2f"|format(row.promedio_general) }}</span></td>
+                  <td data-label="Skills"><span class="badge {% if row.promedio_skills >= 4 %}ok{% elif row.promedio_skills >= 3 %}warning{% else %}danger{% endif %}">{{ "%.2f"|format(row.promedio_skills) }}</span></td>
+                  <td data-label="Knowledge"><span class="badge {% if row.promedio_knowledge >= 4 %}ok{% elif row.promedio_knowledge >= 3 %}warning{% else %}danger{% endif %}">{{ "%.2f"|format(row.promedio_knowledge) }}</span></td>
+                  <td data-label="Attitude"><span class="badge {% if row.promedio_attitude >= 4 %}ok{% elif row.promedio_attitude >= 3 %}warning{% else %}danger{% endif %}">{{ "%.2f"|format(row.promedio_attitude) }}</span></td>
+                  <td data-label="Performance"><span class="badge {% if row.promedio_performance >= 4 %}ok{% elif row.promedio_performance >= 3 %}warning{% else %}danger{% endif %}">{{ "%.2f"|format(row.promedio_performance) }}</span></td>
+                </tr>
+              {% else %}
+                <tr><td colspan="7">No hay ranking de sectores.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="helper-text" style="margin-top:.5rem;">Escala 1-5. Verde &ge;4 (destacado), amarillo &ge;3 (cumple), rojo &lt;3 (necesita desarrollo).</p>
+      {% else %}
+        <p>No hay ranking de sectores.</p>
+      {% endif %}
 
-  <div class="table-responsive" style="margin-top:1rem;">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Ano</th>
-          <th>Evaluaciones</th>
-          <th>Promedio</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in data.historical_evolution %}
-          <tr>
-            <td>{{ row.anio }}</td>
-            <td>{{ row.evaluaciones }}</td>
-            <td>{{ "%.2f"|format(row.promedio_general) }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="3">No hay evolucion historica.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+      <div class="panel-grid" style="margin-top:1rem;">
+        <article class="panel">
+          <h4 class="section-title">Evolucion historica</h4>
+          {% if data.historical_evolution %}
+            {% set max_hist = data.historical_evolution | map(attribute='promedio_general') | max %}
+            <div class="mini-bars">
+              {% for row in data.historical_evolution %}
+                <div class="mini-row">
+                  <div class="mini-label">{{ row.anio }}</div>
+                  <div class="mini-track">
+                    <span class="mini-fill total" style="width: {{ ((row.promedio_general * 100) / (max_hist if max_hist > 0 else 1)) | round(1) }}%"></span>
+                  </div>
+                  <strong>{{ "%.2f"|format(row.promedio_general) }}</strong>
+                </div>
+              {% endfor %}
+            </div>
+            <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:.75rem;">
+              <table>
+                <thead><tr><th>Año</th><th>Evaluaciones</th><th>Promedio</th></tr></thead>
+                <tbody>
+                  {% for row in data.historical_evolution %}
+                    <tr>
+                      <td data-label="Año">{{ row.anio }}</td>
+                      <td data-label="Evaluaciones">{{ row.evaluaciones }}</td>
+                      <td data-label="Promedio">{{ "%.2f"|format(row.promedio_general) }}</td>
+                    </tr>
+                  {% else %}
+                    <tr><td colspan="3">No hay evolucion historica.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p>No hay evolucion historica.</p>
+          {% endif %}
+        </article>
 
-  <div class="table-responsive" style="margin-top:1rem;">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Competencia debil</th>
-          <th>Promedio</th>
-          <th>Esperado</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in data.weakest_competencies %}
-          <tr>
-            <td>{{ row.categoria_label }} - {{ row.descripcion }}</td>
-            <td>{{ "%.2f"|format(row.promedio_obtenido) }}</td>
-            <td>{{ "%.2f"|format(row.promedio_esperado) }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="3">No hay competencias debiles.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <div class="table-responsive" style="margin-top:1rem;">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Competencia fuerte</th>
-          <th>Promedio</th>
-          <th>Esperado</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in data.strongest_competencies %}
-          <tr>
-            <td>{{ row.categoria_label }} - {{ row.descripcion }}</td>
-            <td>{{ "%.2f"|format(row.promedio_obtenido) }}</td>
-            <td>{{ "%.2f"|format(row.promedio_esperado) }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="3">No hay competencias fuertes.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-{% endif %}
+        <article class="panel">
+          <h4 class="section-title">Competencias debiles y fuertes</h4>
+          <div class="table-responsive table-cards dashboard-mobile-compact">
+            <table>
+              <thead><tr><th>Competencia debil</th><th>Obtenido</th><th>Esperado</th></tr></thead>
+              <tbody>
+                {% for row in data.weakest_competencies %}
+                  <tr>
+                    <td data-label="Competencia">{{ row.categoria_label }} - {{ row.descripcion }}</td>
+                    <td data-label="Obtenido"><span class="badge danger">{{ "%.2f"|format(row.promedio_obtenido) }}</span></td>
+                    <td data-label="Esperado">{{ "%.2f"|format(row.promedio_esperado) }}</td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="3">No hay competencias debiles.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:.75rem;">
+            <table>
+              <thead><tr><th>Competencia fuerte</th><th>Obtenido</th><th>Esperado</th></tr></thead>
+              <tbody>
+                {% for row in data.strongest_competencies %}
+                  <tr>
+                    <td data-label="Competencia">{{ row.categoria_label }} - {{ row.descripcion }}</td>
+                    <td data-label="Obtenido"><span class="badge ok">{{ "%.2f"|format(row.promedio_obtenido) }}</span></td>
+                    <td data-label="Esperado">{{ "%.2f"|format(row.promedio_esperado) }}</td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="3">No hay competencias fuertes.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+    </section>
+  {% endif %}
+</div>
 {% endblock %}

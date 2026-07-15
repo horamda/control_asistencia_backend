@@ -16,6 +16,7 @@ from repositories.feedback_motivo_repository import (
 )
 from repositories.feedback_repository import get_page as get_feedbacks_page
 from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 from services.feedback_import_service import importar_clientes_desde_csv
 from services.feedback_service import create_feedback, get_feedback_dashboard, serialize_feedback
 from utils.audit import log_audit
@@ -45,6 +46,7 @@ def _extract_motivo_form(form) -> dict:
 @role_required("admin", "rrhh")
 def dashboard():
     sector_id = _parse_int(request.args.get("sector_id"))
+    sucursal_id = _parse_int(request.args.get("sucursal_id"))
     empleado_activo_raw = (request.args.get("empleado_activo") or "1").strip().lower()
     empleado_activo = None
     if empleado_activo_raw == "1":
@@ -55,6 +57,7 @@ def dashboard():
         empleado_activo_raw = "all"
     datos = get_feedback_dashboard(
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         empleado_activo=empleado_activo,
     )
     return render_template(
@@ -67,7 +70,9 @@ def dashboard():
         total_motivos=count_motivos(include_inactive=True),
         total_clientes=count_clientes(include_inactive=True),
         sectores=get_sectores(include_inactive=True),
+        sucursales=get_sucursales(include_inactive=True),
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         empleado_activo=empleado_activo_raw,
     )
 
@@ -78,6 +83,7 @@ def registros_listado():
     page = max(1, request.args.get("page", 1, type=int) or 1)
     per_page = max(1, min(request.args.get("per", 20, type=int) or 20, 100))
     sector_id = _parse_int(request.args.get("sector_id"))
+    sucursal_id = _parse_int(request.args.get("sucursal_id"))
     estado = (request.args.get("estado") or "").strip().lower() or None
     if estado not in {None, "pendiente", "en_proceso", "resuelto", "vencido"}:
         estado = None
@@ -91,13 +97,16 @@ def registros_listado():
         estado=estado,
         search=search,
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         empleado_activo=empleado_activo,
     )
     return render_template(
         "feedback/registros_listado.html",
         feedbacks=[serialize_feedback(row) for row in rows],
         sectores=get_sectores(include_inactive=True),
+        sucursales=get_sucursales(include_inactive=True),
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         empleado_activo=activo_raw,
         estado=estado or "all",
         q=search or "",

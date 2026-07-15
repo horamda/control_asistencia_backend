@@ -69,6 +69,8 @@ def serialize_feedback(row: dict) -> dict:
             "activo": bool(row.get("empleado_activo")),
             "sector_id": row.get("empleado_sector_id"),
             "sector_nombre": row.get("empleado_sector_nombre"),
+            "sucursal_id": row.get("empleado_sucursal_id"),
+            "sucursal_nombre": row.get("empleado_sucursal_nombre"),
         },
         "jefe_directo": {
             "id": row.get("jefe_directo_id"),
@@ -270,11 +272,13 @@ def get_feedback_dashboard(
     empresa_id: int | None = None,
     empleado_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     empleado_activo: int | None = 1,
 ) -> dict:
     filters = {
         "empresa_id": empresa_id,
         "sector_id": sector_id,
+        "sucursal_id": sucursal_id,
         "empleado_activo": empleado_activo,
     }
     resumen = count_feedbacks(**filters)

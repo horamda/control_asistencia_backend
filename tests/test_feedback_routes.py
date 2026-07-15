@@ -153,16 +153,25 @@ def test_web_feedback_dashboard_ok(monkeypatch):
             {"id": 7, "nombre": "Ventas", "empresa_nombre": "Acme", "activo": 1}
         ],
     )
+    monkeypatch.setattr(
+        feedback_web_routes,
+        "get_sucursales",
+        lambda include_inactive=True: [
+            {"id": 4, "nombre": "Centro", "empresa_nombre": "Acme", "activa": 1}
+        ],
+    )
 
-    resp = client.get("/feedback/?sector_id=7&empleado_activo=0")
+    resp = client.get("/feedback/?sector_id=7&sucursal_id=4&empleado_activo=0")
     assert resp.status_code == 200
     assert b"Resumen general" in resp.data
     assert b"Rotura" in resp.data
     assert b"Sector del empleado" in resp.data
     assert b"Ventas" in resp.data
+    assert b"Sucursal del empleado" in resp.data
+    assert b"Centro" in resp.data
     assert b"Cargar feedback" in resp.data
     assert b"Ver registros" in resp.data
-    assert captured == {"sector_id": 7, "empleado_activo": 0}
+    assert captured == {"sector_id": 7, "sucursal_id": 4, "empleado_activo": 0}
 
 
 def test_web_feedback_registros_filtra_sector_estado_y_empleado(monkeypatch):
@@ -191,8 +200,11 @@ def test_web_feedback_registros_filtra_sector_estado_y_empleado(monkeypatch):
     monkeypatch.setattr(feedback_web_routes, "get_sectores", lambda include_inactive=True: [
         {"id": 7, "nombre": "Ventas", "empresa_nombre": "Acme", "activo": 1}
     ])
+    monkeypatch.setattr(feedback_web_routes, "get_sucursales", lambda include_inactive=True: [
+        {"id": 4, "nombre": "Centro", "empresa_nombre": "Acme", "activa": 1}
+    ])
 
-    resp = client.get("/feedback/registros?sector_id=7&empleado_activo=1&estado=pendiente&q=cliente")
+    resp = client.get("/feedback/registros?sector_id=7&sucursal_id=4&empleado_activo=1&estado=pendiente&q=cliente")
 
     assert resp.status_code == 200
     assert b"Visita comercial" in resp.data
@@ -203,6 +215,7 @@ def test_web_feedback_registros_filtra_sector_estado_y_empleado(monkeypatch):
         "estado": "pendiente",
         "search": "cliente",
         "sector_id": 7,
+        "sucursal_id": 4,
         "empleado_activo": 1,
     }
 

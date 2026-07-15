@@ -17,6 +17,12 @@
         <option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>{{ sector.empresa_nombre }} · {{ sector.nombre }}</option>
       {% endfor %}
     </select>
+    <select name="sucursal_id">
+      <option value="">Todas las sucursales</option>
+      {% for sucursal in sucursales %}
+        <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id %}selected{% endif %}>{{ sucursal.empresa_nombre }} · {{ sucursal.nombre }}</option>
+      {% endfor %}
+    </select>
     <select name="empleado_activo">
       <option value="all" {% if empleado_activo == "all" %}selected{% endif %}>Empleados activos e inactivos</option>
       <option value="1" {% if empleado_activo == "1" %}selected{% endif %}>Empleados activos</option>
@@ -35,30 +41,37 @@
     <a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Volver</a>
   </form>
 
-  <div class="table-responsive" style="margin-top:1rem;">
+  <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:1rem;">
     <table class="table">
-      <thead><tr><th>Fecha</th><th>Empleado</th><th>Sector</th><th>Cliente</th><th>Motivo</th><th>Descripcion</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Empleado</th><th>Sector</th><th>Sucursal</th><th>Cliente</th><th>Motivo</th><th>Descripcion</th><th>Estado</th></tr></thead>
       <tbody>
         {% for item in feedbacks %}
           <tr>
-            <td>{{ item.created_at or "-" }}</td>
-            <td>{{ item.empleado.nombre or "-" }}<br><small>{{ item.empleado.legajo or "Sin legajo" }} · {{ "Activo" if item.empleado.activo else "Inactivo" }}</small></td>
-            <td>{{ item.empleado.sector_nombre or "Sin sector" }}</td>
-            <td>{{ item.cliente.nombre_fantasia or item.cliente.razon_social or "-" }}</td>
-            <td>{{ item.motivo.nombre or "-" }}</td>
-            <td>{{ item.descripcion }}</td>
-            <td>{{ (item.estado_actual or "-")|replace("_", " ")|title }}</td>
+            <td data-label="Fecha">{{ item.created_at or "-" }}</td>
+            <td data-label="Empleado">
+              {{ item.empleado.nombre or "-" }}<br>
+              <small>{{ item.empleado.legajo or "Sin legajo" }} &middot; <span class="badge {{ 'ok' if item.empleado.activo else 'inactivo' }}">{{ "Activo" if item.empleado.activo else "Inactivo" }}</span></small>
+            </td>
+            <td data-label="Sector">{{ item.empleado.sector_nombre or "Sin sector" }}</td>
+            <td data-label="Sucursal">{{ item.empleado.sucursal_nombre or "Sin sucursal" }}</td>
+            <td data-label="Cliente">{{ item.cliente.nombre_fantasia or item.cliente.razon_social or "-" }}</td>
+            <td data-label="Motivo">{{ item.motivo.nombre or "-" }}</td>
+            <td data-label="Descripcion">{{ item.descripcion }}</td>
+            <td data-label="Estado">
+              {% set estado = item.estado_actual or "pendiente" %}
+              <span class="badge {% if estado == 'resuelto' %}ok{% elif estado == 'vencido' %}danger{% elif estado != 'en_proceso' %}warning{% endif %}">{{ estado|replace("_", " ")|title }}</span>
+            </td>
           </tr>
         {% else %}
-          <tr><td colspan="7">No hay feedback que coincida con los filtros.</td></tr>
+          <tr><td colspan="8">No hay feedback que coincida con los filtros.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
   <div class="pager" style="margin-top:1rem;">
-    {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado', page=page-1, per=per_page, q=q, sector_id=sector_id, empleado_activo=empleado_activo, estado=estado) }}">Anterior</a>{% endif %}
-    {% if page * per_page < total %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado', page=page+1, per=per_page, q=q, sector_id=sector_id, empleado_activo=empleado_activo, estado=estado) }}">Siguiente</a>{% endif %}
+    {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado', page=page-1, per=per_page, q=q, sector_id=sector_id, sucursal_id=sucursal_id, empleado_activo=empleado_activo, estado=estado) }}">Anterior</a>{% endif %}
+    {% if page * per_page < total %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado', page=page+1, per=per_page, q=q, sector_id=sector_id, sucursal_id=sucursal_id, empleado_activo=empleado_activo, estado=estado) }}">Siguiente</a>{% endif %}
     <span class="summary">Pagina {{ page }} · {{ total }} registros</span>
   </div>
 </section>

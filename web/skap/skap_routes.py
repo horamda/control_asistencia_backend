@@ -6,6 +6,7 @@ from flask import Blueprint, current_app, redirect, render_template, request, se
 
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
+from repositories.puesto_repository import get_all as get_puestos
 from repositories.sector_repository import get_page as get_sectores_page
 from repositories.skap_pregunta_repository import (
     count_all as count_preguntas,
@@ -28,6 +29,7 @@ from repositories.skap_repository import (
     set_plan_action_estado,
     update_plan_action,
 )
+from services.skap_seed_service import importar_preguntas_desde_csv
 from services.skap_service import (
     activar_pregunta,
     contar_preguntas,
@@ -91,9 +93,14 @@ def _employee_options(include_inactive: bool = False):
     return get_empleados(include_inactive=include_inactive)
 
 
+def _puesto_options(include_inactive: bool = True):
+    return get_puestos(include_inactive=include_inactive)
+
+
 def _pregunta_form_from_request(form) -> dict:
     return {
         "sector_id": _parse_int(form.get("sector_id")),
+        "puesto_id": _parse_int(form.get("puesto_id")),
         "categoria": (form.get("categoria") or "").strip().upper(),
         "descripcion": (form.get("descripcion") or "").strip(),
         "peso": float(form.get("peso") or 1),
@@ -147,6 +154,8 @@ def preguntas_listado():
     per_page = max(1, min(_parse_int(request.args.get("per"), 20) or 20, 100))
     search = (request.args.get("q") or "").strip() or None
     sector_id = _parse_int(request.args.get("sector_id"))
+    puesto_raw = (request.args.get("puesto_id") or "").strip()
+    puesto_filter = _parse_int(puesto_raw) if puesto_raw else None
     categoria = (request.args.get("categoria") or "").strip().upper() or None
     activo_raw = (request.args.get("activo") or "").strip().lower()
     activo = None
@@ -159,6 +168,7 @@ def preguntas_listado():
         per_page=per_page,
         search=search,
         sector_id=sector_id,
+        puesto_filter=puesto_filter,
         categoria=categoria,
         activo=activo,
     )
@@ -170,10 +180,12 @@ def preguntas_listado():
         per_page=per_page,
         q=search or "",
         sector_id=sector_id,
+        puesto_id=puesto_raw,
         categorias=_CATEGORIAS,
         categoria=categoria or "",
         activo=activo_raw or "all",
         sectores=_sector_options(),
+        puestos=_puesto_options(),
         error=(request.args.get("error") or "").strip() or None,
         msg=(request.args.get("msg") or "").strip() or None,
     )
@@ -201,6 +213,7 @@ def pregunta_nueva():
         data=data,
         errors=errors,
         sectores=_sector_options(),
+        puestos=_puesto_options(),
         categorias=_CATEGORIAS,
     )
 
@@ -230,6 +243,7 @@ def pregunta_editar(pregunta_id: int):
         data=data,
         errors=errors,
         sectores=_sector_options(),
+        puestos=_puesto_options(),
         categorias=_CATEGORIAS,
     )
 
@@ -254,6 +268,25 @@ def pregunta_desactivar(pregunta_id: int):
     except Exception:
         current_app.logger.exception("skap_pregunta_deactivate_error")
     return redirect(url_for("skap_web.preguntas_listado"))
+
+
+@skap_web_bp.route("/preguntas/importar", methods=["GET", "POST"])
+@role_required("admin", "rrhh")
+def preguntas_importar():
+    resultado = None
+    reactivate = _parse_bool(request.form.get("reactivate")) if request.method == "POST" else False
+    if request.method == "POST":
+        archivo = request.files.get("archivo_csv")
+        if not archivo or not str(archivo.filename or "").lower().endswith(".csv"):
+            resultado = {"error": "Debe subir un archivo .csv valido."}
+        else:
+            try:
+                resultado = importar_preguntas_desde_csv(archivo.stream, reactivate=reactivate)
+                log_audit(session, "importar_csv", "skap_preguntas", 0)
+            except Exception as exc:
+                current_app.logger.exception("skap_preguntas_import_error")
+                resultado = {"error": f"No se pudo procesar el archivo: {exc}"}
+    return render_template("skap/preguntas_importar.html", resultado=resultado, reactivate=reactivate)
 
 
 @skap_web_bp.route("/evaluaciones")

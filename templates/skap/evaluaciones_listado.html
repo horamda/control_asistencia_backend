@@ -37,7 +37,7 @@
     </div>
   </form>
 
-  <div class="table-responsive" style="margin-top:1rem;">
+  <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:1rem;">
     <table class="table">
       <thead>
         <tr>
@@ -55,21 +55,21 @@
       <tbody>
         {% for evaluacion in evaluaciones %}
           <tr>
-            <td>{{ evaluacion.empleado_apellido }}, {{ evaluacion.empleado_nombre }}</td>
-            <td>{{ evaluacion.sector_nombre or "-" }}</td>
-            <td>{{ evaluacion.anio }}</td>
-            <td>{{ "%.2f"|format(evaluacion.promedio_general) }}</td>
-            <td><span class="badge">{{ evaluacion.nivel }}</span></td>
-            <td>{{ evaluacion.evaluador_apellido }}, {{ evaluacion.evaluador_nombre }}</td>
-            <td>{{ evaluacion.fecha_evaluacion }}</td>
-            <td>
+            <td data-label="Empleado">{{ evaluacion.empleado_apellido }}, {{ evaluacion.empleado_nombre }}</td>
+            <td data-label="Sector">{{ evaluacion.sector_nombre or "-" }}</td>
+            <td data-label="Ano">{{ evaluacion.anio }}</td>
+            <td data-label="Promedio"><span class="badge {% if evaluacion.promedio_general >= 4 %}ok{% elif evaluacion.promedio_general >= 3 %}warning{% else %}danger{% endif %}">{{ "%.2f"|format(evaluacion.promedio_general) }}</span></td>
+            <td data-label="Nivel"><span class="badge">{{ evaluacion.nivel }}</span></td>
+            <td data-label="Evaluador">{{ evaluacion.evaluador_apellido }}, {{ evaluacion.evaluador_nombre }}</td>
+            <td data-label="Fecha">{{ evaluacion.fecha_evaluacion }}</td>
+            <td data-label="PDP">
               {% if evaluacion.pdp_generado_at %}
-                <span class="badge success">Generado</span>
+                <span class="badge ok">Generado</span>
               {% else %}
                 <span class="badge warning">Pendiente</span>
               {% endif %}
             </td>
-            <td><a class="btn btn-secondary" href="{{ url_for('skap_web.evaluacion_detalle', evaluacion_id=evaluacion.id) }}">Ver</a></td>
+            <td data-label="Detalle"><a class="btn btn-secondary" href="{{ url_for('skap_web.evaluacion_detalle', evaluacion_id=evaluacion.id) }}">Ver</a></td>
           </tr>
         {% else %}
           <tr><td colspan="9">No hay evaluaciones para los filtros seleccionados.</td></tr>

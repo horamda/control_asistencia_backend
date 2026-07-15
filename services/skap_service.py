@@ -6,6 +6,7 @@ from collections import defaultdict
 from extensions import get_db
 from repositories.auditoria_repository import create as create_audit
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
+from repositories.puesto_repository import get_by_id as get_puesto_by_id
 from repositories.roles_repository import get_roles_by_empleado
 from repositories.skap_pregunta_repository import get_all_active_for_sector
 from repositories.skap_pregunta_repository import get_by_id as get_pregunta_by_id
@@ -220,6 +221,8 @@ def serialize_pregunta(row: dict) -> dict:
         "id": row.get("id"),
         "sector_id": row.get("sector_id"),
         "sector_nombre": row.get("sector_nombre"),
+        "puesto_id": row.get("puesto_id"),
+        "puesto_nombre": row.get("puesto_nombre"),
         "categoria": row.get("categoria"),
         "categoria_label": _categoria_label(row.get("categoria")),
         "descripcion": row.get("descripcion"),
@@ -627,9 +630,9 @@ def create_evaluacion(
     if not sector_id:
         raise ValueError("El empleado no tiene sector asignado.")
 
-    questions = get_all_active_for_sector(sector_id)
+    questions = get_all_active_for_sector(sector_id, puesto_id=puesto_id)
     if not questions:
-        raise ValueError("No hay preguntas activas para el sector del empleado.")
+        raise ValueError("No hay preguntas activas para el sector/puesto del empleado.")
 
     question_by_id = {int(row["id"]): row for row in questions}
     response_by_id: dict[int, dict] = {}
@@ -644,9 +647,9 @@ def create_evaluacion(
     missing = [qid for qid in question_by_id if qid not in response_by_id]
     extra = [qid for qid in response_by_id if qid not in question_by_id]
     if missing:
-        raise ValueError("Faltan respuestas para preguntas activas del sector.")
+        raise ValueError("Faltan respuestas para preguntas activas del sector/puesto.")
     if extra:
-        raise ValueError("Se enviaron preguntas que no pertenecen al sector.")
+        raise ValueError("Se enviaron preguntas que no pertenecen al sector/puesto del empleado.")
 
     detalles = []
     for pregunta in questions:
@@ -1108,6 +1111,7 @@ def get_preguntas_catalogo(
     per_page: int = 20,
     search: str | None = None,
     sector_id: int | None = None,
+    puesto_filter: int | None = None,
     categoria: str | None = None,
     activo: int | None = None,
 ):
@@ -1116,15 +1120,23 @@ def get_preguntas_catalogo(
         per_page,
         search=search,
         sector_id=sector_id,
+        puesto_filter=puesto_filter,
         categoria=categoria,
         activo=activo,
     )
     return [serialize_pregunta(row) for row in rows], total
 
 
-def get_preguntas_por_sector(sector_id: int, *, categoria: str | None = None):
-    rows = get_all_active_for_sector(int(sector_id), categoria=categoria)
+def get_preguntas_por_sector(sector_id: int, *, puesto_id: int | None = None, categoria: str | None = None):
+    rows = get_all_active_for_sector(int(sector_id), puesto_id=puesto_id, categoria=categoria)
     return [serialize_pregunta(row) for row in rows]
+
+
+def _normalize_puesto_id(data: dict) -> int | None:
+    puesto_id = _to_int(data.get("puesto_id")) or None
+    if puesto_id and not get_puesto_by_id(int(puesto_id)):
+        raise ValueError("Puesto no encontrado.")
+    return puesto_id
 
 
 def crear_pregunta(data: dict) -> int:
@@ -1140,8 +1152,9 @@ def crear_pregunta(data: dict) -> int:
     data["puntaje_esperado"] = _to_int(data.get("puntaje_esperado"), 4)
     if data["puntaje_esperado"] < 1 or data["puntaje_esperado"] > 5:
         raise ValueError("El puntaje esperado debe estar entre 1 y 5.")
-    if get_pregunta_by_unique(int(data["sector_id"]), data["categoria"], data["descripcion"]):
-        raise ValueError("Ya existe una pregunta igual para ese sector y categoria.")
+    data["puesto_id"] = _normalize_puesto_id(data)
+    if get_pregunta_by_unique(int(data["sector_id"]), data["categoria"], data["descripcion"], puesto_id=data["puesto_id"]):
+        raise ValueError("Ya existe una pregunta igual para ese sector, puesto y categoria.")
     return create_pregunta_row(data)
 
 
@@ -1161,9 +1174,16 @@ def actualizar_pregunta(pregunta_id: int, data: dict) -> None:
     data["puntaje_esperado"] = _to_int(data.get("puntaje_esperado"), 4)
     if data["puntaje_esperado"] < 1 or data["puntaje_esperado"] > 5:
         raise ValueError("El puntaje esperado debe estar entre 1 y 5.")
-    dup = get_pregunta_by_unique(int(data["sector_id"]), data["categoria"], data["descripcion"], exclude_id=int(pregunta_id))
+    data["puesto_id"] = _normalize_puesto_id(data)
+    dup = get_pregunta_by_unique(
+        int(data["sector_id"]),
+        data["categoria"],
+        data["descripcion"],
+        puesto_id=data["puesto_id"],
+        exclude_id=int(pregunta_id),
+    )
     if dup:
-        raise ValueError("Ya existe una pregunta igual para ese sector y categoria.")
+        raise ValueError("Ya existe una pregunta igual para ese sector, puesto y categoria.")
     update_pregunta_row(int(pregunta_id), data)
 
 

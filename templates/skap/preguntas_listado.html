@@ -6,9 +6,12 @@
     <div>
       <div class="section-kicker">SKAP</div>
       <h2 class="section-title">Preguntas</h2>
-      <p class="helper-text">CRUD de preguntas dinamicas por sector y categoria.</p>
+      <p class="helper-text">CRUD de preguntas dinamicas por sector, puesto y categoria.</p>
     </div>
-    <a class="btn" href="{{ url_for('skap_web.pregunta_nueva') }}">Nueva pregunta</a>
+    <div class="actions" style="margin-top:0;">
+      <a class="btn btn-secondary" href="{{ url_for('skap_web.preguntas_importar') }}">Importar CSV</a>
+      <a class="btn" href="{{ url_for('skap_web.pregunta_nueva') }}">Nueva pregunta</a>
+    </div>
   </div>
 
   {% if error %}
@@ -29,6 +32,16 @@
         <option value="">Todos</option>
         {% for sector in sectores %}
           <option value="{{ sector.id }}" {% if sector_id and sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Puesto</span>
+      <select name="puesto_id">
+        <option value="">Todos</option>
+        <option value="0" {% if puesto_id == "0" %}selected{% endif %}>General (sin puesto)</option>
+        {% for puesto in puestos %}
+          <option value="{{ puesto.id }}" {% if puesto_id and puesto_id|string == puesto.id|string %}selected{% endif %}>{{ puesto.nombre }}</option>
         {% endfor %}
       </select>
     </label>
@@ -55,11 +68,12 @@
     </div>
   </form>
 
-  <div class="table-responsive" style="margin-top:1rem;">
+  <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:1rem;">
     <table class="table">
       <thead>
         <tr>
           <th>Sector</th>
+          <th>Puesto</th>
           <th>Categoria</th>
           <th>Descripcion</th>
           <th>Peso</th>
@@ -73,22 +87,23 @@
       <tbody>
         {% for pregunta in preguntas %}
           <tr>
-            <td>{{ pregunta.sector_nombre }}</td>
-            <td><span class="badge">{{ pregunta.categoria_label }}</span></td>
-            <td>{{ pregunta.descripcion }}</td>
-            <td>{{ "%.2f"|format(pregunta.peso) }}</td>
-            <td>{{ pregunta.puntaje_esperado }}</td>
-            <td>{{ "Si" if pregunta.requiere_observacion else "No" }}</td>
-            <td>{{ "Si" if pregunta.requiere_evidencia else "No" }}</td>
-            <td>
+            <td data-label="Sector">{{ pregunta.sector_nombre }}</td>
+            <td data-label="Puesto">{{ pregunta.puesto_nombre or "General" }}</td>
+            <td data-label="Categoria"><span class="badge">{{ pregunta.categoria_label }}</span></td>
+            <td data-label="Descripcion">{{ pregunta.descripcion }}</td>
+            <td data-label="Peso">{{ "%.2f"|format(pregunta.peso) }}</td>
+            <td data-label="Esperado">{{ pregunta.puntaje_esperado }}</td>
+            <td data-label="Obs.">{{ "Si" if pregunta.requiere_observacion else "No" }}</td>
+            <td data-label="Evid.">{{ "Si" if pregunta.requiere_evidencia else "No" }}</td>
+            <td data-label="Estado">
               {% if pregunta.activo %}
-                <span class="badge success">Activa</span>
+                <span class="badge ok">Activa</span>
               {% else %}
-                <span class="badge warning">Inactiva</span>
+                <span class="badge danger">Inactiva</span>
               {% endif %}
             </td>
-            <td>
-              <div class="actions" style="display:flex;flex-wrap:wrap;gap:.35rem;">
+            <td data-label="Acciones">
+              <div class="actions" style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:0;">
                 <a class="btn btn-secondary" href="{{ url_for('skap_web.pregunta_editar', pregunta_id=pregunta.id) }}">Editar</a>
                 {% if pregunta.activo %}
                   <form method="post" action="{{ url_for('skap_web.pregunta_desactivar', pregunta_id=pregunta.id) }}">
@@ -105,7 +120,7 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="9">No hay preguntas cargadas.</td></tr>
+          <tr><td colspan="10">No hay preguntas cargadas.</td></tr>
         {% endfor %}
       </tbody>
     </table>

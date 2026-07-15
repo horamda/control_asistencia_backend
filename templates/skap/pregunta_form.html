@@ -27,6 +27,15 @@
       </select>
     </label>
     <label>
+      <span>Puesto</span>
+      <select name="puesto_id">
+        <option value="">General (todos los puestos del sector)</option>
+        {% for puesto in puestos %}
+          <option value="{{ puesto.id }}" {% if data.puesto_id and data.puesto_id == puesto.id %}selected{% endif %}>{{ puesto.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
       <span>Categoria</span>
       <select name="categoria" required>
         <option value="">Seleccione</option>

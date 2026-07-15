@@ -20,7 +20,7 @@
   </form>
   <p class="helper-text" style="margin-top:.5rem;">Busca por sucursal, c&oacute;digo, raz&oacute;n social, fantas&iacute;a, tel&eacute;fonos, m&oacute;vil, email, domicilio, localidad, provincia o tipo.</p>
 
-  <div class="table-responsive" style="margin-top:1rem;">
+  <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:1rem;">
     <table class="table">
       <thead>
         <tr>
@@ -36,13 +36,13 @@
       <tbody>
         {% for cliente in clientes %}
           <tr>
-            <td>{{ cliente.codigo_externo }}</td>
-            <td>{{ cliente.razon_social }}</td>
-            <td>{{ cliente.nombre_fantasia or "-" }}</td>
-            <td>{{ cliente.tipo_descripcion or "-" }}</td>
-            <td>{{ cliente.localidad or "-" }}</td>
-            <td>{{ cliente.provincia or "-" }}</td>
-            <td>{{ "Si" if cliente.activo else "No" }}</td>
+            <td data-label="Codigo">{{ cliente.codigo_externo }}</td>
+            <td data-label="Razon social">{{ cliente.razon_social }}</td>
+            <td data-label="Fantasia">{{ cliente.nombre_fantasia or "-" }}</td>
+            <td data-label="Tipo">{{ cliente.tipo_descripcion or "-" }}</td>
+            <td data-label="Localidad">{{ cliente.localidad or "-" }}</td>
+            <td data-label="Provincia">{{ cliente.provincia or "-" }}</td>
+            <td data-label="Activo"><span class="badge {{ 'ok' if cliente.activo else 'inactivo' }}">{{ "Activo" if cliente.activo else "Inactivo" }}</span></td>
           </tr>
         {% else %}
           <tr><td colspan="7">No hay clientes cargados.</td></tr>

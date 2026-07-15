@@ -1,158 +1,235 @@
 {% extends "base.html" %}
 {% block title %}Feedback{% endblock %}
 {% block content %}
-<section class="panel">
-  <div class="section-kicker">Feedback</div>
-  <h2 class="section-title">Resumen general</h2>
-  <p class="helper-text">Motivos, clientes cargados y distribución general del feedback.</p>
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Feedback</div>
+      <h2>Resumen general</h2>
+      <p class="module-intro">
+        <span class="copy-desktop">Motivos, clientes cargados y distribucion general del feedback registrado.</span>
+        <span class="copy-mobile">Motivos, clientes y distribucion del feedback.</span>
+      </p>
+    </div>
+    <div class="chip-row">
+      {% if sector_id or (sucursal_id) or (empleado_activo and empleado_activo != "all") %}
+        <span class="chip scope-chip-filtered">FILTRADO</span>
+      {% else %}
+        <span class="chip scope-chip-general">GENERAL</span>
+      {% endif %}
+      <span class="chip">{{ resumen.total }} registros</span>
+    </div>
+  </div>
 
-  <form method="get" class="filters" style="margin:1rem 0;display:flex;gap:.75rem;align-items:end;flex-wrap:wrap;">
-    <label>
-      Sector del empleado
-      <select name="sector_id">
-        <option value="">Todos los sectores</option>
-        {% for sector in sectores %}
-          <option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>
-            {{ sector.empresa_nombre }} · {{ sector.nombre }}{% if not sector.activo %} (inactivo){% endif %}
-          </option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>
-      Estado del empleado
-      <select name="empleado_activo">
-        <option value="all" {% if empleado_activo == "all" %}selected{% endif %}>Todos</option>
-        <option value="1" {% if empleado_activo == "1" %}selected{% endif %}>Activos</option>
-        <option value="0" {% if empleado_activo == "0" %}selected{% endif %}>Inactivos</option>
-      </select>
-    </label>
-    <button class="btn" type="submit">Filtrar</button>
-    <a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Limpiar</a>
+  <form method="get" class="dashboard-filter-form">
+    <div class="form-grid">
+      <div class="row">
+        <label>Sector del empleado</label>
+        <select name="sector_id">
+          <option value="">Todos los sectores</option>
+          {% for sector in sectores %}
+            <option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>
+              {{ sector.empresa_nombre }} &middot; {{ sector.nombre }}{% if not sector.activo %} (inactivo){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Sucursal del empleado</label>
+        <select name="sucursal_id">
+          <option value="">Todas las sucursales</option>
+          {% for sucursal in sucursales %}
+            <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id %}selected{% endif %}>
+              {{ sucursal.empresa_nombre }} &middot; {{ sucursal.nombre }}{% if not sucursal.activa %} (inactiva){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Estado del empleado</label>
+        <select name="empleado_activo">
+          <option value="all" {% if empleado_activo == "all" %}selected{% endif %}>Todos</option>
+          <option value="1" {% if empleado_activo == "1" %}selected{% endif %}>Activos</option>
+          <option value="0" {% if empleado_activo == "0" %}selected{% endif %}>Inactivos</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Aplicar filtros</button>
+      <a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Limpiar</a>
+    </div>
   </form>
 
+  {% set resueltos_pct = ((resumen.resueltos * 100) / resumen.total) if resumen.total else 0 %}
+  {% set sla_pct = ((resumen.resueltos_en_sla * 100) / resumen.resueltos) if resumen.resueltos else 0 %}
+  {% set vencidos_pct = ((resumen.vencidos * 100) / resumen.total) if resumen.total else 0 %}
+
   <section class="grid-kpis dashboard-kpis">
-    <article class="panel">
-      <div class="kicker">Total</div>
+    <article class="kpi-card" style="--kpi-order:1;">
+      <div class="kpi-label">Total</div>
       <div class="kpi-value">{{ resumen.total }}</div>
-      <div class="helper-text">Feedbacks registrados</div>
+      <div class="kpi-desc">Feedbacks registrados</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Resueltos</div>
+    <article class="kpi-card kpi-critical {% if resueltos_pct >= 80 %}tone-ok{% elif resueltos_pct >= 50 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:2;">
+      <div class="kpi-label">Resueltos</div>
       <div class="kpi-value">{{ resumen.resueltos }}</div>
-      <div class="helper-text">Dentro o fuera de SLA</div>
+      <div class="kpi-desc">{{ "%.1f"|format(resueltos_pct) }}% del total. Bueno: &ge;80%</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Vencidos</div>
+    <article class="kpi-card kpi-critical {% if resumen.vencidos == 0 %}tone-ok{% elif vencidos_pct <= 10 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:3;">
+      <div class="kpi-label">Vencidos</div>
       <div class="kpi-value">{{ resumen.vencidos }}</div>
-      <div class="helper-text">Pendientes fuera de SLA</div>
+      <div class="kpi-desc">Pendientes fuera de SLA. Bueno: 0</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Motivos</div>
+    <article class="kpi-card kpi-critical {% if sla_pct >= 85 %}tone-ok{% elif sla_pct >= 60 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:4;">
+      <div class="kpi-label">Cumplimiento SLA</div>
+      <div class="kpi-value">{{ "%.1f"|format(sla_pct) }}%</div>
+      <div class="kpi-desc">Resueltos dentro de plazo. Bueno: &ge;85%</div>
+    </article>
+    <article class="kpi-card" style="--kpi-order:5;">
+      <div class="kpi-label">Motivos</div>
       <div class="kpi-value">{{ total_motivos }}</div>
-      <div class="helper-text">Motivos configurados</div>
+      <div class="kpi-desc">Motivos configurados</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Clientes</div>
+    <article class="kpi-card" style="--kpi-order:6;">
+      <div class="kpi-label">Clientes</div>
       <div class="kpi-value">{{ total_clientes }}</div>
-      <div class="helper-text">Base importada</div>
+      <div class="kpi-desc">Base importada</div>
     </article>
-    <article class="panel">
-      <div class="kicker">Carga propia</div>
+    <article class="kpi-card" style="--kpi-order:7;">
+      <div class="kpi-label">Carga propia</div>
       <div class="kpi-value">{{ personal.total_cargados if personal else 0 }}</div>
-      <div class="helper-text">
+      <div class="kpi-desc">
         {% if personal and personal.posicion_ranking %}
-          Posicion {{ personal.posicion_ranking }}
+          Posicion #{{ personal.posicion_ranking }} en el ranking
         {% else %}
           Sin ranking propio
         {% endif %}
       </div>
     </article>
+    <article class="kpi-card" style="--kpi-order:8;">
+      <div class="kpi-label">Personal en alcance</div>
+      <div class="kpi-value">{{ totales.empleados_activos if totales else 0 }}</div>
+      <div class="kpi-desc">{{ totales.empleados_con_carga if totales else 0 }} con carga de feedback</div>
+    </article>
   </section>
 
-  <div class="table-responsive" style="margin-top:1rem;">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Estado</th>
-          <th>Cantidad</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td>Pendientes</td><td>{{ resumen.pendientes }}</td></tr>
-        <tr><td>En proceso</td><td>{{ resumen.en_proceso }}</td></tr>
-        <tr><td>Resueltos en SLA</td><td>{{ resumen.resueltos_en_sla }}</td></tr>
-        <tr><td>Resueltos fuera de SLA</td><td>{{ resumen.resueltos_fuera_sla }}</td></tr>
-        <tr><td>Empleados con carga</td><td>{{ totales.empleados_con_carga if totales else 0 }}</td></tr>
-        <tr><td>Personal según filtro</td><td>{{ totales.empleados_activos if totales else 0 }}</td></tr>
-      </tbody>
-    </table>
-  </div>
-</section>
+  <section class="panel">
+    <h3 class="section-title">Estado de los casos</h3>
+    <p class="helper-text">Distribucion sobre el total de feedback en el alcance actual.</p>
+    {% if resumen.total %}
+      <div class="status-stack">
+        <div class="status-row">
+          <span class="status-label">Pendientes</span>
+          <div class="status-track"><span class="status-fill warning" style="width: {{ (resumen.pendientes * 100 / resumen.total) | round(1) }}%"></span></div>
+          <strong>{{ resumen.pendientes }}</strong>
+        </div>
+        <div class="status-row">
+          <span class="status-label">En proceso</span>
+          <div class="status-track"><span class="status-fill neutral" style="width: {{ (resumen.en_proceso * 100 / resumen.total) | round(1) }}%"></span></div>
+          <strong>{{ resumen.en_proceso }}</strong>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Resueltos en SLA</span>
+          <div class="status-track"><span class="status-fill ok" style="width: {{ (resumen.resueltos_en_sla * 100 / resumen.total) | round(1) }}%"></span></div>
+          <strong>{{ resumen.resueltos_en_sla }}</strong>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Resueltos fuera de SLA</span>
+          <div class="status-track"><span class="status-fill danger" style="width: {{ (resumen.resueltos_fuera_sla * 100 / resumen.total) | round(1) }}%"></span></div>
+          <strong>{{ resumen.resueltos_fuera_sla }}</strong>
+        </div>
+      </div>
+    {% else %}
+      <p>No hay feedback cargado en el alcance actual.</p>
+    {% endif %}
+  </section>
 
-<section class="panel" style="margin-top:1rem;">
-  <div class="section-kicker">Top motivos</div>
-  <h3 class="section-title">Motivos con mayor carga</h3>
-  <div class="table-responsive">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Motivo</th>
-          <th>Total</th>
-          <th>Resueltos</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in top_motivos %}
-          <tr>
-            <td>{{ item.motivo_nombre }}</td>
-            <td>{{ item.total }}</td>
-            <td>{{ item.resueltos }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="3">No hay feedback cargado.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
+  <section class="panel-grid">
+    <article class="panel">
+      <h3 class="section-title">Top motivos</h3>
+      <p class="helper-text">Motivos con mayor carga y su tasa de resolucion.</p>
+      {% if top_motivos %}
+        {% set max_motivo = top_motivos | map(attribute='total') | max %}
+        <div class="mini-bars">
+          {% for item in top_motivos %}
+            <div class="mini-row">
+              <div class="mini-label">{{ item.motivo_nombre }}</div>
+              <div class="mini-track">
+                <span class="mini-fill total" style="width: {{ ((item.total * 100) / (max_motivo if max_motivo > 0 else 1)) | round(1) }}%"></span>
+              </div>
+              <strong>{{ item.total }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:.75rem;">
+          <table>
+            <thead>
+              <tr><th>Motivo</th><th>Total</th><th>Resueltos</th></tr>
+            </thead>
+            <tbody>
+              {% for item in top_motivos %}
+                <tr>
+                  <td data-label="Motivo">{{ item.motivo_nombre }}</td>
+                  <td data-label="Total">{{ item.total }}</td>
+                  <td data-label="Resueltos"><span class="badge {% if item.resueltos >= item.total %}ok{% elif item.resueltos > 0 %}warning{% else %}danger{% endif %}">{{ item.resueltos }}</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p>No hay feedback cargado.</p>
+      {% endif %}
+    </article>
 
-<section class="panel" style="margin-top:1rem;">
-  <div class="section-kicker">Ranking</div>
-  <h3 class="section-title">Carga por empleado</h3>
-  <div class="table-responsive">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Empleado</th>
-          <th>Legajo</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in ranking %}
-          <tr>
-            <td>{{ loop.index }}</td>
-            <td>{{ row.apellido }}, {{ row.nombre }}</td>
-            <td>{{ row.legajo or "-" }}</td>
-            <td>{{ row.total }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="4">No hay ranking disponible.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
+    <article class="panel">
+      <h3 class="section-title">Carga por empleado</h3>
+      <p class="helper-text">Top empleados que mas feedback cargaron en el alcance actual.</p>
+      {% if ranking %}
+        {% set max_carga = ranking | map(attribute='total') | max %}
+        <div class="mini-bars">
+          {% for row in ranking[:6] %}
+            <div class="mini-row">
+              <div class="mini-label">{{ row.apellido }}, {{ row.nombre }}</div>
+              <div class="mini-track">
+                <span class="mini-fill neutral" style="width: {{ ((row.total * 100) / (max_carga if max_carga > 0 else 1)) | round(1) }}%"></span>
+              </div>
+              <strong>{{ row.total }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:.75rem;">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Empleado</th><th>Legajo</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+              {% for row in ranking %}
+                <tr>
+                  <td data-label="#">{{ loop.index }}</td>
+                  <td data-label="Empleado">{{ row.apellido }}, {{ row.nombre }}</td>
+                  <td data-label="Legajo">{{ row.legajo or "-" }}</td>
+                  <td data-label="Total">{{ row.total }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p>No hay ranking disponible.</p>
+      {% endif %}
+    </article>
+  </section>
 
-<section class="panel" style="margin-top:1rem;">
-  <div class="section-kicker">Accesos</div>
-  <div class="actions" style="display:flex;flex-wrap:wrap;gap:.75rem;">
-    <a class="btn" href="{{ url_for('feedback_web.nuevo_feedback') }}">Cargar feedback</a>
-    <a class="btn" href="{{ url_for('feedback_web.registros_listado') }}">Ver registros</a>
-    <a class="btn" href="{{ url_for('feedback_web.motivos_listado') }}">Motivos</a>
-    <a class="btn" href="{{ url_for('feedback_web.clientes_listado') }}">Clientes</a>
-    <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver al dashboard</a>
-  </div>
-</section>
+  <section class="panel">
+    <div class="section-kicker">Accesos</div>
+    <div class="actions">
+      <a class="btn" href="{{ url_for('feedback_web.nuevo_feedback') }}">Cargar feedback</a>
+      <a class="btn" href="{{ url_for('feedback_web.registros_listado', sector_id=sector_id, sucursal_id=sucursal_id, empleado_activo=empleado_activo) }}">Ver registros</a>
+      <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado') }}">Motivos</a>
+      <a class="btn btn-secondary" href="{{ url_for('feedback_web.clientes_listado') }}">Clientes</a>
+      <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver al dashboard</a>
+    </div>
+  </section>
+</div>
 {% endblock %}

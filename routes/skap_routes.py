@@ -3,7 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, current_app, g, jsonify, request
 
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
-from repositories.skap_pregunta_repository import get_page as get_preguntas_page
+from repositories.skap_pregunta_repository import get_all_active_for_sector
 from repositories.skap_repository import (
     get_evaluacion_by_id,
     get_evaluacion_detalles,
@@ -75,6 +75,20 @@ def _sector_from_request(args, empleado):
     return None
 
 
+def _puesto_from_request(args, empleado):
+    puesto_id = _to_int(args.get("puesto_id"))
+    if puesto_id:
+        return puesto_id
+    target_empleado_id = _to_int(args.get("empleado_id"))
+    if target_empleado_id:
+        target = get_empleado_by_id(target_empleado_id)
+        if target and target.get("puesto_id"):
+            return _to_int(target.get("puesto_id"))
+    if empleado and empleado.get("puesto_id"):
+        return _to_int(empleado.get("puesto_id"))
+    return None
+
+
 @skap_bp.get("/preguntas")
 @mobile_auth_required
 def preguntas():
@@ -85,6 +99,7 @@ def preguntas():
     sector_id = _sector_from_request(request.args, empleado)
     if not sector_id:
         return _err("El sector es requerido para obtener las preguntas.", 400)
+    puesto_id = _puesto_from_request(request.args, empleado)
 
     categoria = (request.args.get("categoria") or "").strip().upper() or None
     activo_raw = (request.args.get("activo") or "1").strip().lower()
@@ -94,18 +109,13 @@ def preguntas():
     elif activo_raw in {"0", "false", "no", "off"}:
         activo = 0
 
-    rows, total = get_preguntas_page(
-        1,
-        500,
-        sector_id=sector_id,
-        categoria=categoria,
-        activo=activo,
-    )
+    rows = get_all_active_for_sector(sector_id, puesto_id=puesto_id, categoria=categoria, activo=activo)
     return _ok(
         {
             "sector_id": sector_id,
+            "puesto_id": puesto_id,
             "items": [serialize_pregunta(row) for row in rows],
-            "total": total,
+            "total": len(rows),
         }
     )
 

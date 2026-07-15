@@ -26,11 +26,11 @@
       <div class="alert alert-danger">{{ resultado.error }}</div>
     {% else %}
       <section class="grid-kpis dashboard-kpis">
-        <article class="panel"><div class="kicker">Filas</div><div class="kpi-value">{{ resultado.total_filas }}</div></article>
-        <article class="panel"><div class="kicker">Importadas</div><div class="kpi-value">{{ resultado.importadas }}</div></article>
-        <article class="panel"><div class="kicker">Creadas</div><div class="kpi-value">{{ resultado.creados }}</div></article>
-        <article class="panel"><div class="kicker">Actualizadas</div><div class="kpi-value">{{ resultado.actualizados }}</div></article>
-        <article class="panel"><div class="kicker">Errores</div><div class="kpi-value">{{ resultado.errores }}</div></article>
+        <article class="kpi-card"><div class="kpi-label">Filas</div><div class="kpi-value">{{ resultado.total_filas }}</div></article>
+        <article class="kpi-card tone-ok"><div class="kpi-label">Importadas</div><div class="kpi-value">{{ resultado.importadas }}</div></article>
+        <article class="kpi-card"><div class="kpi-label">Creadas</div><div class="kpi-value">{{ resultado.creados }}</div></article>
+        <article class="kpi-card"><div class="kpi-label">Actualizadas</div><div class="kpi-value">{{ resultado.actualizados }}</div></article>
+        <article class="kpi-card {{ 'tone-ok' if resultado.errores == 0 else 'tone-bad' }}"><div class="kpi-label">Errores</div><div class="kpi-value">{{ resultado.errores }}</div></article>
       </section>
       {% if resultado.detalle_errores %}
         <div class="table-responsive" style="margin-top:1rem;">

@@ -19,7 +19,7 @@
     <a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Volver</a>
   </form>
 
-  <div class="table-responsive" style="margin-top:1rem;">
+  <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:1rem;">
     <table class="table">
       <thead>
         <tr>
@@ -33,11 +33,11 @@
       <tbody>
         {% for motivo in motivos %}
           <tr>
-            <td>{{ motivo.nombre }}</td>
-            <td>{{ motivo.sla_dias }} dias</td>
-            <td>{{ "Si" if motivo.activo else "No" }}</td>
-            <td>{{ motivo.descripcion or "-" }}</td>
-            <td class="inline-actions">
+            <td data-label="Nombre">{{ motivo.nombre }}</td>
+            <td data-label="SLA">{{ motivo.sla_dias }} dias</td>
+            <td data-label="Activo"><span class="badge {{ 'ok' if motivo.activo else 'inactivo' }}">{{ "Activo" if motivo.activo else "Inactivo" }}</span></td>
+            <td data-label="Descripcion">{{ motivo.descripcion or "-" }}</td>
+            <td data-label="Acciones" class="inline-actions">
               <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivo_editar', motivo_id=motivo.id) }}">Editar</a>
               {% if motivo.activo %}
                 <form method="post" action="{{ url_for('feedback_web.motivo_desactivar', motivo_id=motivo.id) }}" style="display:inline;">

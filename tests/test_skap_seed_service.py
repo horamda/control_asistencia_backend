@@ -15,7 +15,7 @@ def test_seed_base_questions_creates_for_selected_sector(monkeypatch):
             {"id": 8, "nombre": "Administracion", "empresa_id": 3},
         ],
     )
-    monkeypatch.setattr(seed_service, "get_by_unique", lambda *args: None)
+    monkeypatch.setattr(seed_service, "get_by_unique", lambda *args, **kwargs: None)
     monkeypatch.setattr(seed_service, "create_pregunta", lambda payload: created.append(payload) or len(created))
 
     result = seed_service.seed_base_questions(sector_ids=[7])
@@ -32,7 +32,7 @@ def test_seed_base_questions_skips_existing(monkeypatch):
         "get_sectores",
         lambda include_inactive=False: [{"id": 7, "nombre": "Operaciones", "empresa_id": 3}],
     )
-    monkeypatch.setattr(seed_service, "get_by_unique", lambda *args: {"id": 99, "activo": 1})
+    monkeypatch.setattr(seed_service, "get_by_unique", lambda *args, **kwargs: {"id": 99, "activo": 1})
     monkeypatch.setattr(seed_service, "create_pregunta", lambda payload: (_ for _ in ()).throw(AssertionError("should not create")))
 
     result = seed_service.seed_base_questions(sector_ids=[7])
@@ -49,7 +49,7 @@ def test_seed_base_questions_reactivates_existing_when_requested(monkeypatch):
         "get_sectores",
         lambda include_inactive=False: [{"id": 7, "nombre": "Operaciones", "empresa_id": 3}],
     )
-    monkeypatch.setattr(seed_service, "get_by_unique", lambda *args: {"id": 99, "activo": 0})
+    monkeypatch.setattr(seed_service, "get_by_unique", lambda *args, **kwargs: {"id": 99, "activo": 0})
     monkeypatch.setattr(seed_service, "update_pregunta", lambda pregunta_id, payload: updated.append((pregunta_id, payload)))
 
     result = seed_service.seed_base_questions(sector_ids=[7], reactivate=True)
@@ -71,7 +71,8 @@ def test_importar_preguntas_desde_csv_resuelve_sector_y_crea(monkeypatch):
         "get_sectores",
         lambda include_inactive=True: [{"id": 7, "nombre": "Operaciones", "empresa_id": 3}],
     )
-    monkeypatch.setattr(seed_service, "get_by_unique", lambda *args: None)
+    monkeypatch.setattr(seed_service, "get_puestos", lambda include_inactive=True: [])
+    monkeypatch.setattr(seed_service, "get_by_unique", lambda *args, **kwargs: None)
     monkeypatch.setattr(seed_service, "create_pregunta", lambda payload: created.append(payload) or 123)
 
     result = seed_service.importar_preguntas_desde_csv(io.BytesIO(csv_content.encode("utf-8")))
@@ -104,7 +105,7 @@ def test_build_example_evaluacion_payload_uses_active_questions(monkeypatch):
     monkeypatch.setattr(
         seed_service,
         "get_all_active_for_sector",
-        lambda sector_id: [
+        lambda sector_id, puesto_id=None: [
             {
                 "id": 1,
                 "categoria": "S",
@@ -151,7 +152,7 @@ def test_build_example_evaluacion_payload_defaults_year(monkeypatch):
     monkeypatch.setattr(
         seed_service,
         "get_all_active_for_sector",
-        lambda sector_id: [{"id": 1, "categoria": "A", "descripcion": "Actitud", "requiere_evidencia": 0}],
+        lambda sector_id, puesto_id=None: [{"id": 1, "categoria": "A", "descripcion": "Actitud", "requiere_evidencia": 0}],
     )
     monkeypatch.setattr(seed_service._dt, "date", datetime.date)
 
