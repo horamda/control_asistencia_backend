@@ -6,7 +6,7 @@
 {% set from_idx = ((page - 1) * per_page) + 1 if total > 0 else 0 %}
 {% set to_idx = (page * per_page) if (page * per_page) < total else total %}
 {% set can_edit = ((session.user_role or '')|lower in ['admin', 'rrhh']) %}
-<div class="content-stack">
+<div class="content-stack legajo-module legajo-events-page">
   <div class="section-head">
     <div>
       <div class="section-kicker">Legajos</div>
@@ -21,12 +21,12 @@
     </div>
   </div>
 
-  <div class="toolbar">
+  <div class="toolbar legajo-toolbar">
     <a class="btn btn-secondary" href="{{ url_for('legajos.listado_empleados') }}">Ir a legajos por empleado</a>
     <a class="btn btn-secondary" href="{{ url_for('legajo_tipos_evento.listado') }}">Tipos de evento</a>
   </div>
 
-  <form method="get" action="{{ url_for('legajos.listado_eventos') }}">
+  <form method="get" action="{{ url_for('legajos.listado_eventos') }}" class="dashboard-filter-form legajo-filter-panel">
     <div class="form-grid">
       <div class="row">
         <label>Empresa</label>
@@ -100,7 +100,7 @@
       </div>
       <div class="row span-2">
         <label>Buscar</label>
-        <input name="q" value="{{ q or '' }}" placeholder="Titulo, descripcion, apellido, nombre o DNI" autocomplete="off">
+        <input name="q" value="{{ q or '' }}" placeholder="Titulo, descripcion, nombre completo, DNI o legajo" autocomplete="off">
       </div>
     </div>
     <div class="actions">
@@ -111,7 +111,7 @@
 
   <div class="results-bar">
     <div class="summary">Mostrando {{ from_idx }}-{{ to_idx }} de {{ total }}</div>
-    <div class="chip-row">
+    <div class="chip-row legajo-nav">
       {% if q %}<span class="chip">Busqueda: {{ q }}</span>{% endif %}
       {% if estado != "all" %}<span class="chip">Estado: {{ estado }}</span>{% endif %}
       {% if severidad != "all" %}<span class="chip">Severidad: {{ severidad }}</span>{% endif %}
@@ -121,19 +121,22 @@
 
   {% if eventos %}
     <div class="table-responsive table-cards">
-      <table>
-        <tr>
-          <th>Foto</th>
-          <th>Empleado</th>
-          <th>Empresa</th>
-          <th>Sucursal</th>
-          <th>Sector</th>
-          <th>Tipo</th>
-          <th>Fecha</th>
-          <th>Titulo</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
+      <table class="legajo-table legajo-events-table">
+        <thead>
+          <tr>
+            <th>Foto</th>
+            <th>Empleado</th>
+            <th>Empresa</th>
+            <th>Sucursal</th>
+            <th>Sector</th>
+            <th>Tipo</th>
+            <th>Fecha</th>
+            <th>Titulo</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
         {% for ev in eventos %}
           <tr>
             <td data-label="Foto">
@@ -186,6 +189,7 @@
             </td>
           </tr>
         {% endfor %}
+        </tbody>
       </table>
     </div>
   {% else %}

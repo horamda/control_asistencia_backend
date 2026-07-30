@@ -1139,6 +1139,189 @@ tbody tr:hover {
   margin: 0;
 }
 
+.legajo-module {
+  --legajo-accent: #1f6f8f;
+  --legajo-soft: #eef7fb;
+  --legajo-line: #cfe1ea;
+  min-width: 0;
+}
+
+.legajo-module .section-head {
+  align-items: flex-start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f9fc 100%);
+}
+
+.legajo-module .section-head h2,
+.legajo-module .section-title {
+  margin-top: 0;
+}
+
+.legajo-module .module-intro {
+  color: var(--muted);
+}
+
+.legajo-nav {
+  justify-content: flex-end;
+}
+
+.legajo-nav .chip {
+  min-height: 32px;
+  font-weight: 700;
+}
+
+.legajo-toolbar {
+  margin: 0;
+  justify-content: flex-end;
+}
+
+.legajo-filter-panel {
+  margin: 0;
+  border-color: var(--legajo-line);
+}
+
+.legajo-filter-panel .form-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.legajo-filter-panel .row.span-2 {
+  grid-column: span 2;
+}
+
+.legajo-filter-panel label {
+  color: #254156;
+}
+
+.legajo-filter-panel input,
+.legajo-filter-panel select {
+  min-height: 42px;
+}
+
+.legajo-module .results-bar {
+  margin-top: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.legajo-table {
+  table-layout: fixed;
+}
+
+.legajo-table th,
+.legajo-table td {
+  vertical-align: top;
+}
+
+.legajo-table td {
+  overflow-wrap: anywhere;
+}
+
+.legajo-directory-table,
+.legajo-events-table {
+  min-width: 1080px;
+}
+
+.legajo-history-table {
+  min-width: 1040px;
+}
+
+.legajo-permissions-table {
+  min-width: 900px;
+}
+
+.legajo-directory-table th:nth-child(1),
+.legajo-events-table th:nth-child(1) {
+  width: 64px;
+}
+
+.legajo-directory-table th:nth-child(2),
+.legajo-events-table th:nth-child(2) {
+  width: 230px;
+}
+
+.legajo-directory-table th:nth-child(3),
+.legajo-events-table th:nth-child(3) {
+  width: 180px;
+}
+
+.legajo-directory-table th:nth-child(9),
+.legajo-events-table th:nth-child(10) {
+  width: 150px;
+}
+
+.legajo-person-cell strong {
+  display: block;
+  color: var(--text);
+}
+
+.legajo-section-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+
+.legajo-section-bar .section-title {
+  margin: 0;
+}
+
+.legajo-event-form {
+  margin: 0;
+  border-color: var(--legajo-line);
+  background: var(--surface);
+}
+
+.legajo-event-form textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.legajo-description-cell {
+  min-width: 220px;
+  line-height: 1.35;
+}
+
+.legajo-attachment-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.legajo-attachment-list li {
+  display: grid;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-soft);
+}
+
+.legajo-attachment-list form {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.legajo-file-input {
+  min-width: 180px;
+}
+
+.legajo-permission-card {
+  padding: 14px;
+}
+
+.legajo-permission-card form {
+  margin-bottom: 0;
+}
+
 .legajo-open-btn {
   min-width: 116px;
   justify-content: center;
@@ -4115,6 +4298,10 @@ details[open] .org-team-arr { transform: rotate(180deg); }
     width: 100%;
     justify-content: flex-end;
   }
+
+  .legajo-filter-panel .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1180px) {
@@ -4675,6 +4862,88 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   .results-bar {
     align-items: flex-start;
   }
+
+  .legajo-module .section-head {
+    padding: 12px;
+  }
+
+  .legajo-nav,
+  .legajo-toolbar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .legajo-toolbar .btn,
+  .legajo-toolbar a {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .legajo-filter-panel .form-grid,
+  .legajo-filter-panel .row.span-2 {
+    grid-template-columns: 1fr;
+    grid-column: span 1;
+  }
+
+  .legajo-module .results-bar {
+    gap: 8px;
+  }
+
+  .legajo-module .results-bar .chip-row {
+    width: 100%;
+  }
+
+  .legajo-section-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .legajo-event-form textarea {
+    min-height: 116px;
+  }
+
+  .table-responsive.table-cards .legajo-table tr {
+    padding: 10px 12px;
+  }
+
+  .table-responsive.table-cards .legajo-table td {
+    grid-template-columns: minmax(86px, 30%) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .table-responsive.table-cards .legajo-table td[data-label="Foto"] {
+    grid-template-columns: 1fr;
+    padding-bottom: 8px;
+  }
+
+  .table-responsive.table-cards .legajo-table td[data-label="Foto"]::before {
+    display: none;
+  }
+
+  .table-responsive.table-cards .legajo-table td[data-label="Foto"] .employee-avatar {
+    width: 52px;
+    height: 52px;
+  }
+
+  .table-responsive.table-cards .legajo-table td[data-label="Empleado"] {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+
+  .table-responsive.table-cards .legajo-history-table td[data-label="Tipo"],
+  .table-responsive.table-cards .legajo-history-table td[data-label="Descripcion"] {
+    grid-template-columns: 1fr;
+  }
+
+  .table-responsive.table-cards .legajo-history-table td[data-label="Tipo"]::before,
+  .table-responsive.table-cards .legajo-history-table td[data-label="Descripcion"]::before {
+    margin-bottom: 2px;
+  }
+
+  .legajo-attachment-list li {
+    padding: 7px;
+  }
 }
 
 /* -----------------------------------------------------------------------
@@ -5048,6 +5317,20 @@ input[type="submit"][data-loading="1"] {
   .dashboard-mobile-compact td[data-label-mobile]::before {
     content: attr(data-label-mobile);
     letter-spacing: 0.03em;
+  }
+
+  .table-responsive.table-cards .legajo-table td {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
+  .legajo-module .section-head {
+    border-radius: 10px;
+  }
+
+  .legajo-nav .chip {
+    width: 100%;
+    justify-content: center;
   }
 }
 

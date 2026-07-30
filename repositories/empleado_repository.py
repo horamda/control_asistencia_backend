@@ -1,6 +1,32 @@
 from extensions import get_db
 
 
+def _append_search_filter(where: list[str], params: list, search: str | None) -> None:
+    if not search:
+        return
+
+    terms = [term.strip() for term in str(search).split() if term.strip()]
+    if not terms:
+        return
+
+    term_conditions = []
+    for term in terms:
+        like = f"%{term}%"
+        term_conditions.append(
+            "("
+            "e.apellido LIKE %s OR "
+            "e.nombre LIKE %s OR "
+            "e.dni LIKE %s OR "
+            "e.legajo LIKE %s OR "
+            "CONCAT_WS(' ', e.apellido, e.nombre) LIKE %s OR "
+            "CONCAT_WS(' ', e.nombre, e.apellido) LIKE %s"
+            ")"
+        )
+        params.extend([like, like, like, like, like, like])
+
+    where.append("(" + " AND ".join(term_conditions) + ")")
+
+
 # =========================================================
 # GETTERS
 # =========================================================
@@ -75,10 +101,7 @@ def get_page(
         params = []
         if not include_inactive:
             where.append("e.activo = 1")
-        if search:
-            where.append("(e.apellido LIKE %s OR e.nombre LIKE %s OR e.dni LIKE %s OR e.legajo LIKE %s)")
-            like = f"%{search}%"
-            params.extend([like, like, like, like])
+        _append_search_filter(where, params, search)
         if empresa_id:
             where.append("e.empresa_id = %s")
             params.append(empresa_id)

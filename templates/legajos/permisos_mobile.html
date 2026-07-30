@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Permisos mobile de legajo{% endblock %}
 {% block content %}
-<div class="content-stack">
+<div class="content-stack legajo-module legajo-permissions-page">
   <div class="section-head">
     <div>
       <div class="section-kicker">Legajos</div>
       <h2>Permisos mobile</h2>
       <p class="module-intro">Autorice que empleados puedan cargar eventos de legajo desde la app mobile.</p>
     </div>
-    <div class="chip-row">
+    <div class="chip-row legajo-nav">
       <span class="chip">{{ permiso_nombre }}</span>
       <a class="chip" href="{{ url_for('legajo_tipos_evento.listado') }}">Tipos de evento</a>
     </div>
@@ -23,7 +23,7 @@
     </div>
   {% endif %}
 
-  <section class="panel">
+  <section class="panel legajo-permission-card">
     <h3 class="section-title">Asignar permiso</h3>
     <form method="post" action="{{ url_for('legajos.permisos_mobile') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -53,7 +53,7 @@
     </form>
   </section>
 
-  <form method="get" action="{{ url_for('legajos.permisos_mobile') }}" class="dashboard-filter-form">
+  <form method="get" action="{{ url_for('legajos.permisos_mobile') }}" class="dashboard-filter-form legajo-filter-panel">
     <div class="form-grid">
       <div class="row span-2">
         <label>Buscar</label>
@@ -89,7 +89,7 @@
 
   {% if permisos %}
     <div class="table-responsive table-cards">
-      <table>
+      <table class="legajo-table legajo-permissions-table">
         <thead>
           <tr>
             <th>Empleado</th>

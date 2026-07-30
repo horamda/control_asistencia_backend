@@ -3,7 +3,7 @@
 {% block content %}
 {% set default_foto_url = url_for('static', filename='img/empleado-default.svg') %}
 {% set foto_empleado_url = empleado.foto or default_foto_url %}
-<div class="content-stack">
+<div class="content-stack legajo-module legajo-edit-page">
   <div class="section-head">
     <div class="employee-head">
       {% if empleado.foto %}
@@ -45,7 +45,7 @@
     </div>
   {% endif %}
 
-  <form method="post">
+  <form class="legajo-event-form" method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% if next_url %}
       <input type="hidden" name="next" value="{{ next_url }}">
