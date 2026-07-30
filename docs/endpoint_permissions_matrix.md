@@ -184,11 +184,13 @@ Documento generado automaticamente desde rutas activas del backend.
 | Metodo(s) | Endpoint | Auth | Roles | Handler |
 |---|---|---|---|---|
 | `POST` | `/api/v1/external/auth/token` | usuario tecnico y contrasena | integracion externa | `routes/external_api_routes.py:auth_token` |
-| `GET` | `/api/v1/external/catalogo` | token externo (Bearer) o API key | solo lectura | `routes/external_api_routes.py:catalogo` |
-| `GET` | `/api/v1/external/empresas` | token externo (Bearer) o API key | solo lectura | `routes/external_api_routes.py:empresas` |
-| `GET` | `/api/v1/external/sucursales` | token externo (Bearer) o API key | solo lectura | `routes/external_api_routes.py:sucursales` |
-| `GET` | `/api/v1/external/empleados` | token externo (Bearer) o API key | solo lectura | `routes/external_api_routes.py:empleados` |
-| `GET` | `/api/v1/external/reportes/asistencia.csv` | token externo (Bearer) o API key | solo lectura | `routes/external_api_routes.py:reporte_asistencia_csv` |
+| `GET` | `/api/v1/external/catalogo` | token externo (Bearer) o API key habilitada | solo lectura | `routes/external_api_routes.py:catalogo` |
+| `GET` | `/api/v1/external/empresas` | token externo (Bearer) o API key habilitada | solo lectura | `routes/external_api_routes.py:empresas` |
+| `GET` | `/api/v1/external/sucursales` | token externo (Bearer) o API key habilitada | solo lectura | `routes/external_api_routes.py:sucursales` |
+| `GET` | `/api/v1/external/empleados` | token externo (Bearer) o API key habilitada | solo lectura | `routes/external_api_routes.py:empleados` |
+| `GET` | `/api/v1/external/justificaciones` | token externo (Bearer) o API key habilitada | solo lectura | `routes/external_api_routes.py:justificaciones` |
+| `GET` | `/api/v1/external/vacaciones/movimientos` | token externo (Bearer) o API key habilitada | solo lectura | `routes/external_api_routes.py:vacaciones_movimientos` |
+| `GET` | `/api/v1/external/reportes/asistencia.csv` | token externo (Bearer) o API key habilitada | solo lectura | `routes/external_api_routes.py:reporte_asistencia_csv` |
 | `POST` | `/api/v1/mobile/auth/login` | publico | - | `routes/mobile_v1_routes.py:auth_login` |
 | `POST` | `/api/v1/mobile/auth/refresh` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:auth_refresh` |
 | `GET` | `/api/v1/mobile/me` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me` |
@@ -204,6 +206,15 @@ Documento generado automaticamente desde rutas activas del backend.
 | `POST` | `/api/v1/mobile/me/fichadas/scan` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:fichar_scan_qr` |
 | `GET` | `/api/v1/mobile/me/horario-esperado` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_horario_esperado` |
 | `GET` | `/api/v1/mobile/me/marcas` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_marcas` |
+| `GET` | `/api/v1/mobile/me/justificaciones` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_justificaciones_list` |
+| `POST` | `/api/v1/mobile/me/justificaciones` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_justificaciones_create` |
+| `GET` | `/api/v1/mobile/me/justificaciones/<int:justificacion_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_justificaciones_detail` |
+| `PUT` | `/api/v1/mobile/me/justificaciones/<int:justificacion_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_justificaciones_update` |
+| `DELETE` | `/api/v1/mobile/me/justificaciones/<int:justificacion_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_justificaciones_delete` |
+| `GET` | `/api/v1/mobile/me/justificaciones/<int:justificacion_id>/adjuntos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_justificaciones_adjuntos_list` |
+| `GET` | `/api/v1/mobile/me/justificaciones/<int:justificacion_id>/adjuntos/<int:adjunto_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_justificaciones_adjunto` |
+| `DELETE` | `/api/v1/mobile/me/justificaciones/<int:justificacion_id>/adjuntos/<int:adjunto_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_justificaciones_adjunto_delete` |
+| `POST` | `/api/v1/mobile/me/justificaciones/<int:justificacion_id>/marcar-vista` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_justificaciones_mark_seen` |
 | `PUT` | `/api/v1/mobile/me/password` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_update_password` |
 | `PUT` | `/api/v1/mobile/me/perfil` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_update_profile` |
 | `DELETE` | `/api/v1/mobile/me/perfil/foto` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_delete_profile_photo` |
@@ -225,6 +236,10 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/api/v1/mobile/me/legajo/eventos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_eventos_list` |
 | `GET` | `/api/v1/mobile/me/legajo/eventos/<int:evento_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_eventos_detail` |
 | `GET` | `/api/v1/mobile/me/legajo/adjuntos/<int:adjunto_id>` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_adjunto` |
+| `GET` | `/api/v1/mobile/me/legajo/eventos-admin/permisos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_eventos_admin_permisos` |
+| `GET` | `/api/v1/mobile/me/legajo/eventos-admin/empleados` | token movil (Bearer) | empleado con permiso `legajos.eventos.mobile.create`; alcance aplicado | `routes/mobile_v1_routes.py:me_legajo_eventos_admin_empleados` |
+| `GET` | `/api/v1/mobile/me/legajo/eventos-admin/tipos` | token movil (Bearer) | empleado con permiso `legajos.eventos.mobile.create` | `routes/mobile_v1_routes.py:me_legajo_eventos_admin_tipos` |
+| `POST` | `/api/v1/mobile/me/legajo/eventos-admin` | token movil (Bearer) | empleado con permiso `legajos.eventos.mobile.create`; empleado destino dentro de alcance; tipo habilitado mobile | `routes/mobile_v1_routes.py:me_legajo_eventos_admin_create` |
 | `GET` | `/api/v1/mobile/me/legajo/historial-por-tipo` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:me_legajo_historial_por_tipo` |
 | `GET` | `/api/v1/mobile/vacaciones/resumen` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:vacaciones_resumen` |
 | `GET` | `/api/v1/mobile/vacaciones/movimientos` | token movil (Bearer) | empleado autenticado | `routes/mobile_v1_routes.py:vacaciones_movimientos` |
@@ -233,12 +248,12 @@ Documento generado automaticamente desde rutas activas del backend.
 | `GET` | `/api/v1/feedback/motivos` | token movil (Bearer) | empleado autenticado | `routes/feedback_routes.py:motivos` |
 | `GET` | `/api/v1/feedback/clientes` | token movil (Bearer) | empleado autenticado | `routes/feedback_routes.py:clientes` |
 | `GET` | `/api/v1/feedback/historial` | token movil (Bearer) | empleado autenticado | `routes/feedback_routes.py:historial` |
-| `GET` | `/api/v1/feedback/bandeja` | token movil (Bearer) | jefe directo autenticado | `routes/feedback_routes.py:bandeja` |
+| `GET` | `/api/v1/feedback/bandeja` | token movil (Bearer) | responsable de sector autenticado | `routes/feedback_routes.py:bandeja` |
 | `GET` | `/api/v1/feedback/dashboard` | token movil (Bearer) | empleado autenticado | `routes/feedback_routes.py:dashboard` |
-| `POST` | `/api/v1/feedback` | token movil (Bearer) | empleado autenticado con jefe directo asignado | `routes/feedback_routes.py:crear` |
-| `GET` | `/api/v1/feedback/<int:feedback_id>` | token movil (Bearer) | empleado creador o jefe directo asignado | `routes/feedback_routes.py:detalle` |
-| `POST` | `/api/v1/feedback/<int:feedback_id>/tomar` | token movil (Bearer) | jefe directo asignado | `routes/feedback_routes.py:tomar` |
-| `POST` | `/api/v1/feedback/<int:feedback_id>/resolver` | token movil (Bearer) | jefe directo asignado | `routes/feedback_routes.py:resolver` |
+| `POST` | `/api/v1/feedback` | token movil (Bearer) | empleado autenticado con sector; motivo con sector responsable y responsable asignado | `routes/feedback_routes.py:crear` |
+| `GET` | `/api/v1/feedback/<int:feedback_id>` | token movil (Bearer) | empleado del sector origen o responsable asignado | `routes/feedback_routes.py:detalle` |
+| `POST` | `/api/v1/feedback/<int:feedback_id>/tomar` | token movil (Bearer) | responsable asignado; legacy sin cambio de estado | `routes/feedback_routes.py:tomar` |
+| `POST` | `/api/v1/feedback/<int:feedback_id>/resolver` | token movil (Bearer) | responsable asignado | `routes/feedback_routes.py:resolver` |
 | `GET` | `/api/skap/preguntas` | token movil (Bearer) | empleado autenticado | `routes/skap_routes.py:preguntas` |
 | `POST` | `/api/skap/evaluacion` | token movil (Bearer) | empleado autenticado con permiso para evaluar objetivo | `routes/skap_routes.py:crear_evaluacion` |
 | `GET` | `/api/skap/evaluacion/<int:evaluacion_id>` | token movil (Bearer) | empleado evaluado, evaluador o jefe directo/autorizado | `routes/skap_routes.py:detalle_evaluacion` |

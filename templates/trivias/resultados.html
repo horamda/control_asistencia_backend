@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Resultados - {{ trivia.titulo }}{% endblock %}
 
 {% block content %}
@@ -13,8 +14,8 @@
   </div>
   <div class="page-actions">
     <a href="{{ url_for('trivia_admin.detalle', trivia_id=trivia.id) }}" class="btn btn-ghost">Volver</a>
-    <a href="{{ url_for('trivia_admin.resultados_export_csv', trivia_id=trivia.id) }}" class="btn btn-secondary">Exportar CSV</a>
-    <a href="{{ url_for('trivia_admin.resultados_export_xlsx', trivia_id=trivia.id) }}" class="btn btn-secondary">Exportar Excel</a>
+    <a href="{{ url_for('trivia_admin.resultados_export_csv', trivia_id=trivia.id, sucursal_id=sucursal_id or None) }}" class="btn btn-secondary">Exportar CSV</a>
+    <a href="{{ url_for('trivia_admin.resultados_export_xlsx', trivia_id=trivia.id, sucursal_id=sucursal_id or None) }}" class="btn btn-secondary">Exportar Excel</a>
   </div>
 </div>
 
@@ -23,6 +24,19 @@
     <div class="alert alert-{{ category }}">{{ message }}</div>
   {% endfor %}
 {% endwith %}
+
+<form method="get" action="{{ url_for('trivia_admin.resultados', trivia_id=trivia.id) }}">
+  <div class="form-grid">
+    <div class="row">
+      <label>Sucursal</label>
+      {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+    </div>
+  </div>
+  <div class="actions">
+    <button type="submit">Filtrar</button>
+    <a class="btn btn-secondary" href="{{ url_for('trivia_admin.resultados', trivia_id=trivia.id) }}">Limpiar</a>
+  </div>
+</form>
 
 <div class="grid-kpis" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:1.25rem">
   <div class="kpi-card">
@@ -123,6 +137,7 @@
           <th>Empleado</th>
           <th>DNI</th>
           <th>Sector</th>
+          <th>Sucursal</th>
           <th>Puntos</th>
           <th>OK</th>
           <th>Mal</th>
@@ -151,6 +166,7 @@
             <td data-label="Empleado"><strong>{{ r.empleado_nombre_completo }}</strong></td>
             <td data-label="DNI">{{ r.empleado_dni or '-' }}</td>
             <td data-label="Sector">{{ r.sector_nombre or '-' }}</td>
+            <td data-label="Sucursal">{{ r.sucursal_nombre or '-' }}</td>
             <td data-label="Puntos">{{ r.puntos_total if r.resultado_id else '-' }}</td>
             <td data-label="OK" style="color:#16a34a">{{ r.correctas if r.resultado_id else '-' }}</td>
             <td data-label="Mal" style="color:#dc2626">{{ r.incorrectas if r.resultado_id else '-' }}</td>

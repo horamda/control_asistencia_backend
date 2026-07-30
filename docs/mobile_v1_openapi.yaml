@@ -1,7 +1,7 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - Mobile API v1
-  version: 1.24.0
+  version: 1.25.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -331,6 +331,32 @@ components:
           type: string
           enum: [pendiente, aprobada, rechazada]
           default: pendiente
+        resuelto_at:
+          type: string
+          format: date-time
+          nullable: true
+        resuelto_by_usuario_id:
+          type: integer
+          nullable: true
+        resuelto_by_usuario:
+          type: string
+          nullable: true
+        comentario_resolucion:
+          type: string
+          nullable: true
+        motivo_rechazo:
+          type: string
+          nullable: true
+        notificado_empleado_at:
+          type: string
+          format: date-time
+          nullable: true
+        visto_por_empleado_at:
+          type: string
+          format: date-time
+          nullable: true
+        tiene_novedad:
+          type: boolean
         created_at:
           type: string
           format: date-time
@@ -1098,6 +1124,8 @@ components:
           type: boolean
         permite_adjuntos:
           type: boolean
+        habilitado_mobile:
+          type: boolean
         activo:
           type: boolean
 
@@ -1112,6 +1140,117 @@ components:
           items:
             $ref: '#/components/schemas/LegajoTipoEventoItem'
         total:
+          type: integer
+
+    LegajoEventosAdminPermisosResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        puede_cargar:
+          type: boolean
+        permiso:
+          type: string
+          example: legajos.eventos.mobile.create
+        alcance:
+          type: string
+          nullable: true
+          enum: [global, empresa, sucursal, sector, equipo, propio]
+
+    LegajoEventosAdminEmpleadoItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        empresa_id:
+          type: integer
+        legajo:
+          type: string
+          nullable: true
+        dni:
+          type: string
+          nullable: true
+        apellido:
+          type: string
+        nombre:
+          type: string
+        display_name:
+          type: string
+        empresa_nombre:
+          type: string
+          nullable: true
+        sucursal_id:
+          type: integer
+          nullable: true
+        sucursal_nombre:
+          type: string
+          nullable: true
+        sector_id:
+          type: integer
+          nullable: true
+        sector_nombre:
+          type: string
+          nullable: true
+
+    LegajoEventosAdminEmpleadosResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LegajoEventosAdminEmpleadoItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+        alcance:
+          type: string
+          enum: [global, empresa, sucursal, sector, equipo, propio]
+
+    LegajoEventosAdminCreateRequest:
+      type: object
+      required: [empleado_id, tipo_id, fecha_evento, descripcion]
+      properties:
+        empleado_id:
+          type: integer
+        tipo_id:
+          type: integer
+        fecha_evento:
+          type: string
+          format: date
+        fecha_desde:
+          type: string
+          format: date
+          nullable: true
+        fecha_hasta:
+          type: string
+          format: date
+          nullable: true
+        titulo:
+          type: string
+          nullable: true
+        descripcion:
+          type: string
+        severidad:
+          type: string
+          nullable: true
+          enum: [leve, media, grave]
+
+    LegajoEventosAdminCreateResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: true
+        evento:
+          $ref: '#/components/schemas/LegajoEventoItem'
+        adjuntos_guardados:
           type: integer
 
     LegajoResumenResponse:
@@ -1394,6 +1533,23 @@ components:
         sla_dias:
           type: integer
           minimum: 1
+          description: Compatibilidad legacy. Para UI nueva usar tiempo_resolucion_valor/unidad.
+        sector_responsable_id:
+          type: integer
+          nullable: true
+        sector_responsable_nombre:
+          type: string
+          nullable: true
+        tiempo_resolucion_valor:
+          type: integer
+          minimum: 1
+        tiempo_resolucion_unidad:
+          type: string
+          enum: [HORAS, DIAS]
+        requiere_foto:
+          type: boolean
+        requiere_observacion:
+          type: boolean
 
     FeedbackMotivoRef:
       type: object
@@ -1408,19 +1564,31 @@ components:
       properties:
         id:
           type: integer
+        numero:
+          type: string
+          nullable: true
+          example: FB-00000123
         empresa_id:
           type: integer
         estado:
           type: string
-          enum: [pendiente, en_proceso, resuelto]
+          enum: [pendiente, resuelto]
         estado_actual:
           type: string
-          enum: [pendiente, en_proceso, resuelto, vencido]
+          enum: [pendiente, resuelto]
+        condicion_temporal:
+          type: string
+          enum: [pendiente_en_termino, pendiente_vencido, resuelto_en_termino, resuelto_fuera_termino]
         descripcion:
           type: string
         fecha_vencimiento:
           type: string
           format: date
+          description: Compatibilidad legacy. Para UI nueva usar fecha_limite.
+        fecha_limite:
+          type: string
+          nullable: true
+          description: Fecha/hora limite calculada por backend en tiempo corrido.
         created_at:
           type: string
           nullable: true
@@ -1436,9 +1604,45 @@ components:
         resolucion_descripcion:
           type: string
           nullable: true
+        evidencia:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FeedbackEvidence'
         dias_restantes:
           type: integer
           nullable: true
+        minutos_restantes:
+          type: integer
+          nullable: true
+        sector_origen:
+          type: object
+          properties:
+            id:
+              type: integer
+              nullable: true
+            nombre:
+              type: string
+              nullable: true
+        sucursal:
+          type: object
+          properties:
+            id:
+              type: integer
+              nullable: true
+            nombre:
+              type: string
+              nullable: true
+        sector_responsable:
+          type: object
+          properties:
+            id:
+              type: integer
+              nullable: true
+            nombre:
+              type: string
+              nullable: true
+        responsable:
+          $ref: '#/components/schemas/FeedbackEmpleadoRef'
         empleado:
           $ref: '#/components/schemas/FeedbackEmpleadoRef'
         jefe_directo:
@@ -1452,9 +1656,28 @@ components:
           allOf:
             - $ref: '#/components/schemas/FeedbackEmpleadoRef'
 
+    FeedbackEvidence:
+      type: object
+      nullable: true
+      properties:
+        filename:
+          type: string
+          example: foto_cliente.png
+        mime_type:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+          example: image/png
+        size_bytes:
+          type: integer
+          maximum: 8388608
+          example: 245120
+        url:
+          type: string
+          example: /media/feedback/evidencias/123
+
     FeedbackCreateRequest:
       type: object
-      required: [cliente_id, motivo_id, descripcion]
+      required: [cliente_id, motivo_id]
       properties:
         cliente_id:
           type: integer
@@ -1462,6 +1685,25 @@ components:
           type: integer
         descripcion:
           type: string
+          description: Obligatoria solo cuando el motivo tiene requiere_observacion=true.
+
+    FeedbackCreateMultipartRequest:
+      type: object
+      required: [cliente_id, motivo_id]
+      properties:
+        cliente_id:
+          type: integer
+          description: Tambien se acepta como string en form-data.
+        motivo_id:
+          type: integer
+          description: Tambien se acepta como string en form-data.
+        descripcion:
+          type: string
+          description: Obligatoria solo cuando el motivo tiene requiere_observacion=true.
+        foto:
+          type: string
+          format: binary
+          description: Evidencia opcional u obligatoria segun requiere_foto del motivo. JPG, PNG o WebP, maximo 8 MB. El backend tambien acepta los nombres evidencia_file, evidencia o foto_file.
 
     FeedbackResolveRequest:
       type: object
@@ -1536,6 +1778,8 @@ components:
               type: integer
             en_proceso:
               type: integer
+              deprecated: true
+              description: Compatibilidad legacy; en Feedback por Sector siempre debe interpretarse como 0.
             vencidos:
               type: integer
             resueltos_en_sla:
@@ -3116,6 +3360,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /me/justificaciones/{id}/marcar-vista:
+    post:
+      tags: [Justificaciones]
+      summary: Marca como vista una justificacion resuelta
+      description: Usar cuando Flutter muestra al empleado una justificacion aprobada o rechazada. Solo aplica si la justificacion ya no esta pendiente.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Justificacion marcada como vista
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  justificacion:
+                    $ref: '#/components/schemas/JustificacionItem'
+        '404':
+          description: No encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: La justificacion aun esta pendiente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /me/justificaciones/{id}/adjuntos/{adjunto_id}:
     get:
       tags: [Justificaciones]
@@ -3944,7 +4224,8 @@ paths:
   /me/legajo/adjuntos/{id}:
     get:
       tags: [Legajo]
-      summary: Descarga un adjunto del legajo del empleado autenticado
+      summary: Descarga bloqueada de adjuntos de legajo
+      description: El endpoint existe por compatibilidad, pero devuelve 403. Los empleados no pueden descargar documentacion de legajo desde mobile.
       parameters:
         - name: id
           in: path
@@ -3957,19 +4238,133 @@ paths:
             type: boolean
             default: false
       responses:
-        '200':
-          description: Binario del adjunto
+        '403':
+          description: No autorizado
           content:
-            application/pdf:
+            application/json:
               schema:
-                type: string
-                format: binary
-            application/octet-stream:
+                $ref: '#/components/schemas/OkErrorResponse'
+
+  /me/legajo/eventos-admin/permisos:
+    get:
+      tags: [Legajo]
+      summary: Permiso mobile para cargar eventos de legajo
+      description: Informa si el empleado autenticado puede cargar eventos de legajo sobre otros empleados desde mobile y con que alcance.
+      responses:
+        '200':
+          description: Estado del permiso
+          content:
+            application/json:
               schema:
-                type: string
-                format: binary
-        '404':
-          description: No encontrado
+                $ref: '#/components/schemas/LegajoEventosAdminPermisosResponse'
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+
+  /me/legajo/eventos-admin/empleados:
+    get:
+      tags: [Legajo]
+      summary: Empleados visibles para carga mobile de eventos de legajo
+      description: Requiere permiso `legajos.eventos.mobile.create`. Aplica el alcance configurado para el empleado autenticado.
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Busca por apellido, nombre, DNI o legajo.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Empleados visibles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegajoEventosAdminEmpleadosResponse'
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+
+  /me/legajo/eventos-admin/tipos:
+    get:
+      tags: [Legajo]
+      summary: Tipos habilitados para carga mobile de eventos de legajo
+      description: Devuelve solo tipos activos con `habilitado_mobile = 1`.
+      responses:
+        '200':
+          description: Tipos habilitados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegajoTiposEventoResponse'
+        '403':
+          description: Sin permiso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+
+  /me/legajo/eventos-admin:
+    post:
+      tags: [Legajo]
+      summary: Crea un evento de legajo desde mobile sobre un empleado visible
+      description: Requiere permiso `legajos.eventos.mobile.create`; el tipo debe estar activo y `habilitado_mobile = 1`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LegajoEventosAdminCreateRequest'
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/LegajoEventosAdminCreateRequest'
+                - type: object
+                  properties:
+                    adjuntos:
+                      type: array
+                      items:
+                        type: string
+                        format: binary
+                    adjunto:
+                      type: string
+                      format: binary
+                    archivo:
+                      type: string
+                      format: binary
+                    evidencia:
+                      type: string
+                      format: binary
+      responses:
+        '201':
+          description: Evento creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegajoEventosAdminCreateResponse'
+        '400':
+          description: Validacion invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkErrorResponse'
+        '403':
+          description: Sin permiso o empleado fuera de alcance
           content:
             application/json:
               schema:
@@ -4102,6 +4497,24 @@ paths:
           required: false
           description: Busca clientes activos por id, sucursal, codigo, razon social, nombre de fantasia o negocio, telefonos, movil, email, domicilio o direccion, localidad, provincia o tipo. La coincidencia es parcial, no distingue mayusculas y admite varias palabras.
           example: Siempre Viva 123
+        - name: search
+          in: query
+          schema:
+            type: string
+          required: false
+          description: Alias de q.
+        - name: query
+          in: query
+          schema:
+            type: string
+          required: false
+          description: Alias de q.
+        - name: cliente_q
+          in: query
+          schema:
+            type: string
+          required: false
+          description: Alias de q, tambien usado por el panel web.
         - name: page
           in: query
           schema:
@@ -4129,7 +4542,7 @@ paths:
         description: Produccion root
     get:
       tags: [Feedback]
-      summary: Historial del empleado autenticado
+      summary: Historial del sector origen del empleado autenticado
       security:
         - BearerAuth: []
       parameters:
@@ -4148,7 +4561,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pendiente, en_proceso, resuelto, vencido]
+            enum: [pendiente, resuelto, vencido]
           required: false
         - name: q
           in: query
@@ -4158,7 +4571,7 @@ paths:
           required: false
       responses:
         '200':
-          description: Feedbacks cargados por el empleado
+          description: Feedbacks originados en el sector del empleado autenticado
           content:
             application/json:
               schema:
@@ -4178,7 +4591,7 @@ paths:
         description: Produccion root
     get:
       tags: [Feedback]
-      summary: Bandeja del jefe directo autenticado
+      summary: Bandeja del responsable autenticado
       security:
         - BearerAuth: []
       parameters:
@@ -4197,7 +4610,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pendiente, en_proceso, resuelto, vencido]
+            enum: [pendiente, resuelto, vencido]
           required: false
         - name: q
           in: query
@@ -4206,7 +4619,7 @@ paths:
           required: false
       responses:
         '200':
-          description: Feedbacks asignados al jefe directo
+          description: Feedbacks asignados a sectores donde el empleado autenticado es responsable
           content:
             application/json:
               schema:
@@ -4248,6 +4661,12 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/FeedbackCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FeedbackCreateMultipartRequest'
+            encoding:
+              foto:
+                contentType: image/jpeg, image/png, image/webp
       responses:
         '201':
           description: Feedback creado
@@ -4262,7 +4681,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Empleado sin permiso o sin jefe directo disponible
+          description: Empleado sin permiso o configuracion incompleta de sector/responsable
           content:
             application/json:
               schema:
@@ -4287,7 +4706,7 @@ paths:
             type: integer
       responses:
         '200':
-          description: Feedback visible para empleado creador o jefe directo
+          description: Feedback visible para empleado del sector origen o responsable asignado
           content:
             application/json:
               schema:
@@ -4313,7 +4732,8 @@ paths:
         description: Produccion root
     post:
       tags: [Feedback]
-      summary: Toma un feedback y lo pasa a en_proceso
+      summary: Endpoint legacy para tomar feedback
+      description: Compatible con versiones anteriores. Valida permisos pero no cambia el estado; el contrato vigente solo usa pendiente/resuelto.
       security:
         - BearerAuth: []
       parameters:
@@ -4330,7 +4750,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/FeedbackMutationResponse'
         '403':
-          description: Solo el jefe directo puede tomarlo
+          description: Solo el responsable asignado puede tomarlo
           content:
             application/json:
               schema:
@@ -4379,7 +4799,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Solo el jefe directo puede resolverlo
+          description: Solo el responsable asignado puede resolverlo
           content:
             application/json:
               schema:

@@ -21,8 +21,41 @@
       <input type="text" name="nombre" value="{{ data.nombre or '' }}" required>
     </label>
     <label>
-      <span>SLA en dias</span>
-      <input type="number" name="sla_dias" min="1" step="1" value="{{ data.sla_dias or 1 }}" required>
+      <span>Sector responsable</span>
+      <select name="sector_id" required>
+        <option value="">Seleccione un sector</option>
+        {% for sector in sectores %}
+          <option value="{{ sector.id }}" {% if data.sector_id == sector.id %}selected{% endif %}>
+            {{ sector.empresa_nombre }} &middot; {{ sector.nombre }}
+          </option>
+        {% endfor %}
+      </select>
+      <div class="helper-text">Los feedbacks con este motivo se asignan al responsable de este sector.</div>
+    </label>
+    <label>
+      <span>Tiempo maximo</span>
+      <input type="number" name="tiempo_resolucion_valor" min="1" step="1" value="{{ data.tiempo_resolucion_valor or data.sla_dias or 1 }}" required>
+    </label>
+    <label>
+      <span>Unidad</span>
+      <select name="tiempo_resolucion_unidad">
+        <option value="HORAS" {% if data.tiempo_resolucion_unidad == "HORAS" %}selected{% endif %}>Horas</option>
+        <option value="DIAS" {% if not data.tiempo_resolucion_unidad or data.tiempo_resolucion_unidad == "DIAS" %}selected{% endif %}>Dias</option>
+      </select>
+    </label>
+    <label>
+      <span>Foto</span>
+      <select name="requiere_foto">
+        <option value="0" {% if data.requiere_foto in [False, 0, "0", "false", "False", none] %}selected{% endif %}>Opcional</option>
+        <option value="1" {% if data.requiere_foto in [True, 1, "1", "true", "True"] %}selected{% endif %}>Obligatoria</option>
+      </select>
+    </label>
+    <label>
+      <span>Observacion</span>
+      <select name="requiere_observacion">
+        <option value="1" {% if data.requiere_observacion not in [False, 0, "0", "false", "False"] %}selected{% endif %}>Obligatoria</option>
+        <option value="0" {% if data.requiere_observacion in [False, 0, "0", "false", "False"] %}selected{% endif %}>Opcional</option>
+      </select>
     </label>
     <label style="grid-column:1/-1;">
       <span>Descripcion</span>

@@ -1,10 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Clientes Feedback{% endblock %}
 {% block content %}
-<section class="panel">
-  <div class="section-kicker">Base</div>
-  <h2 class="section-title">Clientes importados</h2>
-  <p class="helper-text">La base se carga desde CSV y solo persiste los campos relevantes para feedback.</p>
+<div class="content-stack feedback-admin">
+  <section class="panel">
+    <div class="section-kicker">Base</div>
+    <h2 class="section-title">Clientes importados</h2>
+    <p class="helper-text">La base se carga desde CSV y solo persiste los campos relevantes para feedback.</p>
+  </section>
+
+  <section class="grid-kpis dashboard-kpis">
+    <article class="kpi-card">
+      <div class="kpi-label">Clientes en base</div>
+      <div class="kpi-value">{{ total_clientes }}</div>
+      <div class="kpi-desc">Total importado, activos e inactivos</div>
+    </article>
+  </section>
+
+  <section class="panel">
 
   <form method="get" class="dashboard-filter-form" style="margin-top:1rem;">
     <input type="text" name="q" value="{{ q }}" placeholder="Buscar clientes">
@@ -60,5 +72,6 @@
     {% endif %}
     <span class="summary">P&aacute;gina {{ page }}</span>
   </div>
-</section>
+  </section>
+</div>
 {% endblock %}

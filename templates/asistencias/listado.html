@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Asistencias{% endblock %}
 {% block content %}
 <div class="content-stack">
@@ -77,6 +78,14 @@
         </select>
       </div>
       <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        {{ filtros.sector_select(sectores, sector_id) }}
+      </div>
+      <div class="row">
         <label>Fecha desde</label>
         <input name="fecha_desde" type="date" value="{{ fecha_desde or '' }}">
       </div>
@@ -105,6 +114,8 @@
         <thead>
           <tr>
             <th>Empresa</th>
+            <th>Sucursal</th>
+            <th>Sector</th>
             <th>Empleado</th>
             <th>Fecha</th>
             <th>Entrada</th>
@@ -117,6 +128,8 @@
           {% for a in asistencias %}
           <tr>
             <td data-label="Empresa">{{ a.empresa_nombre or "-" }}</td>
+            <td data-label="Sucursal">{{ a.sucursal_nombre or "-" }}</td>
+            <td data-label="Sector">{{ a.sector_nombre or "-" }}</td>
             <td data-label="Empleado">{{ a.apellido }} {{ a.nombre }}</td>
             <td data-label="Fecha">{{ a.fecha }}</td>
             <td data-label="Entrada">{{ a.hora_entrada or "-" }}</td>
@@ -157,10 +170,10 @@
 
   <div class="pager">
     {% if page > 1 %}
-      <a class="btn btn-secondary" href="/asistencias/?page={{ page - 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Anterior</a>
+      <a class="btn btn-secondary" href="/asistencias/?page={{ page - 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&sucursal_id={{ sucursal_id or '' }}&sector_id={{ sector_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Anterior</a>
     {% endif %}
     {% if page * per_page < total %}
-      <a class="btn btn-secondary" href="/asistencias/?page={{ page + 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Siguiente</a>
+      <a class="btn btn-secondary" href="/asistencias/?page={{ page + 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&sucursal_id={{ sucursal_id or '' }}&sector_id={{ sector_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}">Siguiente</a>
     {% endif %}
     <span>Pagina {{ page }} de {{ ((total + per_page - 1) // per_page) if per_page else 1 }}</span>
   </div>

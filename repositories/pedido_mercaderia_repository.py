@@ -22,6 +22,8 @@ def _base_select():
             e.apellido,
             e.dni,
             emp.razon_social AS empresa_nombre,
+            s.nombre AS sucursal_nombre,
+            sec.nombre AS sector_nombre,
             u.usuario AS resuelto_by_usuario,
             COALESCE(pi.cantidad_items, 0) AS cantidad_items,
             COALESCE(pi.total_bultos, 0) AS total_bultos,
@@ -29,6 +31,8 @@ def _base_select():
         FROM pedidos_mercaderia p
         JOIN empleados e ON e.id = p.empleado_id
         JOIN empresas emp ON emp.id = p.empresa_id
+        LEFT JOIN sucursales s ON s.id = e.sucursal_id
+        LEFT JOIN sectores sec ON sec.id = e.sector_id
         LEFT JOIN usuarios u ON u.id = p.resuelto_by_usuario_id
         {_ITEMS_SUMMARY_JOIN}
     """
@@ -184,6 +188,8 @@ def _build_admin_filters(
     estado: str | None = None,
     periodo_year: int | None = None,
     periodo_month: int | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ):
     where = []
     params = []
@@ -209,6 +215,12 @@ def _build_admin_filters(
     if periodo_month:
         where.append("p.periodo_month = %s")
         params.append(int(periodo_month))
+    if sucursal_id:
+        where.append("e.sucursal_id = %s")
+        params.append(int(sucursal_id))
+    if sector_id:
+        where.append("e.sector_id = %s")
+        params.append(int(sector_id))
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
     return where_sql, params
@@ -223,6 +235,8 @@ def get_page(
     estado: str | None = None,
     periodo_year: int | None = None,
     periodo_month: int | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -234,6 +248,8 @@ def get_page(
             estado=estado,
             periodo_year=periodo_year,
             periodo_month=periodo_month,
+            sucursal_id=sucursal_id,
+            sector_id=sector_id,
         )
 
         cursor.execute(
@@ -270,6 +286,8 @@ def get_summary(
     estado: str | None = None,
     periodo_year: int | None = None,
     periodo_month: int | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -280,6 +298,8 @@ def get_summary(
             estado=estado,
             periodo_year=periodo_year,
             periodo_month=periodo_month,
+            sucursal_id=sucursal_id,
+            sector_id=sector_id,
         )
         cursor.execute(
             f"""
@@ -316,6 +336,8 @@ def get_export(
     periodo_year: int | None = None,
     periodo_month: int | None = None,
     limit: int = 10000,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -326,6 +348,8 @@ def get_export(
             estado=estado,
             periodo_year=periodo_year,
             periodo_month=periodo_month,
+            sucursal_id=sucursal_id,
+            sector_id=sector_id,
         )
         cursor.execute(
             f"""
@@ -341,6 +365,8 @@ def get_export(
                 e.nombre,
                 e.apellido,
                 emp.razon_social AS empresa_nombre,
+                s.nombre AS sucursal_nombre,
+                sec.nombre AS sector_nombre,
                 u.usuario AS resuelto_by_usuario,
                 i.codigo_articulo_snapshot,
                 i.descripcion_snapshot,
@@ -350,6 +376,8 @@ def get_export(
             FROM pedidos_mercaderia p
             JOIN empleados e ON e.id = p.empleado_id
             JOIN empresas emp ON emp.id = p.empresa_id
+            LEFT JOIN sucursales s ON s.id = e.sucursal_id
+            LEFT JOIN sectores sec ON sec.id = e.sector_id
             LEFT JOIN usuarios u ON u.id = p.resuelto_by_usuario_id
             JOIN pedidos_mercaderia_items i ON i.pedido_id = p.id
             {where_sql}

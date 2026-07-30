@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Empleados{% endblock %}
 {% block content %}
 {% set default_foto_url = url_for('static', filename='img/empleado-default.svg') %}
 {% set from_idx = ((page - 1) * per_page) + 1 if total > 0 else 0 %}
 {% set to_idx = (page * per_page) if (page * per_page) < total else total %}
-{% set ns = namespace(activos=0, inactivos=0, con_foto=0) %}
+{% set ns = namespace(activos=0, inactivos=0, con_foto=0, sin_control=0) %}
 {% for e in empleados %}
   {% if e.activo %}
     {% set ns.activos = ns.activos + 1 %}
@@ -14,14 +15,17 @@
   {% if e.foto %}
     {% set ns.con_foto = ns.con_foto + 1 %}
   {% endif %}
+  {% if e.requiere_control_asistencia is defined and not e.requiere_control_asistencia %}
+    {% set ns.sin_control = ns.sin_control + 1 %}
+  {% endif %}
 {% endfor %}
-<div class="content-stack">
+<div class="content-stack employee-directory">
   <div class="section-head">
     <div>
       <div class="section-kicker">Capital Humano</div>
-      <h2>Empleados</h2>
+      <h2>Directorio de empleados</h2>
       <p class="module-intro">
-        Administre la dotacion por empresa y mantenga consistencia organizacional para asistencia y horarios.
+        Consulte la nomina, mantenga datos laborales y controle quienes impactan asistencia y KPIs.
       </p>
     </div>
     <div class="chip-row">
@@ -31,13 +35,36 @@
     </div>
   </div>
 
-  <div class="toolbar">
-    <a class="btn" href="{{ url_for('empleados.nuevo') }}">Nuevo empleado</a>
-    <a class="btn btn-secondary" href="{{ url_for('empleados.importar_csv') }}">Importar CSV</a>
-    <a class="btn btn-secondary" href="{{ url_for('empleados.exportar', empresa_id=empresa_id or '', activo=activo if activo != 'all' else '') }}">Exportar Excel</a>
+  <div class="grid-kpis employee-directory-kpis">
+    <div class="kpi-card">
+      <div class="kpi-label">Total filtrado</div>
+      <div class="kpi-value">{{ total }}</div>
+      <div class="helper-text">Empleados encontrados</div>
+    </div>
+    <div class="kpi-card tone-ok">
+      <div class="kpi-label">Activos en pagina</div>
+      <div class="kpi-value">{{ ns.activos }}</div>
+      <div class="helper-text">Sobre {{ empleados|length }} visibles</div>
+    </div>
+    <div class="kpi-card tone-warn">
+      <div class="kpi-label">Fuera de KPIs</div>
+      <div class="kpi-value">{{ ns.sin_control }}</div>
+      <div class="helper-text">No controlan asistencia</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Con foto</div>
+      <div class="kpi-value">{{ ns.con_foto }}</div>
+      <div class="helper-text">En esta pagina</div>
+    </div>
   </div>
 
-  <form id="empleados-filter-form" method="get" action="{{ url_for('empleados.listado') }}">
+  <div class="toolbar employee-directory-toolbar">
+    <a class="btn" href="{{ url_for('empleados.nuevo') }}">Nuevo empleado</a>
+    <a class="btn btn-secondary" href="{{ url_for('empleados.importar_csv') }}">Importar CSV</a>
+    <a class="btn btn-secondary" href="{{ url_for('empleados.exportar', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', activo=activo if activo != 'all' else '') }}">Exportar Excel</a>
+  </div>
+
+  <form id="empleados-filter-form" class="employee-directory-filters" method="get" action="{{ url_for('empleados.listado') }}">
     <div class="form-grid">
       <div class="row">
         <label>Empresa</label>
@@ -49,6 +76,14 @@
             </option>
           {% endfor %}
         </select>
+      </div>
+      <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        {{ filtros.sector_select(sectores, sector_id) }}
       </div>
       <div class="row">
         <label>Estado</label>
@@ -80,70 +115,72 @@
   <div class="results-bar">
     <div class="summary">Mostrando {{ from_idx }}-{{ to_idx }} de {{ total }}</div>
     <div class="chip-row">
-      <span class="chip">Activos en pagina: {{ ns.activos }}</span>
-      <span class="chip">Inactivos en pagina: {{ ns.inactivos }}</span>
-      <span class="chip">Con foto: {{ ns.con_foto }}</span>
+      {% if q %}<span class="chip">Busqueda: {{ q }}</span>{% endif %}
+      {% if activo != 'all' %}<span class="chip">Estado: {{ "Activos" if activo == "1" else "Inactivos" }}</span>{% endif %}
+      {% if empresa_id %}<span class="chip">Empresa filtrada</span>{% endif %}
+      {% if sucursal_id %}<span class="chip">Sucursal filtrada</span>{% endif %}
+      {% if sector_id %}<span class="chip">Sector filtrado</span>{% endif %}
     </div>
   </div>
 
   {% if empleados %}
     <div class="table-responsive table-cards">
-      <table>
-        <tr>
-          <th>Foto</th>
-          <th>Empresa</th>
-          <th>Sucursal</th>
-          <th>Sector</th>
-          <th>Puesto</th>
-          <th>Localidad</th>
-          <th>Empleado</th>
-          <th>Legajo / DNI</th>
-          <th>Vacaciones</th>
-          <th>Email</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
+      <table class="employee-directory-table">
+        <thead>
+          <tr>
+            <th>Empleado</th>
+            <th>Ubicacion laboral</th>
+            <th>Identificacion</th>
+            <th>Vacaciones</th>
+            <th>Estado</th>
+            <th>Asistencia</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
         {% for e in empleados %}
         <tr>
-          <td data-label="Foto">
+          <td data-label="Empleado">
             {% set foto_url = default_foto_url %}
-            {% if e.foto %}
-              {% set foto_url = e.foto ~ ('&v=' if '?' in e.foto else '?v=') ~ (photo_cache_buster|string) %}
-              <a href="{{ e.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
+            <div class="employee-list-person">
+              {% if e.foto %}
+                {% set foto_url = e.foto ~ ('&v=' if '?' in e.foto else '?v=') ~ (photo_cache_buster|string) %}
+                <a href="{{ e.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
+                  <img
+                    class="employee-avatar sm"
+                    src="{{ foto_url }}"
+                    alt="Foto {{ e.apellido }} {{ e.nombre }}"
+                    loading="lazy"
+                    data-fallback="{{ default_foto_url }}"
+                    onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
+                  >
+                </a>
+              {% else %}
                 <img
                   class="employee-avatar sm"
-                  src="{{ foto_url }}"
-                  alt="Foto {{ e.apellido }} {{ e.nombre }}"
+                  src="{{ default_foto_url }}"
+                  alt="Foto general"
                   loading="lazy"
-                  data-fallback="{{ default_foto_url }}"
-                  onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
                 >
-              </a>
-            {% else %}
-              <img
-                class="employee-avatar sm"
-                src="{{ default_foto_url }}"
-                alt="Foto general"
-                loading="lazy"
-              >
-            {% endif %}
+              {% endif %}
+              <div class="employee-list-copy">
+                <strong>{{ e.apellido }} {{ e.nombre }}</strong>
+                <div class="helper-text">{{ e.email or "Sin email" }}</div>
+              </div>
+            </div>
           </td>
-          <td data-label="Empresa">{{ e.empresa_nombre or e.empresa_id }}</td>
-          <td data-label="Sucursal">{{ e.sucursal_nombre or e.sucursal_id }}</td>
-          <td data-label="Sector">{{ e.sector_nombre or e.sector_id }}</td>
-          <td data-label="Puesto">
-            {{ e.puesto_nombre or e.puesto_id }}
+          <td data-label="Ubicacion laboral">
+            <strong>{{ e.sector_nombre or e.sector_id }}</strong>
+            <div class="helper-text">{{ e.puesto_nombre or e.puesto_id }}</div>
+            <div class="helper-text">{{ e.sucursal_nombre or e.sucursal_id }} | {{ e.empresa_nombre or e.empresa_id }}</div>
             {% if e.puestos_adicionales_nombres %}
               <div class="helper-text">Tambien cubre: {{ e.puestos_adicionales_nombres }}</div>
             {% endif %}
           </td>
-          <td data-label="Localidad">{{ e.localidad_nombre or e.codigo_postal }}</td>
-          <td data-label="Empleado">
-            <strong>{{ e.apellido }} {{ e.nombre }}</strong>
-          </td>
-          <td data-label="Legajo / DNI">
+          <td data-label="Identificacion">
             <div>Legajo: {{ e.legajo or "-" }}</div>
             <div class="helper-text">DNI: {{ e.dni or "-" }}</div>
+            <div class="helper-text">{{ e.localidad_nombre or e.codigo_postal }}</div>
           </td>
           <td data-label="Vacaciones">
             {% if e.vacaciones_resumen %}
@@ -164,18 +201,32 @@
               <span class="badge inactivo">Inactivo</span>
             {% endif %}
           </td>
+          <td data-label="Asistencia">
+            {% if e.requiere_control_asistencia is not defined or e.requiere_control_asistencia %}
+              <span class="attendance-pill attendance-pill-on">
+                <strong>Controla</strong>
+                <small>Impacta KPIs</small>
+              </span>
+            {% else %}
+              <span class="attendance-pill attendance-pill-off">
+                <strong>No controla</strong>
+                <small>Fuera de KPIs</small>
+              </span>
+            {% endif %}
+          </td>
           <td data-label="Acciones">
             <div class="inline-actions">
-              <a href="{{ url_for('empleados.editar', emp_id=e.id, next=return_to) }}">Editar</a>
+              <a class="btn btn-secondary btn-sm" href="{{ url_for('empleados.editar', emp_id=e.id, next=return_to) }}">Editar</a>
+              <a class="btn btn-secondary btn-sm" href="{{ url_for('legajos.empleado', emp_id=e.id) }}">Legajo</a>
               {% if e.activo %}
                 <a
-                  class="btn btn-secondary"
+                  class="btn btn-secondary btn-sm"
                   href="{{ url_for('empleados.desactivar', emp_id=e.id, next=return_to) }}"
                   data-confirm="Confirma desactivar este empleado?"
                 >Desactivar</a>
               {% else %}
                 <a
-                  class="btn btn-secondary"
+                  class="btn btn-secondary btn-sm"
                   href="{{ url_for('empleados.activar', emp_id=e.id, next=return_to) }}"
                   data-confirm="Confirma activar este empleado?"
                 >Activar</a>
@@ -184,6 +235,7 @@
           </td>
         </tr>
         {% endfor %}
+        </tbody>
       </table>
     </div>
   {% else %}
@@ -200,13 +252,13 @@
     {% if page > 1 %}
       <a
         class="btn btn-secondary"
-        href="{{ url_for('empleados.listado', page=page - 1, per=per_page, empresa_id=empresa_id, q=q or None, activo=(activo if activo != 'all' else None)) }}"
+        href="{{ url_for('empleados.listado', page=page - 1, per=per_page, empresa_id=empresa_id, sucursal_id=sucursal_id, sector_id=sector_id, q=q or None, activo=(activo if activo != 'all' else None)) }}"
       >Anterior</a>
     {% endif %}
     {% if page * per_page < total %}
       <a
         class="btn btn-secondary"
-        href="{{ url_for('empleados.listado', page=page + 1, per=per_page, empresa_id=empresa_id, q=q or None, activo=(activo if activo != 'all' else None)) }}"
+        href="{{ url_for('empleados.listado', page=page + 1, per=per_page, empresa_id=empresa_id, sucursal_id=sucursal_id, sector_id=sector_id, q=q or None, activo=(activo if activo != 'all' else None)) }}"
       >Siguiente</a>
     {% endif %}
     <span class="summary">Pagina {{ page }} | {{ from_idx }}-{{ to_idx }} de {{ total }}</span>

@@ -1,11 +1,69 @@
-from flask import Blueprint, current_app, render_template, request
+import calendar
+import datetime as dt
 
+from flask import Blueprint, current_app, render_template, request, session
+
+from repositories.asistencia_dia_no_laborable_repository import get_dates as get_dias_no_laborables
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.sucursal_repository import get_all as get_sucursales
-from web.auth.decorators import login_required
+from web.auth.decorators import has_role, login_required
 from web.dashboard_metrics import _dashboard_metrics, _parse_optional_int, _to_int
 
 web_bp = Blueprint("web", __name__)
+
+
+def _dashboard_labor_calendar(*, empresa_id: int | None, sucursal_id: int | None) -> dict:
+    today = dt.date.today()
+    first = dt.date(today.year, today.month, 1)
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    month_dates = [dt.date(today.year, today.month, day) for day in range(1, last_day + 1)]
+    try:
+        non_laborable_days = get_dias_no_laborables(
+            year=today.year,
+            month=today.month,
+            empresa_id=empresa_id,
+            sucursal_id=sucursal_id,
+        )
+    except Exception:
+        current_app.logger.warning("dashboard_get_dias_no_laborables_error", exc_info=True)
+        non_laborable_days = set()
+    non_laborable_days = set(non_laborable_days)
+    for day in month_dates:
+        if day.weekday() == 6:
+            non_laborable_days.add(day.isoformat())
+
+    month_names = [
+        "",
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre",
+    ]
+    user_id = session.get("user_id")
+    can_edit = False
+    if user_id:
+        try:
+            can_edit = has_role(user_id, "admin")
+        except Exception:
+            current_app.logger.warning("dashboard_labor_calendar_role_error", exc_info=True)
+
+    return {
+        "mes": f"{today.year:04d}-{today.month:02d}",
+        "label": f"{month_names[today.month]} {today.year}",
+        "month_dates": month_dates,
+        "first_weekday": first.isoweekday() % 7,
+        "non_laborable_days": non_laborable_days,
+        "non_laborable_count": len(non_laborable_days),
+        "can_edit": can_edit,
+    }
 
 
 @web_bp.route("/dashboard")
@@ -58,6 +116,7 @@ def dashboard():
 
     if empresa_id:
         sucursales = [s for s in sucursales if _to_int(s.get("empresa_id")) == int(empresa_id)]
+    labor_calendar = _dashboard_labor_calendar(empresa_id=empresa_id, sucursal_id=sucursal_id)
 
     return render_template(
         "dashboard.html",
@@ -68,4 +127,5 @@ def dashboard():
         sucursales=sucursales,
         filtros={"empresa_id": empresa_id, "sucursal_id": sucursal_id},
         scope=scope,
+        labor_calendar=labor_calendar,
     )

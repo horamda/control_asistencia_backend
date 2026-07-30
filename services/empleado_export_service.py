@@ -75,6 +75,8 @@ _DATE_FIELDS = {"fecha_nacimiento", "fecha_ingreso", "fecha_baja"}
 def _get_empleados_for_export(
     empresa_id: int | None = None,
     activo: int | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ) -> list[dict]:
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -87,6 +89,12 @@ def _get_empleados_for_export(
         if activo in (0, 1):
             where.append("e.activo = %s")
             params.append(activo)
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(int(sucursal_id))
+        if sector_id:
+            where.append("e.sector_id = %s")
+            params.append(int(sector_id))
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         cursor.execute(
             f"""
@@ -287,14 +295,22 @@ def _build_valores_validos(wb):
 def exportar_empleados_excel(
     empresa_id: int | None = None,
     activo: int | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ) -> bytes:
     """
     Genera el Excel de empleados con los datos actuales del sistema.
     empresa_id: filtra por empresa (None = todas).
     activo: 1=solo activos, 0=solo inactivos, None=todos.
+    sucursal_id / sector_id: filtran por sucursal o sector (None = todas/todos).
     Devuelve bytes del .xlsx listo para servir.
     """
-    empleados = _get_empleados_for_export(empresa_id=empresa_id, activo=activo)
+    empleados = _get_empleados_for_export(
+        empresa_id=empresa_id,
+        activo=activo,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+    )
 
     wb = Workbook()
     _build_empleados(wb, empleados)

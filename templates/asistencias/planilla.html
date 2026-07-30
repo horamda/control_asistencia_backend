@@ -94,6 +94,9 @@
     <a class="btn btn-secondary" href="/asistencias/marcas?fecha_desde={{ fecha }}&fecha_hasta={{ fecha }}{% if empresa_id %}&empresa_id={{ empresa_id }}{% endif %}">
       Ver historial del dia
     </a>
+    <a class="btn btn-secondary" href="{{ url_for('asistencias.reportes_mensuales', mes=fecha[:7], empresa_id=empresa_id or '', sucursal_id=sucursal_id or '') }}">
+      Reporte mensual
+    </a>
     <a class="btn btn-secondary" href="{{ url_for('asistencias.planilla_xls', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">
       Exportar Excel
     </a>

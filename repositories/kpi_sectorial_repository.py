@@ -267,31 +267,37 @@ def delete_objetivo(sector_id: int, kpi_id: int, anio: int):
 # Resultados diarios por empleado
 # ---------------------------------------------------------------------------
 
-def get_empleados_by_sector_para_kpis(empresa_id: int, sector_id: int):
+def get_empleados_by_sector_para_kpis(empresa_id: int, sector_id: int, sucursal_id: int | None = None):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
+        where = ["e.empresa_id = %s", "e.sector_id = %s", "e.activo = 1"]
+        params = [empresa_id, sector_id]
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(sucursal_id)
         cursor.execute(
-            """
+            f"""
             SELECT
                 e.id,
                 e.empresa_id,
                 e.sector_id,
+                e.sucursal_id,
                 e.legajo,
                 e.dni,
                 e.nombre,
                 e.apellido,
                 emp.razon_social AS empresa_nombre,
-                sec.nombre AS sector_nombre
+                sec.nombre AS sector_nombre,
+                suc.nombre AS sucursal_nombre
             FROM empleados e
             JOIN empresas emp ON emp.id = e.empresa_id
             LEFT JOIN sectores sec ON sec.id = e.sector_id
-            WHERE e.empresa_id = %s
-              AND e.sector_id = %s
-              AND e.activo = 1
+            LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
+            WHERE {" AND ".join(where)}
             ORDER BY e.apellido, e.nombre
             """,
-            (empresa_id, sector_id),
+            params,
         )
         return cursor.fetchall()
     finally:

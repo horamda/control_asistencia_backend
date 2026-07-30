@@ -662,13 +662,18 @@ def get_historial_empleado(empleado_id: int) -> list[dict]:
         cur.close(); db.close()
 
 
-def get_resultados_admin_trivia(trivia_id: int) -> list[dict]:
+def get_resultados_admin_trivia(trivia_id: int, sucursal_id: int | None = None) -> list[dict]:
     """Devuelve el tablero administrativo de una trivia: habilitados, resultados y excluidos."""
     db = get_db()
     cur = db.cursor(dictionary=True)
     try:
+        sucursal_filter_sql = ""
+        params: list = [int(trivia_id), int(trivia_id), int(trivia_id), int(trivia_id), int(trivia_id), int(trivia_id)]
+        if sucursal_id:
+            sucursal_filter_sql = "AND e.sucursal_id = %s"
+            params.append(int(sucursal_id))
         cur.execute(
-            """
+            f"""
             SELECT
                 e.id AS empleado_id,
                 e.dni AS empleado_dni,
@@ -678,6 +683,7 @@ def get_resultados_admin_trivia(trivia_id: int) -> list[dict]:
                 CONCAT(e.apellido, ' ', e.nombre) AS empleado_nombre_completo,
                 e.activo AS empleado_activo,
                 sec.nombre AS sector_nombre,
+                suc.nombre AS sucursal_nombre,
                 CASE
                     WHEN e.activo = 1 AND (
                         NOT EXISTS (
@@ -706,32 +712,32 @@ def get_resultados_admin_trivia(trivia_id: int) -> list[dict]:
                 te.creado_en AS exclusion_creado_en
             FROM empleados e
             LEFT JOIN sectores sec ON sec.id = e.sector_id
+            LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
             LEFT JOIN trivia_resultados tr
                 ON tr.trivia_id = %s AND tr.empleado_id = e.id
             LEFT JOIN trivia_exclusiones te
                 ON te.trivia_id = %s AND te.empleado_id = e.id
             WHERE
                 (
-                    e.activo = 1 AND (
-                        NOT EXISTS (
-                            SELECT 1 FROM trivia_sectores ts
-                            WHERE ts.trivia_id = %s
-                        )
-                        OR EXISTS (
-                            SELECT 1 FROM trivia_sectores ts
-                            WHERE ts.trivia_id = %s AND ts.sector_id = e.sector_id
+                    (
+                        e.activo = 1 AND (
+                            NOT EXISTS (
+                                SELECT 1 FROM trivia_sectores ts
+                                WHERE ts.trivia_id = %s
+                            )
+                            OR EXISTS (
+                                SELECT 1 FROM trivia_sectores ts
+                                WHERE ts.trivia_id = %s AND ts.sector_id = e.sector_id
+                            )
                         )
                     )
+                    OR tr.id IS NOT NULL
+                    OR te.id IS NOT NULL
                 )
-                OR tr.id IS NOT NULL
-                OR te.id IS NOT NULL
+                {sucursal_filter_sql}
             ORDER BY e.apellido, e.nombre
             """,
-            (
-                int(trivia_id), int(trivia_id),
-                int(trivia_id), int(trivia_id),
-                int(trivia_id), int(trivia_id),
-            ),
+            tuple(params),
         )
         return _all(cur)
     finally:

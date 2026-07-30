@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Dashboard empleado{% endblock %}
+{% block title %}Resumen por empleado{% endblock %}
 {% block extra_head %}{% if auto_print %}<script>window.addEventListener("load",function(){window.print();});</script>{% endif %}{% endblock %}
 {% block content %}
 {% set totales = asistencia.get("totales", {}) %}
@@ -14,7 +14,7 @@
   <div class="section-head">
     <div>
       <div class="section-kicker">Legajo + Ficha</div>
-      <h2>Dashboard por empleado</h2>
+      <h2>Resumen por empleado</h2>
       <p class="module-intro">
         Busque un empleado y vea sus indicadores de asistencia, saldo anual de vacaciones y eventos de legajo por tipo.
       </p>
@@ -104,7 +104,7 @@
   {% if not empleado %}
     <section class="panel">
       <h3>Seleccione un empleado</h3>
-      <p class="helper-text">Use la busqueda y el selector para abrir su dashboard.</p>
+      <p class="helper-text">Use la busqueda y el selector para abrir el resumen del empleado.</p>
       {% if empleados %}
         <div class="table-responsive table-cards dashboard-mobile-compact">
           <table>
@@ -125,7 +125,7 @@
                   <td data-label="Legajo">{{ e.legajo or "-" }}</td>
                   <td data-label="DNI">{{ e.dni }}</td>
                   <td data-label="Accion">
-                    <a href="{{ url_for('legajos.dashboard_empleado', q=q, empleado_id=e.id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">Ver dashboard</a>
+                    <a href="{{ url_for('legajos.dashboard_empleado', q=q, empleado_id=e.id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">Ver resumen</a>
                   </td>
                 </tr>
               {% endfor %}

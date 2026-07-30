@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Eventos de legajo{% endblock %}
 {% block content %}
 {% set default_foto_url = url_for('static', filename='img/empleado-default.svg') %}
@@ -48,6 +49,14 @@
         </select>
       </div>
       <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        {{ filtros.sector_select(sectores, sector_id) }}
+      </div>
+      <div class="row">
         <label>Tipo</label>
         <select name="tipo_id">
           <option value="">Todos</option>
@@ -63,6 +72,23 @@
           <option value="vigente" {% if estado == 'vigente' %}selected{% endif %}>Vigente</option>
           <option value="anulado" {% if estado == 'anulado' %}selected{% endif %}>Anulado</option>
         </select>
+      </div>
+      <div class="row">
+        <label>Severidad</label>
+        <select name="severidad">
+          <option value="all" {% if severidad == 'all' %}selected{% endif %}>Todas</option>
+          <option value="leve" {% if severidad == 'leve' %}selected{% endif %}>Leve</option>
+          <option value="media" {% if severidad == 'media' %}selected{% endif %}>Media</option>
+          <option value="grave" {% if severidad == 'grave' %}selected{% endif %}>Grave</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Fecha desde</label>
+        <input type="date" name="fecha_desde" value="{{ fecha_desde or '' }}">
+      </div>
+      <div class="row">
+        <label>Fecha hasta</label>
+        <input type="date" name="fecha_hasta" value="{{ fecha_hasta or '' }}">
       </div>
       <div class="row">
         <label>Registros por pagina</label>
@@ -85,6 +111,12 @@
 
   <div class="results-bar">
     <div class="summary">Mostrando {{ from_idx }}-{{ to_idx }} de {{ total }}</div>
+    <div class="chip-row">
+      {% if q %}<span class="chip">Busqueda: {{ q }}</span>{% endif %}
+      {% if estado != "all" %}<span class="chip">Estado: {{ estado }}</span>{% endif %}
+      {% if severidad != "all" %}<span class="chip">Severidad: {{ severidad }}</span>{% endif %}
+      {% if fecha_desde or fecha_hasta %}<span class="chip">Fechas: {{ fecha_desde or "inicio" }} - {{ fecha_hasta or "hoy" }}</span>{% endif %}
+    </div>
   </div>
 
   {% if eventos %}
@@ -94,6 +126,8 @@
           <th>Foto</th>
           <th>Empleado</th>
           <th>Empresa</th>
+          <th>Sucursal</th>
+          <th>Sector</th>
           <th>Tipo</th>
           <th>Fecha</th>
           <th>Titulo</th>
@@ -121,9 +155,16 @@
               <div class="helper-text">Legajo: {{ ev.empleado_legajo or "-" }} | DNI: {{ ev.empleado_dni }}</div>
             </td>
             <td data-label="Empresa">{{ ev.empresa_nombre or ev.empresa_id }}</td>
+            <td data-label="Sucursal">{{ ev.sucursal_nombre or "-" }}</td>
+            <td data-label="Sector">{{ ev.sector_nombre or "-" }}</td>
             <td data-label="Tipo">{{ ev.tipo_nombre }}</td>
             <td data-label="Fecha">{{ ev.fecha_evento }}</td>
-            <td data-label="Titulo">{{ ev.titulo or "-" }}</td>
+            <td data-label="Titulo">
+              {{ ev.titulo or "-" }}
+              {% if ev.severidad %}
+                <div><span class="badge {% if ev.severidad == 'grave' %}danger{% elif ev.severidad == 'media' %}warning{% else %}ok{% endif %}">{{ ev.severidad }}</span></div>
+              {% endif %}
+            </td>
             <td data-label="Estado">
               {% if ev.estado == "vigente" %}
                 <span class="badge activo">Vigente</span>
@@ -155,13 +196,13 @@
     {% if page > 1 %}
       <a
         class="btn btn-secondary"
-        href="{{ url_for('legajos.listado_eventos', page=page - 1, per=per_page, q=q or None, empresa_id=empresa_id, empleado_id=empleado_id, tipo_id=tipo_id, estado=(estado if estado != 'all' else None)) }}"
+        href="{{ url_for('legajos.listado_eventos', page=page - 1, per=per_page, q=q or None, empresa_id=empresa_id, empleado_id=empleado_id, tipo_id=tipo_id, sucursal_id=sucursal_id, sector_id=sector_id, estado=(estado if estado != 'all' else None), severidad=(severidad if severidad != 'all' else None), fecha_desde=fecha_desde or None, fecha_hasta=fecha_hasta or None) }}"
       >Anterior</a>
     {% endif %}
     {% if page * per_page < total %}
       <a
         class="btn btn-secondary"
-        href="{{ url_for('legajos.listado_eventos', page=page + 1, per=per_page, q=q or None, empresa_id=empresa_id, empleado_id=empleado_id, tipo_id=tipo_id, estado=(estado if estado != 'all' else None)) }}"
+        href="{{ url_for('legajos.listado_eventos', page=page + 1, per=per_page, q=q or None, empresa_id=empresa_id, empleado_id=empleado_id, tipo_id=tipo_id, sucursal_id=sucursal_id, sector_id=sector_id, estado=(estado if estado != 'all' else None), severidad=(severidad if severidad != 'all' else None), fecha_desde=fecha_desde or None, fecha_hasta=fecha_hasta or None) }}"
       >Siguiente</a>
     {% endif %}
     <span class="summary">Pagina {{ page }} | {{ from_idx }}-{{ to_idx }} de {{ total }}</span>

@@ -114,6 +114,8 @@ def get_sesiones_page(
     platform: str | None = None,
     app_version: str | None = None,
     empleado_q: str | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ) -> tuple[list[dict], int]:
     db = get_db()
     cur = db.cursor(dictionary=True)
@@ -139,6 +141,12 @@ def get_sesiones_page(
             )
             q = f"%{empleado_q}%"
             params += [q, q]
+        if sucursal_id:
+            conditions.append("e.sucursal_id = %s")
+            params.append(sucursal_id)
+        if sector_id:
+            conditions.append("e.sector_id = %s")
+            params.append(sector_id)
 
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
@@ -156,6 +164,7 @@ def get_sesiones_page(
                 s.id,
                 s.dni,
                 CONCAT(e.apellido, ' ', e.nombre) AS empleado_nombre,
+                suc.nombre                         AS sucursal_nombre,
                 sec.nombre                         AS sector_nombre,
                 s.ip,
                 s.platform,
@@ -165,6 +174,7 @@ def get_sesiones_page(
                 s.fecha_ultimo_request
             FROM mobile_sesiones s
             JOIN empleados e ON e.id = s.empleado_id
+            LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
             LEFT JOIN sectores sec ON sec.id = e.sector_id
             {where}
             ORDER BY s.fecha_login DESC

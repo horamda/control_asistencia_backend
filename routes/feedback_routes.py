@@ -35,15 +35,41 @@ def _to_int(value, default: int) -> int:
         return default
 
 
+def _nullable_int(value):
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _search_arg(*names: str) -> str | None:
+    for name in names:
+        value = (request.args.get(name) or "").strip()
+        if value:
+            return value
+    return None
+
+
 @feedback_bp.get("/motivos")
 @mobile_auth_required
 def motivos():
+    empleado = _current_employee()
+    if not empleado:
+        return jsonify({"error": INVALID_SESSION_MESSAGE}), 401
     items = [
         {
             "id": row.get("id"),
             "nombre": row.get("nombre"),
             "descripcion": row.get("descripcion"),
+            "sector_responsable_id": row.get("sector_id"),
+            "sector_responsable_nombre": row.get("sector_nombre"),
+            "tiempo_resolucion_valor": int(row.get("tiempo_resolucion_valor") or row.get("sla_dias") or 0),
+            "tiempo_resolucion_unidad": row.get("tiempo_resolucion_unidad") or "DIAS",
             "sla_dias": int(row.get("sla_dias") or 0),
+            "requiere_foto": bool(row.get("requiere_foto")),
+            "requiere_observacion": bool(row.get("requiere_observacion", True)),
         }
         for row in get_motivos_activos(include_inactive=False)
     ]
@@ -53,7 +79,18 @@ def motivos():
 @feedback_bp.get("/clientes")
 @mobile_auth_required
 def clientes():
-    q = (request.args.get("q") or "").strip() or None
+    q = _search_arg(
+        "q",
+        "search",
+        "query",
+        "cliente_q",
+        "cliente",
+        "razon_social",
+        "razonSocial",
+        "nombre_fantasia",
+        "nombreFantasia",
+        "nombre",
+    )
     page = _to_int(request.args.get("page"), 1)
     per_page = min(_to_int(request.args.get("per_page"), 20), 200)
     rows, total = get_clientes_page(page, per_page, search=q, activo=1)
@@ -61,7 +98,7 @@ def clientes():
         {
             "id": row.get("id"),
             "codigo": row.get("codigo_externo"),
-            "sucursal_origen": int(row.get("sucursal_origen")) if row.get("sucursal_origen") is not None else None,
+            "sucursal_origen": _nullable_int(row.get("sucursal_origen")),
             "razon_social": row.get("razon_social"),
             "nombre_fantasia": row.get("nombre_fantasia"),
             "telefonos": row.get("telefonos"),
@@ -89,6 +126,7 @@ def historial():
     search = (request.args.get("q") or "").strip() or None
     items, total = get_feedback_historial(
         empleado_id=int(empleado["id"]),
+        sector_origen_id=_nullable_int(empleado.get("sector_id")),
         page=page,
         per_page=per_page,
         estado=estado,
@@ -124,7 +162,12 @@ def dashboard():
     if not empleado:
         return jsonify({"error": INVALID_SESSION_MESSAGE}), 401
     empresa_id = int(empleado.get("empresa_id") or 0) or None
-    payload = get_feedback_dashboard(empresa_id=empresa_id, empleado_id=int(empleado["id"]))
+    sector_id = int(empleado.get("sector_id") or 0) or None
+    payload = get_feedback_dashboard(
+        empresa_id=empresa_id,
+        sector_id=sector_id,
+        empleado_id=int(empleado["id"]),
+    )
     payload["empleado"] = {
         "id": empleado.get("id"),
         "nombre": empleado.get("nombre"),
@@ -141,13 +184,21 @@ def crear():
     empleado = _current_employee()
     if not empleado:
         return jsonify({"error": INVALID_SESSION_MESSAGE}), 401
-    body = request.get_json(silent=True) or {}
+    body = request.get_json(silent=True) if request.is_json else request.form
+    body = body or {}
+    evidencia_file = (
+        request.files.get("evidencia_file")
+        or request.files.get("evidencia")
+        or request.files.get("foto")
+        or request.files.get("foto_file")
+    )
     try:
         feedback_id = create_feedback(
             empleado_id=int(empleado["id"]),
             cliente_id=_to_int(body.get("cliente_id"), 0),
             motivo_id=_to_int(body.get("motivo_id"), 0),
             descripcion=str(body.get("descripcion") or "").strip(),
+            evidencia_file=evidencia_file,
         )
     except ValueError as exc:
         message = str(exc)
@@ -176,7 +227,9 @@ def detalle(feedback_id: int):
     feedback = get_by_id(feedback_id)
     if not feedback:
         return jsonify({"error": "Feedback no encontrado."}), 404
-    if int(feedback.get("empleado_id") or 0) != int(empleado["id"]) and int(feedback.get("jefe_directo_id") or 0) != int(empleado["id"]):
+    puede_ver_por_origen = int(feedback.get("sector_origen_id") or feedback.get("empleado_sector_id") or 0) == int(empleado.get("sector_id") or 0)
+    puede_ver_por_responsable = int(feedback.get("responsable_id") or feedback.get("jefe_directo_id") or 0) == int(empleado["id"])
+    if not puede_ver_por_origen and not puede_ver_por_responsable:
         return jsonify({"error": "No tiene permisos para ver este feedback."}), 403
     return jsonify({"feedback": serialize_feedback(feedback)})
 

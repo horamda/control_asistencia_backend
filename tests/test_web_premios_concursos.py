@@ -104,6 +104,7 @@ def test_premios_resultados_listado_ok(monkeypatch):
     )
     monkeypatch.setattr(premios_routes, "get_empresas", lambda **kw: _stub_empresas())
     monkeypatch.setattr(premios_routes, "_get_sectores", _stub_sectores)
+    monkeypatch.setattr(premios_routes, "get_sucursales", lambda **kw: [])
     monkeypatch.setattr(premios_routes, "get_concursos_for_empresa", lambda *a, **kw: _stub_concursos())
     monkeypatch.setattr(premios_routes, "get_empleados", lambda **kw: _stub_empleados())
     client = _build_authed_client(monkeypatch)
@@ -173,6 +174,7 @@ def test_premios_resultados_export_xlsx_ok(monkeypatch):
     )
     monkeypatch.setattr(premios_routes, "get_empresas", lambda **kw: _stub_empresas())
     monkeypatch.setattr(premios_routes, "_get_sectores", _stub_sectores)
+    monkeypatch.setattr(premios_routes, "get_sucursales", lambda **kw: [])
     monkeypatch.setattr(premios_routes, "get_concursos_for_empresa", lambda *a, **kw: _stub_concursos())
     monkeypatch.setattr(premios_routes, "get_empleados", lambda **kw: _stub_empleados())
     client = _build_authed_client(monkeypatch)
@@ -186,7 +188,7 @@ def test_premios_resultados_export_xlsx_ok(monkeypatch):
     wb = load_workbook(io.BytesIO(resp.data))
     ws = wb["Resultados"]
     assert ws["A1"].value == "Resultados de premios"
-    assert ws["A15"].value == "Resultados"
-    assert ws["B15"].value == 1
-    assert ws["A27"].value == "ID"
-    assert ws["B28"].value == "Acme"
+    assert ws["A16"].value == "Resultados"
+    assert ws["B16"].value == 1
+    assert ws["A28"].value == "ID"
+    assert ws["B29"].value == "Acme"

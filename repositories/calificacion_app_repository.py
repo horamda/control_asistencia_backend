@@ -109,6 +109,7 @@ def get_calificaciones_page(
     fecha_desde: str | None = None,
     fecha_hasta: str | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     version_app: str | None = None,
     puntuacion: int | None = None,
 ) -> tuple[list[dict], int]:
@@ -127,6 +128,9 @@ def get_calificaciones_page(
         if sector_id:
             conditions.append("e.sector_id = %s")
             params.append(int(sector_id))
+        if sucursal_id:
+            conditions.append("e.sucursal_id = %s")
+            params.append(int(sucursal_id))
         if version_app:
             conditions.append("c.version_app = %s")
             params.append(version_app)
@@ -155,10 +159,12 @@ def get_calificaciones_page(
                 c.fecha,
                 e.dni,
                 CONCAT(e.apellido, ' ', e.nombre) AS empleado_nombre,
-                s.nombre AS sector_nombre
+                s.nombre AS sector_nombre,
+                suc.nombre AS sucursal_nombre
             FROM app_calificaciones c
             JOIN empleados e ON e.id = c.empleado_id
             LEFT JOIN sectores s ON s.id = e.sector_id
+            LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
             {where}
             ORDER BY c.fecha DESC
             LIMIT %s OFFSET %s

@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}Reportes de asistencia{% endblock %}
+{% block content %}
+<div class="attendance-report">
+  <div class="attendance-report-toolbar">
+    <a class="attendance-icon-btn" href="{{ url_for('asistencias.reportes_mensuales', mes=prev_mes, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', tab=active_tab) }}">&lsaquo;</a>
+    <h2>{{ month_label }}</h2>
+    <a class="attendance-icon-btn" href="{{ url_for('asistencias.reportes_mensuales', mes=next_mes, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', tab=active_tab) }}">&rsaquo;</a>
+    <form method="get" class="attendance-report-filters">
+      <input type="hidden" name="tab" value="{{ active_tab }}">
+      <select name="mes" onchange="this.form.submit()">
+        <option value="{{ mes }}" selected>{{ month_label }}</option>
+      </select>
+      <select name="empresa_id" onchange="this.form.submit()">
+        <option value="">Total distribuidor</option>
+        {% for empresa in empresas %}
+          <option value="{{ empresa.id }}" {% if empresa_id == empresa.id %}selected{% endif %}>{{ empresa.razon_social }}</option>
+        {% endfor %}
+      </select>
+      <select name="sucursal_id" onchange="this.form.submit()">
+        <option value="">Todas las sucursales</option>
+        {% for sucursal in sucursales %}
+          <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id %}selected{% endif %}>{{ sucursal.nombre }}</option>
+        {% endfor %}
+      </select>
+      <select name="sector_id" onchange="this.form.submit()">
+        <option value="">Todos los sectores</option>
+        {% for sector in sectores %}
+          <option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  <nav class="attendance-tabs">
+    {% for key, label in [("resumen", "Resumen"), ("ausencias", "Ausencias"), ("analisis", "Analisis"), ("jornada", "Jornada")] %}
+      <a class="{% if active_tab == key %}active{% endif %}" href="{{ url_for('asistencias.reportes_mensuales', mes=mes, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', tab=key) }}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% if msg %}<div class="alert success">{{ msg }}</div>{% endif %}
+
+  {% if active_tab == "resumen" %}
+    <section class="attendance-kpis">
+      <article>
+        <span>Indice de ausentismo</span>
+        <strong class="{% if kpis.ausentismo_pct > 15 %}danger{% endif %}">{{ "%.2f"|format(kpis.ausentismo_pct) }}%</strong>
+        <small>comp / (empleados x dias lab)</small>
+        {% if ausentismo_delta_pct is not none %}
+          <small class="{% if ausentismo_delta_pct <= 0 %}delta-ok{% else %}delta-bad{% endif %}">
+            {{ "%+.2f"|format(ausentismo_delta_pct) }}% vs mes anterior
+          </small>
+        {% endif %}
+      </article>
+      <article>
+        <span>Ausencias computables</span>
+        <strong class="warn">{{ kpis.ausencias_computables }}</strong>
+        <small>de {{ kpis.dias_posibles }} dias posibles</small>
+      </article>
+      <article>
+        <span>Ausencias justificadas</span>
+        <strong>{{ kpis.ausencias_justificadas }}</strong>
+        <small>Excluidas del indice</small>
+      </article>
+      <article>
+        <span>Dias laborables</span>
+        <strong>{{ kpis.dias_laborables }}</strong>
+        <small>{{ kpis.empleados_activos }} empleados activos</small>
+      </article>
+    </section>
+
+    <section class="attendance-calendar-panel">
+      <h3>
+        Dias no laborables del mes
+        <small>
+          {% if can_edit_non_laborable_days %}
+            - Hace click en un dia para marcarlo o desmarcarlo
+          {% else %}
+            - Solo admin puede modificarlo
+          {% endif %}
+        </small>
+      </h3>
+      <form method="post" action="{{ url_for('asistencias.reportes_dias_no_laborables_guardar') }}" class="attendance-calendar-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="mes" value="{{ mes }}">
+        <input type="hidden" name="empresa_id" value="{{ empresa_id or '' }}">
+        <input type="hidden" name="sucursal_id" value="{{ sucursal_id or '' }}">
+        <input type="hidden" name="sector_id" value="{{ sector_id or '' }}">
+        <input type="hidden" name="tab" value="{{ active_tab }}">
+        <input type="hidden" name="nl" value="{{ nl }}" id="non-laborable-input">
+        <div class="attendance-calendar">
+          {% for day_name in ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"] %}
+            <div class="calendar-head">{{ day_name }}</div>
+          {% endfor %}
+          {% set first_weekday = month_dates[0].isoweekday() % 7 %}
+          {% for _ in range(first_weekday) %}<div class="calendar-empty"></div>{% endfor %}
+          {% for day in month_dates %}
+            {% set iso = day.isoformat() %}
+            {% if can_edit_non_laborable_days %}
+              <button type="button" class="calendar-day {% if iso in non_laborable_days %}non-laborable{% endif %}" data-day="{{ day.day }}">{{ day.day }}</button>
+            {% else %}
+              <span class="calendar-day {% if iso in non_laborable_days %}non-laborable{% endif %}" aria-label="{{ iso }}{% if iso in non_laborable_days %} no laborable{% else %} laborable{% endif %}">{{ day.day }}</span>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <div class="attendance-calendar-actions">
+          <div class="attendance-calendar-legend"><span></span> Dia marcado como no laborable</div>
+          {% if can_edit_non_laborable_days %}
+            <button type="submit" class="btn btn-primary btn-sm" id="save-non-laborable" disabled>Guardar cambios</button>
+          {% endif %}
+        </div>
+      </form>
+    </section>
+
+    <div class="table-responsive table-cards">
+      <table class="table">
+        <thead><tr><th>Empleado</th><th>Sector</th><th>Dias lab.</th><th>Presentes</th><th>Aus. comp.</th><th>Aus. just.</th><th>% Ausentismo</th></tr></thead>
+        <tbody>
+          {% for row in resumen_rows %}
+            <tr>
+              <td data-label="Empleado"><strong>{{ row.empleado }}</strong></td>
+              <td data-label="Sector">{{ row.sector }}</td>
+              <td data-label="Dias lab.">{{ row.dias_laborables }}</td>
+              <td data-label="Presentes">{{ row.presentes }}</td>
+              <td data-label="Aus. comp.">{{ row.ausencias_computables or "-" }}</td>
+              <td data-label="Aus. just.">{{ row.ausencias_justificadas or "-" }}</td>
+              <td data-label="% Ausentismo"><strong class="{% if row.ausentismo_pct > 0 %}danger{% else %}ok{% endif %}">{{ "%.0f"|format(row.ausentismo_pct) }}%</strong></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="7">No hay empleados para los filtros seleccionados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif active_tab == "ausencias" %}
+    <section class="attendance-kpis compact">
+      <article><span>Ausencias computables</span><strong class="warn">{{ kpis.ausencias_computables }}</strong></article>
+      <article><span>Ausencias justificadas</span><strong>{{ kpis.ausencias_justificadas }}</strong></article>
+      <article><span>Dias posibles</span><strong>{{ kpis.dias_posibles }}</strong></article>
+    </section>
+    <div class="table-responsive table-cards">
+      <table class="table">
+        <thead><tr><th>Fecha</th><th>Empleado</th><th>Sector</th><th>Motivo</th><th>Estado</th></tr></thead>
+        <tbody>
+          {% for row in ausencias_rows %}
+            <tr><td data-label="Fecha">{{ row.fecha }}</td><td data-label="Empleado"><strong>{{ row.empleado }}</strong></td><td data-label="Sector">{{ row.sector }}</td><td data-label="Motivo">{{ row.motivo }}</td><td data-label="Estado"><span class="badge warning">{{ row.estado }}</span></td></tr>
+          {% else %}
+            <tr><td colspan="5">No hay ausencias computables en el periodo.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif active_tab == "analisis" %}
+    <div class="table-responsive table-cards">
+      <table class="table">
+        <thead><tr><th>Sector</th><th>Empleados</th><th>Dias posibles</th><th>Ausencias comp.</th><th>Aus. just.</th><th>% Ausentismo</th></tr></thead>
+        <tbody>
+          {% for row in analisis_rows %}
+            <tr><td data-label="Sector"><strong>{{ row.sector }}</strong></td><td data-label="Empleados">{{ row.empleados }}</td><td data-label="Dias posibles">{{ row.posibles }}</td><td data-label="Ausencias comp.">{{ row.ausencias }}</td><td data-label="Aus. just.">{{ row.justificadas }}</td><td data-label="% Ausentismo">{{ "%.2f"|format(row.ausentismo_pct) }}%</td></tr>
+          {% else %}
+            <tr><td colspan="6">No hay datos para analizar.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <section class="attendance-kpis compact">
+      <article><span>Jornadas &gt; 12 hs</span><strong class="danger">{{ kpis.jornadas_mayores_12 }}</strong></article>
+      <article><span>Sin egreso registrado</span><strong class="warn">{{ kpis.sin_egreso }}</strong></article>
+      <article><span>Registros del mes</span><strong>{{ kpis.registros_mes }}</strong></article>
+    </section>
+    <div class="attendance-jornada-filters">
+      <select id="jornada-sector"><option value="">Todos los sectores</option></select>
+      <input id="jornada-search" type="search" placeholder="Buscar persona...">
+      <select id="jornada-estado"><option value="">Todos</option><option value="Normal">Normal</option><option value="Sin egreso">Sin egreso</option><option value="> 12 hs">&gt; 12 hs</option></select>
+    </div>
+    <div class="table-responsive table-cards">
+      <table class="table" id="jornada-table">
+        <thead><tr><th>Fecha</th><th>Empleado</th><th>Sector</th><th>Horas</th><th>Estado</th></tr></thead>
+        <tbody>
+          {% for row in jornada_rows %}
+            <tr data-sector="{{ row.sector }}" data-empleado="{{ row.empleado|lower }}" data-estado="{{ row.estado }}">
+              <td data-label="Fecha">{{ row.fecha }}</td>
+              <td data-label="Empleado"><strong>{{ row.empleado }}</strong></td>
+              <td data-label="Sector">{{ row.sector }}</td>
+              <td data-label="Horas"><strong>{% if row.horas is not none %}{{ "%.2f"|format(row.horas) }}h{% else %}-{% endif %}</strong></td>
+              <td data-label="Estado"><span class="badge {% if row.estado == 'Normal' %}ok{% elif row.estado == 'Sin egreso' %}warning{% else %}danger{% endif %}">{{ row.estado }}</span></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5">No hay registros de jornada para el periodo.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var nlInput = document.getElementById("non-laborable-input");
+  var saveNonLaborable = document.getElementById("save-non-laborable");
+  document.querySelectorAll(".calendar-day").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var day = btn.getAttribute("data-day");
+      var days = (nlInput.value || "").split(",").filter(Boolean);
+      var idx = days.indexOf(day);
+      if (idx >= 0) days.splice(idx, 1); else days.push(day);
+      days.sort(function (a, b) { return Number(a) - Number(b); });
+      nlInput.value = days.join(",");
+      btn.classList.toggle("non-laborable", idx < 0);
+      if (saveNonLaborable) saveNonLaborable.disabled = false;
+    });
+  });
+
+  var table = document.getElementById("jornada-table");
+  if (!table) return;
+  var sectorSelect = document.getElementById("jornada-sector");
+  var search = document.getElementById("jornada-search");
+  var estadoSelect = document.getElementById("jornada-estado");
+  var sectors = {};
+  table.querySelectorAll("tbody tr[data-sector]").forEach(function (row) {
+    sectors[row.dataset.sector] = true;
+  });
+  Object.keys(sectors).sort().forEach(function (sector) {
+    var opt = document.createElement("option");
+    opt.value = sector;
+    opt.textContent = sector;
+    sectorSelect.appendChild(opt);
+  });
+  function filterRows() {
+    var sector = sectorSelect.value;
+    var term = (search.value || "").toLowerCase();
+    var estado = estadoSelect.value;
+    table.querySelectorAll("tbody tr[data-sector]").forEach(function (row) {
+      var ok = (!sector || row.dataset.sector === sector) &&
+        (!estado || row.dataset.estado === estado) &&
+        (!term || row.dataset.empleado.indexOf(term) >= 0);
+      row.style.display = ok ? "" : "none";
+    });
+  }
+  [sectorSelect, search, estadoSelect].forEach(function (el) {
+    el.addEventListener("input", filterRows);
+    el.addEventListener("change", filterRows);
+  });
+})();
+</script>
+{% endblock %}

@@ -7,6 +7,8 @@ from flask import Blueprint, Response, current_app, redirect, render_template, r
 from repositories.articulo_catalogo_pedido_repository import count_all as count_articulos_catalogo
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.pedido_mercaderia_repository import get_by_id, get_export, get_page, get_summary
+from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 from services.articulo_pedido_import_service import importar_articulos_desde_csv
 from services.pedido_mercaderia_service import aprobar_pedido, rechazar_pedido
 from utils.audit import log_audit
@@ -52,6 +54,8 @@ def _extract_filters(args):
         "estado": (args.get("estado") or "").strip().lower() or None,
         "periodo_year": args.get("anio", type=int),
         "periodo_month": args.get("mes", type=int),
+        "sucursal_id": args.get("sucursal_id", type=int),
+        "sector_id": args.get("sector_id", type=int),
     }
     error = None
     if filters["estado"] and filters["estado"] not in ESTADOS_VALIDOS:
@@ -80,6 +84,8 @@ def listado():
         estado=filters["estado"],
         periodo_year=filters["periodo_year"],
         periodo_month=filters["periodo_month"],
+        sucursal_id=filters["sucursal_id"],
+        sector_id=filters["sector_id"],
     )
     summary = get_summary(
         empleado_id=filters["empleado_id"],
@@ -87,8 +93,12 @@ def listado():
         estado=filters["estado"],
         periodo_year=filters["periodo_year"],
         periodo_month=filters["periodo_month"],
+        sucursal_id=filters["sucursal_id"],
+        sector_id=filters["sector_id"],
     )
     empleados = get_empleados(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
 
     return render_template(
         "pedidos_mercaderia/listado.html",
@@ -96,6 +106,10 @@ def listado():
         total=total,
         summary=summary,
         empleados=empleados,
+        sucursales=sucursales,
+        sucursal_id=filters["sucursal_id"],
+        sectores=sectores,
+        sector_id=filters["sector_id"],
         page=filters["page"],
         per_page=filters["per_page"],
         empleado_id=filters["empleado_id"],
@@ -136,6 +150,8 @@ def export_csv():
         periodo_year=filters["periodo_year"],
         periodo_month=filters["periodo_month"],
         limit=10000,
+        sucursal_id=filters["sucursal_id"],
+        sector_id=filters["sector_id"],
     )
 
     out = io.StringIO()

@@ -15,6 +15,8 @@ from repositories.justificacion_repository import get_page as _get_justificacion
 from repositories.justificacion_repository import get_by_id as get_justificacion_by_id
 from repositories.vacaciones_repository import get_periodos_aprobados_page_by_empleado as _get_vacaciones_page
 from repositories.empresa_repository import get_all as get_empresas
+from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 from repositories.legajo_adjunto_repository import (
     create_adjunto,
     get_adjunto_by_id,
@@ -31,6 +33,13 @@ from repositories.legajo_evento_repository import (
     get_tipo_evento_by_id,
     get_tipos_evento,
     update_evento,
+)
+from repositories.mobile_legajo_permiso_repository import (
+    ALCANCES_VALIDOS as MOBILE_LEGAJO_ALCANCES,
+    PERMISO_CARGAR_EVENTOS_LEGAJO,
+    get_page as get_mobile_legajo_permisos_page,
+    set_activo as set_mobile_legajo_permiso_activo,
+    upsert_permiso as upsert_mobile_legajo_permiso,
 )
 from repositories.empleado_horario_repository import get_actual_by_empleado as _get_horario_actual
 from services.horario_service import get_horario_estructurado as _get_horario_estructurado
@@ -208,8 +217,62 @@ def _save_adjuntos(archivos, *, empresa_id: int, empleado_id: int, evento_id: in
 @legajos_bp.route("/")
 @role_required("admin", "rrhh", "supervisor")
 def listado_empleados():
-    empleados = get_empleados(include_inactive=True)
-    return render_template("legajos/listado.html", empleados=empleados)
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = request.args.get("per", 20, type=int) or 20
+    if per_page not in {10, 20, 50, 100}:
+        per_page = 20
+    q = str(request.args.get("q") or "").strip() or None
+    empresa_id = request.args.get("empresa_id", type=int)
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
+    activo_raw = str(request.args.get("activo") or "1").strip().lower()
+    if activo_raw not in {"all", "1", "0"}:
+        activo_raw = "1"
+    activo = None if activo_raw == "all" else int(activo_raw)
+    control_raw = str(request.args.get("requiere_control_asistencia") or "all").strip().lower()
+    if control_raw not in {"all", "1", "0"}:
+        control_raw = "all"
+    requiere_control_asistencia = None if control_raw == "all" else int(control_raw)
+    legajo_eventos = str(request.args.get("legajo_eventos") or "all").strip().lower()
+    if legajo_eventos not in {"all", "con_eventos", "sin_eventos", "vigentes"}:
+        legajo_eventos = "all"
+
+    empleados, total = _get_empleados_page(
+        page,
+        per_page,
+        include_inactive=True,
+        search=q,
+        empresa_id=empresa_id,
+        activo=activo,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+        requiere_control_asistencia=requiere_control_asistencia,
+        legajo_eventos=None if legajo_eventos == "all" else legajo_eventos,
+    )
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
+    empresas = get_empresas(include_inactive=True)
+    from_idx = ((page - 1) * per_page) + 1 if total > 0 else 0
+    to_idx = min(page * per_page, total)
+    return render_template(
+        "legajos/listado.html",
+        empleados=empleados,
+        total=total,
+        page=page,
+        per_page=per_page,
+        from_idx=from_idx,
+        to_idx=to_idx,
+        q=q or "",
+        empresas=empresas,
+        empresa_id=empresa_id,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
+        sectores=sectores,
+        sector_id=sector_id,
+        activo=activo_raw,
+        requiere_control_asistencia=control_raw,
+        legajo_eventos=legajo_eventos,
+    )
 
 
 @legajos_bp.route("/eventos/")
@@ -224,11 +287,18 @@ def listado_eventos():
     empresa_id = request.args.get("empresa_id", type=int)
     empleado_id = request.args.get("empleado_id", type=int)
     tipo_id = request.args.get("tipo_id", type=int)
+    severidad = str(request.args.get("severidad") or "all").strip().lower()
+    if severidad not in {"all", "leve", "media", "grave"}:
+        severidad = "all"
+    fecha_desde = str(request.args.get("fecha_desde") or "").strip() or None
+    fecha_hasta = str(request.args.get("fecha_hasta") or "").strip() or None
 
     estado_raw = str(request.args.get("estado") or "all").strip().lower()
     if estado_raw not in {"all", "vigente", "anulado"}:
         estado_raw = "all"
     estado = None if estado_raw == "all" else estado_raw
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
 
     eventos, total = get_eventos_page(
         page=page,
@@ -238,10 +308,17 @@ def listado_eventos():
         empleado_id=empleado_id,
         tipo_id=tipo_id,
         estado=estado,
+        severidad=None if severidad == "all" else severidad,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
     )
     empresas = get_empresas(include_inactive=True)
     empleados = get_empleados(include_inactive=True)
     tipos = get_tipos_evento(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
 
     return render_template(
         "legajos/eventos_listado.html",
@@ -253,11 +330,81 @@ def listado_eventos():
         empresa_id=empresa_id,
         empleado_id=empleado_id,
         tipo_id=tipo_id,
+        severidad=severidad,
+        fecha_desde=fecha_desde or "",
+        fecha_hasta=fecha_hasta or "",
         estado=estado_raw,
         empresas=empresas,
         empleados=empleados,
         tipos=tipos,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
+        sectores=sectores,
+        sector_id=sector_id,
     )
+
+
+@legajos_bp.route("/permisos-mobile", methods=["GET", "POST"])
+@role_required("admin", "rrhh")
+def permisos_mobile():
+    errors = []
+    if request.method == "POST":
+        empleado_id = _parse_int(request.form.get("empleado_id"))
+        alcance = str(request.form.get("alcance") or "sector").strip().lower()
+        if not empleado_id:
+            errors.append("Empleado es obligatorio.")
+        if alcance not in MOBILE_LEGAJO_ALCANCES:
+            errors.append("Alcance invalido.")
+        if not errors:
+            try:
+                upsert_mobile_legajo_permiso(empleado_id, alcance=alcance, activo=1)
+                log_audit(session, "upsert", "empleado_mobile_permisos", empleado_id)
+                return redirect(url_for("legajos.permisos_mobile", msg="Permiso guardado."))
+            except Exception:
+                current_app.logger.exception("legajos_permisos_mobile_upsert_error")
+                errors.append("No se pudo guardar el permiso.")
+
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = request.args.get("per", 20, type=int) or 20
+    if per_page not in {10, 20, 50, 100}:
+        per_page = 20
+    q = str(request.args.get("q") or "").strip() or None
+    activo_raw = str(request.args.get("activo") or "1").strip().lower()
+    if activo_raw not in {"all", "1", "0"}:
+        activo_raw = "1"
+    activo = None if activo_raw == "all" else int(activo_raw)
+    permisos, total = get_mobile_legajo_permisos_page(page, per_page, search=q, activo=activo)
+    empleados = get_empleados(include_inactive=False)
+    return render_template(
+        "legajos/permisos_mobile.html",
+        permisos=permisos,
+        empleados=empleados,
+        alcances=sorted(MOBILE_LEGAJO_ALCANCES),
+        permiso_nombre=PERMISO_CARGAR_EVENTOS_LEGAJO,
+        total=total,
+        page=page,
+        per_page=per_page,
+        q=q or "",
+        activo=activo_raw,
+        errors=errors,
+        msg=(request.args.get("msg") or "").strip() or None,
+    )
+
+
+@legajos_bp.post("/permisos-mobile/<int:permiso_id>/activar")
+@role_required("admin", "rrhh")
+def permisos_mobile_activar(permiso_id: int):
+    set_mobile_legajo_permiso_activo(permiso_id, 1)
+    log_audit(session, "activate", "empleado_mobile_permisos", permiso_id)
+    return redirect(url_for("legajos.permisos_mobile", msg="Permiso activado."))
+
+
+@legajos_bp.post("/permisos-mobile/<int:permiso_id>/desactivar")
+@role_required("admin", "rrhh")
+def permisos_mobile_desactivar(permiso_id: int):
+    set_mobile_legajo_permiso_activo(permiso_id, 0)
+    log_audit(session, "deactivate", "empleado_mobile_permisos", permiso_id)
+    return redirect(url_for("legajos.permisos_mobile", msg="Permiso desactivado."))
 
 
 @legajos_bp.route("/empleado/<int:emp_id>")
@@ -1498,7 +1645,7 @@ def dashboard_empleado_export_csv():
     out = io.StringIO()
     writer = csv.writer(out)
 
-    writer.writerow(["Dashboard empleado"])
+    writer.writerow(["Resumen empleado"])
     writer.writerow(["Empleado", f"{empleado.get('apellido')} {empleado.get('nombre')}"])
     writer.writerow(["DNI", empleado.get("dni")])
     writer.writerow(["Periodo", f"{desde} a {hasta}"])
@@ -1557,7 +1704,7 @@ def dashboard_empleado_export_csv():
 
     csv_content = "\ufeff" + out.getvalue()
     nombre = f"{empleado.get('apellido', '')}_{empleado.get('nombre', '')}".replace(" ", "_")
-    filename = f"dashboard_{nombre}_{desde}_{hasta}.csv"
+    filename = f"resumen_{nombre}_{desde}_{hasta}.csv"
     return Response(
         csv_content,
         mimetype="text/csv; charset=utf-8",
@@ -1622,10 +1769,10 @@ def dashboard_empleado_export_xls():
         )
     except Exception as exc:
         current_app.logger.exception("dashboard_empleado_excel_error")
-        return Response(f"Error al generar el Excel del dashboard: {exc}", status=500, mimetype="text/plain")
+        return Response(f"Error al generar el Excel del resumen: {exc}", status=500, mimetype="text/plain")
 
     nombre = f"{empleado.get('apellido', '')}_{empleado.get('nombre', '')}".replace(" ", "_")
-    filename = f"dashboard_{nombre}_{desde}_{hasta}.xlsx"
+    filename = f"resumen_{nombre}_{desde}_{hasta}.xlsx"
     return Response(
         excel_bytes,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

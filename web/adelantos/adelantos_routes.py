@@ -6,6 +6,8 @@ from flask import Blueprint, Response, redirect, render_template, request, sessi
 
 from repositories.adelanto_repository import get_export, get_page, get_summary
 from repositories.empleado_repository import get_all as get_empleados
+from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 from services.adelanto_service import aprobar_adelanto, rechazar_adelanto
 from utils.audit import log_audit
 from web.auth.decorators import role_required
@@ -46,6 +48,8 @@ def _extract_filters(args):
         "estado": (args.get("estado") or "").strip().lower() or None,
         "periodo_year": args.get("anio", type=int),
         "periodo_month": args.get("mes", type=int),
+        "sucursal_id": args.get("sucursal_id", type=int),
+        "sector_id": args.get("sector_id", type=int),
     }
     error = None
     if filters["estado"] and filters["estado"] not in ESTADOS_VALIDOS:
@@ -74,6 +78,8 @@ def listado():
         estado=filters["estado"],
         periodo_year=filters["periodo_year"],
         periodo_month=filters["periodo_month"],
+        sucursal_id=filters["sucursal_id"],
+        sector_id=filters["sector_id"],
     )
     summary = get_summary(
         empleado_id=filters["empleado_id"],
@@ -81,8 +87,12 @@ def listado():
         estado=filters["estado"],
         periodo_year=filters["periodo_year"],
         periodo_month=filters["periodo_month"],
+        sucursal_id=filters["sucursal_id"],
+        sector_id=filters["sector_id"],
     )
     empleados = get_empleados(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
 
     return render_template(
         "adelantos/listado.html",
@@ -90,6 +100,10 @@ def listado():
         total=total,
         summary=summary,
         empleados=empleados,
+        sucursales=sucursales,
+        sucursal_id=filters["sucursal_id"],
+        sectores=sectores,
+        sector_id=filters["sector_id"],
         page=filters["page"],
         per_page=filters["per_page"],
         empleado_id=filters["empleado_id"],

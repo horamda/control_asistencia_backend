@@ -29,6 +29,19 @@ def _stub_empleados():
     return [{"id": 1, "nombre": "Ana", "apellido": "Lopez", "dni": "12345"}]
 
 
+def _stub_sucursales():
+    return [{"id": 1, "nombre": "Central", "empresa_nombre": "Acme"}]
+
+
+def _stub_sectores():
+    return [{"id": 1, "nombre": "Ventas", "empresa_nombre": "Acme"}]
+
+
+def _stub_ubicaciones(monkeypatch):
+    monkeypatch.setattr(adelantos_routes, "get_sucursales", lambda **kw: _stub_sucursales())
+    monkeypatch.setattr(adelantos_routes, "get_sectores", lambda **kw: _stub_sectores())
+
+
 def test_adelantos_listado_requiere_login(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
     client = _build_client(monkeypatch)
@@ -61,6 +74,7 @@ def test_adelantos_listado_ok(monkeypatch):
     )
     monkeypatch.setattr(adelantos_routes, "get_summary", lambda **kw: {"total": 0, "pendientes": 0, "aprobados": 0, "rechazados": 0, "cancelados": 0})
     monkeypatch.setattr(adelantos_routes, "get_empleados", lambda **kw: _stub_empleados())
+    _stub_ubicaciones(monkeypatch)
     client = _build_authed_client(monkeypatch)
     resp = client.get("/adelantos/")
     assert resp.status_code == 200
@@ -78,20 +92,24 @@ def test_adelantos_listado_envia_filtros(monkeypatch):
     monkeypatch.setattr(adelantos_routes, "get_page", _fake_get_page)
     monkeypatch.setattr(adelantos_routes, "get_summary", lambda **kw: {"total": 0, "pendientes": 0, "aprobados": 0, "rechazados": 0, "cancelados": 0})
     monkeypatch.setattr(adelantos_routes, "get_empleados", lambda **kw: _stub_empleados())
+    _stub_ubicaciones(monkeypatch)
     client = _build_authed_client(monkeypatch)
-    resp = client.get("/adelantos/?empleado_id=1&estado=pendiente&anio=2026&mes=4&q=lopez")
+    resp = client.get("/adelantos/?empleado_id=1&estado=pendiente&anio=2026&mes=4&q=lopez&sucursal_id=1&sector_id=1")
     assert resp.status_code == 200
     assert captured["empleado_id"] == 1
     assert captured["estado"] == "pendiente"
     assert captured["periodo_year"] == 2026
     assert captured["periodo_month"] == 4
     assert captured["search"] == "lopez"
+    assert captured["sucursal_id"] == 1
+    assert captured["sector_id"] == 1
 
 
 def test_adelantos_listado_mes_invalido_muestra_error(monkeypatch):
     monkeypatch.setattr(adelantos_routes, "get_page", lambda **kw: ([], 0))
     monkeypatch.setattr(adelantos_routes, "get_summary", lambda **kw: {"total": 0, "pendientes": 0, "aprobados": 0, "rechazados": 0, "cancelados": 0})
     monkeypatch.setattr(adelantos_routes, "get_empleados", lambda **kw: _stub_empleados())
+    _stub_ubicaciones(monkeypatch)
     client = _build_authed_client(monkeypatch)
     resp = client.get("/adelantos/?mes=15")
     assert resp.status_code == 200

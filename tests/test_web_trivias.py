@@ -45,10 +45,11 @@ def _build_authed_client(monkeypatch):
 
 def test_trivia_resultados_admin_ok(monkeypatch):
     monkeypatch.setattr(trivia_admin_routes.repo, "get_trivia_by_id", lambda tid: _TRIVIA)
+    monkeypatch.setattr(trivia_admin_routes, "get_sucursales", lambda **kw: [])
     monkeypatch.setattr(
         trivia_admin_routes.repo,
         "get_resultados_admin_trivia",
-        lambda tid: [
+        lambda tid, sucursal_id=None: [
             {
                 "empleado_id": 10,
                 "empleado_dni": "30111222",
@@ -247,7 +248,7 @@ def test_trivia_resultados_export_xlsx_ok(monkeypatch):
     monkeypatch.setattr(
         trivia_admin_routes.repo,
         "get_resultados_admin_trivia",
-        lambda tid: [
+        lambda tid, sucursal_id=None: [
             {
                 "empleado_id": 10,
                 "empleado_dni": "30111222",
@@ -313,8 +314,8 @@ def test_trivia_resultados_export_xlsx_ok(monkeypatch):
     assert ws["A11"].value == "Habilitados"
     assert ws["B11"].value == 1
     assert ws["A20"].value == 3
-    assert ws["J20"].value == "completado"
-    assert ws["J21"].value == "excluido"
+    assert ws["K20"].value == "completado"
+    assert ws["K21"].value == "excluido"
 
 
 def test_trivia_eliminar_exclusion_anual_recalcula(monkeypatch):

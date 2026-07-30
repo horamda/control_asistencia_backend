@@ -147,6 +147,8 @@ def _build_admin_filters(
     estado: str | None = None,
     periodo_year: int | None = None,
     periodo_month: int | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ):
     where = []
     params = []
@@ -167,6 +169,12 @@ def _build_admin_filters(
     if periodo_month:
         where.append("a.periodo_month = %s")
         params.append(int(periodo_month))
+    if sucursal_id:
+        where.append("e.sucursal_id = %s")
+        params.append(int(sucursal_id))
+    if sector_id:
+        where.append("e.sector_id = %s")
+        params.append(int(sector_id))
 
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
     return where_sql, params
@@ -181,6 +189,8 @@ def get_page(
     estado: str | None = None,
     periodo_year: int | None = None,
     periodo_month: int | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -193,6 +203,8 @@ def get_page(
             estado=estado,
             periodo_year=periodo_year,
             periodo_month=periodo_month,
+            sucursal_id=sucursal_id,
+            sector_id=sector_id,
         )
         extra_select = ["NULL AS resuelto_by_usuario"] if not has_resolved_by else ["u.usuario AS resuelto_by_usuario"]
         if not has_resolved_at:
@@ -207,10 +219,14 @@ def get_page(
                 e.apellido,
                 e.dni,
                 emp.razon_social AS empresa_nombre,
+                s.nombre AS sucursal_nombre,
+                sec.nombre AS sector_nombre,
                 {", ".join(extra_select)}
             FROM adelantos a
             JOIN empleados e ON e.id = a.empleado_id
             JOIN empresas emp ON emp.id = a.empresa_id
+            LEFT JOIN sucursales s ON s.id = e.sucursal_id
+            LEFT JOIN sectores sec ON sec.id = e.sector_id
             {join_sql}
             {where_sql}
             ORDER BY a.periodo_year DESC, a.periodo_month DESC, a.created_at DESC, a.id DESC
@@ -244,6 +260,8 @@ def get_summary(
     estado: str | None = None,
     periodo_year: int | None = None,
     periodo_month: int | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -254,6 +272,8 @@ def get_summary(
             estado=estado,
             periodo_year=periodo_year,
             periodo_month=periodo_month,
+            sucursal_id=sucursal_id,
+            sector_id=sector_id,
         )
         cursor.execute(
             f"""

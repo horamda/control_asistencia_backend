@@ -2,7 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="utf-8">
-    <title>Dashboard empleado {{ empleado.apellido }} {{ empleado.nombre }}</title>
+    <title>Resumen empleado {{ empleado.apellido }} {{ empleado.nombre }}</title>
     <style>
       body { font-family: Arial, sans-serif; color: #111; margin: 16px; }
       h1, h2, h3 { margin: 0 0 8px; }
@@ -34,7 +34,7 @@
     {% set vacaciones = asistencia.get("vacaciones", {}) %}
     {% set vacaciones_resumen = asistencia.get("vacaciones_resumen", {}) %}
 
-    <h1>Dashboard por empleado</h1>
+    <h1>Resumen por empleado</h1>
     <p class="meta">
       <strong>Empleado:</strong> {{ empleado.apellido }} {{ empleado.nombre }} |
       <strong>DNI:</strong> {{ empleado.dni }} |

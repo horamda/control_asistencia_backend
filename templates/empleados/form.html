@@ -8,7 +8,7 @@
       <div class="section-kicker">Capital Humano</div>
       <h2>{% if mode == "edit" %}Editar empleado{% else %}Nuevo empleado{% endif %}</h2>
       <p class="module-intro">
-        Complete datos personales y asignacion organizacional para habilitar modulos de horarios, excepciones y asistencia.
+        Complete la ficha por bloques: perfil, organizacion, asistencia, acceso app y datos laborales.
       </p>
     </div>
     <div class="chip-row">
@@ -28,13 +28,13 @@
     </div>
   {% endif %}
 
-  <form id="empleado-form" method="post" enctype="multipart/form-data">
+  <form id="empleado-form" class="employee-form" method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% if mode == "edit" and next_url %}
       <input type="hidden" name="next" value="{{ next_url }}">
     {% endif %}
 
-    <h3 class="section-title">Estructura organizacional</h3>
+    <h3 class="section-title">Organizacion y asistencia</h3>
     <div class="form-grid">
       <div class="row">
         <label>Empresa</label>
@@ -113,6 +113,17 @@
           <option value="suspendido" {% if data.estado == 'suspendido' %}selected{% endif %}>Suspendido</option>
         </select>
       </div>
+      <div class="row employee-toggle-row">
+        <label class="employee-toggle-card">
+          <input type="checkbox" name="requiere_control_asistencia" value="1" {% if data.requiere_control_asistencia is not defined or data.requiere_control_asistencia %}checked{% endif %}>
+          <span class="employee-toggle-visual" aria-hidden="true"></span>
+          <span class="employee-toggle-copy">
+            <strong>Controla asistencia</strong>
+            <small>Impacta KPIs y listados operativos.</small>
+          </span>
+        </label>
+        <div class="helper-text">Si se desmarca, sigue activo en nomina y puede usar la app, pero queda fuera de los calculos de asistencia.</div>
+      </div>
       <div class="row span-2">
         <label>Reporta a (jefe / supervisor directo)</label>
         <select name="reporta_a_empleado_id">
@@ -129,7 +140,7 @@
       </div>
     </div>
 
-    <h3 class="section-title">Datos personales</h3>
+    <h3 class="section-title">Perfil y contacto</h3>
     <div class="form-grid">
       <div class="row">
         <label>Legajo</label>
@@ -225,6 +236,15 @@
           onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
         >
       </div>
+    </div>
+
+    <h3 class="section-title">Acceso app mobile</h3>
+    <div class="form-grid">
+      <div class="row span-2">
+        <div class="helper-text">
+          Estos datos habilitan el ingreso del empleado desde la app. El usuario se vincula al empleado por su ficha.
+        </div>
+      </div>
       {% if mode == "edit" %}
         <div class="row span-2">
           <label style="display:flex;align-items:center;gap:8px;">
@@ -252,7 +272,7 @@
       </div>
     </div>
 
-    <h3 class="section-title">Datos laborales y contractuales</h3>
+    <h3 class="section-title">Datos laborales</h3>
     <div class="form-grid">
       <div class="row">
         <label>CUIL</label>

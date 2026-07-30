@@ -1,13 +1,15 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Motivos Feedback{% endblock %}
 {% block content %}
 <section class="panel">
   <div class="section-kicker">Configuracion</div>
   <h2 class="section-title">Motivos de feedback</h2>
-  <p class="helper-text">Defina nombre, descripcion y SLA en dias.</p>
+  <p class="helper-text">Defina nombre, sector responsable, plazo de resolucion y requisitos de carga.</p>
 
   <form method="get" class="dashboard-filter-form" style="margin-top:1rem;">
     <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nombre o descripcion">
+    {{ filtros.sector_select(sectores, sector_id) }}
     <select name="activo">
       <option value="all" {% if activo == "all" %}selected{% endif %}>Todos</option>
       <option value="1" {% if activo == "1" %}selected{% endif %}>Activos</option>
@@ -24,7 +26,9 @@
       <thead>
         <tr>
           <th>Nombre</th>
-          <th>SLA</th>
+          <th>Sector responsable</th>
+          <th>Plazo</th>
+          <th>Requisitos</th>
           <th>Activo</th>
           <th>Descripcion</th>
           <th>Acciones</th>
@@ -34,7 +38,19 @@
         {% for motivo in motivos %}
           <tr>
             <td data-label="Nombre">{{ motivo.nombre }}</td>
-            <td data-label="SLA">{{ motivo.sla_dias }} dias</td>
+            <td data-label="Sector responsable">
+              {% if motivo.sector_nombre %}
+                {{ motivo.sector_nombre }}
+              {% else %}
+                <span class="badge warning">Sin sector</span>
+              {% endif %}
+            </td>
+            <td data-label="Plazo">{{ motivo.tiempo_resolucion_valor or motivo.sla_dias }} {{ (motivo.tiempo_resolucion_unidad or "DIAS")|lower }}</td>
+            <td data-label="Requisitos">
+              {% if motivo.requiere_foto %}<span class="badge warning">Foto</span>{% endif %}
+              {% if motivo.requiere_observacion %}<span class="badge warning">Observacion</span>{% endif %}
+              {% if not motivo.requiere_foto and not motivo.requiere_observacion %}<span class="helper-text">Opcionales</span>{% endif %}
+            </td>
             <td data-label="Activo"><span class="badge {{ 'ok' if motivo.activo else 'inactivo' }}">{{ "Activo" if motivo.activo else "Inactivo" }}</span></td>
             <td data-label="Descripcion">{{ motivo.descripcion or "-" }}</td>
             <td data-label="Acciones" class="inline-actions">
@@ -53,7 +69,7 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="5">No hay motivos cargados.</td></tr>
+          <tr><td colspan="7">No hay motivos cargados.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -61,10 +77,10 @@
 
   <div class="pager" style="margin-top:1rem;">
     {% if page > 1 %}
-      <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado', page=page - 1, per=per_page, q=q, activo=activo) }}">Anterior</a>
+      <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado', page=page - 1, per=per_page, q=q, sector_id=sector_id, activo=activo) }}">Anterior</a>
     {% endif %}
     {% if page * per_page < total %}
-      <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado', page=page + 1, per=per_page, q=q, activo=activo) }}">Siguiente</a>
+      <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado', page=page + 1, per=per_page, q=q, sector_id=sector_id, activo=activo) }}">Siguiente</a>
     {% endif %}
     <span class="summary">P&aacute;gina {{ page }}</span>
   </div>

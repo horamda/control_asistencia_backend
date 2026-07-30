@@ -20,6 +20,7 @@ def login():
             session["user_id"] = user["id"]
             session["web_user"] = user["usuario"]
             session["user_role"] = user.get("rol")
+            session["empleado_id"] = user.get("empleado_id")
             return redirect(url_for("web.dashboard"))
 
         current_app.logger.info(

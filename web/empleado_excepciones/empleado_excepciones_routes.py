@@ -8,6 +8,8 @@ from repositories.empleado_excepcion_repository import delete, get_all, get_by_i
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.excepcion_bloque_repository import get_by_excepcion
+from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 from services.excepcion_service import create_excepcion, update_excepcion
 from utils.audit import log_audit
 from web.auth.decorators import role_required
@@ -97,6 +99,8 @@ def listado():
     orden = (request.args.get("orden") or "").strip() or "fecha_desc"
     if orden not in {"fecha_desc", "fecha_asc", "empleado_asc", "empleado_desc"}:
         orden = "fecha_desc"
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
     excepciones = get_all(
         empleado_id=empleado_id,
         fecha_desde=fecha_desde,
@@ -104,8 +108,12 @@ def listado():
         tipo=tipo,
         anula_horario=anula_horario,
         order_by=orden,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
     )
     empleados = get_empleados(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
     return render_template(
         "empleado_excepciones/listado.html",
         excepciones=excepciones,
@@ -117,6 +125,10 @@ def listado():
         anula_horario=anula_raw,
         orden=orden,
         tipos=TIPOS,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
+        sectores=sectores,
+        sector_id=sector_id,
     )
 
 

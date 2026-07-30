@@ -5,6 +5,8 @@ from repositories.calificacion_app_repository import (
     get_estadisticas,
     get_versiones_disponibles,
 )
+from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 
 calificaciones_app_bp = Blueprint(
     "calificaciones_app", __name__, url_prefix="/calificaciones-app"
@@ -28,6 +30,10 @@ def listado():
         sector_id = int(request.args.get("sector_id") or 0) or None
     except (ValueError, TypeError):
         sector_id = None
+    try:
+        sucursal_id = int(request.args.get("sucursal_id") or 0) or None
+    except (ValueError, TypeError):
+        sucursal_id = None
 
     calificaciones, total = get_calificaciones_page(
         page,
@@ -35,11 +41,14 @@ def listado():
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         version_app=version_app,
         puntuacion=puntuacion,
     )
     estadisticas = get_estadisticas(version_app=version_app)
     versiones = get_versiones_disponibles()
+    sectores = get_sectores(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
 
     total_pages = max(1, (total + _PER_PAGE - 1) // _PER_PAGE)
 
@@ -48,6 +57,8 @@ def listado():
         calificaciones=calificaciones,
         estadisticas=estadisticas,
         versiones=versiones,
+        sectores=sectores,
+        sucursales=sucursales,
         total=total,
         page=page,
         per_page=_PER_PAGE,
@@ -58,5 +69,6 @@ def listado():
             "version_app": version_app or "",
             "puntuacion": puntuacion or "",
             "sector_id": sector_id or "",
+            "sucursal_id": sucursal_id or "",
         },
     )

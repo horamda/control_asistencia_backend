@@ -282,10 +282,15 @@ def get_empleados_activos_en_fecha(fecha: str):
     try:
         cursor.execute(
             """
-            SELECT e.id AS empleado_id, e.empresa_id, eh.horario_id
+            SELECT
+                e.id AS empleado_id,
+                e.empresa_id,
+                COALESCE(e.requiere_control_asistencia, 1) AS requiere_control_asistencia,
+                eh.horario_id
             FROM empleados e
             JOIN empleado_horarios eh ON eh.empleado_id = e.id
             WHERE e.activo = 1
+              AND COALESCE(e.requiere_control_asistencia, 1) = 1
               AND eh.fecha_desde <= %s
               AND (eh.fecha_hasta IS NULL OR eh.fecha_hasta >= %s)
             """,

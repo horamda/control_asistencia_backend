@@ -1,5 +1,57 @@
 ﻿# Change log
 
+### 1.26.0 (2026-07-29)
+- Feedback: la bandeja de respuesta pasa a usar el jefe directo/responsable asignado del feedback, no el responsable del sector del motivo. Se agrega migracion historica `20260729_02_feedback_jefe_directo_historico.sql`.
+- Nuevo flujo mobile **Eventos de legajo administrados**:
+  - `GET /me/legajo/eventos-admin/permisos` informa si el empleado autenticado puede cargar eventos y con que alcance.
+  - `GET /me/legajo/eventos-admin/empleados` busca empleados visibles segun alcance.
+  - `GET /me/legajo/eventos-admin/tipos` devuelve solo tipos activos con `habilitado_mobile = 1`.
+  - `POST /me/legajo/eventos-admin` crea eventos de legajo sobre empleados visibles y admite adjuntos si el tipo lo permite.
+- Nueva tabla `empleado_mobile_permisos` con permiso `legajos.eventos.mobile.create`.
+- `legajo_tipos_evento` agrega `habilitado_mobile` para controlar que tipos se pueden cargar desde Flutter.
+
+### 1.25.0 (2026-07-27)
+- Feedback mobile pasa a **Feedback por Sector**:
+  - Los motivos exponen `sector_responsable_id`, `sector_responsable_nombre`, `tiempo_resolucion_valor`, `tiempo_resolucion_unidad`, `requiere_foto` y `requiere_observacion`.
+  - Al crear feedback, Flutter solo envia `cliente_id`, `motivo_id`, `descripcion` y/o `foto`; el backend calcula sector origen, sucursal, sector responsable, responsable asignado, numero y `fecha_limite`.
+  - Estados vigentes: `pendiente` y `resuelto`. La condicion temporal queda en `condicion_temporal`: `pendiente_en_termino`, `pendiente_vencido`, `resuelto_en_termino`, `resuelto_fuera_termino`.
+  - `GET /api/v1/feedback/historial` devuelve feedbacks originados en el sector del empleado autenticado, no solo los creados por el.
+  - `GET /api/v1/feedback/bandeja` devuelve feedbacks donde el empleado autenticado es el jefe directo/responsable asignado.
+  - `POST /api/v1/feedback/{id}/tomar` queda como endpoint legacy compatible; ya no cambia estado a `en_proceso`.
+
+### 1.24.3 (2026-07-23)
+- Feedback clientes: `GET /api/v1/feedback/clientes` mantiene `q` como
+  parametro recomendado y acepta aliases `search`, `query` y `cliente_q`.
+- La busqueda de clientes se normaliza en SQL con `LOWER/TRIM/COALESCE` para
+  evitar fallas por mayusculas/minusculas o campos nulos.
+- Panel web de feedback usa la misma logica de aliases para buscar clientes.
+
+### 1.24.2 (2026-07-23)
+- Justificaciones mobile ahora exponen datos de resolucion:
+  - `resuelto_at`, `resuelto_by_usuario_id`, `resuelto_by_usuario`,
+    `comentario_resolucion`, `motivo_rechazo`, `notificado_empleado_at`,
+    `visto_por_empleado_at` y `tiene_novedad`.
+- Nuevo endpoint `POST /me/justificaciones/{id}/marcar-vista` para que Flutter
+  marque como vista una justificacion aprobada o rechazada.
+- Panel web de justificaciones guarda usuario/fecha de resolucion y exige motivo
+  al rechazar.
+- Las justificaciones resueltas ya no se eliminan desde el panel; quedan
+  conservadas para auditoria.
+
+### 1.24.1 (2026-07-23)
+- Feedback mobile `POST /api/v1/feedback` ahora documenta dos formatos de request:
+  - `application/json` para carga sin evidencia.
+  - `multipart/form-data` para carga con o sin foto.
+- Evidencia opcional en feedback:
+  - Campo recomendado Flutter: `foto`.
+  - Alias aceptados por backend: `evidencia_file`, `evidencia`, `foto_file`.
+  - Formatos permitidos: JPG, PNG o WebP.
+  - Tamano maximo: 8 MB.
+- `FeedbackItem` documenta el objeto `evidencia` con `filename`, `mime_type`,
+  `size_bytes` y `url` cuando existe una imagen asociada.
+- Correccion backend asociada: busqueda de clientes de feedback ya no falla por
+  desbalance entre placeholders SQL y parametros.
+
 ### 1.24.0 (2026-07-14)
 - Justificaciones requieren `fecha_desde`, `fecha_hasta` y `motivo` al crear.
 - Web y Flutter admiten hasta 10 fotos o PDFs por justificacion.

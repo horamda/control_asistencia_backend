@@ -111,7 +111,7 @@ def test_importar_desde_csv_acepta_template_excel_con_punto_y_coma(monkeypatch):
 
     result = import_service.importar_desde_csv(io.BytesIO(content.encode("utf-8")), empresa_id=1)
 
-    assert result == {"creados": 1, "omitidos": 0, "errores": []}
+    assert result == {"creados": 1, "actualizados": 0, "errores": []}
     assert len(created) == 1
     assert created[0]["fecha_nacimiento"] == "1990-01-10"
     assert created[0]["fecha_ingreso"] == "2020-02-01"
@@ -120,7 +120,7 @@ def test_importar_desde_csv_acepta_template_excel_con_punto_y_coma(monkeypatch):
     assert created[0]["modalidad"] == "presencial"
     assert created[0]["estado"] == "activo"
     assert db.closed is True
-    assert len(cursor.executed) == 3
+    assert len(cursor.executed) == 4
 
 
 def test_importar_desde_csv_mantiene_csv_simple_con_comas(monkeypatch):

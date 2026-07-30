@@ -7,9 +7,11 @@ def _build_client(monkeypatch, api_key="secret-api-key"):
     monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.setenv("SECRET_KEY", "x" * 40)
     if api_key is None:
+        monkeypatch.delenv("EXTERNAL_API_ALLOW_STATIC_KEY", raising=False)
         monkeypatch.delenv("EXTERNAL_API_KEY", raising=False)
         monkeypatch.delenv("INTEGRATION_API_KEY", raising=False)
     else:
+        monkeypatch.setenv("EXTERNAL_API_ALLOW_STATIC_KEY", "1")
         monkeypatch.setenv("EXTERNAL_API_KEY", api_key)
     monkeypatch.setattr(app_module, "init_db", lambda: None)
     app = app_module.create_app()
@@ -42,6 +44,26 @@ def test_external_api_rejects_missing_key(monkeypatch):
     assert resp.status_code == 401
     assert resp.get_json()["error"] == "API key invalida o ausente."
     assert resp.headers["WWW-Authenticate"] == 'ApiKey realm="external"'
+
+
+def test_external_api_static_key_is_disabled_by_default(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("SECRET_KEY", "x" * 40)
+    monkeypatch.setenv("EXTERNAL_API_KEY", "secret-api-key")
+    monkeypatch.delenv("EXTERNAL_API_ALLOW_STATIC_KEY", raising=False)
+    monkeypatch.setattr(app_module, "init_db", lambda: None)
+    app = app_module.create_app()
+    app.config["TESTING"] = True
+    app.config["WTF_CSRF_ENABLED"] = False
+    client = app.test_client()
+
+    resp = client.get(
+        "/api/v1/external/empresas",
+        headers={"X-API-Key": "secret-api-key"},
+    )
+
+    assert resp.status_code == 503
+    assert "credenciales de API externa" in resp.get_json()["error"]
 
 
 def test_external_auth_token_accepts_configured_credentials(monkeypatch):
@@ -288,3 +310,130 @@ def test_external_empleados_rejects_invalid_estado(monkeypatch):
 
     assert resp.status_code == 400
     assert "estado invalido" in resp.get_json()["error"]
+
+
+def test_external_justificaciones_filters_and_serializes(monkeypatch):
+    client = _build_client(monkeypatch)
+    captured = {}
+
+    def _fake_list_justificaciones(**kwargs):
+        captured.update(kwargs)
+        return (
+            [
+                {
+                    "id": 5,
+                    "empleado_id": 10,
+                    "empresa_id": 1,
+                    "fecha_desde": "2026-07-01",
+                    "fecha_hasta": "2026-07-02",
+                    "motivo": "Medico",
+                    "estado": "aprobada",
+                    "adjuntos_count": 1,
+                }
+            ],
+            1,
+        )
+
+    monkeypatch.setattr(external_routes, "list_justificaciones_external", _fake_list_justificaciones)
+
+    resp = client.get(
+        "/api/v1/external/justificaciones"
+        "?empresa_id=1&empleado_id=10&sucursal_id=2&sector_id=3"
+        "&fecha_desde=2026-07-01&fecha_hasta=2026-07-31"
+        "&estado=aprobada&q=medico&limit=25",
+        headers={"X-API-Key": "secret-api-key"},
+    )
+    body = resp.get_json()
+
+    assert resp.status_code == 200
+    assert captured == {
+        "page": 1,
+        "per_page": 25,
+        "empresa_id": 1,
+        "empleado_id": 10,
+        "sucursal_id": 2,
+        "sector_id": 3,
+        "fecha_desde": "2026-07-01",
+        "fecha_hasta": "2026-07-31",
+        "search": "medico",
+        "estado": "aprobada",
+    }
+    assert body["data"][0]["estado"] == "aprobada"
+    assert body["pagination"]["total"] == 1
+
+
+def test_external_justificaciones_rejects_invalid_estado(monkeypatch):
+    client = _build_client(monkeypatch)
+
+    resp = client.get(
+        "/api/v1/external/justificaciones?estado=borrada",
+        headers={"X-API-Key": "secret-api-key"},
+    )
+
+    assert resp.status_code == 400
+    assert "estado invalido" in resp.get_json()["error"]
+
+
+def test_external_vacaciones_movimientos_filters(monkeypatch):
+    client = _build_client(monkeypatch)
+    captured = {}
+
+    def _fake_list_vacaciones(**kwargs):
+        captured.update(kwargs)
+        return (
+            [
+                {
+                    "id": 9,
+                    "empleado_id": 10,
+                    "empresa_id": 1,
+                    "anio": 2026,
+                    "tipo": "tomado",
+                    "dias": 5,
+                    "fecha_desde": "2026-01-10",
+                    "fecha_hasta": "2026-01-14",
+                    "estado": "aprobado",
+                }
+            ],
+            1,
+        )
+
+    monkeypatch.setattr(external_routes, "list_vacaciones_external", _fake_list_vacaciones)
+
+    resp = client.get(
+        "/api/v1/external/vacaciones/movimientos"
+        "?empresa_id=1&empleado_id=10&sucursal_id=2&sector_id=3"
+        "&anio=2026&mes=1&estado=aprobado&tipo=tomado&q=ana&page=2&per_page=25",
+        headers={"X-API-Key": "secret-api-key"},
+    )
+    body = resp.get_json()
+
+    assert resp.status_code == 200
+    assert captured == {
+        "page": 2,
+        "per_page": 25,
+        "empresa_id": 1,
+        "empleado_id": 10,
+        "sucursal_id": 2,
+        "sector_id": 3,
+        "fecha_desde": None,
+        "fecha_hasta": None,
+        "search": "ana",
+        "anio": 2026,
+        "mes": 1,
+        "estado": "aprobado",
+        "tipo": "tomado",
+    }
+    assert body["data"][0]["tipo"] == "tomado"
+    assert body["pagination"]["page"] == 2
+
+
+def test_external_vacaciones_movimientos_requires_anio_for_mes(monkeypatch):
+    client = _build_client(monkeypatch)
+
+    resp = client.get(
+        "/api/v1/external/vacaciones/movimientos?mes=1",
+        headers={"X-API-Key": "secret-api-key"},
+    )
+
+    assert resp.status_code == 400
+    assert "anio requerido" in resp.get_json()["error"]

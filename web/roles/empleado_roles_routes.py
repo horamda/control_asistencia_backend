@@ -4,6 +4,8 @@ from repositories.empleado_repository import get_by_id, get_page_for_roles
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.rol_repository import get_all as get_roles
 from repositories.roles_repository import get_roles_by_empleado, set_roles_for_empleado
+from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 from utils.audit import log_audit
 
 empleado_roles_bp = Blueprint("empleado_roles", __name__, url_prefix="/empleado-roles")
@@ -16,13 +18,28 @@ def listado():
     per_page = request.args.get("per", 20, type=int)
     empresa_id = request.args.get("empresa_id", type=int)
     search = request.args.get("q")
-    empleados, total = get_page_for_roles(page, per_page, empresa_id, search)
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
+    empleados, total = get_page_for_roles(
+        page,
+        per_page,
+        empresa_id,
+        search,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+    )
     empresas = get_empresas(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
     return render_template(
         "empleado_roles/listado.html",
         empleados=empleados,
         empresas=empresas,
         empresa_id=empresa_id,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
+        sectores=sectores,
+        sector_id=sector_id,
         q=search,
         page=page,
         per_page=per_page,

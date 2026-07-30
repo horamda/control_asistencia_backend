@@ -105,6 +105,8 @@ def test_empleados_listado_muestra_foto_y_fallback(monkeypatch):
         ),
     )
     monkeypatch.setattr(empleados_routes, "get_empresas", lambda *args, **kwargs: [])
+    monkeypatch.setattr(empleados_routes, "get_sucursales", lambda *args, **kwargs: [])
+    monkeypatch.setattr(empleados_routes, "get_sectores", lambda *args, **kwargs: [])
 
     resp = client.get("/empleados/")
     assert resp.status_code == 200
@@ -161,6 +163,8 @@ def test_empleados_listado_muestra_vacaciones_resumen(monkeypatch):
         },
     )
     monkeypatch.setattr(empleados_routes, "get_empresas", lambda *args, **kwargs: [])
+    monkeypatch.setattr(empleados_routes, "get_sucursales", lambda *args, **kwargs: [])
+    monkeypatch.setattr(empleados_routes, "get_sectores", lambda *args, **kwargs: [])
 
     resp = client.get("/empleados/")
     assert resp.status_code == 200

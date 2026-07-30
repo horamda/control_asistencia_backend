@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Resultados de premios{% endblock %}
 {% block content %}
 <div class="content-stack">
@@ -23,8 +24,8 @@
   <div class="toolbar">
     <a class="btn" href="{{ url_for('premios_concursos.resultado_nuevo', empresa_id=empresa_id or None) }}">+ Nuevo resultado</a>
     <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados_importar') }}">Importar CSV/XLSX</a>
-    <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados_export_csv', empresa_id=empresa_id or None, sector_id=sector_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Exportar CSV</a>
-    <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados_export_xlsx', empresa_id=empresa_id or None, sector_id=sector_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Exportar Excel</a>
+    <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados_export_csv', empresa_id=empresa_id or None, sector_id=sector_id or None, sucursal_id=sucursal_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Exportar CSV</a>
+    <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados_export_xlsx', empresa_id=empresa_id or None, sector_id=sector_id or None, sucursal_id=sucursal_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Exportar Excel</a>
     <a class="btn btn-secondary" href="{{ url_for('premios_concursos.listado', empresa_id=empresa_id or None) }}">Concursos</a>
   </div>
 
@@ -48,6 +49,11 @@
             <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
           {% endfor %}
         </select>
+      </div>
+
+      <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
       </div>
 
       <div class="row">
@@ -128,6 +134,7 @@
             <th>Empleado</th>
             <th>Concurso</th>
             <th>Sector</th>
+            <th>Sucursal</th>
             <th>Ranking</th>
             <th>Acciones</th>
           </tr>
@@ -145,6 +152,7 @@
                 <small><code>{{ r.concurso_codigo or r.concurso_codigo_snapshot }}</code> - {{ r.concurso_alcance }}</small>
               </td>
               <td data-label="Sector">{{ r.sector_nombre or r.concurso_sector_nombre or "-" }}</td>
+              <td data-label="Sucursal">{{ r.sucursal_nombre or "-" }}</td>
               <td data-label="Ranking">
                 {% if r.ranking == 1 %}
                   <span class="badge ok">1</span>
@@ -177,10 +185,10 @@
 
   <div class="pager">
     {% if page > 1 %}
-      <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados', page=page - 1, per=per_page, empresa_id=empresa_id or None, sector_id=sector_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Anterior</a>
+      <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados', page=page - 1, per=per_page, empresa_id=empresa_id or None, sector_id=sector_id or None, sucursal_id=sucursal_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Anterior</a>
     {% endif %}
     {% if page * per_page < total %}
-      <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados', page=page + 1, per=per_page, empresa_id=empresa_id or None, sector_id=sector_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Siguiente</a>
+      <a class="btn btn-secondary" href="{{ url_for('premios_concursos.resultados', page=page + 1, per=per_page, empresa_id=empresa_id or None, sector_id=sector_id or None, sucursal_id=sucursal_id or None, empleado_id=empleado_id or None, concurso_id=concurso_id or None, anio=anio or None, mes=mes or None, q=q or None) }}">Siguiente</a>
     {% endif %}
     <span class="summary">Pagina {{ page }}</span>
   </div>

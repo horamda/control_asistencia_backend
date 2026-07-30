@@ -1,7 +1,7 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.24.0
-Fecha de corte: 2026-07-14
+Version de contrato: 1.25.0
+Fecha de corte: 2026-07-27
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo principal: `/api/v1/mobile`
@@ -556,6 +556,14 @@ final body = {'dni': dni, 'password': password, ...extras};
         }
       ],
       "estado":"aprobada",
+      "resuelto_at":"2026-02-16T11:30:00",
+      "resuelto_by_usuario_id":99,
+      "resuelto_by_usuario":"rrhh",
+      "comentario_resolucion":"Certificado validado.",
+      "motivo_rechazo":null,
+      "notificado_empleado_at":"2026-02-16T11:30:00",
+      "visto_por_empleado_at":null,
+      "tiene_novedad":true,
       "created_at":"2026-02-15T09:00:00"
     }
   ],
@@ -587,6 +595,12 @@ final body = {'dni': dni, 'password': password, ...extras};
 - Estado inicial siempre: `pendiente`.
 - Response 201: objeto justificacion creada.
 - Response 400: `{"error":"motivo es requerido"}`
+- Campos de resolucion devueltos cuando RRHH/admin actua:
+  - `resuelto_at`: fecha/hora de aprobacion o rechazo.
+  - `resuelto_by_usuario_id` y `resuelto_by_usuario`: usuario del panel que resolvio.
+  - `comentario_resolucion`: comentario opcional al aprobar.
+  - `motivo_rechazo`: motivo obligatorio cuando se rechaza.
+  - `tiene_novedad`: `true` cuando la justificacion ya fue aprobada/rechazada y el empleado todavia no marco esa resolucion como vista.
 
 #### 21. `PUT /api/v1/mobile/me/justificaciones/<id>`
 - Solo permite editar justificaciones en estado `pendiente`.
@@ -642,6 +656,24 @@ final body = {'dni': dni, 'password': password, ...extras};
 - Response 200: `{"ok":true}`
 - Response 404: justificacion o adjunto no encontrado.
 - Response 409: la justificacion ya fue aprobada o rechazada.
+
+#### 22D. `POST /api/v1/mobile/me/justificaciones/<id>/marcar-vista`
+- Marca como vista una justificacion propia ya resuelta (`aprobada` o `rechazada`).
+- Flutter debe llamarlo despues de mostrarle al empleado el resultado de una justificacion con `tiene_novedad=true`.
+- Response 200:
+```json
+{
+  "ok": true,
+  "justificacion": {
+    "id": 10,
+    "estado": "aprobada",
+    "tiene_novedad": false,
+    "visto_por_empleado_at": "2026-02-16T12:05:00"
+  }
+}
+```
+- Response 404: `{"error":"Justificacion no encontrada"}`
+- Response 409: `{"error":"La justificacion aun no fue resuelta."}`
 
 ---
 
@@ -1471,6 +1503,7 @@ Los clientes anteriores que solo envian `cantidad_bultos` siguen siendo compatib
       "nombre": "Llamado de atencion",
       "requiere_rango_fechas": false,
       "permite_adjuntos": true,
+      "habilitado_mobile": false,
       "activo": true
     }
   ],
@@ -1546,7 +1579,108 @@ Los clientes anteriores que solo envian `cantidad_bultos` siguen siendo compatib
 - Acceso a documentacion deshabilitado para empleados.
 - Response 403: `{"ok":false,"error":"No autorizado"}`
 
-#### 36A. `GET /api/v1/mobile/me/legajo/historial-por-tipo`
+#### 36A. `GET /api/v1/mobile/me/legajo/eventos-admin/permisos`
+- Indica si el empleado autenticado puede cargar eventos de legajo sobre otros empleados desde mobile.
+- Permiso requerido en backend: `legajos.eventos.mobile.create`.
+- Alcances posibles: `global`, `empresa`, `sucursal`, `sector`, `equipo`, `propio`.
+- Response 200:
+```json
+{
+  "ok": true,
+  "puede_cargar": true,
+  "permiso": "legajos.eventos.mobile.create",
+  "alcance": "sector"
+}
+```
+
+#### 36B. `GET /api/v1/mobile/me/legajo/eventos-admin/empleados?q=&page=&per_page=`
+- Busca empleados activos visibles segun el alcance del permiso mobile.
+- Response 200:
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "id": 20,
+      "empresa_id": 3,
+      "legajo": "L-20",
+      "dni": "30111222",
+      "apellido": "Perez",
+      "nombre": "Ana",
+      "display_name": "Perez Ana",
+      "empresa_nombre": "Empresa A",
+      "sucursal_id": 4,
+      "sucursal_nombre": "Centro",
+      "sector_id": 5,
+      "sector_nombre": "Operaciones"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "per_page": 20,
+  "alcance": "sector"
+}
+```
+- Response 403: `{"ok":false,"error":"No tiene permisos para cargar eventos de legajo."}`
+
+#### 36C. `GET /api/v1/mobile/me/legajo/eventos-admin/tipos`
+- Devuelve solo tipos de evento activos con `habilitado_mobile = 1`.
+- Response 200:
+```json
+{
+  "ok": true,
+  "items": [
+    {
+      "id": 3,
+      "codigo": "observacion",
+      "nombre": "Observacion",
+      "requiere_rango_fechas": false,
+      "permite_adjuntos": true,
+      "habilitado_mobile": true,
+      "activo": true
+    }
+  ],
+  "total": 1
+}
+```
+
+#### 36D. `POST /api/v1/mobile/me/legajo/eventos-admin`
+- Crea un evento de legajo sobre un empleado visible segun el alcance del permiso.
+- Acepta `application/json` o `multipart/form-data`.
+- Campos:
+  - `empleado_id` obligatorio.
+  - `tipo_id` obligatorio; el tipo debe estar activo y `habilitado_mobile = 1`.
+  - `fecha_evento` obligatorio, formato `YYYY-MM-DD`.
+  - `fecha_desde` / `fecha_hasta` obligatorios solo si el tipo requiere rango.
+  - `titulo` opcional.
+  - `descripcion` obligatoria.
+  - `severidad`: `leve`, `media`, `grave` u omitido.
+  - Adjuntos opcionales en campos `adjuntos`, `adjunto`, `archivo` o `evidencia`, si el tipo permite adjuntos.
+- Response 201:
+```json
+{
+  "ok": true,
+  "evento": {
+    "id": 77,
+    "empresa_id": 3,
+    "empleado_id": 20,
+    "tipo_id": 3,
+    "tipo_nombre": "Observacion",
+    "fecha_evento": "2026-07-29",
+    "fecha_desde": null,
+    "fecha_hasta": null,
+    "titulo": "Observacion operativa",
+    "descripcion": "Detalle cargado desde mobile",
+    "estado": "vigente",
+    "severidad": "leve"
+  },
+  "adjuntos_guardados": 1
+}
+```
+- Response 400: validacion de campos, tipo no habilitado o adjuntos no permitidos.
+- Response 403: sin permiso o empleado fuera de alcance.
+
+#### 36E. `GET /api/v1/mobile/me/legajo/historial-por-tipo`
 - Devuelve todos los tipos de evento activos con la cantidad total de eventos y eventos vigentes del empleado autenticado.
 - Util para mostrar un resumen tipo tarjeta por categoria en la pantalla de legajo.
 - Incluye tipos con `total: 0` para que Flutter pueda pintar todas las categorias.
@@ -2541,28 +2675,43 @@ Implementado via `AppRatingService` + `FlutterSecureStorage` (con `encryptedShar
 Prefijo: `/api/v1/feedback`
 Auth: `Bearer JWT` mobile.
 
-Uso funcional: el empleado carga problemas surgidos en la calle, seleccionando cliente y motivo. El backend asigna automaticamente el `jefe_directo` desde la ficha del empleado (`reporta_a_empleado_id`). El jefe directo debe tomar/resolver el feedback dentro del SLA configurado en el motivo.
+Uso funcional: el empleado carga problemas surgidos en la calle, seleccionando cliente y motivo. El backend determina automaticamente el sector de origen desde el empleado autenticado, toma el sector responsable configurado en el motivo y asigna el feedback al responsable vigente de ese sector.
 
 Estados:
-- `estado`: `pendiente` | `en_proceso` | `resuelto`
-- `estado_actual`: `pendiente` | `en_proceso` | `resuelto` | `vencido`
-- `vencido` es calculado cuando `estado` es `pendiente`/`en_proceso` y la fecha actual supera `fecha_vencimiento`.
+- `estado`: `pendiente` | `resuelto`
+- `estado_actual`: `pendiente` | `resuelto`
+- `condicion_temporal`: `pendiente_en_termino` | `pendiente_vencido` | `resuelto_en_termino` | `resuelto_fuera_termino`
+- El vencimiento se calcula comparando `fecha_limite` contra la fecha/hora actual o `resuelto_at`. No se usa un estado persistido `vencido`.
 
 Modelo base `FeedbackItem`:
 ```json
 {
   "id": 123,
+  "numero": "FB-00000123",
   "empresa_id": 1,
   "estado": "pendiente",
   "estado_actual": "pendiente",
+  "condicion_temporal": "pendiente_en_termino",
   "descripcion": "Cliente sin material POP y demora en entrega.",
   "fecha_vencimiento": "2026-06-11",
+  "fecha_limite": "2026-06-11 10:30",
   "created_at": "2026-06-08 10:30",
   "updated_at": "2026-06-08 10:30",
   "resuelto_at": null,
   "resuelto_en_sla": null,
   "resolucion_descripcion": null,
+  "evidencia": {
+    "filename": "foto_cliente.png",
+    "mime_type": "image/png",
+    "size_bytes": 245120,
+    "url": "/media/feedback/evidencias/123"
+  },
   "dias_restantes": 3,
+  "minutos_restantes": 4320,
+  "sector_origen": {"id": 7, "nombre": "Operaciones"},
+  "sucursal": {"id": 2, "nombre": "Suc. Dolores"},
+  "sector_responsable": {"id": 4, "nombre": "Logistica"},
+  "responsable": {"id": 2, "nombre": "Maria Gomez", "legajo": "2001", "dni": "28999888"},
   "empleado": {"id": 10, "nombre": "Juan Perez", "legajo": "1020", "dni": "30111222"},
   "jefe_directo": {"id": 2, "nombre": "Maria Gomez", "legajo": "2001", "dni": "28999888"},
   "cliente": {"id": 55, "codigo": "CLI-001", "razon_social": "Cliente SA", "nombre_fantasia": "Cliente Centro", "tipo": "Minorista"},
@@ -2573,11 +2722,24 @@ Modelo base `FeedbackItem`:
 
 #### 54A. `GET /api/v1/feedback/motivos`
 - Devuelve motivos activos para cargar feedback. La administracion de motivos se hace en el panel web.
+- Cada motivo define el sector responsable, el plazo maximo y si foto/observacion son obligatorias.
+- Flutter no debe enviar sector responsable ni responsable asignado al crear feedback. El backend lo calcula.
 - Response 200:
 ```json
 {
   "items": [
-    {"id": 1, "nombre": "Cliente cerrado", "descripcion": "El local no pudo ser atendido.", "sla_dias": 2}
+    {
+      "id": 1,
+      "nombre": "Cliente cerrado",
+      "descripcion": "El local no pudo ser atendido.",
+      "sector_responsable_id": 4,
+      "sector_responsable_nombre": "Logistica",
+      "tiempo_resolucion_valor": 48,
+      "tiempo_resolucion_unidad": "HORAS",
+      "sla_dias": 2,
+      "requiere_foto": false,
+      "requiere_observacion": true
+    }
   ],
   "total": 1
 }
@@ -2593,6 +2755,9 @@ Modelo base `FeedbackItem`:
   | Campo | Tipo | Default | Notas |
   |---|---|---|---|
   | `q` | string | null | Busca por id, sucursal, codigo, razon social, nombre de fantasia/negocio, telefonos, movil, email, domicilio/direccion, localidad, provincia o tipo |
+  | `search` | string | null | Alias de `q` |
+  | `query` | string | null | Alias de `q` |
+  | `cliente_q` | string | null | Alias de `q`, usado tambien por el panel web |
   | `page` | int | 1 | Pagina |
   | `per_page` | int | 20 | Maximo 200 |
 
@@ -2645,8 +2810,8 @@ Modelo base `FeedbackItem`:
 ---
 
 #### 54C. `GET /api/v1/feedback/historial?page=&per_page=&estado=&q=`
-- Historial del empleado autenticado.
-- `estado`: opcional. Usar `pendiente`, `en_proceso`, `resuelto` o `vencido`.
+- Historial visible para el empleado autenticado: devuelve todos los feedbacks originados en su sector, no solamente los cargados por el empleado.
+- `estado`: opcional. Usar `pendiente`, `resuelto` o `vencido`. `vencido` es alias de `condicion_temporal=pendiente_vencido`.
 - `q`: busqueda por cliente, motivo, descripcion, resolucion, estado o nombres/legajos de participantes.
 - Admite varias palabras; cada palabra debe coincidir con algun campo para que el resultado entre.
 - Response 200:
@@ -2657,18 +2822,18 @@ Modelo base `FeedbackItem`:
 ---
 
 #### 54D. `GET /api/v1/feedback/bandeja?page=&per_page=&estado=&q=`
-- Bandeja del jefe directo autenticado. Devuelve los feedback asignados a ese empleado como `jefe_directo`.
+- Bandeja del responsable autenticado. Devuelve los feedbacks donde el empleado autenticado es el jefe directo/responsable asignado (`jefe_directo_id` o `responsable_id`).
 - Mismos filtros y paginacion que historial.
 - `q` usa la misma logica de busqueda por multiples palabras que historial.
 - Response 200:
 ```json
-{"items":[{"id":123,"estado":"pendiente","jefe_directo":{"id":2,"nombre":"Maria Gomez"},"...":"..."}],"page":1,"per_page":20,"total":1}
+{"items":[{"id":123,"estado":"pendiente","responsable":{"id":2,"nombre":"Maria Gomez"},"sector_responsable":{"id":4,"nombre":"Logistica"},"...":"..."}],"page":1,"per_page":20,"total":1}
 ```
 
 ---
 
 #### 54E. `GET /api/v1/feedback/dashboard`
-- Dashboard del empleado autenticado dentro del alcance de su empresa.
+- Dashboard del empleado autenticado dentro del alcance de su empresa y sector asignado.
 - Incluye totales, feedback resueltos, vencidos, motivos principales, ranking de carga y posicion personal contra el resto del personal.
 - Response 200:
 ```json
@@ -2677,7 +2842,7 @@ Modelo base `FeedbackItem`:
     "total": 42,
     "resueltos": 20,
     "pendientes": 12,
-    "en_proceso": 6,
+    "en_proceso": 0,
     "vencidos": 4,
     "resueltos_en_sla": 18,
     "resueltos_fuera_sla": 2,
@@ -2704,7 +2869,10 @@ Modelo base `FeedbackItem`:
 
 #### 54F. `POST /api/v1/feedback`
 - Crea un feedback para el empleado autenticado.
-- Request:
+- Content-Type soportados:
+  - `application/json`: para crear feedback sin foto.
+  - `multipart/form-data`: para crear feedback con o sin foto.
+- Request JSON:
 ```json
 {
   "cliente_id": 55,
@@ -2712,24 +2880,41 @@ Modelo base `FeedbackItem`:
   "descripcion": "Cliente informa falta de producto y demora en reposicion."
 }
 ```
+- Request multipart/form-data:
+
+| Campo | Tipo | Requerido | Notas |
+|---|---|---|---|
+| `cliente_id` | int/string | Si | Cliente activo importado por CSV |
+| `motivo_id` | int/string | Si | Motivo activo con plazo mayor a 0 |
+| `descripcion` | string | Condicional | Obligatoria solo si el motivo tiene `requiere_observacion=true` |
+| `foto` | file | Condicional | Obligatoria solo si el motivo tiene `requiere_foto=true`. Tambien se aceptan los nombres `evidencia_file`, `evidencia` o `foto_file` |
+
+- Evidencia opcional:
+  - Formatos permitidos: JPG, PNG o WebP.
+  - Tamano maximo: 8 MB.
+  - Si se adjunta evidencia, el `feedback` devuelto incluye `evidencia.filename`, `evidencia.mime_type`, `evidencia.size_bytes` y `evidencia.url`.
+  - Para descargar/ver la imagen se usa `GET <evidencia.url>` con la misma sesion web autorizada del panel; para mobile se debe tratar como referencia de evidencia guardada, no como URL publica anonima.
 - Validaciones:
   | Campo | Requerido | Notas |
   |---|---|---|
   | `cliente_id` | Si | Cliente activo importado por CSV |
-  | `motivo_id` | Si | Motivo activo con `sla_dias > 0` |
-  | `descripcion` | Si | Texto libre obligatorio |
+  | `motivo_id` | Si | Motivo activo con plazo mayor a 0 |
+  | `descripcion` | Segun motivo | Obligatoria si `requiere_observacion=true` |
+  | `foto` / `evidencia_file` / `evidencia` / `foto_file` | Segun motivo | Obligatoria si `requiere_foto=true`; imagen JPG, PNG o WebP, maximo 8 MB |
 - Response 201:
 ```json
 {"ok": true, "feedback": {"id": 123, "estado": "pendiente", "estado_actual": "pendiente", "...": "..."}}
 ```
-- Response 400: `{"error":"Cliente es requerido."}` / `{"error":"La descripcion es obligatoria."}`
-- Response 403: empleado sin permisos o sin jefe directo disponible.
+- Response 400: `{"error":"Cliente es requerido."}` / `{"error":"La descripcion es obligatoria para este motivo."}` / `{"error":"La evidencia fotografica es obligatoria para este motivo."}`
+- Response 400 por evidencia invalida: `{"error":"La evidencia debe ser una imagen JPG, PNG o WebP."}` / `{"error":"La evidencia supera el maximo permitido de 8 MB."}`
+- Response 403: empleado sin permisos.
+- Response 400 si no hay configuracion suficiente: empleado sin sector, motivo sin sector responsable o sector responsable sin jefe asignado.
 
 ---
 
 #### 54G. `GET /api/v1/feedback/<feedback_id>`
 - Detalle de un feedback.
-- Permiso: lo puede ver el empleado que lo cargo o su jefe directo asignado.
+- Permiso: lo puede ver cualquier empleado del sector de origen o el responsable asignado del sector responsable.
 - Response 200:
 ```json
 {"feedback": {"id": 123, "estado": "pendiente", "estado_actual": "pendiente", "...": "..."}}
@@ -2740,19 +2925,19 @@ Modelo base `FeedbackItem`:
 ---
 
 #### 54H. `POST /api/v1/feedback/<feedback_id>/tomar`
-- Marca el feedback como `en_proceso`.
-- Permiso: solo el jefe directo asignado.
+- Endpoint legacy compatible. Valida permisos pero ya no cambia el estado, porque el contrato vigente solo usa `pendiente` y `resuelto`.
+- Permiso: solo el responsable asignado.
 - No requiere body.
 - Response 200:
 ```json
-{"ok": true, "feedback": {"id": 123, "estado": "en_proceso", "estado_actual": "en_proceso", "...": "..."}}
+{"ok": true, "feedback": {"id": 123, "estado": "pendiente", "estado_actual": "pendiente", "...": "..."}}
 ```
 
 ---
 
 #### 54I. `POST /api/v1/feedback/<feedback_id>/resolver`
-- Resuelve el feedback. Guarda fecha de resolucion, descripcion de lo gestionado y si se resolvio dentro del SLA.
-- Permiso: solo el jefe directo asignado.
+- Resuelve el feedback. Guarda fecha de resolucion, descripcion de lo gestionado y si se resolvio dentro del plazo.
+- Permiso: solo el responsable asignado.
 - Request:
 ```json
 {"resolucion_descripcion": "Se coordino reposicion con deposito y se informo al cliente."}
@@ -2778,10 +2963,11 @@ Modelo base `FeedbackItem`:
 
 1. Al abrir el modulo: `GET /api/v1/feedback/dashboard` para KPIs, ranking y posicion personal.
 2. Para crear: cargar motivos con `GET /api/v1/feedback/motivos` y buscar cliente con `GET /api/v1/feedback/clientes?q=...`.
-3. Enviar `POST /api/v1/feedback` con `cliente_id`, `motivo_id` y `descripcion`.
-4. Mostrar historial con `GET /api/v1/feedback/historial`, filtrando por `estado` cuando corresponda.
-5. Si el empleado tambien tiene feedbacks como jefe directo, mostrar bandeja con `GET /api/v1/feedback/bandeja`.
-6. En bandeja, permitir `POST /tomar` y `POST /resolver`; al resolver exigir `resolucion_descripcion`.
+3. Validar en Flutter `requiere_foto` y `requiere_observacion` antes de enviar.
+4. Enviar `POST /api/v1/feedback` con `cliente_id`, `motivo_id`, `descripcion` cuando corresponda y `foto` si corresponde. Si hay archivo, usar `multipart/form-data`.
+5. Mostrar historial con `GET /api/v1/feedback/historial`; representa el sector origen del empleado.
+6. Si el empleado es responsable de algun sector, mostrar bandeja con `GET /api/v1/feedback/bandeja`.
+7. En bandeja, permitir resolver con `POST /resolver`; `POST /tomar` queda solo por compatibilidad y no debe ser usado como accion principal nueva.
 
 ---
 

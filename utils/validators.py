@@ -109,6 +109,7 @@ class UsuarioValidator(Validator):
     def validate(self, form, require_password: bool, user_id, exists_unique):
         usuario = (form.get("usuario") or "").strip()
         empresa_id = (form.get("empresa_id") or "").strip()
+        empleado_id = (form.get("empleado_id") or "").strip()
         rol = (form.get("rol") or "").strip()
         if rol == "rh":
             rol = "rrhh"
@@ -118,6 +119,8 @@ class UsuarioValidator(Validator):
         self.require(rol, "Rol")
         self.is_int(empresa_id, "Empresa")
         self.in_set(rol, "Rol", {"admin", "rrhh", "supervisor"})
+        if empleado_id:
+            self.is_int(empleado_id, "Empleado vinculado")
 
         if require_password and not (form.get("password") or "").strip():
             self.add("Contrasena es requerida.")
@@ -125,4 +128,10 @@ class UsuarioValidator(Validator):
         if usuario and exists_unique(usuario, user_id):
             self.add("Usuario ya registrado.")
 
-        return self.errors, usuario, int(empresa_id) if empresa_id.isdigit() else None, rol
+        return (
+            self.errors,
+            usuario,
+            int(empresa_id) if empresa_id.isdigit() else None,
+            rol,
+            int(empleado_id) if empleado_id.isdigit() else None,
+        )

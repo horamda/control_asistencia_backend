@@ -166,11 +166,17 @@ def _normalize_payload(data: dict):
     }
 
 
-def get_horarios_resumen(include_inactive: bool = True):
+def get_horarios_resumen(include_inactive: bool = True, sucursal_id: int | None = None):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
-        where = "" if include_inactive else "WHERE h.activo = 1"
+        conditions = []
+        if not include_inactive:
+            conditions.append("h.activo = 1")
+        if sucursal_id:
+            conditions.append("h.sucursal_id = %s")
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        params = (sucursal_id,) if sucursal_id else ()
         cursor.execute(f"""
             SELECT
                 h.id,
@@ -192,7 +198,7 @@ def get_horarios_resumen(include_inactive: bool = True):
             {where}
             GROUP BY h.id, h.empresa_id, e.razon_social, h.sucursal_id, s.nombre, h.nombre, h.tolerancia_min, h.descripcion, h.activo
             ORDER BY e.razon_social, s.nombre, h.nombre
-        """)
+        """, params)
         return cursor.fetchall()
     finally:
         cursor.close()

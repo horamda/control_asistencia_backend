@@ -2,8 +2,10 @@ import hashlib
 
 from flask import Blueprint, Response, abort, request, send_file, session
 
+from repositories.feedback_repository import get_by_id as get_feedback_by_id
 from repositories.legajo_adjunto_repository import get_adjunto_by_id, get_adjunto_data_by_id
 from repositories.roles_repository import has_any_role
+from services.feedback_service import resolve_feedback_evidencia_path
 from services.legajo_attachment_service import resolve_legajo_storage_path
 from services.profile_photo_service import get_profile_photo_bytes_by_dni
 
@@ -101,5 +103,33 @@ def legajo_adjunto(adjunto_id):
         mimetype=row.get("mime_type") or "application/octet-stream",
         as_attachment=download,
         download_name=row.get("nombre_original") or path.name,
+        max_age=86400,
+    )
+
+
+@media_bp.route("/feedback/evidencias/<int:feedback_id>", methods=["GET"])
+def feedback_evidencia(feedback_id):
+    user_id = session.get("user_id")
+    if not user_id:
+        abort(403)
+    if not has_any_role(user_id, ["admin", "rrhh", "supervisor"]):
+        abort(403)
+
+    row = get_feedback_by_id(feedback_id)
+    if not row or not row.get("evidencia_path"):
+        abort(404)
+    try:
+        path = resolve_feedback_evidencia_path(row.get("evidencia_path"))
+    except RuntimeError:
+        abort(404)
+    if not path.exists() or not path.is_file():
+        abort(404)
+
+    download = str(request.args.get("download") or "").strip().lower() in {"1", "true", "yes"}
+    return send_file(
+        str(path),
+        mimetype=row.get("evidencia_mime_type") or "application/octet-stream",
+        as_attachment=download,
+        download_name=row.get("evidencia_filename") or path.name,
         max_age=86400,
     )

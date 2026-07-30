@@ -5,6 +5,8 @@ from repositories.mobile_sesiones_repository import (
     get_stats,
     get_versiones_disponibles,
 )
+from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 
 mobile_stats_bp = Blueprint("mobile_stats", __name__, url_prefix="/mobile-stats")
 
@@ -20,6 +22,8 @@ def listado():
     platform = request.args.get("platform") or None
     app_version = request.args.get("app_version") or None
     empleado_q = request.args.get("q") or None
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
 
     sesiones, total = get_sesiones_page(
         page,
@@ -29,9 +33,13 @@ def listado():
         platform=platform,
         app_version=app_version,
         empleado_q=empleado_q,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
     )
     stats = get_stats()
     versiones = get_versiones_disponibles()
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
     total_pages = max(1, (total + _PER_PAGE - 1) // _PER_PAGE)
 
     return render_template(
@@ -39,6 +47,10 @@ def listado():
         sesiones=sesiones,
         stats=stats,
         versiones=versiones,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
+        sectores=sectores,
+        sector_id=sector_id,
         total=total,
         page=page,
         per_page=_PER_PAGE,
@@ -49,5 +61,7 @@ def listado():
             "platform": platform or "",
             "app_version": app_version or "",
             "q": empleado_q or "",
+            "sucursal_id": sucursal_id or "",
+            "sector_id": sector_id or "",
         },
     )

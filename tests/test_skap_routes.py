@@ -139,5 +139,5 @@ def test_web_skap_dashboard_ok(monkeypatch):
     resp = client.get("/skap/?anio=2025&sector_id=7")
 
     assert resp.status_code == 200
-    assert b"Dashboard de desarrollo" in resp.data
+    assert b"Resumen de desarrollo" in resp.data
     assert b"Operaciones" in resp.data

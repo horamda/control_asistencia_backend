@@ -59,11 +59,40 @@ def test_legajos_listado_eventos(monkeypatch):
         lambda include_inactive=True: [{"id": 7, "apellido": "Perez", "nombre": "Ana", "dni": "30123456"}],
     )
     monkeypatch.setattr(legajos_routes, "get_tipos_evento", lambda include_inactive=True: [{"id": 1, "nombre": "Certificado medico"}])
+    monkeypatch.setattr(legajos_routes, "get_sucursales", lambda include_inactive=True: [])
+    monkeypatch.setattr(legajos_routes, "get_sectores", lambda include_inactive=True: [])
 
     resp = client.get("/legajos/eventos/?empresa_id=3")
     assert resp.status_code == 200
     assert b"Certificado medico" in resp.data
     assert b"/legajos/empleado/7" in resp.data
+
+
+def test_legajos_listado_eventos_aplica_fechas_y_severidad(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    with client.session_transaction() as sess:
+        sess["user_role"] = "admin"
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    captured = {}
+    monkeypatch.setattr(
+        legajos_routes,
+        "get_eventos_page",
+        lambda **kwargs: captured.update(kwargs) or ([], 0),
+    )
+    monkeypatch.setattr(legajos_routes, "get_empresas", lambda include_inactive=True: [])
+    monkeypatch.setattr(legajos_routes, "get_empleados", lambda include_inactive=True: [])
+    monkeypatch.setattr(legajos_routes, "get_tipos_evento", lambda include_inactive=True: [])
+    monkeypatch.setattr(legajos_routes, "get_sucursales", lambda include_inactive=True: [])
+    monkeypatch.setattr(legajos_routes, "get_sectores", lambda include_inactive=True: [])
+
+    resp = client.get("/legajos/eventos/?severidad=grave&fecha_desde=2026-07-01&fecha_hasta=2026-07-31&q=L-99")
+
+    assert resp.status_code == 200
+    assert captured["severidad"] == "grave"
+    assert captured["fecha_desde"] == "2026-07-01"
+    assert captured["fecha_hasta"] == "2026-07-31"
+    assert captured["search"] == "L-99"
 
 
 def test_legajos_listado_muestra_foto_y_fallback(monkeypatch):
@@ -72,8 +101,8 @@ def test_legajos_listado_muestra_foto_y_fallback(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
     monkeypatch.setattr(
         legajos_routes,
-        "get_empleados",
-        lambda include_inactive=True: [
+        "_get_empleados_page",
+        lambda *args, **kwargs: ([
             {
                 "id": 7,
                 "empresa_id": 3,
@@ -84,6 +113,8 @@ def test_legajos_listado_muestra_foto_y_fallback(monkeypatch):
                 "apellido": "Perez",
                 "activo": 1,
                 "foto": "https://cdn.example.com/fotos/30123456.jpg",
+                "legajo_eventos_total": 2,
+                "legajo_eventos_vigentes": 1,
             },
             {
                 "id": 8,
@@ -95,14 +126,49 @@ def test_legajos_listado_muestra_foto_y_fallback(monkeypatch):
                 "apellido": "Lopez",
                 "activo": 1,
                 "foto": None,
+                "legajo_eventos_total": 0,
+                "legajo_eventos_vigentes": 0,
             },
-        ],
+        ], 2),
     )
+    monkeypatch.setattr(legajos_routes, "get_empresas", lambda include_inactive=True: [{"id": 3, "razon_social": "Empresa A"}])
+    monkeypatch.setattr(legajos_routes, "get_sucursales", lambda include_inactive=True: [])
+    monkeypatch.setattr(legajos_routes, "get_sectores", lambda include_inactive=True: [])
 
     resp = client.get("/legajos/")
     assert resp.status_code == 200
     assert b"https://cdn.example.com/fotos/30123456.jpg" in resp.data
     assert b"img/empleado-default.svg" in resp.data
+
+
+def test_legajos_listado_empleados_aplica_filtros(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    captured = {}
+
+    def fake_page(*args, **kwargs):
+        captured.update(kwargs)
+        return ([], 0)
+
+    monkeypatch.setattr(legajos_routes, "_get_empleados_page", fake_page)
+    monkeypatch.setattr(legajos_routes, "get_empresas", lambda include_inactive=True: [])
+    monkeypatch.setattr(legajos_routes, "get_sucursales", lambda include_inactive=True: [])
+    monkeypatch.setattr(legajos_routes, "get_sectores", lambda include_inactive=True: [])
+
+    resp = client.get(
+        "/legajos/?q=L-99&empresa_id=3&sucursal_id=4&sector_id=5&activo=all"
+        "&requiere_control_asistencia=0&legajo_eventos=vigentes&per=50"
+    )
+
+    assert resp.status_code == 200
+    assert captured["search"] == "L-99"
+    assert captured["empresa_id"] == 3
+    assert captured["sucursal_id"] == 4
+    assert captured["sector_id"] == 5
+    assert captured["activo"] is None
+    assert captured["requiere_control_asistencia"] == 0
+    assert captured["legajo_eventos"] == "vigentes"
 
 
 def test_legajo_empleado_muestra_fallback_si_no_tiene_foto(monkeypatch):
@@ -332,13 +398,13 @@ def test_dashboard_empleado_export_xlsx_ok(monkeypatch):
     resp = client.get("/legajos/dashboard-empleado/export.xls?empleado_id=7&desde=2026-05-01&hasta=2026-06-01&periodo=custom")
     assert resp.status_code == 200
     assert "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in resp.headers["Content-Type"]
-    assert "dashboard_Perez_Ana_2026-05-01_2026-06-01.xlsx" in resp.headers["Content-Disposition"]
+    assert "resumen_Perez_Ana_2026-05-01_2026-06-01.xlsx" in resp.headers["Content-Disposition"]
 
     wb = load_workbook(io.BytesIO(resp.data), data_only=True)
     assert wb.sheetnames == ["Resumen", "Fichadas", "Serie diaria", "Legajo"]
 
     resumen = wb["Resumen"]
-    assert resumen["A1"].value == "Dashboard por empleado"
+    assert resumen["A1"].value == "Resumen por empleado"
     assert resumen["A3"].value == "Datos del empleado"
     assert resumen["A5"].value == "Empleado"
     assert resumen["B5"].value == "Perez Ana"
@@ -718,6 +784,7 @@ def test_legajo_tipos_evento_listado(monkeypatch):
                     "nombre": "Certificado medico",
                     "requiere_rango_fechas": 0,
                     "permite_adjuntos": 1,
+                    "habilitado_mobile": 1,
                     "activo": 1,
                 }
             ],
@@ -729,6 +796,7 @@ def test_legajo_tipos_evento_listado(monkeypatch):
     assert resp.status_code == 200
     assert b"Tipos de evento" in resp.data
     assert b"certificado_medico" in resp.data
+    assert b"Habilitado" in resp.data
 
 
 def test_legajo_tipos_evento_nuevo(monkeypatch):
@@ -753,6 +821,7 @@ def test_legajo_tipos_evento_nuevo(monkeypatch):
             "nombre": "Certificado medico",
             "requiere_rango_fechas": "1",
             "permite_adjuntos": "1",
+            "habilitado_mobile": "1",
             "activo": "1",
         },
         follow_redirects=False,
@@ -762,6 +831,7 @@ def test_legajo_tipos_evento_nuevo(monkeypatch):
     assert captured["data"]["codigo"] == "certificado_medico"
     assert captured["data"]["requiere_rango_fechas"] is True
     assert captured["data"]["permite_adjuntos"] is True
+    assert captured["data"]["habilitado_mobile"] is True
     assert captured["data"]["activo"] is True
 
 
@@ -779,6 +849,7 @@ def test_legajo_tipos_evento_editar(monkeypatch):
             "nombre": "Certificado medico",
             "requiere_rango_fechas": 0,
             "permite_adjuntos": 1,
+            "habilitado_mobile": 0,
             "activo": 1,
         },
     )
@@ -801,6 +872,7 @@ def test_legajo_tipos_evento_editar(monkeypatch):
             "codigo": "certificado_medico",
             "nombre": "Certificado actualizado",
             "permite_adjuntos": "1",
+            "habilitado_mobile": "1",
             "activo": "1",
         },
         follow_redirects=False,
@@ -810,6 +882,7 @@ def test_legajo_tipos_evento_editar(monkeypatch):
     assert captured["tipo_id"] == 9
     assert captured["data"]["nombre"] == "Certificado actualizado"
     assert captured["data"]["requiere_rango_fechas"] is False
+    assert captured["data"]["habilitado_mobile"] is True
 
 
 def test_legajo_tipos_evento_activar_desactivar(monkeypatch):
@@ -833,6 +906,83 @@ def test_legajo_tipos_evento_activar_desactivar(monkeypatch):
     assert resp_1.status_code == 302
     assert resp_2.status_code == 302
     assert captured == [(9, 0), (9, 1)]
+
+
+def test_legajos_permisos_mobile_listado(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(legajos_routes, "get_empleados", lambda include_inactive=False: [])
+    monkeypatch.setattr(
+        legajos_routes,
+        "get_mobile_legajo_permisos_page",
+        lambda page, per_page, *, search=None, activo=None: (
+            [
+                {
+                    "id": 4,
+                    "apellido": "Perez",
+                    "nombre": "Ana",
+                    "legajo": "L-1",
+                    "dni": "301",
+                    "empresa_nombre": "Empresa A",
+                    "sucursal_nombre": "Centro",
+                    "sector_nombre": "Operaciones",
+                    "alcance": "sector",
+                    "activo": 1,
+                }
+            ],
+            1,
+        ),
+    )
+
+    resp = client.get("/legajos/permisos-mobile")
+
+    assert resp.status_code == 200
+    assert b"Permisos mobile" in resp.data
+    assert b"Perez" in resp.data
+    assert b"Sector" in resp.data
+
+
+def test_legajos_permisos_mobile_asigna_permiso(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(legajos_routes, "log_audit", lambda *args, **kwargs: None)
+    captured = {}
+    monkeypatch.setattr(
+        legajos_routes,
+        "upsert_mobile_legajo_permiso",
+        lambda empleado_id, *, alcance, activo=1: captured.update(
+            {"empleado_id": empleado_id, "alcance": alcance, "activo": activo}
+        ),
+    )
+
+    resp = client.post(
+        "/legajos/permisos-mobile",
+        data={"empleado_id": "7", "alcance": "sucursal"},
+        follow_redirects=False,
+    )
+
+    assert resp.status_code == 302
+    assert captured == {"empleado_id": 7, "alcance": "sucursal", "activo": 1}
+
+
+def test_legajos_permisos_mobile_desactiva(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(legajos_routes, "log_audit", lambda *args, **kwargs: None)
+    captured = {}
+    monkeypatch.setattr(
+        legajos_routes,
+        "set_mobile_legajo_permiso_activo",
+        lambda permiso_id, activo: captured.update({"permiso_id": permiso_id, "activo": activo}) or True,
+    )
+
+    resp = client.post("/legajos/permisos-mobile/4/desactivar", follow_redirects=False)
+
+    assert resp.status_code == 302
+    assert captured == {"permiso_id": 4, "activo": 0}
 
 
 def test_legajo_tipos_evento_no_desactiva_con_eventos_vigentes(monkeypatch):

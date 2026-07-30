@@ -6,22 +6,36 @@ def _base_select_sql() -> str:
     estado_actual = """
         CASE
             WHEN f.estado = 'resuelto' THEN 'resuelto'
-            WHEN f.estado IN ('pendiente', 'en_proceso') AND CURDATE() > f.fecha_vencimiento THEN 'vencido'
-            ELSE f.estado
+            ELSE 'pendiente'
+        END
+    """
+    condicion_temporal = """
+        CASE
+            WHEN f.estado = 'resuelto' AND f.resuelto_at <= COALESCE(f.fecha_limite, TIMESTAMP(f.fecha_vencimiento, '23:59:59')) THEN 'resuelto_en_termino'
+            WHEN f.estado = 'resuelto' THEN 'resuelto_fuera_termino'
+            WHEN NOW() > COALESCE(f.fecha_limite, TIMESTAMP(f.fecha_vencimiento, '23:59:59')) THEN 'pendiente_vencido'
+            ELSE 'pendiente_en_termino'
         END
     """
     return f"""
         SELECT
             f.id,
+            f.numero,
             f.empresa_id,
             f.empleado_id,
+            COALESCE(f.sector_origen_id, ee.sector_id) AS sector_origen_id,
+            COALESCE(f.sucursal_id, ee.sucursal_id) AS sucursal_id,
             f.jefe_directo_id,
             f.cliente_id,
             f.motivo_id,
+            COALESCE(f.sector_responsable_id, m.sector_id) AS sector_responsable_id,
+            COALESCE(f.responsable_id, f.jefe_directo_id) AS responsable_id,
             f.descripcion,
             f.estado,
             {estado_actual} AS estado_actual,
+            {condicion_temporal} AS condicion_temporal,
             f.fecha_vencimiento,
+            COALESCE(f.fecha_limite, TIMESTAMP(f.fecha_vencimiento, '23:59:59')) AS fecha_limite,
             f.cliente_codigo_snapshot,
             f.cliente_razon_social_snapshot,
             f.cliente_nombre_fantasia_snapshot,
@@ -33,8 +47,13 @@ def _base_select_sql() -> str:
             f.resuelto_at,
             f.resuelto_por_empleado_id,
             f.resolucion_descripcion,
+            f.evidencia_filename,
+            f.evidencia_path,
+            f.evidencia_mime_type,
+            f.evidencia_size_bytes,
             COALESCE(f.resuelto_en_sla, 0) AS resuelto_en_sla,
             DATEDIFF(f.fecha_vencimiento, CURDATE()) AS dias_restantes,
+            TIMESTAMPDIFF(MINUTE, NOW(), COALESCE(f.fecha_limite, TIMESTAMP(f.fecha_vencimiento, '23:59:59'))) AS minutos_restantes,
             ee.legajo AS empleado_legajo,
             ee.dni AS empleado_dni,
             CONCAT(ee.apellido, ' ', ee.nombre) AS empleado_nombre,
@@ -43,12 +62,20 @@ def _base_select_sql() -> str:
             ee.activo AS empleado_activo,
             sec.nombre AS empleado_sector_nombre,
             suc.nombre AS empleado_sucursal_nombre,
+            so.nombre AS sector_origen_nombre,
+            sr.nombre AS sector_responsable_nombre,
             jd.legajo AS jefe_directo_legajo,
             jd.dni AS jefe_directo_dni,
             COALESCE(
                 CONCAT(jd.apellido, ' ', jd.nombre),
                 f.jefe_directo_nombre_snapshot
             ) AS jefe_directo_nombre,
+            resp.legajo AS responsable_legajo,
+            resp.dni AS responsable_dni,
+            COALESCE(
+                CONCAT(resp.apellido, ' ', resp.nombre),
+                f.jefe_directo_nombre_snapshot
+            ) AS responsable_nombre,
             COALESCE(c.codigo_externo, f.cliente_codigo_snapshot) AS cliente_codigo,
             COALESCE(c.razon_social, f.cliente_razon_social_snapshot) AS cliente_razon_social,
             COALESCE(c.nombre_fantasia, f.cliente_nombre_fantasia_snapshot) AS cliente_nombre_fantasia,
@@ -60,9 +87,12 @@ def _base_select_sql() -> str:
         JOIN empleados ee ON ee.id = f.empleado_id
         LEFT JOIN sectores sec ON sec.id = ee.sector_id
         LEFT JOIN sucursales suc ON suc.id = ee.sucursal_id
-        LEFT JOIN empleados jd ON jd.id = f.jefe_directo_id
-        LEFT JOIN feedback_clientes c ON c.id = f.cliente_id
         LEFT JOIN feedback_motivos m ON m.id = f.motivo_id
+        LEFT JOIN sectores so ON so.id = COALESCE(f.sector_origen_id, ee.sector_id)
+        LEFT JOIN sectores sr ON sr.id = COALESCE(f.sector_responsable_id, m.sector_id)
+        LEFT JOIN empleados jd ON jd.id = f.jefe_directo_id
+        LEFT JOIN empleados resp ON resp.id = COALESCE(f.responsable_id, f.jefe_directo_id)
+        LEFT JOIN feedback_clientes c ON c.id = f.cliente_id
         LEFT JOIN empleados res ON res.id = f.resuelto_por_empleado_id
     """
 
@@ -72,11 +102,15 @@ def _build_where(
     empresa_id: int | None = None,
     empleado_id: int | None = None,
     jefe_directo_id: int | None = None,
+    responsable_id: int | None = None,
     estado: str | None = None,
+    condicion_temporal: str | None = None,
     search: str | None = None,
     cliente_id: int | None = None,
     motivo_id: int | None = None,
     sector_id: int | None = None,
+    sector_origen_id: int | None = None,
+    sector_responsable_id: int | None = None,
     sucursal_id: int | None = None,
     empleado_activo: int | None = None,
 ):
@@ -92,6 +126,9 @@ def _build_where(
     if jefe_directo_id:
         where.append("fb.jefe_directo_id = %s")
         params.append(int(jefe_directo_id))
+    if responsable_id:
+        where.append("fb.responsable_id = %s")
+        params.append(int(responsable_id))
     if cliente_id:
         where.append("fb.cliente_id = %s")
         params.append(int(cliente_id))
@@ -99,25 +136,40 @@ def _build_where(
         where.append("fb.motivo_id = %s")
         params.append(int(motivo_id))
     if sector_id:
-        where.append("fb.empleado_sector_id = %s")
+        where.append("fb.sector_origen_id = %s")
         params.append(int(sector_id))
+    if sector_origen_id:
+        where.append("fb.sector_origen_id = %s")
+        params.append(int(sector_origen_id))
+    if sector_responsable_id:
+        where.append("fb.sector_responsable_id = %s")
+        params.append(int(sector_responsable_id))
     if sucursal_id:
-        where.append("fb.empleado_sucursal_id = %s")
+        where.append("fb.sucursal_id = %s")
         params.append(int(sucursal_id))
     if empleado_activo in (0, 1):
         where.append("fb.empleado_activo = %s")
         params.append(int(empleado_activo))
     if estado:
         estado_norm = str(estado).strip().lower()
-        if estado_norm in {"pendiente", "en_proceso", "resuelto", "vencido"}:
+        if estado_norm in {"pendiente", "resuelto"}:
             where.append("fb.estado_actual = %s")
             params.append(estado_norm)
+        elif estado_norm == "vencido":
+            where.append("fb.condicion_temporal = %s")
+            params.append("pendiente_vencido")
+    if condicion_temporal:
+        condicion_norm = str(condicion_temporal).strip().lower()
+        if condicion_norm in {"pendiente_en_termino", "pendiente_vencido", "resuelto_en_termino", "resuelto_fuera_termino"}:
+            where.append("fb.condicion_temporal = %s")
+            params.append(condicion_norm)
     if search:
         clause, clause_params = build_tokenized_like_clause(
             [
                 "CAST(fb.id AS CHAR)",
                 "fb.estado",
                 "fb.estado_actual",
+                "fb.condicion_temporal",
                 "fb.cliente_razon_social",
                 "fb.cliente_nombre_fantasia",
                 "fb.cliente_codigo",
@@ -136,6 +188,9 @@ def _build_where(
                 "fb.jefe_directo_dni",
                 "fb.resuelto_por_nombre",
                 "fb.resuelto_por_legajo",
+                "fb.sector_origen_nombre",
+                "fb.sector_responsable_nombre",
+                "fb.responsable_nombre",
             ],
             search,
             max_terms=5,
@@ -206,11 +261,15 @@ def get_page(
     empresa_id: int | None = None,
     empleado_id: int | None = None,
     jefe_directo_id: int | None = None,
+    responsable_id: int | None = None,
     estado: str | None = None,
+    condicion_temporal: str | None = None,
     search: str | None = None,
     cliente_id: int | None = None,
     motivo_id: int | None = None,
     sector_id: int | None = None,
+    sector_origen_id: int | None = None,
+    sector_responsable_id: int | None = None,
     sucursal_id: int | None = None,
     empleado_activo: int | None = None,
 ):
@@ -218,11 +277,15 @@ def get_page(
         empresa_id=empresa_id,
         empleado_id=empleado_id,
         jefe_directo_id=jefe_directo_id,
+        responsable_id=responsable_id,
         estado=estado,
+        condicion_temporal=condicion_temporal,
         search=search,
         cliente_id=cliente_id,
         motivo_id=motivo_id,
         sector_id=sector_id,
+        sector_origen_id=sector_origen_id,
+        sector_responsable_id=sector_responsable_id,
         sucursal_id=sucursal_id,
         empleado_activo=empleado_activo,
     )
@@ -238,41 +301,67 @@ def create(data: dict):
             INSERT INTO feedbacks
             (
                 empresa_id,
+                numero,
                 empleado_id,
+                sector_origen_id,
+                sucursal_id,
                 jefe_directo_id,
                 cliente_id,
                 motivo_id,
+                sector_responsable_id,
+                responsable_id,
                 descripcion,
                 estado,
                 fecha_vencimiento,
+                fecha_limite,
                 cliente_codigo_snapshot,
                 cliente_razon_social_snapshot,
                 cliente_nombre_fantasia_snapshot,
                 cliente_tipo_snapshot,
                 motivo_nombre_snapshot,
-                jefe_directo_nombre_snapshot
+                jefe_directo_nombre_snapshot,
+                evidencia_filename,
+                evidencia_path,
+                evidencia_mime_type,
+                evidencia_size_bytes
             )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
             (
                 data.get("empresa_id"),
+                data.get("numero"),
                 data.get("empleado_id"),
+                data.get("sector_origen_id"),
+                data.get("sucursal_id"),
                 data.get("jefe_directo_id"),
                 data.get("cliente_id"),
                 data.get("motivo_id"),
+                data.get("sector_responsable_id"),
+                data.get("responsable_id"),
                 data.get("descripcion"),
                 data.get("estado") or "pendiente",
                 data.get("fecha_vencimiento"),
+                data.get("fecha_limite"),
                 data.get("cliente_codigo_snapshot"),
                 data.get("cliente_razon_social_snapshot"),
                 data.get("cliente_nombre_fantasia_snapshot"),
                 data.get("cliente_tipo_snapshot"),
                 data.get("motivo_nombre_snapshot"),
                 data.get("jefe_directo_nombre_snapshot"),
+                data.get("evidencia_filename"),
+                data.get("evidencia_path"),
+                data.get("evidencia_mime_type"),
+                data.get("evidencia_size_bytes"),
             ),
         )
         db.commit()
-        return cursor.lastrowid
+        feedback_id = cursor.lastrowid
+        cursor.execute(
+            "UPDATE feedbacks SET numero = COALESCE(numero, %s) WHERE id = %s",
+            (f"FB-{int(feedback_id):08d}", feedback_id),
+        )
+        db.commit()
+        return feedback_id
     finally:
         cursor.close()
         db.close()
@@ -316,7 +405,7 @@ def update_estado(
         db.close()
 
 
-def count_feedbacks(*, empresa_id: int | None = None, sector_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None) -> dict:
+def count_feedbacks(*, empresa_id: int | None = None, sector_id: int | None = None, sector_responsable_id: int | None = None, responsable_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None) -> dict:
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -326,10 +415,16 @@ def count_feedbacks(*, empresa_id: int | None = None, sector_id: int | None = No
             where.append("f.empresa_id = %s")
             params.append(int(empresa_id))
         if sector_id:
-            where.append("e.sector_id = %s")
+            where.append("COALESCE(f.sector_origen_id, e.sector_id) = %s")
             params.append(int(sector_id))
+        if sector_responsable_id:
+            where.append("COALESCE(f.sector_responsable_id, m.sector_id) = %s")
+            params.append(int(sector_responsable_id))
+        if responsable_id:
+            where.append("COALESCE(f.responsable_id, f.jefe_directo_id) = %s")
+            params.append(int(responsable_id))
         if sucursal_id:
-            where.append("e.sucursal_id = %s")
+            where.append("COALESCE(f.sucursal_id, e.sucursal_id) = %s")
             params.append(int(sucursal_id))
         if empleado_activo in (0, 1):
             where.append("e.activo = %s")
@@ -340,16 +435,17 @@ def count_feedbacks(*, empresa_id: int | None = None, sector_id: int | None = No
             SELECT
                 COUNT(*) AS total,
                 SUM(CASE WHEN f.estado = 'resuelto' THEN 1 ELSE 0 END) AS resueltos,
-                SUM(CASE WHEN f.estado = 'pendiente' AND CURDATE() <= f.fecha_vencimiento THEN 1 ELSE 0 END) AS pendientes,
-                SUM(CASE WHEN f.estado = 'en_proceso' AND CURDATE() <= f.fecha_vencimiento THEN 1 ELSE 0 END) AS en_proceso,
-                SUM(CASE WHEN f.estado IN ('pendiente', 'en_proceso') AND CURDATE() > f.fecha_vencimiento THEN 1 ELSE 0 END) AS vencidos,
-                SUM(CASE WHEN f.estado = 'resuelto' AND COALESCE(f.resuelto_en_sla, 0) = 1 THEN 1 ELSE 0 END) AS resueltos_en_sla,
-                SUM(CASE WHEN f.estado = 'resuelto' AND COALESCE(f.resuelto_en_sla, 0) = 0 THEN 1 ELSE 0 END) AS resueltos_fuera_sla,
+                SUM(CASE WHEN f.estado <> 'resuelto' AND NOW() <= COALESCE(f.fecha_limite, TIMESTAMP(f.fecha_vencimiento, '23:59:59')) THEN 1 ELSE 0 END) AS pendientes,
+                0 AS en_proceso,
+                SUM(CASE WHEN f.estado <> 'resuelto' AND NOW() > COALESCE(f.fecha_limite, TIMESTAMP(f.fecha_vencimiento, '23:59:59')) THEN 1 ELSE 0 END) AS vencidos,
+                SUM(CASE WHEN f.estado = 'resuelto' AND f.resuelto_at <= COALESCE(f.fecha_limite, TIMESTAMP(f.fecha_vencimiento, '23:59:59')) THEN 1 ELSE 0 END) AS resueltos_en_sla,
+                SUM(CASE WHEN f.estado = 'resuelto' AND f.resuelto_at > COALESCE(f.fecha_limite, TIMESTAMP(f.fecha_vencimiento, '23:59:59')) THEN 1 ELSE 0 END) AS resueltos_fuera_sla,
                 COUNT(DISTINCT f.motivo_id) AS motivos_distintos,
                 COUNT(DISTINCT f.cliente_id) AS clientes_distintos,
                 COUNT(DISTINCT f.empleado_id) AS empleados_con_carga
             FROM feedbacks f
             JOIN empleados e ON e.id = f.empleado_id
+            LEFT JOIN feedback_motivos m ON m.id = f.motivo_id
             {where_sql}
             """,
             tuple(params),
@@ -372,7 +468,7 @@ def count_feedbacks(*, empresa_id: int | None = None, sector_id: int | None = No
         db.close()
 
 
-def get_top_motivos(*, empresa_id: int | None = None, sector_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None, limit: int = 5):
+def get_top_motivos(*, empresa_id: int | None = None, sector_id: int | None = None, sector_responsable_id: int | None = None, responsable_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None, limit: int = 5):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -382,10 +478,16 @@ def get_top_motivos(*, empresa_id: int | None = None, sector_id: int | None = No
             where.append("f.empresa_id = %s")
             params.append(int(empresa_id))
         if sector_id:
-            where.append("e.sector_id = %s")
+            where.append("COALESCE(f.sector_origen_id, e.sector_id) = %s")
             params.append(int(sector_id))
+        if sector_responsable_id:
+            where.append("COALESCE(f.sector_responsable_id, m.sector_id) = %s")
+            params.append(int(sector_responsable_id))
+        if responsable_id:
+            where.append("COALESCE(f.responsable_id, f.jefe_directo_id) = %s")
+            params.append(int(responsable_id))
         if sucursal_id:
-            where.append("e.sucursal_id = %s")
+            where.append("COALESCE(f.sucursal_id, e.sucursal_id) = %s")
             params.append(int(sucursal_id))
         if empleado_activo in (0, 1):
             where.append("e.activo = %s")
@@ -414,7 +516,7 @@ def get_top_motivos(*, empresa_id: int | None = None, sector_id: int | None = No
         db.close()
 
 
-def get_ranking_carga(*, empresa_id: int | None = None, sector_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None, limit: int | None = 10):
+def get_ranking_carga(*, empresa_id: int | None = None, sector_id: int | None = None, sector_responsable_id: int | None = None, responsable_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None, limit: int | None = 10):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -438,6 +540,12 @@ def get_ranking_carga(*, empresa_id: int | None = None, sector_id: int | None = 
         if empresa_id:
             join_filter = "AND f.empresa_id = %s"
             join_params.append(int(empresa_id))
+        if sector_responsable_id:
+            join_filter += " AND f.sector_responsable_id = %s"
+            join_params.append(int(sector_responsable_id))
+        if responsable_id:
+            join_filter += " AND COALESCE(f.responsable_id, f.jefe_directo_id) = %s"
+            join_params.append(int(responsable_id))
 
         cursor.execute(
             f"""
@@ -468,7 +576,15 @@ def get_ranking_carga(*, empresa_id: int | None = None, sector_id: int | None = 
         db.close()
 
 
-def count_active_empleados(*, empresa_id: int | None = None, sector_id: int | None = None, sucursal_id: int | None = None, empleado_activo: int | None = None) -> int:
+def count_active_empleados(
+    *,
+    empresa_id: int | None = None,
+    sector_id: int | None = None,
+    sector_responsable_id: int | None = None,
+    responsable_id: int | None = None,
+    sucursal_id: int | None = None,
+    empleado_activo: int | None = None,
+) -> int:
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -480,6 +596,12 @@ def count_active_empleados(*, empresa_id: int | None = None, sector_id: int | No
         if sector_id:
             where.append("sector_id = %s")
             params.append(int(sector_id))
+        elif sector_responsable_id:
+            where.append("sector_id = %s")
+            params.append(int(sector_responsable_id))
+        if responsable_id:
+            where.append("id = %s")
+            params.append(int(responsable_id))
         if sucursal_id:
             where.append("sucursal_id = %s")
             params.append(int(sucursal_id))

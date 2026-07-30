@@ -1,18 +1,43 @@
 from extensions import get_db
 
 
-def get_tipos_evento(include_inactive: bool = False):
+def _column_exists(cursor, table: str, column: str) -> bool:
+    cursor.execute(
+        """
+        SELECT 1
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = %s
+          AND COLUMN_NAME = %s
+        LIMIT 1
+        """,
+        (table, column),
+    )
+    return cursor.fetchone() is not None
+
+
+def get_tipos_evento(include_inactive: bool = False, habilitado_mobile: int | None = None):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
-        where_sql = "" if include_inactive else "WHERE activo = 1"
+        has_habilitado_mobile = _column_exists(cursor, "legajo_tipos_evento", "habilitado_mobile")
+        where = []
+        params = []
+        if not include_inactive:
+            where.append("activo = 1")
+        if has_habilitado_mobile and habilitado_mobile in (0, 1):
+            where.append("habilitado_mobile = %s")
+            params.append(int(habilitado_mobile))
+        mobile_select = "habilitado_mobile" if has_habilitado_mobile else "0 AS habilitado_mobile"
+        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         cursor.execute(
             f"""
-            SELECT id, codigo, nombre, requiere_rango_fechas, permite_adjuntos, activo
+            SELECT id, codigo, nombre, requiere_rango_fechas, permite_adjuntos, activo, {mobile_select}
             FROM legajo_tipos_evento
             {where_sql}
             ORDER BY nombre
-            """
+            """,
+            tuple(params),
         )
         return cursor.fetchall()
     finally:
@@ -24,9 +49,11 @@ def get_tipo_evento_by_id(tipo_id: int):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
+        has_habilitado_mobile = _column_exists(cursor, "legajo_tipos_evento", "habilitado_mobile")
+        mobile_select = "habilitado_mobile" if has_habilitado_mobile else "0 AS habilitado_mobile"
         cursor.execute(
-            """
-            SELECT id, codigo, nombre, requiere_rango_fechas, permite_adjuntos, activo
+            f"""
+            SELECT id, codigo, nombre, requiere_rango_fechas, permite_adjuntos, activo, {mobile_select}
             FROM legajo_tipos_evento
             WHERE id = %s
             """,
@@ -66,9 +93,11 @@ def get_tipos_evento_page(
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
+        has_habilitado_mobile = _column_exists(cursor, "legajo_tipos_evento", "habilitado_mobile")
         offset = max(0, (int(page) - 1) * int(per_page))
         where = []
         params = []
+        mobile_select = "habilitado_mobile" if has_habilitado_mobile else "0 AS habilitado_mobile"
 
         if search:
             where.append("(codigo LIKE %s OR nombre LIKE %s)")
@@ -88,6 +117,7 @@ def get_tipos_evento_page(
                 nombre,
                 requiere_rango_fechas,
                 permite_adjuntos,
+                {mobile_select},
                 activo
             FROM legajo_tipos_evento
             {where_sql}
@@ -135,25 +165,29 @@ def create_tipo_evento(data: dict):
     db = get_db()
     cursor = db.cursor()
     try:
+        has_habilitado_mobile = _column_exists(cursor, "legajo_tipos_evento", "habilitado_mobile")
+        columns = ["codigo", "nombre", "requiere_rango_fechas", "permite_adjuntos"]
+        placeholders = ["%s", "%s", "%s", "%s"]
+        values = [
+            data.get("codigo"),
+            data.get("nombre"),
+            1 if data.get("requiere_rango_fechas") else 0,
+            1 if data.get("permite_adjuntos") else 0,
+        ]
+        if has_habilitado_mobile:
+            columns.append("habilitado_mobile")
+            placeholders.append("%s")
+            values.append(1 if data.get("habilitado_mobile") else 0)
+        columns.append("activo")
+        placeholders.append("%s")
+        values.append(1 if data.get("activo") else 0)
         cursor.execute(
-            """
+            f"""
             INSERT INTO legajo_tipos_evento
-            (
-                codigo,
-                nombre,
-                requiere_rango_fechas,
-                permite_adjuntos,
-                activo
-            )
-            VALUES (%s,%s,%s,%s,%s)
+            ({", ".join(columns)})
+            VALUES ({", ".join(placeholders)})
             """,
-            (
-                data.get("codigo"),
-                data.get("nombre"),
-                1 if data.get("requiere_rango_fechas") else 0,
-                1 if data.get("permite_adjuntos") else 0,
-                1 if data.get("activo") else 0,
-            ),
+            tuple(values),
         )
         db.commit()
         return cursor.lastrowid
@@ -166,25 +200,31 @@ def update_tipo_evento(tipo_id: int, data: dict):
     db = get_db()
     cursor = db.cursor()
     try:
+        has_habilitado_mobile = _column_exists(cursor, "legajo_tipos_evento", "habilitado_mobile")
+        set_clauses = [
+            "codigo = %s",
+            "nombre = %s",
+            "requiere_rango_fechas = %s",
+            "permite_adjuntos = %s",
+        ]
+        values = [
+            data.get("codigo"),
+            data.get("nombre"),
+            1 if data.get("requiere_rango_fechas") else 0,
+            1 if data.get("permite_adjuntos") else 0,
+        ]
+        if has_habilitado_mobile:
+            set_clauses.append("habilitado_mobile = %s")
+            values.append(1 if data.get("habilitado_mobile") else 0)
+        set_clauses.append("activo = %s")
+        values.extend([1 if data.get("activo") else 0, tipo_id])
         cursor.execute(
-            """
+            f"""
             UPDATE legajo_tipos_evento
-            SET
-                codigo = %s,
-                nombre = %s,
-                requiere_rango_fechas = %s,
-                permite_adjuntos = %s,
-                activo = %s
+            SET {", ".join(set_clauses)}
             WHERE id = %s
             """,
-            (
-                data.get("codigo"),
-                data.get("nombre"),
-                1 if data.get("requiere_rango_fechas") else 0,
-                1 if data.get("permite_adjuntos") else 0,
-                1 if data.get("activo") else 0,
-                tipo_id,
-            ),
+            tuple(values),
         )
         db.commit()
         return cursor.rowcount > 0
@@ -404,6 +444,8 @@ def get_eventos_page(
     severidad: str | None = None,
     fecha_desde: str | None = None,
     fecha_hasta: str | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -414,10 +456,10 @@ def get_eventos_page(
 
         if search:
             where.append(
-                "(e.titulo LIKE %s OR e.descripcion LIKE %s OR emp.apellido LIKE %s OR emp.nombre LIKE %s OR emp.dni LIKE %s)"
+                "(e.titulo LIKE %s OR e.descripcion LIKE %s OR emp.apellido LIKE %s OR emp.nombre LIKE %s OR emp.dni LIKE %s OR emp.legajo LIKE %s)"
             )
             like = f"%{search}%"
-            params.extend([like, like, like, like, like])
+            params.extend([like, like, like, like, like, like])
         if empresa_id:
             where.append("e.empresa_id = %s")
             params.append(int(empresa_id))
@@ -439,6 +481,12 @@ def get_eventos_page(
         if fecha_hasta:
             where.append("e.fecha_evento <= %s")
             params.append(fecha_hasta)
+        if sucursal_id:
+            where.append("emp.sucursal_id = %s")
+            params.append(int(sucursal_id))
+        if sector_id:
+            where.append("emp.sector_id = %s")
+            params.append(int(sector_id))
 
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
@@ -467,6 +515,8 @@ def get_eventos_page(
                 emp.dni AS empleado_dni,
                 emp.foto AS empleado_foto,
                 em.razon_social AS empresa_nombre,
+                s.nombre AS sucursal_nombre,
+                sec.nombre AS sector_nombre,
                 (
                     SELECT COUNT(*)
                     FROM legajo_evento_adjuntos a
@@ -477,6 +527,8 @@ def get_eventos_page(
             JOIN legajo_tipos_evento t ON t.id = e.tipo_id
             JOIN empleados emp ON emp.id = e.empleado_id
             JOIN empresas em ON em.id = e.empresa_id
+            LEFT JOIN sucursales s ON s.id = emp.sucursal_id
+            LEFT JOIN sectores sec ON sec.id = emp.sector_id
             {where_sql}
             ORDER BY e.fecha_evento DESC, e.id DESC
             LIMIT %s OFFSET %s

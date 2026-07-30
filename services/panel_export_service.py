@@ -16,6 +16,7 @@ from repositories.empleado_repository import get_page_for_roles
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.feedback_cliente_repository import get_page as get_clientes_page
 from repositories.feedback_motivo_repository import get_page as get_motivos_page
+from repositories.feedback_repository import get_page as get_feedbacks_page
 from repositories.franco_repository import get_all as get_francos
 from repositories.justificacion_repository import get_page as get_justificaciones_page
 from repositories.legajo_evento_repository import get_eventos_page, get_tipos_evento_page
@@ -23,6 +24,7 @@ from repositories.localidad_repository import get_all as get_localidades
 from repositories.mobile_sesiones_repository import get_sesiones_page
 from repositories.organigrama_repository import get_organigrama
 from repositories.pedido_mercaderia_repository import get_export as get_pedidos_export
+from repositories.qr_puerta_repository import get_recent as get_qr_historial_recent
 from repositories.premio_concurso_repository import get_concursos_page
 from repositories.puesto_repository import get_page as get_puestos_page
 from repositories.rol_repository import get_page as get_roles_page
@@ -38,6 +40,7 @@ from repositories.horario_repository import get_all as get_horarios
 from repositories.asistencia_repository import get_page as get_asistencias_page
 from repositories.adelanto_repository import get_export as get_adelantos_export
 from repositories.trivia_repository import get_trivias_page
+from repositories.skap_repository import get_evaluaciones_page, get_planes_page
 from repositories.kpi_sectorial_repository import get_kpis_by_sector
 from services.horario_service import get_horarios_resumen
 from services.table_export_service import build_attachment_response, build_table_export, normalize_export_format
@@ -147,6 +150,20 @@ def _load_kpis_export() -> list[dict[str, Any]]:
     if not sector_id:
         return []
     return _all_rows(get_kpis_by_sector, sector_id)
+
+
+def _load_feedback_registros_export() -> list[dict[str, Any]]:
+    estado = _str_arg("estado")
+    if estado not in {None, "pendiente", "en_proceso", "resuelto", "vencido"}:
+        estado = None
+    return _page_rows(
+        get_feedbacks_page,
+        estado=estado,
+        search=_str_arg("q"),
+        sector_id=_int_arg("sector_id"),
+        sucursal_id=_int_arg("sucursal_id"),
+        empleado_activo=_tristate_arg("empleado_activo"),
+    )
 
 
 def _flatten_organigrama() -> list[dict[str, Any]]:
@@ -272,6 +289,8 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
             get_page_for_roles,
             _int_arg("empresa_id"),
             _str_arg("q"),
+            sucursal_id=_int_arg("sucursal_id"),
+            sector_id=_int_arg("sector_id"),
         ),
     ),
     "empleado_horarios.listado": ExportSpec(
@@ -288,6 +307,8 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
             _str_arg("fecha_desde"),
             _str_arg("fecha_hasta"),
             _str_arg("q"),
+            sucursal_id=_int_arg("sucursal_id"),
+            sector_id=_int_arg("sector_id"),
         ),
     ),
     "justificaciones.listado": ExportSpec(
@@ -300,6 +321,8 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
             _str_arg("fecha_hasta"),
             _str_arg("q"),
             (_str_arg("estado") or None),
+            sucursal_id=_int_arg("sucursal_id"),
+            sector_id=_int_arg("sector_id"),
         ),
     ),
     "auditoria.listado": ExportSpec(
@@ -355,17 +378,26 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
     "francos.listado": ExportSpec(
         title="Francos",
         filename_base="francos",
-        loader=lambda: _all_rows(get_francos),
+        loader=lambda: _all_rows(
+            get_francos,
+            sucursal_id=_int_arg("sucursal_id"),
+            sector_id=_int_arg("sector_id"),
+        ),
     ),
     "horarios.listado": ExportSpec(
         title="Horarios",
         filename_base="horarios",
-        loader=lambda: _all_rows(get_horarios_resumen, include_inactive=True),
+        loader=lambda: _all_rows(get_horarios_resumen, include_inactive=True, sucursal_id=_int_arg("sucursal_id")),
     ),
     "app_version.listado": ExportSpec(
         title="Versiones de app",
         filename_base="app_version",
         loader=lambda: _all_rows(get_app_versions),
+    ),
+    "feedback_web.registros_listado": ExportSpec(
+        title="Registros de feedback",
+        filename_base="feedback_registros",
+        loader=_load_feedback_registros_export,
     ),
     "feedback_web.motivos_listado": ExportSpec(
         title="Motivos de feedback",
@@ -407,6 +439,8 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
             platform=_str_arg("platform"),
             app_version=_str_arg("app_version"),
             empleado_q=_str_arg("q"),
+            sucursal_id=_int_arg("sucursal_id"),
+            sector_id=_int_arg("sector_id"),
         ),
     ),
     "empleado_excepciones.listado": ExportSpec(
@@ -420,6 +454,8 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
             tipo=_str_arg("tipo"),
             anula_horario=_tristate_arg("anula_horario"),
             order_by=_str_arg("orden") or "fecha_desc",
+            sucursal_id=_int_arg("sucursal_id"),
+            sector_id=_int_arg("sector_id"),
         ),
     ),
     "legajo_tipos_evento.listado": ExportSpec(
@@ -434,7 +470,12 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
     "legajos.listado_empleados": ExportSpec(
         title="Legajos de empleados",
         filename_base="legajos_empleados",
-        loader=lambda: _all_rows(get_empleados, include_inactive=True),
+        loader=lambda: _all_rows(
+            get_empleados,
+            include_inactive=True,
+            sucursal_id=_int_arg("sucursal_id"),
+            sector_id=_int_arg("sector_id"),
+        ),
     ),
     "legajos.listado_eventos": ExportSpec(
         title="Eventos de legajo",
@@ -446,6 +487,8 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
             empleado_id=_int_arg("empleado_id"),
             tipo_id=_int_arg("tipo_id"),
             estado=_parse_legajo_evento_estado(),
+            sucursal_id=_int_arg("sucursal_id"),
+            sector_id=_int_arg("sector_id"),
         ),
     ),
     "vacaciones.listado": ExportSpec(
@@ -489,6 +532,33 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
             get_trivias_page,
             estado=_str_arg("estado"),
             anio=_int_arg("anio"),
+        ),
+    ),
+    "qr_puerta.generar": ExportSpec(
+        title="Historial de QR de puerta",
+        filename_base="qr_puerta_historial",
+        loader=lambda: _all_rows(get_qr_historial_recent, limit=5000, empresa_id=_int_arg("empresa_id")),
+    ),
+    "skap_web.evaluaciones_listado": ExportSpec(
+        title="Evaluaciones SKAP",
+        filename_base="skap_evaluaciones",
+        loader=lambda: _page_rows(
+            get_evaluaciones_page,
+            anio=_int_arg("anio"),
+            sector_id=_int_arg("sector_id"),
+            sucursal_id=_int_arg("sucursal_id"),
+            search=_str_arg("q"),
+        ),
+    ),
+    "skap_web.planes_listado": ExportSpec(
+        title="Planes de desarrollo SKAP",
+        filename_base="skap_planes",
+        loader=lambda: _page_rows(
+            get_planes_page,
+            anio=_int_arg("anio"),
+            sector_id=_int_arg("sector_id"),
+            sucursal_id=_int_arg("sucursal_id"),
+            search=_str_arg("q"),
         ),
     ),
     "kpis_sectoriales.listado": ExportSpec(

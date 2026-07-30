@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Horarios{% endblock %}
 {% block content %}
 <div class="content-stack">
@@ -24,6 +25,19 @@
   <div class="toolbar">
     <a class="btn" href="/horarios/nuevo">Nuevo horario estructurado</a>
   </div>
+
+  <form method="get" action="{{ url_for('horarios.listado') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('horarios.listado') }}">Limpiar</a>
+    </div>
+  </form>
 
   <div class="results-bar">
     <div class="summary">Total: {{ horarios|length }} horario(s)</div>

@@ -7,7 +7,9 @@ def get_all(
     fecha_hasta: str | None = None,
     tipo: str | None = None,
     anula_horario: int | None = None,
-    order_by: str | None = None
+    order_by: str | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -29,6 +31,12 @@ def get_all(
         if anula_horario is not None:
             where.append("ex.anula_horario = %s")
             params.append(anula_horario)
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(sucursal_id)
+        if sector_id:
+            where.append("e.sector_id = %s")
+            params.append(sector_id)
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         order_sql = "ORDER BY ex.fecha DESC, e.apellido, e.nombre"
         if order_by == "fecha_asc":
@@ -38,10 +46,18 @@ def get_all(
         elif order_by == "empleado_desc":
             order_sql = "ORDER BY e.apellido DESC, e.nombre DESC, ex.fecha DESC"
         cursor.execute(f"""
-            SELECT ex.*, e.apellido, e.nombre, emp.razon_social AS empresa_nombre
+            SELECT
+                ex.*,
+                e.apellido,
+                e.nombre,
+                emp.razon_social AS empresa_nombre,
+                s.nombre AS sucursal_nombre,
+                sec.nombre AS sector_nombre
             FROM empleado_excepciones ex
             JOIN empleados e ON e.id = ex.empleado_id
             JOIN empresas emp ON emp.id = ex.empresa_id
+            LEFT JOIN sucursales s ON s.id = e.sucursal_id
+            LEFT JOIN sectores sec ON sec.id = e.sector_id
             {where_sql}
             {order_sql}
         """, params)

@@ -65,6 +65,7 @@
           <th>Usuario</th>
           <th>Empresa</th>
           <th>Rol</th>
+          <th>Empleado vinculado</th>
           <th>Estado</th>
           <th>Acciones</th>
         </tr>
@@ -74,6 +75,13 @@
           <td data-label="Usuario">{{ u.usuario }}</td>
           <td data-label="Empresa">{{ u.empresa_nombre or u.empresa_id }}</td>
           <td data-label="Rol">{{ u.rol }}</td>
+          <td data-label="Empleado vinculado">
+            {% if u.empleado_id %}
+              {{ u.empleado_apellido }} {{ u.empleado_nombre }}{% if u.empleado_legajo %} &middot; {{ u.empleado_legajo }}{% endif %}
+            {% else %}
+              <span class="helper-text">Sin vincular</span>
+            {% endif %}
+          </td>
           <td data-label="Estado">
             {% if u.activo %}
               <span class="badge activo">Activo</span>

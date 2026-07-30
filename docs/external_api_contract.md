@@ -1,17 +1,17 @@
 # Contrato API Externa v1
 
-Version de contrato: 1.1.0
-Fecha de corte: 2026-07-10
+Version de contrato: 1.3.1
+Fecha de corte: 2026-07-23
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`
 Prefijo: `/api/v1/external`
 
-Este documento fija el contrato para aplicaciones externas que necesiten consultar empresas, sucursales, empleados y reportes de asistencia.
+Este documento fija el contrato para aplicaciones externas que necesiten consultar empresas, sucursales, empleados, justificaciones, vacaciones y reportes de asistencia.
 Fuente tecnica: `routes/external_api_routes.py`.
 
 ## Autenticacion
 
-El mecanismo recomendado es iniciar sesion con el usuario tecnico y la contrasena entregados por la empresa. El login devuelve un Bearer token temporal.
+El mecanismo habilitado para nuevas integraciones es iniciar sesion con el usuario tecnico y la contrasena entregados por la empresa. El login devuelve un Bearer token temporal.
 
 ### Obtener token
 
@@ -71,7 +71,7 @@ Si `EXTERNAL_API_JWT_SECRET` no esta configurada, se usa `JWT_SECRET`. Se recomi
 
 ### API key anterior
 
-La API key estatica se mantiene por compatibilidad. No es necesaria para la integracion por usuario y contrasena.
+La API key estatica queda deshabilitada por defecto. Solo debe activarse para una integracion anterior que no pueda migrar a token temporal.
 
 Header recomendado:
 
@@ -88,6 +88,7 @@ Authorization: Bearer <EXTERNAL_API_KEY>
 La API key se configura en el backend:
 
 ```env
+EXTERNAL_API_ALLOW_STATIC_KEY=1
 EXTERNAL_API_KEY=clave_larga_y_segura
 ```
 
@@ -98,13 +99,11 @@ de entorno en Railway, en el servicio del backend:
 EXTERNAL_API_KEY=<clave_larga_y_segura>
 ```
 
-La misma clave se comparte con la app externa por un canal seguro y esa app debe
-guardarla como secreto de entorno. No enviar la clave por query string, no
-exponerla en frontend publico y no subirla al repositorio.
+No usar este mecanismo para integraciones nuevas.
 
 ## Respuestas de error
 
-### 401 API key ausente o invalida
+### 401 credencial ausente o invalida
 
 ```json
 {
@@ -122,11 +121,11 @@ El mismo `401` se devuelve si el Bearer token es invalido o esta vencido.
 }
 ```
 
-### 503 API key no configurada en backend
+### 503 autenticacion externa no configurada en backend
 
 ```json
 {
-  "error": "EXTERNAL_API_KEY no configurada."
+  "error": "EXTERNAL_API_KEY o credenciales de API externa no configuradas."
 }
 ```
 
@@ -182,14 +181,14 @@ Notas:
 
 ```http
 GET /api/v1/external/catalogo?sucursal=Dolores&tipo_empleado=choferes,ayudantes&estado=activo&per_page=500
-X-API-Key: <EXTERNAL_API_KEY>
+Authorization: Bearer <TOKEN_JWT>
 ```
 
 #### Ejemplo Casa Central
 
 ```http
 GET /api/v1/external/catalogo?sucursal=Casa%20Central&tipo_empleado=choferes,ayudantes&estado=activo&per_page=500
-X-API-Key: <EXTERNAL_API_KEY>
+Authorization: Bearer <TOKEN_JWT>
 ```
 
 #### Response 200
@@ -339,7 +338,7 @@ Lista empleados. Usa los mismos filtros de empleados que `/catalogo`.
 
 ```http
 GET /api/v1/external/empleados?sucursal=Dolores&tipo_empleado=choferes,ayudantes&estado=activo&per_page=500
-X-API-Key: <EXTERNAL_API_KEY>
+Authorization: Bearer <TOKEN_JWT>
 ```
 
 #### Response 200
@@ -389,7 +388,132 @@ X-API-Key: <EXTERNAL_API_KEY>
 }
 ```
 
-### 5. `GET /api/v1/external/reportes/asistencia.csv`
+### 5. `GET /api/v1/external/justificaciones`
+
+Lista justificaciones en formato JSON, sólo lectura.
+
+#### Query params
+
+| Parametro | Tipo | Default | Descripcion |
+|---|---:|---:|---|
+| `empresa_id` | int | - | Filtra por empresa del empleado. |
+| `empleado_id` | int | - | Filtra por empleado. |
+| `sucursal_id` | int | - | Filtra por sucursal del empleado. |
+| `sector_id` | int | - | Filtra por sector del empleado. |
+| `fecha_desde` | date | - | Incluye justificaciones cuyo rango termina en o despues de esta fecha. |
+| `fecha_hasta` | date | - | Incluye justificaciones cuyo rango empieza en o antes de esta fecha. |
+| `estado` | string/all | - | `pendiente`, `aprobada`, `rechazada` o `all`. |
+| `q` | string | - | Busca por apellido, nombre, DNI, legajo o motivo. |
+| `page` | int | `1` | Pagina. |
+| `per_page` | int | `100` | Filas por pagina. Maximo `500`. |
+| `per` | int | - | Alias de `per_page`. |
+| `limit` | int | - | Alias de `per_page`. |
+
+#### Response 200
+
+```json
+{
+  "data": [
+    {
+      "id": 5,
+      "empleado_id": 10,
+      "empresa_id": 1,
+      "empresa_nombre": "Empresa SA",
+      "sucursal_id": 2,
+      "sucursal_nombre": "Dolores",
+      "sector_id": 3,
+      "sector_nombre": "Operaciones",
+      "legajo": "L001",
+      "dni": "30123456",
+      "apellido": "Perez",
+      "nombre": "Juan",
+      "asistencia_id": 99,
+      "asistencia_fecha": "2026-07-01",
+      "fecha": "2026-07-01",
+      "fecha_desde": "2026-07-01",
+      "fecha_hasta": "2026-07-02",
+      "motivo": "Certificado medico",
+      "archivo": null,
+      "estado": "aprobada",
+      "resuelto_by_usuario_id": 99,
+      "resuelto_by_usuario": "rrhh",
+      "resuelto_at": "2026-07-03T12:00:00",
+      "comentario_resolucion": "Certificado validado.",
+      "motivo_rechazo": null,
+      "notificado_empleado_at": "2026-07-03T12:00:00",
+      "visto_por_empleado_at": null,
+      "created_at": "2026-07-03T10:30:00",
+      "adjuntos_count": 1
+    }
+  ],
+  "pagination": {"page": 1, "per_page": 100, "total": 1, "pages": 1}
+}
+```
+
+### 6. `GET /api/v1/external/vacaciones/movimientos`
+
+Lista movimientos de vacaciones en formato JSON, sólo lectura.
+
+#### Query params
+
+| Parametro | Tipo | Default | Descripcion |
+|---|---:|---:|---|
+| `empresa_id` | int | - | Filtra por empresa. |
+| `empleado_id` | int | - | Filtra por empleado. |
+| `sucursal_id` | int | - | Filtra por sucursal del empleado. |
+| `sector_id` | int | - | Filtra por sector del empleado. |
+| `anio` | int | - | Filtra por año del movimiento. |
+| `mes` | int | - | Filtra por mes calendario. Requiere `anio`. |
+| `fecha_desde` | date | - | Incluye movimientos cuyo rango termina en o despues de esta fecha. |
+| `fecha_hasta` | date | - | Incluye movimientos cuyo rango empieza en o antes de esta fecha. |
+| `estado` | string/all | - | `pendiente`, `aprobado`, `rechazado`, `cancelado` o `all`. |
+| `tipo` | string/all | - | `tomado`, `compensatorio`, `ajuste` o `all`. |
+| `q` | string | - | Busca por apellido, nombre, DNI, legajo u observacion. |
+| `page` | int | `1` | Pagina. |
+| `per_page` | int | `100` | Filas por pagina. Maximo `500`. |
+| `per` | int | - | Alias de `per_page`. |
+| `limit` | int | - | Alias de `per_page`. |
+
+#### Response 200
+
+```json
+{
+  "data": [
+    {
+      "id": 9,
+      "empleado_id": 10,
+      "empresa_id": 1,
+      "empresa_nombre": "Empresa SA",
+      "sucursal_id": 2,
+      "sucursal_nombre": "Dolores",
+      "sector_id": 3,
+      "sector_nombre": "Operaciones",
+      "legajo": "L001",
+      "dni": "30123456",
+      "apellido": "Perez",
+      "nombre": "Juan",
+      "anio": 2026,
+      "tipo": "tomado",
+      "dias": 5,
+      "observacion": "Vacaciones",
+      "fecha_desde": "2026-01-10",
+      "fecha_hasta": "2026-01-14",
+      "estado": "aprobado",
+      "motivo_resolucion": null,
+      "resuelto_by": 99,
+      "resuelto_by_nombre": "Admin RRHH",
+      "resuelto_at": "2026-01-02T12:00:00",
+      "origen_movimiento_id": null,
+      "revertido_por_movimiento_id": null,
+      "created_at": "2026-01-01T09:00:00",
+      "updated_at": "2026-01-02T12:00:00"
+    }
+  ],
+  "pagination": {"page": 1, "per_page": 100, "total": 1, "pages": 1}
+}
+```
+
+### 7. `GET /api/v1/external/reportes/asistencia.csv`
 
 Descarga el reporte de fichadas en CSV, ordenado por fecha y hora ascendente, con el mismo formato que el boton `Reporte CSV` del panel.
 
@@ -441,16 +565,22 @@ curl -H "Authorization: Bearer <TOKEN_JWT>" \
   "https://control-asistencia.up.railway.app/api/v1/external/reportes/asistencia.csv?fecha_desde=2026-06-01&fecha_hasta=2026-06-30"
 ```
 
-### API key anterior con curl
-
-```bash
-curl -H "X-API-Key: <EXTERNAL_API_KEY>" \
-  "https://control-asistencia.up.railway.app/api/v1/external/catalogo?sucursal=Dolores&tipo_empleado=choferes,ayudantes&estado=activo&per_page=500"
-```
-
 ### JavaScript / Fetch
 
 ```js
+const loginRes = await fetch("https://control-asistencia.up.railway.app/api/v1/external/auth/token", {
+  method: "POST",
+  headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({
+    username: process.env.EXTERNAL_API_USERNAME,
+    password: process.env.EXTERNAL_API_PASSWORD,
+  }),
+});
+if (!loginRes.ok) {
+  throw new Error(`Login API externa error ${loginRes.status}: ${await loginRes.text()}`);
+}
+const {access_token} = await loginRes.json();
+
 const url = new URL("https://control-asistencia.up.railway.app/api/v1/external/catalogo");
 url.searchParams.set("sucursal", "Dolores");
 url.searchParams.set("tipo_empleado", "choferes,ayudantes");
@@ -459,7 +589,7 @@ url.searchParams.set("per_page", "500");
 
 const res = await fetch(url, {
   headers: {
-    "X-API-Key": "<EXTERNAL_API_KEY>"
+    "Authorization": `Bearer ${access_token}`
   }
 });
 
@@ -478,9 +608,20 @@ console.log(data.empleados);
 ```python
 import requests
 
+login = requests.post(
+    "https://control-asistencia.up.railway.app/api/v1/external/auth/token",
+    json={
+        "username": "<USUARIO_TECNICO>",
+        "password": "<CONTRASENA>",
+    },
+    timeout=30,
+)
+login.raise_for_status()
+token = login.json()["access_token"]
+
 res = requests.get(
     "https://control-asistencia.up.railway.app/api/v1/external/catalogo",
-    headers={"X-API-Key": "<EXTERNAL_API_KEY>"},
+    headers={"Authorization": f"Bearer {token}"},
     params={
         "sucursal": "Dolores",
         "tipo_empleado": "choferes,ayudantes",
@@ -496,11 +637,12 @@ data = res.json()
 ## Reglas operativas
 
 - Solo usar HTTPS en produccion.
-- Guardar usuario, contrasena, token o API key como secretos de entorno en la app externa.
+- Guardar usuario, contrasena y token como secretos de entorno en la app externa.
 - No exponer credenciales en frontend publico, URL, logs ni repositorios.
 - Renovar el token al recibir `401`; el valor default vence a los 60 minutos.
 - Paginacion: si `empleados_pagination.pages` es mayor a `1`, pedir las paginas siguientes con `page=2`, `page=3`, etc.
 - El contrato es solo lectura. No crea, edita ni elimina registros.
+- No configurar `EXTERNAL_API_ALLOW_STATIC_KEY` ni `EXTERNAL_API_KEY` para integraciones nuevas.
 
 ## Paquete para entregar al integrador
 

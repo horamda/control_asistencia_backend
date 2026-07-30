@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Justificaciones{% endblock %}
 {% block content %}
 <div class="content-stack">
@@ -43,6 +44,14 @@
         </select>
       </div>
       <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        {{ filtros.sector_select(sectores, sector_id) }}
+      </div>
+      <div class="row">
         <label>Desde</label>
         <input name="fecha_desde" type="date" value="{{ fecha_desde or '' }}">
       </div>
@@ -72,10 +81,13 @@
         <thead>
           <tr>
             <th>Empresa</th>
+            <th>Sucursal</th>
+            <th>Sector</th>
             <th>Empleado</th>
             <th>Periodo</th>
             <th>Adjuntos</th>
             <th>Estado</th>
+            <th>Resolucion</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -83,6 +95,8 @@
           {% for j in justificaciones %}
           <tr>
             <td data-label="Empresa">{{ j.empresa_nombre or "-" }}</td>
+            <td data-label="Sucursal">{{ j.sucursal_nombre or "-" }}</td>
+            <td data-label="Sector">{{ j.sector_nombre or "-" }}</td>
             <td data-label="Empleado">{{ j.apellido }} {{ j.nombre }}</td>
             {% set fecha_inicio = j.fecha_desde or j.fecha or j.asistencia_fecha %}
             {% set fecha_fin = j.fecha_hasta or j.fecha or j.asistencia_fecha %}
@@ -126,6 +140,21 @@
                 <span class="badge">{{ j.estado or "-" }}</span>
               {% endif %}
             </td>
+            <td data-label="Resolucion">
+              {% if j.resuelto_at %}
+                <div>{{ j.resuelto_at }}</div>
+                {% if j.resuelto_by_usuario %}
+                  <div class="helper-text">{{ j.resuelto_by_usuario }}</div>
+                {% endif %}
+                {% if j.motivo_rechazo %}
+                  <div class="helper-text">Rechazo: {{ j.motivo_rechazo }}</div>
+                {% elif j.comentario_resolucion %}
+                  <div class="helper-text">{{ j.comentario_resolucion }}</div>
+                {% endif %}
+              {% else %}
+                -
+              {% endif %}
+            </td>
             <td data-label="Acciones">
               <div class="inline-actions">
                 <a class="btn btn-secondary" href="/justificaciones/editar/{{ j.id }}">Editar</a>
@@ -133,10 +162,12 @@
                 {% if (j.estado or "") == "pendiente" %}
                   <form method="post" action="/justificaciones/aprobar/{{ j.id }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="comentario_resolucion" value="">
                     <button class="btn" type="submit">Aprobar</button>
                   </form>
-                  <form method="post" action="/justificaciones/rechazar/{{ j.id }}">
+                  <form method="post" action="/justificaciones/rechazar/{{ j.id }}" class="inline-actions">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input name="motivo_rechazo" placeholder="Motivo rechazo" required style="min-width: 160px;">
                     <button class="btn-danger" type="submit">Rechazar</button>
                   </form>
                 {% else %}
@@ -163,10 +194,10 @@
 
   <div class="pager">
     {% if page > 1 %}
-      <a class="btn btn-secondary" href="/justificaciones/?page={{ page - 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}&estado={{ estado or '' }}">Anterior</a>
+      <a class="btn btn-secondary" href="/justificaciones/?page={{ page - 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&sucursal_id={{ sucursal_id or '' }}&sector_id={{ sector_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}&estado={{ estado or '' }}">Anterior</a>
     {% endif %}
     {% if page * per_page < total %}
-      <a class="btn btn-secondary" href="/justificaciones/?page={{ page + 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}&estado={{ estado or '' }}">Siguiente</a>
+      <a class="btn btn-secondary" href="/justificaciones/?page={{ page + 1 }}&per={{ per_page }}&empleado_id={{ empleado_id or '' }}&sucursal_id={{ sucursal_id or '' }}&sector_id={{ sector_id or '' }}&fecha_desde={{ fecha_desde or '' }}&fecha_hasta={{ fecha_hasta or '' }}&q={{ q or '' }}&estado={{ estado or '' }}">Siguiente</a>
     {% endif %}
     <span class="summary">P&aacute;gina {{ page }}</span>
   </div>

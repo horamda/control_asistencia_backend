@@ -57,6 +57,7 @@ def _extract_form_data(form):
         "sector": (form.get("sector") or "").strip(),
         "fecha_ingreso": (form.get("fecha_ingreso") or "").strip(),
         "estado": (form.get("estado") or "activo").strip() or "activo",
+        "requiere_control_asistencia": 1 if _is_checked(form.get("requiere_control_asistencia")) else 0,
         "foto": None,
         # Nuevos campos
         "cuil": (form.get("cuil") or "").strip(),
@@ -212,6 +213,8 @@ def listado():
         per_page = 20
     search = request.args.get("q")
     empresa_id = request.args.get("empresa_id", type=int)
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
     activo_raw = str(request.args.get("activo") or "all").strip().lower()
     if activo_raw == "1":
         activo = 1
@@ -227,6 +230,8 @@ def listado():
         search=search,
         empresa_id=empresa_id,
         activo=activo,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
     )
     anio_vacaciones = datetime.date.today().year
     for empleado in empleados:
@@ -238,14 +243,22 @@ def listado():
         per=per_page,
         q=search or None,
         empresa_id=empresa_id,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
         activo=(activo_raw if activo_raw != "all" else None),
     )
     empresas = get_empresas(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
     return render_template(
         "empleados/listado.html",
         empleados=empleados,
         empresas=empresas,
         empresa_id=empresa_id,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
+        sectores=sectores,
+        sector_id=sector_id,
         q=search,
         page=page,
         per_page=per_page,
@@ -436,6 +449,8 @@ def desactivar(emp_id):
 @role_required("admin", "rrhh")
 def exportar():
     empresa_id = request.args.get("empresa_id", type=int) or None
+    sucursal_id = request.args.get("sucursal_id", type=int) or None
+    sector_id = request.args.get("sector_id", type=int) or None
     activo_raw = str(request.args.get("activo") or "all").strip().lower()
     if activo_raw == "1":
         activo = 1
@@ -445,7 +460,12 @@ def exportar():
         activo = None
 
     try:
-        excel_bytes = exportar_empleados_excel(empresa_id=empresa_id, activo=activo)
+        excel_bytes = exportar_empleados_excel(
+            empresa_id=empresa_id,
+            activo=activo,
+            sucursal_id=sucursal_id,
+            sector_id=sector_id,
+        )
     except Exception as exc:
         current_app.logger.exception("exportar_empleados_error")
         return Response(f"Error al generar la exportacion: {exc}", status=500, mimetype="text/plain")

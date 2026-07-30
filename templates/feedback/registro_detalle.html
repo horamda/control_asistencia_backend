@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Feedback #{{ item.id }}{% endblock %}
+{% block content %}
+<div class="content-stack feedback-admin feedback-detail">
+  <section class="panel">
+    {% set estado = item.estado_actual or "pendiente" %}
+    <div class="section-kicker">Feedback</div>
+    <div class="section-head">
+      <div>
+        <h2>Feedback #{{ item.id }}</h2>
+        <p class="helper-text">Detalle del caso y respuesta del jefe responsable.</p>
+      </div>
+      <div class="actions">
+        {% if estado != "resuelto" and puede_responder %}
+          <a class="btn feedback-answer-btn" href="#respuesta">Responder ahora</a>
+        {% endif %}
+        <a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado') }}">Volver a registros</a>
+      </div>
+    </div>
+
+    {% if msg %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
+    {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+    <div class="grid-kpis dashboard-kpis">
+      <article class="kpi-card feedback-detail-card">
+        <div class="kpi-label">Estado</div>
+        <div><span class="badge {% if estado == 'resuelto' %}ok{% elif estado == 'vencido' %}danger{% elif estado != 'en_proceso' %}warning{% endif %}">{{ estado|replace("_", " ")|title }}</span></div>
+        <div class="kpi-desc">{{ (item.condicion_temporal or "")|replace("_", " ")|title }}. Vence: {{ item.fecha_limite or item.fecha_vencimiento or "-" }}</div>
+      </article>
+      <article class="kpi-card feedback-detail-card">
+        <div class="kpi-label">Empleado</div>
+        <div class="kpi-value" style="font-size:1rem;">{{ item.empleado.nombre or "-" }}</div>
+        <div class="kpi-desc">{{ item.sector_origen.nombre or item.empleado.sector_nombre or "Sin sector" }} - {{ item.sucursal.nombre or item.empleado.sucursal_nombre or "Sin sucursal" }}</div>
+      </article>
+      <article class="kpi-card feedback-detail-card">
+        <div class="kpi-label">Responsable</div>
+        <div class="kpi-value" style="font-size:1rem;">{{ item.responsable.nombre or "Sin responsable asignado" }}</div>
+        <div class="kpi-desc">{{ item.sector_responsable.nombre or "Sin sector responsable" }} - {{ item.responsable.legajo or "Sin legajo" }}</div>
+      </article>
+      <article class="kpi-card feedback-detail-card">
+        <div class="kpi-label">Cliente</div>
+        <div class="kpi-value" style="font-size:1rem;">{{ item.cliente.nombre_fantasia or item.cliente.razon_social or "-" }}</div>
+        <div class="kpi-desc">{{ item.cliente.codigo or "-" }}</div>
+      </article>
+    </div>
+  </section>
+
+  {% if estado != "resuelto" and puede_responder %}
+    <section class="feedback-response-callout" aria-label="Respuesta pendiente">
+      <div>
+        <div class="section-kicker">Accion requerida</div>
+        <h3>Este feedback espera respuesta</h3>
+        <p>La respuesta cierra el caso y queda visible para el empleado en la app.</p>
+      </div>
+      <a class="btn feedback-answer-btn" href="#respuesta">Cargar respuesta</a>
+    </section>
+  {% endif %}
+
+  <section class="panel-grid">
+    <article class="panel">
+      <h3 class="section-title">Carga original</h3>
+      <dl class="detail-list">
+        <dt>Motivo</dt>
+        <dd>{{ item.motivo.nombre or "-" }}</dd>
+        <dt>Descripcion</dt>
+        <dd>{{ item.descripcion or "-" }}</dd>
+        <dt>Fecha de carga</dt>
+        <dd>{{ item.created_at or "-" }}</dd>
+        <dt>Evidencia</dt>
+        <dd>
+          {% if item.evidencia %}
+            <a href="{{ item.evidencia.url }}" target="_blank" rel="noopener">Ver evidencia</a>
+          {% else %}
+            Sin evidencia
+          {% endif %}
+        </dd>
+      </dl>
+    </article>
+
+    <article class="panel">
+      <h3 class="section-title">Respuesta</h3>
+      {% if item.resolucion_descripcion %}
+        <dl class="detail-list">
+          <dt>Respuesta cargada</dt>
+          <dd>{{ item.resolucion_descripcion }}</dd>
+          <dt>Respondido por</dt>
+          <dd>{{ item.resuelto_por.nombre if item.resuelto_por else "-" }}</dd>
+          <dt>Fecha de respuesta</dt>
+          <dd>{{ item.resuelto_at or "-" }}</dd>
+          <dt>SLA</dt>
+          <dd>
+            {% if item.resuelto_en_sla is sameas true %}
+              <span class="badge ok">En SLA</span>
+            {% elif item.resuelto_en_sla is sameas false %}
+              <span class="badge danger">Fuera de SLA</span>
+            {% else %}
+              -
+            {% endif %}
+          </dd>
+        </dl>
+      {% else %}
+        <p class="helper-text">Todavia no hay respuesta registrada.</p>
+      {% endif %}
+    </article>
+  </section>
+
+  {% if estado != "resuelto" and puede_responder %}
+    <section class="panel" id="respuesta">
+      <h3 class="section-title">Cargar respuesta del jefe</h3>
+      <p class="helper-text">La respuesta cierra el feedback y queda visible para el empleado en la app.</p>
+      <form method="post" action="{{ url_for('feedback_web.registro_resolver', feedback_id=item.id) }}" class="form-card feedback-response-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="resolucion_descripcion">Respuesta</label>
+        <textarea id="resolucion_descripcion" name="resolucion_descripcion" rows="5" required placeholder="Detalle la respuesta, accion tomada o solucion informada al empleado."></textarea>
+        <div class="actions">
+          <button class="btn" type="submit">Guardar respuesta y resolver</button>
+        </div>
+      </form>
+    </section>
+  {% elif estado != "resuelto" %}
+    <section class="panel" id="respuesta">
+      <h3 class="section-title">Respuesta</h3>
+      <p class="helper-text">No tiene permisos para responder este feedback.</p>
+    </section>
+  {% endif %}
+</div>
+{% endblock %}

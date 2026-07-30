@@ -6,6 +6,7 @@ from flask import Blueprint, Response, jsonify, redirect, render_template, reque
 
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 from repositories.vacacion_repository import get_all
 from repositories.vacaciones_repository import (
     get_movimiento_by_id,
@@ -63,6 +64,7 @@ def _extract_filters(args):
         "per_page": args.get("per", 20, type=int) or 20,
         "empleado_id": args.get("empleado_id", type=int),
         "sector_id": args.get("sector_id", type=int),
+        "sucursal_id": args.get("sucursal_id", type=int),
         "search": (args.get("q") or "").strip() or None,
         "estado": (args.get("estado") or "").strip().lower() or None,
         "tipo": (args.get("tipo") or "").strip().lower() or None,
@@ -136,10 +138,12 @@ def _extract_reporte_filters(args):
     if anio < 2000 or anio > 2100:
         anio = datetime.date.today().year
     sector_id = args.get("sector_id", type=int) or args.get("area_id", type=int)
+    sucursal_id = args.get("sucursal_id", type=int)
     activo, activo_raw = _parse_empleado_activo(args.get("activo"))
     return {
         "anio": anio,
         "sector_id": sector_id,
+        "sucursal_id": sucursal_id,
         "search": (args.get("q") or "").strip() or None,
         "activo": activo,
         "activo_raw": activo_raw,
@@ -153,6 +157,10 @@ def _matches_reporte_filters(empleado: dict, filters: dict) -> bool:
 
     sector_id = filters.get("sector_id")
     if sector_id and int(empleado.get("sector_id") or 0) != int(sector_id):
+        return False
+
+    sucursal_id = filters.get("sucursal_id")
+    if sucursal_id and int(empleado.get("sucursal_id") or 0) != int(sucursal_id):
         return False
 
     search = str(filters.get("search") or "").strip().lower()
@@ -203,6 +211,7 @@ def _build_reporte_vacaciones(filters: dict):
             "empleado_id": empleado.get("id"),
             "empresa_nombre": empleado.get("empresa_nombre"),
             "sector_nombre": empleado.get("sector_nombre"),
+            "sucursal_nombre": empleado.get("sucursal_nombre"),
             "puesto_nombre": empleado.get("puesto_nombre"),
             "apellido": empleado.get("apellido"),
             "nombre": empleado.get("nombre"),
@@ -253,6 +262,7 @@ def listado():
         per_page=filters["per_page"],
         empleado_id=filters["empleado_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         search=filters["search"],
         estado=filters["estado"],
         tipo=filters["tipo"],
@@ -262,6 +272,7 @@ def listado():
     summary = get_movimientos_summary(
         empleado_id=filters["empleado_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         search=filters["search"],
         estado=filters["estado"],
         tipo=filters["tipo"],
@@ -270,6 +281,7 @@ def listado():
     )
     empleados = get_empleados(include_inactive=True)
     sectores = get_sectores(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
     vacaciones = get_all()
     saldo = None
     if filters["empleado_id"]:
@@ -286,11 +298,13 @@ def listado():
         summary=summary,
         empleados=empleados,
         sectores=sectores,
+        sucursales=sucursales,
         saldo=saldo,
         page=filters["page"],
         per_page=filters["per_page"],
         empleado_id=filters["empleado_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         q=filters["search"],
         estado=filters["estado"],
         tipo=filters["tipo"],
@@ -313,6 +327,7 @@ def movimientos_export_csv():
     rows = get_movimientos_export(
         empleado_id=filters["empleado_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         search=filters["search"],
         estado=filters["estado"],
         tipo=filters["tipo"],
@@ -375,14 +390,17 @@ def reporte():
     filters = _extract_reporte_filters(request.args)
     rows, totals = _build_reporte_vacaciones(filters)
     sectores = get_sectores(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
     return render_template(
         "vacaciones/reporte.html",
         rows=rows,
         totals=totals,
         sectores=sectores,
+        sucursales=sucursales,
         years=_current_year_options(),
         anio=filters["anio"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         q=filters["search"],
         activo=filters["activo_raw"],
     )
@@ -399,6 +417,7 @@ def reporte_export_csv():
     writer.writerow([
         "empresa",
         "area",
+        "sucursal",
         "puesto",
         "empleado",
         "dni",
@@ -424,6 +443,7 @@ def reporte_export_csv():
         writer.writerow([
             row.get("empresa_nombre") or "",
             row.get("sector_nombre") or "",
+            row.get("sucursal_nombre") or "",
             row.get("puesto_nombre") or "",
             f"{row.get('apellido') or ''} {row.get('nombre') or ''}".strip(),
             row.get("dni") or "",
@@ -470,8 +490,13 @@ def reporte_export_xlsx():
     filters = _extract_reporte_filters(request.args)
     rows, totals = _build_reporte_vacaciones(filters)
     sectores = get_sectores(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
     sector_label = next(
         (s.get("nombre") for s in sectores if int(s.get("id") or 0) == int(filters["sector_id"] or 0)),
+        None,
+    )
+    sucursal_label = next(
+        (s.get("nombre") for s in sucursales if int(s.get("id") or 0) == int(filters["sucursal_id"] or 0)),
         None,
     )
     activo_label = "Activos" if filters["activo"] == 1 else "Inactivos" if filters["activo"] == 0 else "Todos"
@@ -483,6 +508,8 @@ def reporte_export_xlsx():
             "anio": filters["anio"],
             "sector_id": filters["sector_id"],
             "sector_label": sector_label,
+            "sucursal_id": filters["sucursal_id"],
+            "sucursal_label": sucursal_label,
             "activo_raw": filters["activo_raw"],
             "activo_label": activo_label,
             "search": filters["search"],

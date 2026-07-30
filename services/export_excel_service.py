@@ -239,7 +239,7 @@ def generar_dashboard_empleado_excel(
     # Resumen
     ws = wb.active
     ws.title = "Resumen"
-    _write_title(ws, "Dashboard por empleado", 5)
+    _write_title(ws, "Resumen por empleado", 5)
 
     row = 3
     row = _write_table_block(
@@ -546,6 +546,7 @@ def generar_vacaciones_reporte_excel(*, rows: list[dict], totals: dict, filters:
     filtros_rows = [
         ["Anio", filters.get("anio")],
         ["Sector", filters.get("sector_label") or (filters.get("sector_id") or "Todas")],
+        ["Sucursal", filters.get("sucursal_label") or (filters.get("sucursal_id") or "Todas")],
         ["Estado empleado", filters.get("activo_label") or filters.get("activo_raw") or "Todos"],
         ["Busqueda", filters.get("search") or "-"],
     ]
@@ -568,6 +569,7 @@ def generar_vacaciones_reporte_excel(*, rows: list[dict], totals: dict, filters:
         [
             r.get("empresa_nombre"),
             r.get("sector_nombre"),
+            r.get("sucursal_nombre"),
             r.get("puesto_nombre"),
             f"{r.get('apellido') or ''} {r.get('nombre') or ''}".strip(),
             r.get("dni"),
@@ -597,6 +599,7 @@ def generar_vacaciones_reporte_excel(*, rows: list[dict], totals: dict, filters:
         [
             "Empresa",
             "Area",
+            "Sucursal",
             "Puesto",
             "Empleado",
             "DNI",
@@ -752,6 +755,7 @@ def generar_premios_concursos_resultados_excel(
     filtros_rows = [
         ["Empresa", filters.get("empresa_label") or "Todas"],
         ["Sector", filters.get("sector_label") or "Todos"],
+        ["Sucursal", filters.get("sucursal_label") or "Todas"],
         ["Empleado", filters.get("empleado_label") or "Todos"],
         ["Concurso", filters.get("concurso_label") or "Todos"],
         ["Anio", filters.get("periodo_year") or "-"],
@@ -789,6 +793,7 @@ def generar_premios_concursos_resultados_excel(
                 r.get("concurso_nombre") or r.get("concurso_nombre_snapshot") or "",
                 r.get("concurso_alcance"),
                 r.get("sector_nombre") or "",
+                r.get("sucursal_nombre") or "",
                 r.get("ranking"),
                 r.get("observaciones"),
             ]
@@ -810,6 +815,7 @@ def generar_premios_concursos_resultados_excel(
             "Concurso",
             "Alcance",
             "Sector",
+            "Sucursal",
             "Ranking",
             "Observaciones",
         ],
@@ -867,6 +873,7 @@ def generar_trivia_resultados_excel(
                 r.get("empleado_apellido") or "",
                 r.get("empleado_nombre") or "",
                 r.get("sector_nombre") or "",
+                r.get("sucursal_nombre") or "",
                 r.get("estado_admin") or "",
                 r.get("posicion_calculada") or "",
                 r.get("puntos_total") if r.get("resultado_id") else "",
@@ -893,6 +900,7 @@ def generar_trivia_resultados_excel(
             "Apellido",
             "Nombre",
             "Sector",
+            "Sucursal",
             "Estado",
             "Posicion",
             "Puntos",

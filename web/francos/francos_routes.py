@@ -2,6 +2,8 @@
 from web.auth.decorators import role_required
 from repositories.franco_repository import get_all, get_by_id, create, update, delete
 from repositories.empleado_repository import get_all as get_empleados
+from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 from utils.audit import log_audit
 
 francos_bp = Blueprint("francos", __name__, url_prefix="/francos")
@@ -27,8 +29,19 @@ def _validate(form):
 @francos_bp.route("/")
 @role_required("admin", "rrhh")
 def listado():
-    francos = get_all()
-    return render_template("francos/listado.html", francos=francos)
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
+    francos = get_all(sucursal_id=sucursal_id, sector_id=sector_id)
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
+    return render_template(
+        "francos/listado.html",
+        francos=francos,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
+        sectores=sectores,
+        sector_id=sector_id,
+    )
 
 
 @francos_bp.route("/nuevo", methods=["GET", "POST"])

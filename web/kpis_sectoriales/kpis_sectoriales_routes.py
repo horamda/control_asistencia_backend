@@ -5,6 +5,7 @@ from flask import Blueprint, current_app, redirect, render_template, request, se
 
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.sector_repository import get_page as get_sectores_page
+from repositories.sucursal_repository import get_all as get_sucursales
 from repositories.kpi_sectorial_repository import (
     copiar_objetivos_anio,
     create_kpi,
@@ -657,6 +658,7 @@ def copiar_objetivos_anio_anterior():
 def resultados():
     empresa_id = request.args.get("empresa_id", type=int)
     sector_id = request.args.get("sector_id", type=int)
+    sucursal_id = request.args.get("sucursal_id", type=int)
     empleado_id = request.args.get("empleado_id", type=int)
     kpi_id = request.args.get("kpi_id", type=int)
     anio = _safe_year(request.args.get("anio"))
@@ -666,7 +668,12 @@ def resultados():
 
     empresas = get_empresas()
     sectores = _get_sectores(empresa_id)
-    empleados = get_empleados_by_sector_para_kpis(empresa_id, sector_id) if empresa_id and sector_id else []
+    sucursales = get_sucursales(include_inactive=True)
+    empleados = (
+        get_empleados_by_sector_para_kpis(empresa_id, sector_id, sucursal_id=sucursal_id)
+        if empresa_id and sector_id
+        else []
+    )
     kpis = get_kpis_by_sector(sector_id, activo=1) if sector_id else []
     vista = None
 
@@ -688,10 +695,12 @@ def resultados():
         "kpis_sectoriales/resultados.html",
         empresas=empresas,
         sectores=sectores,
+        sucursales=sucursales,
         empleados=empleados,
         kpis=kpis,
         empresa_id=empresa_id,
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         empleado_id=empleado_id,
         empleado=empleado,
         kpi_id=kpi_id,
@@ -712,6 +721,7 @@ def resultados():
 def resultados_export_xlsx():
     empresa_id = request.args.get("empresa_id", type=int)
     sector_id = request.args.get("sector_id", type=int)
+    sucursal_id = request.args.get("sucursal_id", type=int)
     empleado_id = request.args.get("empleado_id", type=int)
     kpi_id = request.args.get("kpi_id", type=int)
     anio = _safe_year(request.args.get("anio"))
@@ -719,7 +729,11 @@ def resultados_export_xlsx():
 
     empresas = get_empresas()
     sectores = _get_sectores(empresa_id)
-    empleados = get_empleados_by_sector_para_kpis(empresa_id, sector_id) if empresa_id and sector_id else []
+    empleados = (
+        get_empleados_by_sector_para_kpis(empresa_id, sector_id, sucursal_id=sucursal_id)
+        if empresa_id and sector_id
+        else []
+    )
     kpis = get_kpis_by_sector(sector_id, activo=1) if sector_id else []
 
     empleado = None
@@ -730,6 +744,7 @@ def resultados_export_xlsx():
                 "kpis_sectoriales.resultados",
                 empresa_id=empresa_id,
                 sector_id=sector_id,
+                sucursal_id=sucursal_id or None,
                 empleado_id="",
                 kpi_id=kpi_id or None,
                 anio=anio,
@@ -745,6 +760,7 @@ def resultados_export_xlsx():
             "kpis_sectoriales.resultados",
             empresa_id=empresa_id,
             sector_id=sector_id,
+            sucursal_id=sucursal_id or None,
             empleado_id=empleado_id or "",
             kpi_id=kpi_id or "",
             anio=anio,

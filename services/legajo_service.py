@@ -76,6 +76,7 @@ def legajo_tipo_evento_to_mobile_dict(tipo: dict) -> dict:
         "nombre": tipo.get("nombre") or "",
         "requiere_rango_fechas": bool(tipo.get("requiere_rango_fechas")),
         "permite_adjuntos": bool(tipo.get("permite_adjuntos")),
+        "habilitado_mobile": bool(tipo.get("habilitado_mobile")),
         "activo": bool(tipo.get("activo")),
     }
 

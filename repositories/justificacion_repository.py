@@ -12,6 +12,7 @@ def get_all():
                 e.apellido,
                 a.fecha AS asistencia_fecha,
                 emp.razon_social AS empresa_nombre,
+                u.usuario AS resuelto_by_usuario,
                 (
                     SELECT le.id
                     FROM legajo_eventos le
@@ -30,6 +31,7 @@ def get_all():
             FROM justificaciones j
             JOIN empleados e ON e.id = j.empleado_id
             JOIN empresas emp ON emp.id = e.empresa_id
+            LEFT JOIN usuarios u ON u.id = j.resuelto_by_usuario_id
             LEFT JOIN asistencias a ON a.id = j.asistencia_id
             ORDER BY j.created_at DESC, j.id DESC
         """)
@@ -39,7 +41,17 @@ def get_all():
         db.close()
 
 
-def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_desde: str | None = None, fecha_hasta: str | None = None, search: str | None = None, estado: str | None = None):
+def get_page(
+    page: int,
+    per_page: int,
+    empleado_id: int | None = None,
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
+    search: str | None = None,
+    estado: str | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
+):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -62,6 +74,12 @@ def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_des
         if estado:
             where.append("j.estado = %s")
             params.append(estado)
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(sucursal_id)
+        if sector_id:
+            where.append("e.sector_id = %s")
+            params.append(sector_id)
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
         cursor.execute(f"""
@@ -71,6 +89,9 @@ def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_des
                 e.apellido,
                 a.fecha AS asistencia_fecha,
                 emp.razon_social AS empresa_nombre,
+                s.nombre AS sucursal_nombre,
+                sec.nombre AS sector_nombre,
+                u.usuario AS resuelto_by_usuario,
                 (
                     SELECT le.id
                     FROM legajo_eventos le
@@ -90,6 +111,9 @@ def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_des
             JOIN empleados e ON e.id = j.empleado_id
             JOIN empresas emp ON emp.id = e.empresa_id
             LEFT JOIN asistencias a ON a.id = j.asistencia_id
+            LEFT JOIN sucursales s ON s.id = e.sucursal_id
+            LEFT JOIN sectores sec ON sec.id = e.sector_id
+            LEFT JOIN usuarios u ON u.id = j.resuelto_by_usuario_id
             {where_sql}
             ORDER BY j.created_at DESC, j.id DESC
             LIMIT %s OFFSET %s
@@ -101,6 +125,7 @@ def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_des
             FROM justificaciones j
             JOIN empleados e ON e.id = j.empleado_id
             LEFT JOIN asistencias a ON a.id = j.asistencia_id
+            LEFT JOIN usuarios u ON u.id = j.resuelto_by_usuario_id
             {where_sql}
         """, params)
         total = cursor.fetchone()["total"]
@@ -118,6 +143,7 @@ def get_by_id(justificacion_id: int):
             SELECT
                 j.*,
                 a.fecha AS asistencia_fecha,
+                u.usuario AS resuelto_by_usuario,
                 (
                     SELECT le.id
                     FROM legajo_eventos le
@@ -135,6 +161,7 @@ def get_by_id(justificacion_id: int):
                 ) AS adjuntos_count
             FROM justificaciones j
             LEFT JOIN asistencias a ON a.id = j.asistencia_id
+            LEFT JOIN usuarios u ON u.id = j.resuelto_by_usuario_id
             WHERE j.id = %s
         """, (justificacion_id,))
         return cursor.fetchone()
@@ -265,17 +292,60 @@ def get_by_rango(empleado_id: int, fecha_desde: str, fecha_hasta: str) -> list:
         db.close()
 
 
-def update_estado(justificacion_id: int, estado: str) -> None:
+def update_estado(
+    justificacion_id: int,
+    estado: str,
+    *,
+    resuelto_by_usuario_id: int | None = None,
+    comentario_resolucion: str | None = None,
+    motivo_rechazo: str | None = None,
+) -> None:
     """Minimal update: only changes the estado field."""
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        resolved_by = int(resuelto_by_usuario_id) if resuelto_by_usuario_id else None
+        is_resolved = estado in {"aprobada", "rechazada"}
+        comentario = str(comentario_resolucion or "").strip() or None
+        rechazo = str(motivo_rechazo or "").strip() or None
+        cursor.execute("""
+            UPDATE justificaciones
+            SET estado = %s,
+                resuelto_by_usuario_id = %s,
+                resuelto_at = CASE WHEN %s THEN NOW() ELSE NULL END,
+                comentario_resolucion = %s,
+                motivo_rechazo = %s,
+                notificado_empleado_at = CASE WHEN %s THEN NOW() ELSE NULL END,
+                visto_por_empleado_at = NULL
+            WHERE id = %s
+        """, (
+            estado,
+            resolved_by if is_resolved else None,
+            1 if is_resolved else 0,
+            comentario if is_resolved else None,
+            rechazo if estado == "rechazada" else None,
+            1 if is_resolved else 0,
+            justificacion_id,
+        ))
+        db.commit()
+    finally:
+        cursor.close()
+        db.close()
+
+
+def marcar_vista_por_empleado(justificacion_id: int, empleado_id: int) -> bool:
     db = get_db()
     cursor = db.cursor()
     try:
         cursor.execute("""
             UPDATE justificaciones
-            SET estado = %s
+            SET visto_por_empleado_at = NOW()
             WHERE id = %s
-        """, (estado, justificacion_id))
+              AND empleado_id = %s
+              AND estado IN ('aprobada', 'rechazada')
+        """, (int(justificacion_id), int(empleado_id)))
         db.commit()
+        return cursor.rowcount > 0
     finally:
         cursor.close()
         db.close()

@@ -88,6 +88,26 @@ def get_by_id(sector_id: int):
         db.close()
 
 
+def get_ids_by_responsable_empleado(responsable_empleado_id: int) -> list[int]:
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT id
+            FROM sectores
+            WHERE responsable_empleado_id = %s
+              AND activo = 1
+            ORDER BY nombre
+            """,
+            (int(responsable_empleado_id),),
+        )
+        return [int(row["id"]) for row in (cursor.fetchall() or [])]
+    finally:
+        cursor.close()
+        db.close()
+
+
 def create(data: dict):
     db = get_db()
     cursor = db.cursor()

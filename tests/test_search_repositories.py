@@ -61,12 +61,13 @@ def test_feedback_cliente_repository_search_tokenizes_terms(monkeypatch):
     assert rows[0]["id"] == 1
 
     sql, params = fake_cursor.calls[0]
-    assert "CAST(sucursal_origen AS CHAR) LIKE %s" in sql
-    assert "descripcion_provincia LIKE %s" in sql
-    assert params[:14] == tuple(["%cliente%"] * 14)
-    assert params[14:28] == tuple(["%centro%"] * 14)
-    assert params[28] == 1
+    assert "LOWER(TRIM(COALESCE(CAST(sucursal_origen AS CHAR), ''))) LIKE %s" in sql
+    assert "LOWER(TRIM(COALESCE(descripcion_provincia, ''))) LIKE %s" in sql
+    assert params[:15] == tuple(["%cliente%"] * 15)
+    assert params[15:30] == tuple(["%centro%"] * 15)
+    assert params[30] == 1
     assert params[-2:] == (20, 0)
+    assert sql.count("%s") == len(params)
 
 
 def test_articulo_catalogo_pedido_repository_search_tokenizes_terms(monkeypatch):

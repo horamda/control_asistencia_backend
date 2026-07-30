@@ -187,9 +187,14 @@ def test_state_transition_aprobada_to_pendiente_allowed(monkeypatch):
 def test_aprobar_from_pendiente(monkeypatch):
     monkeypatch.setattr(just_service, "get_by_id", lambda _: {"id": 1, "estado": "pendiente"})
     called = {}
-    monkeypatch.setattr(just_service, "update_estado", lambda jid, estado: called.update({"jid": jid, "estado": estado}))
-    just_service.aprobar_justificacion(1)
-    assert called == {"jid": 1, "estado": "aprobada"}
+    monkeypatch.setattr(just_service, "update_estado", lambda jid, estado, **kw: called.update({"jid": jid, "estado": estado, **kw}))
+    just_service.aprobar_justificacion(1, actor_id=99, comentario_resolucion="Ok")
+    assert called == {
+        "jid": 1,
+        "estado": "aprobada",
+        "resuelto_by_usuario_id": 99,
+        "comentario_resolucion": "Ok",
+    }
 
 
 def test_aprobar_from_aprobada_raises(monkeypatch):
@@ -202,9 +207,21 @@ def test_aprobar_from_aprobada_raises(monkeypatch):
 def test_rechazar_from_pendiente(monkeypatch):
     monkeypatch.setattr(just_service, "get_by_id", lambda _: {"id": 1, "estado": "pendiente"})
     called = {}
-    monkeypatch.setattr(just_service, "update_estado", lambda jid, estado: called.update({"jid": jid, "estado": estado}))
-    just_service.rechazar_justificacion(1)
-    assert called == {"jid": 1, "estado": "rechazada"}
+    monkeypatch.setattr(just_service, "update_estado", lambda jid, estado, **kw: called.update({"jid": jid, "estado": estado, **kw}))
+    just_service.rechazar_justificacion(1, actor_id=99, motivo_rechazo="Falta comprobante")
+    assert called == {
+        "jid": 1,
+        "estado": "rechazada",
+        "resuelto_by_usuario_id": 99,
+        "motivo_rechazo": "Falta comprobante",
+    }
+
+
+def test_rechazar_from_pendiente_requiere_motivo(monkeypatch):
+    monkeypatch.setattr(just_service, "get_by_id", lambda _: {"id": 1, "estado": "pendiente"})
+    import pytest
+    with pytest.raises(ValueError, match="Motivo de rechazo"):
+        just_service.rechazar_justificacion(1, motivo_rechazo="")
 
 
 def test_rechazar_from_rechazada_raises(monkeypatch):
@@ -217,7 +234,7 @@ def test_rechazar_from_rechazada_raises(monkeypatch):
 def test_revertir_aprobada_to_pendiente(monkeypatch):
     monkeypatch.setattr(just_service, "get_by_id", lambda _: {"id": 1, "estado": "aprobada"})
     called = {}
-    monkeypatch.setattr(just_service, "update_estado", lambda jid, estado: called.update({"jid": jid, "estado": estado}))
+    monkeypatch.setattr(just_service, "update_estado", lambda jid, estado, **kw: called.update({"jid": jid, "estado": estado, **kw}))
     just_service.revertir_justificacion(1)
     assert called == {"jid": 1, "estado": "pendiente"}
 
@@ -264,6 +281,8 @@ def test_listado_requiere_login(monkeypatch):
 def test_listado_ok(monkeypatch):
     monkeypatch.setattr(just_routes, "get_page", lambda *a, **kw: ([], 0))
     monkeypatch.setattr(just_routes, "get_empleados", lambda **kw: _stub_empleados())
+    monkeypatch.setattr(just_routes, "get_sucursales", lambda **kw: [])
+    monkeypatch.setattr(just_routes, "get_sectores", lambda **kw: [])
     client = _build_authed_client(monkeypatch)
     resp = client.get("/justificaciones/")
     assert resp.status_code == 200
@@ -289,6 +308,8 @@ def test_listado_muestra_adjuntos_existentes(monkeypatch):
         ),
     )
     monkeypatch.setattr(just_routes, "get_empleados", lambda **kw: _stub_empleados())
+    monkeypatch.setattr(just_routes, "get_sucursales", lambda **kw: [])
+    monkeypatch.setattr(just_routes, "get_sectores", lambda **kw: [])
     client = _build_authed_client(monkeypatch)
     monkeypatch.setattr(
         just_routes,
@@ -421,18 +442,20 @@ def test_editar_muestra_adjuntos_existentes(monkeypatch):
 
 
 def test_aprobar_redirige_con_msg(monkeypatch):
-    monkeypatch.setattr(just_routes, "aprobar_justificacion", lambda _: None)
+    captured = {}
+    monkeypatch.setattr(just_routes, "aprobar_justificacion", lambda jid, **kw: captured.update({"jid": jid, **kw}))
     monkeypatch.setattr(just_routes, "log_audit", lambda *a, **kw: None)
     client = _build_authed_client(monkeypatch)
-    resp = client.post("/justificaciones/aprobar/1")
+    resp = client.post("/justificaciones/aprobar/1", data={"comentario_resolucion": "Correcto"})
     assert resp.status_code == 302
     assert "msg=" in resp.headers["Location"]
+    assert captured == {"jid": 1, "actor_id": 99, "comentario_resolucion": "Correcto"}
 
 
 def test_aprobar_error_redirige_con_error(monkeypatch):
     monkeypatch.setattr(
         just_routes, "aprobar_justificacion",
-        lambda _: (_ for _ in ()).throw(ValueError("No se puede aprobar"))
+        lambda *a, **kw: (_ for _ in ()).throw(ValueError("No se puede aprobar"))
     )
     client = _build_authed_client(monkeypatch)
     resp = client.post("/justificaciones/aprobar/1")
@@ -441,12 +464,14 @@ def test_aprobar_error_redirige_con_error(monkeypatch):
 
 
 def test_rechazar_redirige_con_msg(monkeypatch):
-    monkeypatch.setattr(just_routes, "rechazar_justificacion", lambda _: None)
+    captured = {}
+    monkeypatch.setattr(just_routes, "rechazar_justificacion", lambda jid, **kw: captured.update({"jid": jid, **kw}))
     monkeypatch.setattr(just_routes, "log_audit", lambda *a, **kw: None)
     client = _build_authed_client(monkeypatch)
-    resp = client.post("/justificaciones/rechazar/1")
+    resp = client.post("/justificaciones/rechazar/1", data={"motivo_rechazo": "Sin comprobante"})
     assert resp.status_code == 302
     assert "msg=" in resp.headers["Location"]
+    assert captured == {"jid": 1, "actor_id": 99, "motivo_rechazo": "Sin comprobante"}
 
 
 def test_revertir_redirige_con_msg(monkeypatch):
@@ -482,8 +507,18 @@ def test_eliminar_desvincula_antes_de_borrar(monkeypatch):
 
 
 def test_eliminar_redirige(monkeypatch):
+    monkeypatch.setattr(just_routes, "get_by_id", lambda _: {**_VALID_DATA, "id": 1, "estado": "pendiente"})
     monkeypatch.setattr(just_routes, "delete", lambda _: None)
     monkeypatch.setattr(just_routes, "log_audit", lambda *a, **kw: None)
     client = _build_authed_client(monkeypatch)
     resp = client.post("/justificaciones/eliminar/1")
     assert resp.status_code == 302
+
+
+def test_eliminar_resuelta_bloqueado(monkeypatch):
+    monkeypatch.setattr(just_routes, "get_by_id", lambda _: {**_VALID_DATA, "id": 1, "estado": "aprobada"})
+    monkeypatch.setattr(just_routes, "log_audit", lambda *a, **kw: None)
+    client = _build_authed_client(monkeypatch)
+    resp = client.post("/justificaciones/eliminar/1")
+    assert resp.status_code == 302
+    assert "error=" in resp.headers["Location"]

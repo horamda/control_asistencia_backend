@@ -60,6 +60,61 @@ def count_dias_efectivamente_trabajados(
         db.close()
 
 
+def get_periodos_aprobados_export(
+    *,
+    fecha_desde: str,
+    fecha_hasta: str,
+    empresa_id: int | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
+):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        where = [
+            "vm.tipo = 'tomado'",
+            "vm.estado = 'aprobado'",
+            "vm.revertido_por_movimiento_id IS NULL",
+            "vm.origen_movimiento_id IS NULL",
+            "vm.fecha_desde <= %s",
+            "vm.fecha_hasta >= %s",
+        ]
+        params = [fecha_hasta, fecha_desde]
+        if empresa_id:
+            where.append("e.empresa_id = %s")
+            params.append(int(empresa_id))
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(int(sucursal_id))
+        if sector_id:
+            where.append("e.sector_id = %s")
+            params.append(int(sector_id))
+
+        cursor.execute(
+            f"""
+            SELECT
+                vm.id,
+                vm.empresa_id,
+                vm.empleado_id,
+                vm.tipo,
+                vm.estado,
+                vm.fecha_desde,
+                vm.fecha_hasta,
+                vm.revertido_por_movimiento_id,
+                vm.origen_movimiento_id
+            FROM vacaciones_movimientos vm
+            JOIN empleados e ON e.id = vm.empleado_id
+            WHERE {" AND ".join(where)}
+            ORDER BY vm.fecha_desde ASC, vm.id ASC
+            """,
+            tuple(params),
+        )
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        db.close()
+
+
 def get_movimientos_by_empleado_anio(*, empleado_id: int, empresa_id: int, anio: int):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -268,6 +323,7 @@ def _build_admin_filters(
     *,
     empleado_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     search: str | None = None,
     estado: str | None = None,
     tipo: str | None = None,
@@ -282,6 +338,9 @@ def _build_admin_filters(
     if sector_id:
         where.append("e.sector_id = %s")
         params.append(int(sector_id))
+    if sucursal_id:
+        where.append("e.sucursal_id = %s")
+        params.append(int(sucursal_id))
     if search:
         like = f"%{search}%"
         where.append("(e.apellido LIKE %s OR e.nombre LIKE %s OR e.dni LIKE %s)")
@@ -332,6 +391,7 @@ def get_movimientos_page(
     *,
     empleado_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     search: str | None = None,
     estado: str | None = None,
     tipo: str | None = None,
@@ -345,6 +405,7 @@ def get_movimientos_page(
         where_sql, params = _build_admin_filters(
             empleado_id=empleado_id,
             sector_id=sector_id,
+            sucursal_id=sucursal_id,
             search=search,
             estado=estado,
             tipo=tipo,
@@ -360,11 +421,13 @@ def get_movimientos_page(
                 e.dni,
                 e.sector_id,
                 sec.nombre AS sector_nombre,
+                suc.nombre AS sucursal_nombre,
                 emp.razon_social AS empresa_nombre
             FROM vacaciones_movimientos vm
             JOIN empleados e ON e.id = vm.empleado_id
             JOIN empresas emp ON emp.id = vm.empresa_id
             LEFT JOIN sectores sec ON sec.id = e.sector_id
+            LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
             {where_sql}
             ORDER BY vm.anio DESC, COALESCE(vm.fecha_desde, DATE(vm.created_at)) DESC, vm.id DESC
             LIMIT %s OFFSET %s
@@ -395,6 +458,7 @@ def get_movimientos_summary(
     *,
     empleado_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     search: str | None = None,
     estado: str | None = None,
     tipo: str | None = None,
@@ -407,6 +471,7 @@ def get_movimientos_summary(
         where_sql, params = _build_admin_filters(
             empleado_id=empleado_id,
             sector_id=sector_id,
+            sucursal_id=sucursal_id,
             search=search,
             estado=estado,
             tipo=tipo,

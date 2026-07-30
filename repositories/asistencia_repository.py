@@ -33,12 +33,21 @@ def get_all():
         db.close()
 
 
-def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_desde: str | None = None, fecha_hasta: str | None = None, search: str | None = None):
+def get_page(
+    page: int,
+    per_page: int,
+    empleado_id: int | None = None,
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
+    search: str | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
+):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
         offset = (page - 1) * per_page
-        where = []
+        where = ["COALESCE(e.requiere_control_asistencia, 1) = 1"]
         params = []
         if empleado_id:
             where.append("a.empleado_id = %s")
@@ -53,13 +62,22 @@ def get_page(page: int, per_page: int, empleado_id: int | None = None, fecha_des
             where.append("(e.apellido LIKE %s OR e.nombre LIKE %s)")
             like = f"%{search}%"
             params.extend([like, like])
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(sucursal_id)
+        if sector_id:
+            where.append("e.sector_id = %s")
+            params.append(sector_id)
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
         cursor.execute(f"""
-            SELECT a.*, e.nombre, e.apellido, emp.razon_social AS empresa_nombre
+            SELECT a.*, e.nombre, e.apellido, emp.razon_social AS empresa_nombre,
+                   s.nombre AS sucursal_nombre, sec.nombre AS sector_nombre
             FROM asistencias a
             JOIN empleados e ON e.id = a.empleado_id
             JOIN empresas emp ON emp.id = a.empresa_id
+            LEFT JOIN sucursales s ON s.id = e.sucursal_id
+            LEFT JOIN sectores sec ON sec.id = e.sector_id
             {where_sql}
             ORDER BY a.fecha DESC, a.id DESC
             LIMIT %s OFFSET %s

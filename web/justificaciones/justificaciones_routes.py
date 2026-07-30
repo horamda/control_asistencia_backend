@@ -5,6 +5,8 @@ from flask import Blueprint, abort, current_app, redirect, render_template, requ
 from repositories.asistencia_repository import get_all as get_asistencias
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.justificacion_repository import delete, get_by_id, get_page
+from repositories.sector_repository import get_all as get_sectores
+from repositories.sucursal_repository import get_all as get_sucursales
 from services.justificacion_attachment_service import (
     delete_justificacion_adjunto,
     delete_justificacion_resources,
@@ -69,13 +71,27 @@ def listado():
     estado = (request.args.get("estado") or "").strip().lower() or None
     if estado and estado not in ESTADOS_VALIDOS:
         estado = None
-    justificaciones, total = get_page(page, per_page, empleado_id, fecha_desde, fecha_hasta, search, estado)
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
+    justificaciones, total = get_page(
+        page,
+        per_page,
+        empleado_id,
+        fecha_desde,
+        fecha_hasta,
+        search,
+        estado,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+    )
     adjuntos_por_justificacion = {
         int(justificacion["id"]): list_justificacion_adjuntos(int(justificacion["id"]))
         for justificacion in justificaciones
         if justificacion.get("adjuntos_count")
     }
     empleados = get_empleados(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
     error = (request.args.get("error") or "").strip() or None
     msg = (request.args.get("msg") or "").strip() or None
     return render_template(
@@ -87,6 +103,10 @@ def listado():
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         estado=estado,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
+        sectores=sectores,
+        sector_id=sector_id,
         q=search,
         page=page,
         per_page=per_page,
@@ -248,7 +268,11 @@ def editar(justificacion_id):
 @role_required("admin", "rrhh")
 def aprobar(justificacion_id):
     try:
-        aprobar_justificacion(justificacion_id)
+        aprobar_justificacion(
+            justificacion_id,
+            actor_id=session.get("user_id"),
+            comentario_resolucion=(request.form.get("comentario_resolucion") or "").strip() or None,
+        )
     except ValueError as exc:
         return redirect(url_for("justificaciones.listado", error=str(exc)))
     log_audit(session, "aprobar", "justificaciones", justificacion_id)
@@ -259,7 +283,11 @@ def aprobar(justificacion_id):
 @role_required("admin", "rrhh")
 def rechazar(justificacion_id):
     try:
-        rechazar_justificacion(justificacion_id)
+        rechazar_justificacion(
+            justificacion_id,
+            actor_id=session.get("user_id"),
+            motivo_rechazo=(request.form.get("motivo_rechazo") or "").strip(),
+        )
     except ValueError as exc:
         return redirect(url_for("justificaciones.listado", error=str(exc)))
     log_audit(session, "rechazar", "justificaciones", justificacion_id)
@@ -285,6 +313,16 @@ def revertir(justificacion_id):
 @role_required("admin", "rrhh")
 def eliminar(justificacion_id):
     try:
+        justificacion = get_by_id(justificacion_id)
+        if not justificacion:
+            abort(404)
+        if str(justificacion.get("estado") or "pendiente").strip().lower() != "pendiente":
+            return redirect(
+                url_for(
+                    "justificaciones.listado",
+                    error="Solo se pueden eliminar justificaciones pendientes.",
+                )
+            )
         delete_justificacion_resources(int(justificacion_id), actor_id=session.get("user_id"))
         delete(justificacion_id)
     except Exception:

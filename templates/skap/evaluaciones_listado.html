@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}SKAP - Evaluaciones{% endblock %}
 {% block content %}
 <section class="panel">
@@ -28,6 +29,10 @@
       </select>
     </label>
     <label>
+      <span>Sucursal</span>
+      {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+    </label>
+    <label>
       <span>Buscar</span>
       <input type="text" name="q" value="{{ q }}" placeholder="Empleado, sector o evaluador">
     </label>
@@ -43,6 +48,7 @@
         <tr>
           <th>Empleado</th>
           <th>Sector</th>
+          <th>Sucursal</th>
           <th>Ano</th>
           <th>Promedio</th>
           <th>Nivel</th>
@@ -57,6 +63,7 @@
           <tr>
             <td data-label="Empleado">{{ evaluacion.empleado_apellido }}, {{ evaluacion.empleado_nombre }}</td>
             <td data-label="Sector">{{ evaluacion.sector_nombre or "-" }}</td>
+            <td data-label="Sucursal">{{ evaluacion.sucursal_nombre or "-" }}</td>
             <td data-label="Ano">{{ evaluacion.anio }}</td>
             <td data-label="Promedio"><span class="badge {% if evaluacion.promedio_general >= 4 %}ok{% elif evaluacion.promedio_general >= 3 %}warning{% else %}danger{% endif %}">{{ "%.2f"|format(evaluacion.promedio_general) }}</span></td>
             <td data-label="Nivel"><span class="badge">{{ evaluacion.nivel }}</span></td>
@@ -72,7 +79,7 @@
             <td data-label="Detalle"><a class="btn btn-secondary" href="{{ url_for('skap_web.evaluacion_detalle', evaluacion_id=evaluacion.id) }}">Ver</a></td>
           </tr>
         {% else %}
-          <tr><td colspan="9">No hay evaluaciones para los filtros seleccionados.</td></tr>
+          <tr><td colspan="10">No hay evaluaciones para los filtros seleccionados.</td></tr>
         {% endfor %}
       </tbody>
     </table>

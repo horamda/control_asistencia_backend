@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Reporte de vacaciones{% endblock %}
 {% block content %}
 <div class="content-stack">
@@ -21,13 +22,13 @@
     <a class="btn btn-secondary" href="{{ url_for('vacaciones.listado') }}">Volver a gestion</a>
     <a
       class="btn"
-      href="{{ url_for('vacaciones.reporte_export_csv', anio=anio, sector_id=sector_id or None, q=q or None, activo=(activo if activo != '1' else None)) }}"
+      href="{{ url_for('vacaciones.reporte_export_csv', anio=anio, sector_id=sector_id or None, sucursal_id=sucursal_id or None, q=q or None, activo=(activo if activo != '1' else None)) }}"
     >
       Exportar CSV
     </a>
     <a
       class="btn btn-secondary"
-      href="{{ url_for('vacaciones.reporte_export_xlsx', anio=anio, sector_id=sector_id or None, q=q or None, activo=(activo if activo != '1' else None)) }}"
+      href="{{ url_for('vacaciones.reporte_export_xlsx', anio=anio, sector_id=sector_id or None, sucursal_id=sucursal_id or None, q=q or None, activo=(activo if activo != '1' else None)) }}"
     >
       Exportar Excel
     </a>
@@ -45,6 +46,11 @@
             </option>
           {% endfor %}
         </select>
+      </div>
+
+      <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
       </div>
 
       <div class="row">
@@ -120,6 +126,7 @@
           <tr>
             <th>Empleado</th>
             <th>Area</th>
+            <th>Sucursal</th>
             <th>Puesto</th>
             <th>Corresponden</th>
             <th>Compensatorios</th>
@@ -141,6 +148,7 @@
                 <div class="helper-text">{{ row.empresa_nombre or "-" }}</div>
               </td>
               <td data-label="Area">{{ row.sector_nombre or "-" }}</td>
+              <td data-label="Sucursal">{{ row.sucursal_nombre or "-" }}</td>
               <td data-label="Puesto">{{ row.puesto_nombre or "-" }}</td>
               <td data-label="Corresponden">
                 {{ "%.2f"|format(row.dias_corresponden or 0) }}

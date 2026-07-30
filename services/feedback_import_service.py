@@ -15,6 +15,21 @@ from repositories.feedback_cliente_repository import upsert as upsert_cliente
 
 
 _DELIMITERS = (",", ";", "\t")
+_TEXT_ENCODINGS = ("utf-8-sig", "utf-8", "cp1252", "latin-1")
+
+
+def _decode_csv(raw) -> str:
+    if not isinstance(raw, bytes):
+        return str(raw or "")
+
+    last_error = None
+    for encoding in _TEXT_ENCODINGS:
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError as exc:
+            last_error = exc
+
+    raise ValueError(f"No se pudo leer el archivo CSV: {last_error}")
 
 
 def _normalize_key(value: str) -> str:
@@ -142,10 +157,7 @@ def _build_payload(row: dict) -> dict:
 
 def importar_clientes_desde_csv(stream) -> dict:
     raw = stream.read()
-    if isinstance(raw, bytes):
-        text = raw.decode("utf-8-sig", errors="replace")
-    else:
-        text = str(raw or "")
+    text = _decode_csv(raw)
 
     reader, header_index = _parse_csv(text)
 

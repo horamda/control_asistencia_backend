@@ -11,6 +11,7 @@ from repositories.usuarios_app_repository import (
     exists_unique
 )
 from repositories.empresa_repository import get_all as get_empresas
+from repositories.empleado_repository import get_all as get_empleados
 from utils.audit import log_audit
 from utils.validators import UsuarioValidator
 
@@ -20,6 +21,10 @@ usuarios_bp = Blueprint("usuarios", __name__, url_prefix="/usuarios")
 def _validate(form, require_password: bool, user_id: int | None = None):
     validator = UsuarioValidator()
     return validator.validate(form, require_password=require_password, user_id=user_id, exists_unique=exists_unique)
+
+
+def _empleados_para_vincular():
+    return get_empleados(include_inactive=False)
 
 
 @usuarios_bp.route("/")
@@ -49,22 +54,25 @@ def listado():
 @role_required("admin")
 def nuevo():
     empresas = get_empresas(include_inactive=True)
+    empleados = _empleados_para_vincular()
     if request.method == "POST":
-        errors, usuario, empresa_id, rol = _validate(request.form, require_password=True, user_id=None)
+        errors, usuario, empresa_id, rol, empleado_id = _validate(request.form, require_password=True, user_id=None)
         activo = request.form.get("activo") == "1"
         if errors:
             return render_template(
                 "usuarios/form.html",
                 mode="new",
-                data={"usuario": usuario, "empresa_id": empresa_id, "rol": rol, "activo": activo},
+                data={"usuario": usuario, "empresa_id": empresa_id, "rol": rol, "activo": activo, "empleado_id": empleado_id},
                 errors=errors,
                 password_required=True,
-                empresas=empresas
+                empresas=empresas,
+                empleados=empleados
             )
 
         password = (request.form.get("password") or "").strip()
         new_id = create({
             "empresa_id": empresa_id,
+            "empleado_id": empleado_id,
             "usuario": usuario,
             "password_hash": generate_password_hash(password),
             "rol": rol,
@@ -78,7 +86,8 @@ def nuevo():
         mode="new",
         data={"activo": True},
         password_required=True,
-        empresas=empresas
+        empresas=empresas,
+        empleados=empleados
     )
 
 
@@ -90,21 +99,24 @@ def editar(user_id):
         abort(404)
 
     empresas = get_empresas(include_inactive=True)
+    empleados = _empleados_para_vincular()
     if request.method == "POST":
-        errors, usuario, empresa_id, rol = _validate(request.form, require_password=False, user_id=user_id)
+        errors, usuario, empresa_id, rol, empleado_id = _validate(request.form, require_password=False, user_id=user_id)
         activo = request.form.get("activo") == "1"
         if errors:
             return render_template(
                 "usuarios/form.html",
                 mode="edit",
-                data={"usuario": usuario, "empresa_id": empresa_id, "rol": rol, "activo": activo},
+                data={"usuario": usuario, "empresa_id": empresa_id, "rol": rol, "activo": activo, "empleado_id": empleado_id},
                 errors=errors,
                 password_required=False,
-                empresas=empresas
+                empresas=empresas,
+                empleados=empleados
             )
 
         update(user_id, {
             "empresa_id": empresa_id,
+            "empleado_id": empleado_id,
             "usuario": usuario,
             "rol": rol,
             "activo": activo
@@ -123,7 +135,8 @@ def editar(user_id):
         mode="edit",
         data=user,
         password_required=False,
-        empresas=empresas
+        empresas=empresas,
+        empleados=empleados
     )
 
 

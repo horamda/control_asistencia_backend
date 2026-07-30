@@ -16,6 +16,7 @@ from flask import (
 import repositories.trivia_repository as repo
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.sector_repository import get_page as get_sectores_page
+from repositories.sucursal_repository import get_all as get_sucursales
 from services.trivia_service import (
     TriviaError,
     TriviaNoEncontradaError,
@@ -242,7 +243,8 @@ def resultados(trivia_id: int):
         flash("Trivia no encontrada.", "danger")
         return redirect(url_for("trivia_admin.listado"))
 
-    rows = repo.get_resultados_admin_trivia(trivia_id)
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    rows = repo.get_resultados_admin_trivia(trivia_id, sucursal_id=sucursal_id)
     ranking = calcular_ranking(trivia_id)
     _enrich_resultados_with_ranking(rows, ranking)
     summary = _build_resultados_summary(rows)
@@ -253,6 +255,7 @@ def resultados(trivia_id: int):
         if int(e["id"]) not in excluidos_ids
     ]
     respuestas = repo.get_respuestas_admin_trivia(trivia_id)
+    sucursales = get_sucursales(include_inactive=True)
 
     return render_template(
         "trivias/resultados.html",
@@ -263,6 +266,8 @@ def resultados(trivia_id: int):
         ranking=ranking,
         exclusiones=exclusiones,
         empleados=empleados,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
     )
 
 
@@ -274,7 +279,8 @@ def resultados_export_csv(trivia_id: int):
         flash("Trivia no encontrada.", "danger")
         return redirect(url_for("trivia_admin.listado"))
 
-    rows = repo.get_resultados_admin_trivia(trivia_id)
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    rows = repo.get_resultados_admin_trivia(trivia_id, sucursal_id=sucursal_id)
     ranking = calcular_ranking(trivia_id)
     _enrich_resultados_with_ranking(rows, ranking)
     _build_resultados_summary(rows)
@@ -283,7 +289,7 @@ def resultados_export_csv(trivia_id: int):
     writer = csv.writer(out)
     writer.writerow([
         "trivia_id", "trivia", "estado_trivia", "empleado_id", "legajo", "dni",
-        "apellido", "nombre", "sector", "estado", "posicion", "puntos",
+        "apellido", "nombre", "sector", "sucursal", "estado", "posicion", "puntos",
         "correctas", "incorrectas", "tiempo_segundos", "inicio_participacion",
         "fin_participacion", "motivo_exclusion",
     ])
@@ -298,6 +304,7 @@ def resultados_export_csv(trivia_id: int):
             row.get("empleado_apellido") or "",
             row.get("empleado_nombre") or "",
             row.get("sector_nombre") or "",
+            row.get("sucursal_nombre") or "",
             row.get("estado_admin") or "",
             row.get("posicion_calculada") or "",
             row.get("puntos_total") if row.get("resultado_id") else "",
@@ -326,7 +333,8 @@ def resultados_export_xlsx(trivia_id: int):
         flash("Trivia no encontrada.", "danger")
         return redirect(url_for("trivia_admin.listado"))
 
-    rows = repo.get_resultados_admin_trivia(trivia_id)
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    rows = repo.get_resultados_admin_trivia(trivia_id, sucursal_id=sucursal_id)
     ranking = calcular_ranking(trivia_id)
     _enrich_resultados_with_ranking(rows, ranking)
     summary = _build_resultados_summary(rows)

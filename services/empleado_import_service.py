@@ -5,7 +5,7 @@ Formato esperado del CSV (separado por comas o punto y coma, con encabezados):
 legajo, dni, cuil, apellido, nombre, sexo, fecha_nacimiento, email, telefono,
 direccion, codigo_postal, fecha_ingreso, tipo_contrato, modalidad, categoria,
 obra_social, cod_chess_erp, banco, cbu, numero_emergencia, estado,
-sucursal_nombre, sector_nombre, puesto_nombre, password
+sucursal_nombre, sector_nombre, puesto_nombre, requiere_control_asistencia, password
 
 Campos obligatorios: legajo, dni, apellido, nombre
 Password: si viene vacío se usa el DNI como contraseña inicial.
@@ -20,7 +20,6 @@ from extensions import get_db
 from repositories.empleado_repository import (
     create as _create_empleado,
     exists_unique,
-    get_by_legajo as _get_by_legajo,
     update as _update_empleado,
     update_password as _update_password,
 )
@@ -57,6 +56,7 @@ _EXPECTED_COLUMNS = {
     "sector_nombre",
     "puesto_nombre",
     "reporta_a_legajo",
+    "requiere_control_asistencia",
     "password",
 }
 _REQUIRED_COLUMNS = {"legajo", "dni", "apellido", "nombre"}
@@ -106,6 +106,16 @@ def _lookup_manager(cursor, empresa_id: int, legajo: str):
     )
     row = cursor.fetchone()
     return row["id"] if row else None
+
+
+def _lookup_empleado_by_legajo(cursor, empresa_id: int, legajo: str):
+    if not legajo:
+        return None
+    cursor.execute(
+        "SELECT * FROM empleados WHERE empresa_id = %s AND legajo = %s LIMIT 1",
+        (empresa_id, legajo.strip()),
+    )
+    return cursor.fetchone()
 
 
 def _clean(row: dict, key: str, default=None):
@@ -202,6 +212,17 @@ def _parse_date(value: str):
         except ValueError:
             continue
     return None
+
+
+def _parse_bool_flag(value: str, default: int = 1) -> int:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return default
+    if raw in {"1", "true", "si", "s", "yes", "y", "on"}:
+        return 1
+    if raw in {"0", "false", "no", "n", "off"}:
+        return 0
+    return default
 
 
 def _normalize_dates(row: dict) -> list[str]:
@@ -332,10 +353,11 @@ def importar_desde_csv(stream, empresa_id: int) -> dict:
                 "cbu":              _clean(row, "cbu"),
                 "numero_emergencia":_clean(row, "numero_emergencia"),
                 "estado":           _clean(row, "estado", "activo").lower(),
+                "requiere_control_asistencia": _parse_bool_flag(_clean(row, "requiere_control_asistencia"), 1),
                 "foto":             None,
             }
 
-            existing = _get_by_legajo(legajo, empresa_id)
+            existing = _lookup_empleado_by_legajo(cursor, empresa_id, legajo)
 
             if existing:
                 emp_id = existing["id"]

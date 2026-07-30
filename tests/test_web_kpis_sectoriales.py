@@ -28,6 +28,7 @@ def test_kpis_resultados_empleado_renderiza_calendario(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
 
     monkeypatch.setattr(kpi_routes, "get_empresas", lambda: [{"id": 1, "razon_social": "Empresa A"}])
+    monkeypatch.setattr(kpi_routes, "get_sucursales", lambda include_inactive=True: [])
     monkeypatch.setattr(
         kpi_routes,
         "get_sectores_page",
@@ -36,7 +37,7 @@ def test_kpis_resultados_empleado_renderiza_calendario(monkeypatch):
     monkeypatch.setattr(
         kpi_routes,
         "get_empleados_by_sector_para_kpis",
-        lambda empresa_id, sector_id: [
+        lambda empresa_id, sector_id, sucursal_id=None: [
             {
                 "id": 7,
                 "empresa_id": 1,
@@ -178,6 +179,7 @@ def test_kpis_resultados_export_xlsx_ok(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
 
     monkeypatch.setattr(kpi_routes, "get_empresas", lambda: [{"id": 1, "razon_social": "Empresa A"}])
+    monkeypatch.setattr(kpi_routes, "get_sucursales", lambda include_inactive=True: [])
     monkeypatch.setattr(
         kpi_routes,
         "get_sectores_page",
@@ -186,7 +188,7 @@ def test_kpis_resultados_export_xlsx_ok(monkeypatch):
     monkeypatch.setattr(
         kpi_routes,
         "get_empleados_by_sector_para_kpis",
-        lambda empresa_id, sector_id: [
+        lambda empresa_id, sector_id, sucursal_id=None: [
             {
                 "id": 7,
                 "empresa_id": 1,

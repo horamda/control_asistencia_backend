@@ -33,6 +33,65 @@ class _FakeDB:
         pass
 
 
+class _FallbackCursor(_FakeCursor):
+    def execute(self, sql, params=None):
+        if "LOWER(TRIM(COALESCE" in sql:
+            raise RuntimeError("unknown column")
+        self.calls.append((sql, params))
+        self.mode = "fallback"
+
+    def fetchall(self):
+        return [
+            {
+                "id": 1,
+                "activo": 1,
+                "codigo_externo": "CLI-001",
+                "razon_social": "Distribuidora Hori SA",
+                "nombre_fantasia": "Hori Centro",
+            },
+            {
+                "id": 2,
+                "activo": 1,
+                "codigo_externo": "CLI-002",
+                "razon_social": "Otro Cliente",
+                "nombre_fantasia": "Otro Cliente",
+            },
+        ]
+
+
+class _EmptySqlThenFallbackCursor(_FakeCursor):
+    def execute(self, sql, params=None):
+        self.calls.append((sql, params))
+        if "COUNT(*)" in sql:
+            self.mode = "count"
+        elif "LOWER(TRIM(COALESCE" in sql:
+            self.mode = "empty_sql"
+        else:
+            self.mode = "fallback"
+
+    def fetchall(self):
+        if self.mode == "empty_sql":
+            return []
+        if self.mode == "fallback":
+            return [
+                {
+                    "id": 70,
+                    "activo": 1,
+                    "codigo_externo": "70",
+                    "razon_social": "RIAJOS SRL",
+                    "nombre_fantasia": "HORIZONTE",
+                },
+                {
+                    "id": 11,
+                    "activo": 1,
+                    "codigo_externo": "11",
+                    "razon_social": "OTRO CLIENTE",
+                    "nombre_fantasia": "OTRO",
+                },
+            ]
+        return []
+
+
 def test_feedback_cliente_get_page_search_includes_extended_fields(monkeypatch):
     fake_cursor = _FakeCursor()
     monkeypatch.setattr(feedback_cliente_repository, "get_db", lambda: _FakeDB(fake_cursor))
@@ -42,16 +101,41 @@ def test_feedback_cliente_get_page_search_includes_extended_fields(monkeypatch):
     assert total == 1
     assert rows[0]["id"] == 1
     sql, params = fake_cursor.calls[0]
-    assert "CAST(id AS CHAR) LIKE %s" in sql
-    assert "CAST(sucursal_origen AS CHAR) LIKE %s" in sql
-    assert "telefonos LIKE %s" in sql
-    assert "movil LIKE %s" in sql
-    assert "email LIKE %s" in sql
-    assert "descripcion_provincia LIKE %s" in sql
+    assert "LOWER(TRIM(COALESCE(CAST(id AS CHAR), ''))) LIKE %s" in sql
+    assert "LOWER(TRIM(COALESCE(CAST(sucursal_origen AS CHAR), ''))) LIKE %s" in sql
+    assert "LOWER(TRIM(COALESCE(telefonos, ''))) LIKE %s" in sql
+    assert "LOWER(TRIM(COALESCE(movil, ''))) LIKE %s" in sql
+    assert "LOWER(TRIM(COALESCE(email, ''))) LIKE %s" in sql
+    assert "LOWER(TRIM(COALESCE(descripcion_provincia, ''))) LIKE %s" in sql
     assert "LOWER(TRIM(COALESCE(CAST(id AS CHAR), ''))) = %s THEN 0" in sql
     assert params[0] == "%cliente%"
     assert params[15] == 1
     assert params[-2:] == (20, 0)
+    assert sql.count("%s") == len(params)
+
+
+def test_feedback_cliente_get_page_search_fallback_python(monkeypatch):
+    fake_cursor = _FallbackCursor()
+    monkeypatch.setattr(feedback_cliente_repository, "get_db", lambda: _FakeDB(fake_cursor))
+
+    rows, total = feedback_cliente_repository.get_page(1, 20, search="hori", activo=1)
+
+    assert total == 1
+    assert rows[0]["id"] == 1
+    fallback_sql, fallback_params = fake_cursor.calls[-1]
+    assert "SELECT *" in fallback_sql
+    assert fallback_params == (1,)
+
+
+def test_feedback_cliente_get_page_search_fallback_when_sql_returns_empty(monkeypatch):
+    fake_cursor = _EmptySqlThenFallbackCursor()
+    monkeypatch.setattr(feedback_cliente_repository, "get_db", lambda: _FakeDB(fake_cursor))
+
+    rows, total = feedback_cliente_repository.get_page(1, 20, search="riajos", activo=1)
+
+    assert total == 1
+    assert rows[0]["razon_social"] == "RIAJOS SRL"
+    assert len(fake_cursor.calls) >= 2
 
 
 def test_feedback_cliente_ranked_rows_prioriza_codigo_nombre_y_fallback():

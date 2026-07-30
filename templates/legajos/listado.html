@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Legajos{% endblock %}
 {% block content %}
 {% set default_foto_url = url_for('static', filename='img/empleado-default.svg') %}
@@ -16,6 +17,79 @@
       <span class="chip">Trazabilidad</span>
       <a class="chip" href="{{ url_for('legajos.listado_eventos') }}">Eventos</a>
       <a class="chip" href="{{ url_for('legajo_tipos_evento.listado') }}">Tipos evento</a>
+      <a class="chip" href="{{ url_for('legajos.permisos_mobile') }}">Permisos mobile</a>
+    </div>
+  </div>
+
+  <form method="get" action="{{ url_for('legajos.listado_empleados') }}" class="dashboard-filter-form legajos-filter">
+    <div class="form-grid">
+      <div class="row span-2">
+        <label>Buscar empleado</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Apellido, nombre, DNI o legajo" autocomplete="off">
+      </div>
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id">
+          <option value="">Todas</option>
+          {% for empresa in empresas %}
+            <option value="{{ empresa.id }}" {% if empresa_id == empresa.id %}selected{% endif %}>{{ empresa.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        {{ filtros.sector_select(sectores, sector_id) }}
+      </div>
+      <div class="row">
+        <label>Estado</label>
+        <select name="activo">
+          <option value="1" {% if activo == "1" %}selected{% endif %}>Solo activos</option>
+          <option value="0" {% if activo == "0" %}selected{% endif %}>Solo inactivos</option>
+          <option value="all" {% if activo == "all" %}selected{% endif %}>Activos e inactivos</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Control asistencia</label>
+        <select name="requiere_control_asistencia">
+          <option value="all" {% if requiere_control_asistencia == "all" %}selected{% endif %}>Todos</option>
+          <option value="1" {% if requiere_control_asistencia == "1" %}selected{% endif %}>Impacta KPIs</option>
+          <option value="0" {% if requiere_control_asistencia == "0" %}selected{% endif %}>No impacta KPIs</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Eventos de legajo</label>
+        <select name="legajo_eventos">
+          <option value="all" {% if legajo_eventos == "all" %}selected{% endif %}>Todos</option>
+          <option value="con_eventos" {% if legajo_eventos == "con_eventos" %}selected{% endif %}>Con eventos</option>
+          <option value="vigentes" {% if legajo_eventos == "vigentes" %}selected{% endif %}>Con eventos vigentes</option>
+          <option value="sin_eventos" {% if legajo_eventos == "sin_eventos" %}selected{% endif %}>Sin eventos</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Registros por pagina</label>
+        <select name="per">
+          {% for p in [10, 20, 50, 100] %}
+            <option value="{{ p }}" {% if per_page == p %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('legajos.listado_empleados') }}">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="results-bar">
+    <div class="summary">Mostrando {{ from_idx }}-{{ to_idx }} de {{ total }} empleados</div>
+    <div class="chip-row">
+      {% if q %}<span class="chip">Busqueda: {{ q }}</span>{% endif %}
+      {% if activo != "1" %}<span class="chip">Estado: {{ "Todos" if activo == "all" else "Inactivos" }}</span>{% endif %}
+      {% if legajo_eventos != "all" %}<span class="chip">Eventos: {{ legajo_eventos|replace("_", " ") }}</span>{% endif %}
     </div>
   </div>
 
@@ -25,10 +99,13 @@
         <tr>
           <th>Foto</th>
           <th>Empresa</th>
+          <th>Sucursal</th>
+          <th>Sector</th>
           <th>Empleado</th>
           <th>Legajo</th>
           <th>DNI</th>
           <th>Estado</th>
+          <th>Eventos</th>
           <th>Accion</th>
         </tr>
         {% for e in empleados %}
@@ -55,6 +132,8 @@
               {% endif %}
             </td>
             <td data-label="Empresa">{{ e.empresa_nombre or e.empresa_id }}</td>
+            <td data-label="Sucursal">{{ e.sucursal_nombre or "-" }}</td>
+            <td data-label="Sector">{{ e.sector_nombre or "-" }}</td>
             <td data-label="Empleado">{{ e.apellido }} {{ e.nombre }}</td>
             <td data-label="Legajo">{{ e.legajo }}</td>
             <td data-label="DNI">{{ e.dni }}</td>
@@ -64,8 +143,17 @@
               {% else %}
                 <span class="badge inactivo">Inactivo</span>
               {% endif %}
+              {% if e.requiere_control_asistencia is defined %}
+                <div class="helper-text">{{ "Impacta KPIs" if e.requiere_control_asistencia else "No impacta KPIs" }}</div>
+              {% endif %}
             </td>
-            <td data-label="Accion"><a href="{{ url_for('legajos.empleado', emp_id=e.id) }}">Abrir legajo</a></td>
+            <td data-label="Eventos">
+              <strong>{{ e.legajo_eventos_vigentes or 0 }}</strong> vigentes
+              <div class="helper-text">{{ e.legajo_eventos_total or 0 }} total{% if e.legajo_ultima_fecha_evento %} | Ultimo: {{ e.legajo_ultima_fecha_evento }}{% endif %}</div>
+            </td>
+            <td data-label="Accion">
+              <a class="btn btn-secondary btn-sm legajo-open-btn" href="{{ url_for('legajos.empleado', emp_id=e.id) }}">Abrir legajo</a>
+            </td>
           </tr>
         {% endfor %}
       </table>
@@ -73,5 +161,15 @@
   {% else %}
     <div class="empty-state">No hay empleados para mostrar.</div>
   {% endif %}
+
+  <div class="pager">
+    {% if page > 1 %}
+      <a class="btn btn-secondary" href="{{ url_for('legajos.listado_empleados', page=page - 1, per=per_page, q=q or None, empresa_id=empresa_id, sucursal_id=sucursal_id, sector_id=sector_id, activo=activo, requiere_control_asistencia=requiere_control_asistencia, legajo_eventos=legajo_eventos) }}">Anterior</a>
+    {% endif %}
+    {% if page * per_page < total %}
+      <a class="btn btn-secondary" href="{{ url_for('legajos.listado_empleados', page=page + 1, per=per_page, q=q or None, empresa_id=empresa_id, sucursal_id=sucursal_id, sector_id=sector_id, activo=activo, requiere_control_asistencia=requiere_control_asistencia, legajo_eventos=legajo_eventos) }}">Siguiente</a>
+    {% endif %}
+    <span class="summary">Pagina {{ page }} | {{ from_idx }}-{{ to_idx }} de {{ total }}</span>
+  </div>
 </div>
 {% endblock %}

@@ -12,7 +12,9 @@ from repositories.asistencia_marca_repository import (
 from repositories.external_api_repository import (
     get_empresas as get_empresas_external,
     get_sucursales as get_sucursales_external,
+    list_justificaciones as list_justificaciones_external,
     list_empleados as list_empleados_external,
+    list_vacaciones_movimientos as list_vacaciones_external,
 )
 from services.asistencia_reporte_service import build_asistencia_reporte_csv
 from services.external_api_auth_service import (
@@ -29,12 +31,18 @@ from utils.limiter import limiter
 external_api_bp = Blueprint("external_api", __name__, url_prefix="/api/v1/external")
 
 _ESTADOS_EMPLEADO = {"activo", "inactivo", "suspendido"}
+_ESTADOS_JUSTIFICACION = {"pendiente", "aprobada", "rechazada"}
+_ESTADOS_VACACIONES = {"pendiente", "aprobado", "rechazado", "cancelado"}
+_TIPOS_VACACIONES = {"tomado", "compensatorio", "ajuste"}
 _ALL_VALUES = {"all", "todos", "todas", "*"}
 _TRUE_VALUES = {"1", "true", "yes", "si", "s", "on", "activo", "activa"}
 _FALSE_VALUES = {"0", "false", "no", "n", "off", "inactivo", "inactiva"}
 
 
 def _configured_api_key() -> str | None:
+    allow_static_key = str(os.getenv("EXTERNAL_API_ALLOW_STATIC_KEY") or "").strip().lower()
+    if allow_static_key not in {"1", "true", "yes", "si", "s", "on"}:
+        return None
     key = (os.getenv("EXTERNAL_API_KEY") or os.getenv("INTEGRATION_API_KEY") or "").strip()
     return key or None
 
@@ -141,6 +149,15 @@ def _parse_optional_int(name: str) -> tuple[int | None, str | None]:
     return value, None
 
 
+def _parse_optional_int_range(name: str, *, minimum: int, maximum: int) -> tuple[int | None, str | None]:
+    value, error = _parse_optional_int(name)
+    if error or value is None:
+        return value, error
+    if value < minimum or value > maximum:
+        return None, f"{name} debe estar entre {minimum} y {maximum}."
+    return value, None
+
+
 def _parse_int_values(*names: str) -> tuple[list[int], str | None]:
     values = []
     seen = set()
@@ -188,6 +205,17 @@ def _parse_estados() -> tuple[list[str] | None, bool, str | None]:
             seen.add(value)
             estados.append(value)
     return estados, False, None
+
+
+def _parse_enum(name: str, allowed: set[str], *, allow_all: bool = True) -> tuple[str | None, str | None]:
+    raw = str(request.args.get(name) or "").strip().lower()
+    if not raw:
+        return None, None
+    if allow_all and raw in _ALL_VALUES:
+        return None, None
+    if raw not in allowed:
+        return None, f"{name} invalido. Use {', '.join(sorted(allowed))}" + (" o all." if allow_all else ".")
+    return raw, None
 
 
 def _parse_page() -> tuple[int, int, str | None]:
@@ -368,6 +396,55 @@ def _report_filters() -> tuple[dict | None, str | None]:
     }, None
 
 
+def _external_list_filters(*, include_anio_mes: bool = False) -> tuple[dict | None, str | None]:
+    empresa_id, error = _parse_optional_int("empresa_id")
+    if error:
+        return None, error
+    empleado_id, error = _parse_optional_int("empleado_id")
+    if error:
+        return None, error
+    sucursal_id, error = _parse_optional_int("sucursal_id")
+    if error:
+        return None, error
+    sector_id, error = _parse_optional_int("sector_id")
+    if error:
+        return None, error
+    fecha_desde, error = _parse_optional_date("fecha_desde")
+    if error:
+        return None, error
+    fecha_hasta, error = _parse_optional_date("fecha_hasta")
+    if error:
+        return None, error
+    if fecha_desde and fecha_hasta and fecha_desde > fecha_hasta:
+        return None, "fecha_desde no puede ser posterior a fecha_hasta."
+    page, per_page, error = _parse_page()
+    if error:
+        return None, error
+
+    filters = {
+        "page": page,
+        "per_page": per_page,
+        "empresa_id": empresa_id,
+        "empleado_id": empleado_id,
+        "sucursal_id": sucursal_id,
+        "sector_id": sector_id,
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta,
+        "search": str(request.args.get("q") or "").strip() or None,
+    }
+    if include_anio_mes:
+        anio, error = _parse_optional_int_range("anio", minimum=2000, maximum=2100)
+        if error:
+            return None, error
+        mes, error = _parse_optional_int_range("mes", minimum=1, maximum=12)
+        if error:
+            return None, error
+        if mes and not anio:
+            return None, "anio requerido para filtrar por mes."
+        filters.update({"anio": anio, "mes": mes})
+    return filters, None
+
+
 @external_api_bp.route("/empresas", methods=["GET"])
 def empresas():
     activa, error = _parse_activo("activa", default=1)
@@ -398,6 +475,46 @@ def empleados():
         return jsonify({"error": error}), 400
     rows, total = list_empleados_external(**params)
     data = [_serialize_empleado(row) for row in rows]
+    return jsonify({
+        "data": data,
+        "pagination": _pagination(params["page"], params["per_page"], total),
+    })
+
+
+@external_api_bp.route("/justificaciones", methods=["GET"])
+def justificaciones():
+    params, error = _external_list_filters()
+    if error:
+        return jsonify({"error": error}), 400
+    estado, error = _parse_enum("estado", _ESTADOS_JUSTIFICACION)
+    if error:
+        return jsonify({"error": error}), 400
+
+    rows, total = list_justificaciones_external(**params, estado=estado)
+    data = [_serialize_row(row) for row in rows]
+    return jsonify({
+        "data": data,
+        "pagination": _pagination(params["page"], params["per_page"], total),
+    })
+
+
+@external_api_bp.route("/vacaciones/movimientos", methods=["GET"])
+def vacaciones_movimientos():
+    params, error = _external_list_filters(include_anio_mes=True)
+    if error:
+        return jsonify({"error": error}), 400
+    estado, error = _parse_enum("estado", _ESTADOS_VACACIONES)
+    if error:
+        return jsonify({"error": error}), 400
+    tipo, error = _parse_enum("tipo", _TIPOS_VACACIONES)
+    if error:
+        return jsonify({"error": error}), 400
+
+    try:
+        rows, total = list_vacaciones_external(**params, estado=estado, tipo=tipo)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    data = [_serialize_row(row) for row in rows]
     return jsonify({
         "data": data,
         "pagination": _pagination(params["page"], params["per_page"], total),

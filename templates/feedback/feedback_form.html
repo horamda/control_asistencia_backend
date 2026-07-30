@@ -13,7 +13,7 @@
     <button class="btn btn-secondary" type="submit">Buscar cliente</button>
   </form>
 
-  <form method="post" class="form-grid">
+  <form method="post" class="form-grid" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="cliente_q" value="{{ cliente_q }}">
     <label>Empleado
@@ -36,6 +36,10 @@
     </label>
     <label style="grid-column:1/-1;">Descripcion
       <textarea name="descripcion" rows="5" required>{{ data.descripcion }}</textarea>
+    </label>
+    <label style="grid-column:1/-1;">Foto de evidencia opcional
+      <input type="file" name="evidencia_file" accept="image/jpeg,image/png,image/webp" capture="environment">
+      <span class="helper-text">Formatos admitidos: JPG, PNG o WebP. Maximo 8 MB.</span>
     </label>
     <div class="actions" style="grid-column:1/-1;display:flex;gap:.75rem;">
       <button class="btn" type="submit">Guardar feedback</button>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros_macros %}
 {% block title %}Calificaciones de la app{% endblock %}
 
 {% block content %}
@@ -74,8 +75,16 @@
         {% endfor %}
       </select>
     </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Sector</label>
+      {{ filtros_macros.sector_select(sectores, filtros.sector_id, name='sector_id') }}
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Sucursal</label>
+      {{ filtros_macros.sucursal_select(sucursales, filtros.sucursal_id, name='sucursal_id') }}
+    </div>
     <button type="submit" class="btn btn-secondary">Filtrar</button>
-    {% if filtros.fecha_desde or filtros.fecha_hasta or filtros.version_app or filtros.puntuacion %}
+    {% if filtros.fecha_desde or filtros.fecha_hasta or filtros.version_app or filtros.puntuacion or filtros.sector_id or filtros.sucursal_id %}
     <a href="{{ url_for('calificaciones_app.listado') }}" class="btn btn-ghost">Limpiar</a>
     {% endif %}
   </div>

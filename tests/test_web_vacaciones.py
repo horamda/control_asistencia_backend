@@ -101,6 +101,7 @@ def test_vacaciones_listado_ok(monkeypatch):
     monkeypatch.setattr(vacaciones_routes, "get_movimientos_summary", lambda **kw: _stub_summary())
     monkeypatch.setattr(vacaciones_routes, "get_empleados", lambda **kw: _stub_empleados())
     monkeypatch.setattr(vacaciones_routes, "get_sectores", lambda **kw: _stub_sectores())
+    monkeypatch.setattr(vacaciones_routes, "get_sucursales", lambda **kw: [])
     monkeypatch.setattr(vacaciones_routes, "get_all", lambda: [])
     monkeypatch.setattr(vacaciones_routes, "calcular_resumen_vacaciones", lambda empleado_id, anio: _stub_saldo())
 
@@ -124,6 +125,7 @@ def test_vacaciones_listado_envia_filtros(monkeypatch):
     monkeypatch.setattr(vacaciones_routes, "get_movimientos_summary", lambda **kw: _stub_summary())
     monkeypatch.setattr(vacaciones_routes, "get_empleados", lambda **kw: _stub_empleados())
     monkeypatch.setattr(vacaciones_routes, "get_sectores", lambda **kw: _stub_sectores())
+    monkeypatch.setattr(vacaciones_routes, "get_sucursales", lambda **kw: [])
     monkeypatch.setattr(vacaciones_routes, "get_all", lambda: [])
     monkeypatch.setattr(vacaciones_routes, "calcular_resumen_vacaciones", lambda empleado_id, anio: _stub_saldo())
 
@@ -155,6 +157,7 @@ def test_vacaciones_reporte_export_xlsx_ok(monkeypatch):
                 "legajo": "L-10",
                 "sector_id": 4,
                 "sector_nombre": "Ventas",
+                "sucursal_nombre": "Casa Central",
                 "empresa_nombre": "Acme",
                 "puesto_nombre": "Vendedora",
                 "activo": 1,
@@ -162,6 +165,7 @@ def test_vacaciones_reporte_export_xlsx_ok(monkeypatch):
         ],
     )
     monkeypatch.setattr(vacaciones_routes, "get_sectores", lambda include_inactive=True: [{"id": 4, "nombre": "Ventas", "empresa_nombre": "Acme"}])
+    monkeypatch.setattr(vacaciones_routes, "get_sucursales", lambda include_inactive=True: [])
     monkeypatch.setattr(vacaciones_routes, "calcular_resumen_vacaciones", lambda empleado_id, anio: _stub_saldo())
 
     resp = client.get("/vacaciones/reporte/export.xlsx?anio=2026&sector_id=4&activo=1&q=ana")
@@ -175,9 +179,9 @@ def test_vacaciones_reporte_export_xlsx_ok(monkeypatch):
     assert ws["A1"].value == "Reporte de vacaciones"
     assert ws["A5"].value == "Anio"
     assert ws["B6"].value == "Ventas"
-    assert ws["A12"].value == "Empleados"
-    assert ws["B12"].value == 1
-    assert ws["D24"].value == "Lopez Ana"
+    assert ws["A13"].value == "Empleados"
+    assert ws["B13"].value == 1
+    assert ws["E25"].value == "Lopez Ana"
 
 
 def test_vacaciones_movimiento_nuevo_post(monkeypatch):
@@ -420,6 +424,7 @@ def test_vacaciones_reporte_filtra_por_area_y_activos(monkeypatch):
     captured = []
     monkeypatch.setattr(vacaciones_routes, "get_empleados", lambda **kw: _reporte_empleados())
     monkeypatch.setattr(vacaciones_routes, "get_sectores", lambda **kw: _stub_sectores())
+    monkeypatch.setattr(vacaciones_routes, "get_sucursales", lambda **kw: [])
 
     def _fake_resumen(empleado_id, anio):
         captured.append((empleado_id, anio))
@@ -452,9 +457,9 @@ def test_vacaciones_reporte_export_csv(monkeypatch):
     assert resp.status_code == 200
     assert resp.mimetype == "text/csv"
     assert "vacaciones_reporte_2026" in resp.headers["Content-Disposition"]
-    assert "empresa,area,puesto,empleado" in text
+    assert "empresa,area,sucursal,puesto,empleado" in text
     assert "dias_corresponden,dias_compensatorios,dias_tomados,dias_pendientes_por_tomar" in text
-    assert "Acme,Ventas,Gerente,Lopez Ana" in text
+    assert "Acme,Ventas,,Gerente,Lopez Ana" in text
     assert "Total empleados,1" in text
     assert "Dias compensatorios,2.0" in text
     assert "Dias pendientes por tomar,18.0" in text

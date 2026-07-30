@@ -158,10 +158,31 @@ def _ensure_pedidos_mercaderia_schema():
         conn.close()
 
 
+def _ensure_system_config_schema():
+    conn = get_raw_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS system_config (
+                config_key   VARCHAR(100) NOT NULL,
+                config_value VARCHAR(255) NOT NULL,
+                updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (config_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """
+        )
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def init_db():
     init_orm()
     _ensure_justificaciones_schema()
     _ensure_pedidos_mercaderia_schema()
+    _ensure_system_config_schema()
     _ensure_required_indexes()
 
 

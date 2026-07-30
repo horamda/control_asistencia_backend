@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Feedback{% endblock %}
 {% block content %}
-<div class="content-stack">
+<div class="content-stack feedback-admin">
   <div class="section-head">
     <div>
       <div class="section-kicker">Feedback</div>
@@ -20,20 +20,29 @@
       <span class="chip">{{ resumen.total }} registros</span>
     </div>
   </div>
+  {% if request.args.get("error") %}<div class="alert alert-error">{{ request.args.get("error") }}</div>{% endif %}
+  {% if scope_error %}<div class="alert alert-error">{{ scope_error }}</div>{% endif %}
 
   <form method="get" class="dashboard-filter-form">
     <div class="form-grid">
-      <div class="row">
-        <label>Sector del empleado</label>
-        <select name="sector_id">
-          <option value="">Todos los sectores</option>
-          {% for sector in sectores %}
-            <option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>
-              {{ sector.empresa_nombre }} &middot; {{ sector.nombre }}{% if not sector.activo %} (inactivo){% endif %}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
+      {% if can_manage_feedback %}
+        <div class="row">
+          <label>Sector del empleado</label>
+          <select name="sector_id">
+            <option value="">Todos los sectores</option>
+            {% for sector in sectores %}
+              <option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>
+                {{ sector.empresa_nombre }} &middot; {{ sector.nombre }}{% if not sector.activo %} (inactivo){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      {% else %}
+        <div class="row">
+          <label>Sector del empleado</label>
+          <input type="text" value="{{ scope_sector_nombre or 'Sin sector asignado' }}" disabled>
+        </div>
+      {% endif %}
       <div class="row">
         <label>Sucursal del empleado</label>
         <select name="sucursal_id">
@@ -124,9 +133,9 @@
           <strong>{{ resumen.pendientes }}</strong>
         </div>
         <div class="status-row">
-          <span class="status-label">En proceso</span>
-          <div class="status-track"><span class="status-fill neutral" style="width: {{ (resumen.en_proceso * 100 / resumen.total) | round(1) }}%"></span></div>
-          <strong>{{ resumen.en_proceso }}</strong>
+          <span class="status-label">Pendientes vencidos</span>
+          <div class="status-track"><span class="status-fill danger" style="width: {{ (resumen.vencidos * 100 / resumen.total) | round(1) }}%"></span></div>
+          <strong>{{ resumen.vencidos }}</strong>
         </div>
         <div class="status-row">
           <span class="status-label">Resueltos en SLA</span>
@@ -226,9 +235,12 @@
     <div class="actions">
       <a class="btn" href="{{ url_for('feedback_web.nuevo_feedback') }}">Cargar feedback</a>
       <a class="btn" href="{{ url_for('feedback_web.registros_listado', sector_id=sector_id, sucursal_id=sucursal_id, empleado_activo=empleado_activo) }}">Ver registros</a>
+      {% if tiene_empleado_vinculado %}
+        <a class="btn" href="{{ url_for('feedback_web.bandeja_jefe', estado='pendiente') }}">Mi bandeja{% if bandeja_pendiente %} ({{ bandeja_pendiente }}){% endif %}</a>
+      {% endif %}
       <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado') }}">Motivos</a>
       <a class="btn btn-secondary" href="{{ url_for('feedback_web.clientes_listado') }}">Clientes</a>
-      <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver al dashboard</a>
+      <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver al inicio</a>
     </div>
   </section>
 </div>

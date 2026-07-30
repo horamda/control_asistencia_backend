@@ -7,16 +7,20 @@ def get_all(include_inactive: bool = False):
     try:
         if include_inactive:
             cursor.execute("""
-                SELECT u.*, e.razon_social AS empresa_nombre
+                SELECT u.*, e.razon_social AS empresa_nombre,
+                       emp.apellido AS empleado_apellido, emp.nombre AS empleado_nombre, emp.legajo AS empleado_legajo
                 FROM usuarios u
                 JOIN empresas e ON e.id = u.empresa_id
+                LEFT JOIN empleados emp ON emp.id = u.empleado_id
                 ORDER BY e.razon_social, u.usuario
             """)
         else:
             cursor.execute("""
-                SELECT u.*, e.razon_social AS empresa_nombre
+                SELECT u.*, e.razon_social AS empresa_nombre,
+                       emp.apellido AS empleado_apellido, emp.nombre AS empleado_nombre, emp.legajo AS empleado_legajo
                 FROM usuarios u
                 JOIN empresas e ON e.id = u.empresa_id
+                LEFT JOIN empleados emp ON emp.id = u.empleado_id
                 WHERE u.activo = 1
                 ORDER BY e.razon_social, u.usuario
             """)
@@ -45,9 +49,11 @@ def get_page(page: int, per_page: int, empresa_id: int | None = None, activo: in
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
         cursor.execute(f"""
-            SELECT u.*, e.razon_social AS empresa_nombre
+            SELECT u.*, e.razon_social AS empresa_nombre,
+                   emp.apellido AS empleado_apellido, emp.nombre AS empleado_nombre, emp.legajo AS empleado_legajo
             FROM usuarios u
             JOIN empresas e ON e.id = u.empresa_id
+            LEFT JOIN empleados emp ON emp.id = u.empleado_id
             {where_sql}
             ORDER BY e.razon_social, u.usuario
             LIMIT %s OFFSET %s
@@ -96,9 +102,10 @@ def get_by_id(user_id: int):
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT *
-            FROM usuarios
-            WHERE id = %s
+            SELECT u.*, emp.apellido AS empleado_apellido, emp.nombre AS empleado_nombre, emp.legajo AS empleado_legajo
+            FROM usuarios u
+            LEFT JOIN empleados emp ON emp.id = u.empleado_id
+            WHERE u.id = %s
         """, (user_id,))
         return cursor.fetchone()
     finally:
@@ -145,14 +152,16 @@ def create(data: dict):
             INSERT INTO usuarios
             (
                 empresa_id,
+                empleado_id,
                 usuario,
                 password_hash,
                 rol,
                 activo
             )
-            VALUES (%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s)
         """, (
             data.get("empresa_id"),
+            data.get("empleado_id"),
             data.get("usuario"),
             data.get("password_hash"),
             data.get("rol"),
@@ -173,12 +182,14 @@ def update(user_id: int, data: dict):
             UPDATE usuarios
             SET
                 empresa_id = %s,
+                empleado_id = %s,
                 usuario = %s,
                 rol = %s,
                 activo = %s
             WHERE id = %s
         """, (
             data.get("empresa_id"),
+            data.get("empleado_id"),
             data.get("usuario"),
             data.get("rol"),
             1 if data.get("activo") else 0,

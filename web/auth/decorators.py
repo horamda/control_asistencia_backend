@@ -8,6 +8,15 @@ def _current_web_user_id():
     return session.get("user_id")
 
 
+def current_empleado_id():
+    """Empleado vinculado al usuario del panel actualmente logueado (o None si no tiene)."""
+    empleado_id = session.get("empleado_id")
+    try:
+        return int(empleado_id) if empleado_id else None
+    except (TypeError, ValueError):
+        return None
+
+
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):

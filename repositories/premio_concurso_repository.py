@@ -292,6 +292,8 @@ def _base_resultado_select():
             e.apellido,
             e.dni,
             e.legajo,
+            e.sucursal_id AS empleado_sucursal_id,
+            suc.nombre AS sucursal_nombre,
             emp.razon_social AS empresa_nombre,
             c.codigo AS concurso_codigo,
             c.nombre AS concurso_nombre,
@@ -307,6 +309,7 @@ def _base_resultado_select():
         JOIN premios_concursos c ON c.id = r.concurso_id
         LEFT JOIN sectores sc ON sc.id = c.sector_id
         LEFT JOIN sectores sr ON sr.id = r.sector_id
+        LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
         LEFT JOIN usuarios u_created ON u_created.id = r.created_by_usuario_id
         LEFT JOIN usuarios u_updated ON u_updated.id = r.updated_by_usuario_id
     """
@@ -318,6 +321,7 @@ def _build_resultado_filters(
     empleado_id: int | None = None,
     concurso_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     search: str | None = None,
     periodo_year: int | None = None,
     periodo_month: int | None = None,
@@ -336,6 +340,9 @@ def _build_resultado_filters(
     if sector_id:
         where.append("r.sector_id = %s")
         params.append(int(sector_id))
+    if sucursal_id:
+        where.append("e.sucursal_id = %s")
+        params.append(int(sucursal_id))
     if search:
         like = f"%{search}%"
         where.append(
@@ -363,6 +370,7 @@ def get_resultados_page(
     empleado_id: int | None = None,
     concurso_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     search: str | None = None,
     periodo_year: int | None = None,
     periodo_month: int | None = None,
@@ -376,6 +384,7 @@ def get_resultados_page(
             empleado_id=empleado_id,
             concurso_id=concurso_id,
             sector_id=sector_id,
+            sucursal_id=sucursal_id,
             search=search,
             periodo_year=periodo_year,
             periodo_month=periodo_month,
@@ -413,6 +422,7 @@ def get_resultados_summary(
     empleado_id: int | None = None,
     concurso_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     search: str | None = None,
     periodo_year: int | None = None,
     periodo_month: int | None = None,
@@ -425,6 +435,7 @@ def get_resultados_summary(
             empleado_id=empleado_id,
             concurso_id=concurso_id,
             sector_id=sector_id,
+            sucursal_id=sucursal_id,
             search=search,
             periodo_year=periodo_year,
             periodo_month=periodo_month,
@@ -463,6 +474,7 @@ def get_resultados_export(
     empleado_id: int | None = None,
     concurso_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     search: str | None = None,
     periodo_year: int | None = None,
     periodo_month: int | None = None,
@@ -476,6 +488,7 @@ def get_resultados_export(
             empleado_id=empleado_id,
             concurso_id=concurso_id,
             sector_id=sector_id,
+            sucursal_id=sucursal_id,
             search=search,
             periodo_year=periodo_year,
             periodo_month=periodo_month,

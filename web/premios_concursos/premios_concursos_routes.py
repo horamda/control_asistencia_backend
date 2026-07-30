@@ -21,6 +21,7 @@ from repositories.premio_concurso_repository import (
     update_concurso,
 )
 from repositories.sector_repository import get_page as get_sectores_page
+from repositories.sucursal_repository import get_all as get_sucursales
 from services.premio_concurso_import_service import PremioImportError, importar_premios_desde_archivo
 from services.export_excel_service import generar_premios_concursos_resultados_excel
 from utils.audit import log_audit
@@ -269,6 +270,7 @@ def _extract_resultado_filters(args):
         "per_page": args.get("per", 20, type=int) or 20,
         "empresa_id": args.get("empresa_id", type=int),
         "sector_id": args.get("sector_id", type=int),
+        "sucursal_id": args.get("sucursal_id", type=int),
         "empleado_id": args.get("empleado_id", type=int),
         "concurso_id": args.get("concurso_id", type=int),
         "periodo_year": args.get("anio", type=int),
@@ -298,6 +300,7 @@ def resultados():
         empleado_id=filters["empleado_id"],
         concurso_id=filters["concurso_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         search=filters["search"],
         periodo_year=filters["periodo_year"],
         periodo_month=filters["periodo_month"],
@@ -307,6 +310,7 @@ def resultados():
         empleado_id=filters["empleado_id"],
         concurso_id=filters["concurso_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         search=filters["search"],
         periodo_year=filters["periodo_year"],
         periodo_month=filters["periodo_month"],
@@ -314,6 +318,7 @@ def resultados():
 
     empresas = get_empresas(include_inactive=True)
     sectores = _get_sectores(filters["empresa_id"], include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
     concursos = get_concursos_for_empresa(filters["empresa_id"], activo=None) if filters["empresa_id"] else []
     empleados = get_empleados(include_inactive=True)
 
@@ -324,6 +329,7 @@ def resultados():
         summary=summary,
         empresas=empresas,
         sectores=sectores,
+        sucursales=sucursales,
         concursos=concursos,
         empleados=empleados,
         years=_current_year_options(),
@@ -332,6 +338,7 @@ def resultados():
         per_page=filters["per_page"],
         empresa_id=filters["empresa_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         empleado_id=filters["empleado_id"],
         concurso_id=filters["concurso_id"],
         anio=filters["periodo_year"],
@@ -461,6 +468,7 @@ def resultados_export_csv():
         empleado_id=filters["empleado_id"],
         concurso_id=filters["concurso_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         search=filters["search"],
         periodo_year=filters["periodo_year"],
         periodo_month=filters["periodo_month"],
@@ -479,6 +487,7 @@ def resultados_export_csv():
         "concurso",
         "alcance",
         "sector",
+        "sucursal",
         "ranking",
         "observaciones",
     ])
@@ -495,6 +504,7 @@ def resultados_export_csv():
             row.get("concurso_nombre") or row.get("concurso_nombre_snapshot") or "",
             row.get("concurso_alcance") or "",
             row.get("sector_nombre") or "",
+            row.get("sucursal_nombre") or "",
             row.get("ranking") or "",
             row.get("observaciones") or "",
         ])
@@ -519,6 +529,7 @@ def resultados_export_xlsx():
         empleado_id=filters["empleado_id"],
         concurso_id=filters["concurso_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         search=filters["search"],
         periodo_year=filters["periodo_year"],
         periodo_month=filters["periodo_month"],
@@ -528,6 +539,7 @@ def resultados_export_xlsx():
         empleado_id=filters["empleado_id"],
         concurso_id=filters["concurso_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         search=filters["search"],
         periodo_year=filters["periodo_year"],
         periodo_month=filters["periodo_month"],
@@ -535,6 +547,7 @@ def resultados_export_xlsx():
 
     empresas = get_empresas(include_inactive=True)
     sectores = _get_sectores(filters["empresa_id"], include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
     concursos = get_concursos_for_empresa(filters["empresa_id"], activo=None) if filters["empresa_id"] else []
     empleados = get_empleados(include_inactive=True)
 
@@ -544,6 +557,7 @@ def resultados_export_xlsx():
         filters={
             "empresa_label": next((e.get("razon_social") for e in empresas if int(e.get("id") or 0) == int(filters["empresa_id"] or 0)), None),
             "sector_label": next((s.get("nombre") for s in sectores if int(s.get("id") or 0) == int(filters["sector_id"] or 0)), None),
+            "sucursal_label": next((s.get("nombre") for s in sucursales if int(s.get("id") or 0) == int(filters["sucursal_id"] or 0)), None),
             "empleado_label": next(
                 (
                     f"{e.get('apellido') or ''} {e.get('nombre') or ''}".strip()

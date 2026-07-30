@@ -54,6 +54,13 @@
       </div>
       <div class="row span-3">
         <label class="check-inline">
+          <input type="checkbox" name="habilitado_mobile" value="1" {% if data.habilitado_mobile %}checked{% endif %}>
+          Disponible para carga desde app mobile
+        </label>
+        <div class="helper-text">Solo los tipos marcados aparecen en la app para usuarios con permiso de carga de eventos.</div>
+      </div>
+      <div class="row span-3">
+        <label class="check-inline">
           <input type="checkbox" name="activo" value="1" {% if data.activo is not defined or data.activo %}checked{% endif %}>
           Tipo activo
         </label>

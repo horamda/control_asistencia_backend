@@ -27,6 +27,8 @@ def test_asistencias_get_ok(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
     monkeypatch.setattr(asistencias_routes, "get_page", lambda *args, **kwargs: ([], 0))
     monkeypatch.setattr(asistencias_routes, "get_empleados", lambda include_inactive=True: [])
+    monkeypatch.setattr(asistencias_routes, "get_sucursales", lambda include_inactive=True: [])
+    monkeypatch.setattr(asistencias_routes, "get_sectores", lambda include_inactive=True: [])
 
     resp = client.get("/asistencias/")
     assert resp.status_code == 200
@@ -39,6 +41,8 @@ def test_asistencias_get_muestra_error(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
     monkeypatch.setattr(asistencias_routes, "get_page", lambda *args, **kwargs: ([], 0))
     monkeypatch.setattr(asistencias_routes, "get_empleados", lambda include_inactive=True: [])
+    monkeypatch.setattr(asistencias_routes, "get_sucursales", lambda include_inactive=True: [])
+    monkeypatch.setattr(asistencias_routes, "get_sectores", lambda include_inactive=True: [])
 
     resp = client.get("/asistencias/?error=Fecha+invalida")
     assert resp.status_code == 200
@@ -67,6 +71,135 @@ def test_generar_ausentes_dia(monkeypatch):
     assert resp.status_code == 302
     assert f"fecha_desde={fecha}" in resp.headers["Location"]
     assert captured["fecha"] == fecha
+
+
+def test_reportes_mensuales_renderiza_solapas(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
+    monkeypatch.setattr(asistencias_routes, "has_role", lambda user_id, role: True)
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(asistencias_routes, "get_empresas", lambda include_inactive=True: [{"id": 1, "razon_social": "Empresa"}])
+    monkeypatch.setattr(asistencias_routes, "get_sucursales", lambda include_inactive=True: [{"id": 2, "empresa_id": 1, "nombre": "Suc. Dolores"}])
+    monkeypatch.setattr(asistencias_routes, "get_sectores", lambda include_inactive=True: [{"id": 5, "empresa_id": 1, "nombre": "Operaciones"}])
+    monkeypatch.setattr(asistencias_routes, "get_dias_no_laborables", lambda **kwargs: set())
+    monkeypatch.setattr(
+        asistencias_routes,
+        "get_empleados",
+        lambda include_inactive=True, sucursal_id=None, sector_id=None: [
+            {"id": 10, "empresa_id": 1, "sucursal_id": 2, "apellido": "Aguirre", "nombre": "Leandro", "sector_nombre": "Operaciones", "activo": 1}
+        ],
+    )
+    monkeypatch.setattr(asistencias_routes, "get_marcas_admin_export", lambda **kwargs: [])
+    monkeypatch.setattr(asistencias_routes, "get_justificaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(asistencias_routes, "get_vacaciones_aprobadas_export", lambda **kwargs: [])
+
+    resp = client.get("/asistencias/reportes?mes=2026-07&sucursal_id=2")
+
+    assert resp.status_code == 200
+    assert b"Julio 2026" in resp.data
+    assert b"Resumen" in resp.data
+    assert b"Ausencias" in resp.data
+    assert b"An" in resp.data
+    assert b"Jornada" in resp.data
+    assert b"Aguirre Leandro" in resp.data
+
+
+def test_reportes_mensuales_usa_dias_no_laborables_guardados(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
+    monkeypatch.setattr(asistencias_routes, "has_role", lambda user_id, role: True)
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(asistencias_routes, "get_empresas", lambda include_inactive=True: [{"id": 1, "razon_social": "Empresa"}])
+    monkeypatch.setattr(asistencias_routes, "get_sucursales", lambda include_inactive=True: [{"id": 2, "empresa_id": 1, "nombre": "Suc. Dolores"}])
+    monkeypatch.setattr(asistencias_routes, "get_sectores", lambda include_inactive=True: [])
+    monkeypatch.setattr(
+        asistencias_routes,
+        "get_dias_no_laborables",
+        lambda **kwargs: {"2026-07-13"},
+    )
+    monkeypatch.setattr(
+        asistencias_routes,
+        "get_empleados",
+        lambda include_inactive=True, sucursal_id=None, sector_id=None: [
+            {"id": 10, "empresa_id": 1, "sucursal_id": 2, "apellido": "Aguirre", "nombre": "Leandro", "sector_nombre": "Operaciones", "activo": 1}
+        ],
+    )
+    monkeypatch.setattr(asistencias_routes, "get_marcas_admin_export", lambda **kwargs: [])
+    monkeypatch.setattr(asistencias_routes, "get_justificaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(asistencias_routes, "get_vacaciones_aprobadas_export", lambda **kwargs: [])
+
+    resp = client.get("/asistencias/reportes?mes=2026-07&empresa_id=1&sucursal_id=2")
+    html = resp.get_data(as_text=True)
+
+    assert resp.status_code == 200
+    assert 'name="nl" value="5,12,13,19,26"' in html
+    assert 'data-day="13">13</button>' in html
+    assert 'non-laborable" data-day="5">5</button>' in html
+    assert 'non-laborable" data-day="12">12</button>' in html
+    assert 'non-laborable" data-day="19">19</button>' in html
+    assert 'non-laborable" data-day="26">26</button>' in html
+
+
+def test_reportes_mensuales_filtra_por_sector(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
+    monkeypatch.setattr(asistencias_routes, "has_role", lambda user_id, role: True)
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    captured = {}
+    monkeypatch.setattr(asistencias_routes, "get_empresas", lambda include_inactive=True: [{"id": 1, "razon_social": "Empresa"}])
+    monkeypatch.setattr(asistencias_routes, "get_sucursales", lambda include_inactive=True: [])
+    monkeypatch.setattr(asistencias_routes, "get_sectores", lambda include_inactive=True: [{"id": 5, "empresa_id": 1, "nombre": "Operaciones"}])
+    monkeypatch.setattr(asistencias_routes, "get_dias_no_laborables", lambda **kwargs: set())
+
+    def _fake_get_empleados(include_inactive=True, sucursal_id=None, sector_id=None):
+        captured["sector_id"] = sector_id
+        return []
+
+    monkeypatch.setattr(asistencias_routes, "get_empleados", _fake_get_empleados)
+    monkeypatch.setattr(asistencias_routes, "get_marcas_admin_export", lambda **kwargs: [])
+    monkeypatch.setattr(asistencias_routes, "get_justificaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(asistencias_routes, "get_vacaciones_aprobadas_export", lambda **kwargs: [])
+
+    resp = client.get("/asistencias/reportes?mes=2026-07&empresa_id=1&sector_id=5")
+
+    assert resp.status_code == 200
+    assert captured["sector_id"] == 5
+
+
+def test_reportes_dias_no_laborables_guardar(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    captured = {}
+
+    def _fake_replace(**kwargs):
+        captured.update(kwargs)
+        return len(kwargs["dates"])
+
+    monkeypatch.setattr(asistencias_routes, "replace_dias_no_laborables", _fake_replace)
+
+    resp = client.post(
+        "/asistencias/reportes/dias-no-laborables",
+        data={
+            "mes": "2026-07",
+            "empresa_id": "1",
+            "sucursal_id": "2",
+            "sector_id": "5",
+            "tab": "resumen",
+            "nl": "13,20,99,abc",
+        },
+        follow_redirects=False,
+    )
+
+    assert resp.status_code == 302
+    assert captured["year"] == 2026
+    assert captured["month"] == 7
+    assert captured["empresa_id"] == 1
+    assert captured["sucursal_id"] == 2
+    assert captured["sector_id"] == 5
+    assert captured["actor_id"] == 99
+    assert captured["dates"] == {"2026-07-13", "2026-07-20"}
+    assert "sector_id=5" in resp.headers["Location"]
 
 
 def test_generar_ausentes_rango(monkeypatch):

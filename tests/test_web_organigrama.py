@@ -29,7 +29,7 @@ def test_organigrama_renderiza_estructura_y_responsables(monkeypatch):
     monkeypatch.setattr(
         organigrama_routes,
         "get_organigrama",
-        lambda empresa_id=None, activo=1: [
+        lambda empresa_id=None, activo=1, empleado_activo=1: [
             {
                 "empresa_id": 1,
                 "empresa_nombre": "Empresa A",
@@ -52,6 +52,7 @@ def test_organigrama_renderiza_estructura_y_responsables(monkeypatch):
                         "responsable_nombre": "Ana",
                         "responsable_puesto_nombre": "Gerente",
                         "dotacion_total": 2,
+                        "dotacion_directa": 1,
                         "children": [
                             {
                                 "id": 11,
@@ -62,11 +63,21 @@ def test_organigrama_renderiza_estructura_y_responsables(monkeypatch):
                                 "responsable_nombre": None,
                                 "responsable_puesto_nombre": None,
                                 "dotacion_total": 1,
+                                "dotacion_directa": 1,
                                 "children": [],
                                 "empleados": [
                                     {
                                         "nombre_completo": "Lopez Juan",
                                         "puesto_nombre": "Operario",
+                                    }
+                                ],
+                                "empleados_tree": [
+                                    {
+                                        "nombre_completo": "Lopez Juan",
+                                        "puesto_nombre": "Operario",
+                                        "activo": 1,
+                                        "asignacion_adicional": False,
+                                        "subordinados": [],
                                     }
                                 ],
                             }
@@ -75,9 +86,29 @@ def test_organigrama_renderiza_estructura_y_responsables(monkeypatch):
                             {
                                 "nombre_completo": "Perez Ana",
                                 "puesto_nombre": "Gerente",
-                                "puestos_adicionales": [
-                                    {"puesto_nombre": "Supervisor"},
-                                    {"puesto_nombre": "Operario"},
+                            }
+                        ],
+                        "empleados_tree": [
+                            {
+                                "nombre_completo": "Perez Ana",
+                                "puesto_nombre": "Gerente",
+                                "activo": 1,
+                                "asignacion_adicional": False,
+                                "subordinados": [
+                                    {
+                                        "nombre_completo": "Perez Ana",
+                                        "puesto_nombre": "Supervisor",
+                                        "activo": 1,
+                                        "asignacion_adicional": True,
+                                        "subordinados": [],
+                                    },
+                                    {
+                                        "nombre_completo": "Perez Ana",
+                                        "puesto_nombre": "Operario",
+                                        "activo": 1,
+                                        "asignacion_adicional": True,
+                                        "subordinados": [],
+                                    },
                                 ],
                             }
                         ],
@@ -95,7 +126,9 @@ def test_organigrama_renderiza_estructura_y_responsables(monkeypatch):
     assert b"Operaciones" in resp.data
     assert b"Logistica" in resp.data
     assert b"Perez Ana" in resp.data
-    assert b"Tambien: Supervisor, Operario" in resp.data
+    assert b"Supervisor" in resp.data
+    assert b"Operario" in resp.data
+    assert b"adicional" in resp.data
     assert b"Sin responsable" in resp.data
     assert b"Gomez Luis" in resp.data
 
@@ -111,9 +144,10 @@ def test_organigrama_pasa_filtros_al_repositorio(monkeypatch):
     )
     captured = {}
 
-    def _fake_get_organigrama(empresa_id=None, activo=1):
+    def _fake_get_organigrama(empresa_id=None, activo=1, empleado_activo=1):
         captured["empresa_id"] = empresa_id
         captured["activo"] = activo
+        captured["empleado_activo"] = empleado_activo
         return []
 
     monkeypatch.setattr(organigrama_routes, "get_organigrama", _fake_get_organigrama)
@@ -121,4 +155,4 @@ def test_organigrama_pasa_filtros_al_repositorio(monkeypatch):
     resp = client.get("/organigrama/?empresa_id=2&activo=all")
 
     assert resp.status_code == 200
-    assert captured == {"empresa_id": 2, "activo": None}
+    assert captured == {"empresa_id": 2, "activo": None, "empleado_activo": 1}

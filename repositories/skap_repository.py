@@ -7,6 +7,7 @@ def _scope_filters(
     *,
     empresa_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
 ):
     where = []
     params: list = []
@@ -16,6 +17,9 @@ def _scope_filters(
     if sector_id:
         where.append("ev.sector_id = %s")
         params.append(int(sector_id))
+    if sucursal_id:
+        where.append("ev.empleado_sucursal_id = %s")
+        params.append(int(sucursal_id))
     return where, params
 
 
@@ -47,7 +51,9 @@ def _evaluation_select() -> str:
             emp.dni AS empleado_dni,
             emp.apellido AS empleado_apellido,
             emp.nombre AS empleado_nombre,
+            emp.sucursal_id AS empleado_sucursal_id,
             sec.nombre AS sector_nombre,
+            suc.nombre AS sucursal_nombre,
             p.nombre AS puesto_nombre,
             eval_emp.legajo AS evaluador_legajo,
             eval_emp.apellido AS evaluador_apellido,
@@ -56,6 +62,7 @@ def _evaluation_select() -> str:
         FROM skap_evaluaciones ev
         JOIN empleados emp ON emp.id = ev.empleado_id
         LEFT JOIN sectores sec ON sec.id = ev.sector_id
+        LEFT JOIN sucursales suc ON suc.id = emp.sucursal_id
         LEFT JOIN puestos p ON p.id = ev.puesto_id
         LEFT JOIN empleados eval_emp ON eval_emp.id = ev.evaluador_empleado_id
         LEFT JOIN usuarios u ON u.id = ev.evaluador_usuario_id
@@ -88,7 +95,9 @@ def _plan_select() -> str:
             emp.dni AS empleado_dni,
             emp.apellido AS empleado_apellido,
             emp.nombre AS empleado_nombre,
+            emp.sucursal_id AS empleado_sucursal_id,
             sec.nombre AS sector_nombre,
+            suc.nombre AS sucursal_nombre,
             pos.nombre AS puesto_nombre,
             eval_emp.apellido AS evaluador_apellido,
             eval_emp.nombre AS evaluador_nombre,
@@ -114,6 +123,7 @@ def _plan_select() -> str:
         JOIN skap_evaluaciones ev ON ev.id = p.evaluacion_id
         JOIN empleados emp ON emp.id = p.empleado_id
         LEFT JOIN sectores sec ON sec.id = p.sector_id
+        LEFT JOIN sucursales suc ON suc.id = emp.sucursal_id
         LEFT JOIN puestos pos ON pos.id = p.puesto_id
         LEFT JOIN empleados eval_emp ON eval_emp.id = ev.evaluador_empleado_id
     """
@@ -162,6 +172,7 @@ def get_evaluaciones_page(
     *,
     empresa_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     anio: int | None = None,
     search: str | None = None,
 ):
@@ -170,7 +181,7 @@ def get_evaluaciones_page(
     try:
         where = []
         params: list = []
-        scope_where, scope_params = _scope_filters(empresa_id=empresa_id, sector_id=sector_id)
+        scope_where, scope_params = _scope_filters(empresa_id=empresa_id, sector_id=sector_id, sucursal_id=sucursal_id)
         where.extend(scope_where)
         params.extend(scope_params)
         if anio:
@@ -797,6 +808,7 @@ def get_planes_page(
     *,
     empresa_id: int | None = None,
     sector_id: int | None = None,
+    sucursal_id: int | None = None,
     anio: int | None = None,
     search: str | None = None,
 ):
@@ -811,6 +823,9 @@ def get_planes_page(
         if sector_id:
             where.append("p.sector_id = %s")
             params.append(int(sector_id))
+        if sucursal_id:
+            where.append("p.empleado_sucursal_id = %s")
+            params.append(int(sucursal_id))
         if anio:
             where.append("p.anio = %s")
             params.append(int(anio))

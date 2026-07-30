@@ -18,20 +18,28 @@ from repositories.asistencia_marca_repository import (
 from repositories.configuracion_empresa_repository import get_by_empresa_id
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.empleado_repository import (
+    get_page as get_empleados_page,
     update_mobile_profile,
     update_password as update_empleado_password,
 )
 from repositories.legajo_evento_repository import (
+    create_evento,
+    get_tipo_evento_by_id,
     get_tipos_evento,
     get_eventos_page,
     get_evento_by_id_for_empleado,
     get_conteo_por_tipo_for_empleado,
 )
 from repositories.legajo_adjunto_repository import (
+    create_adjunto,
     get_adjunto_by_id,
     get_adjunto_by_id_for_empleado,
     get_adjunto_data_by_id,
     get_adjuntos_by_evento_for_empleado,
+)
+from repositories.mobile_legajo_permiso_repository import (
+    PERMISO_CARGAR_EVENTOS_LEGAJO,
+    alcance_permiso as get_mobile_legajo_alcance,
 )
 from repositories.franco_repository import (
     get_page_by_empleado as get_francos_page_by_empleado,
@@ -53,6 +61,7 @@ from repositories.vacacion_repository import (
     get_page_by_empleado as get_vacaciones_page_by_empleado,
 )
 from repositories.justificacion_repository import (
+    marcar_vista_por_empleado as marcar_justificacion_vista_por_empleado,
     get_by_id as get_justificacion_by_id,
     get_page as get_justificaciones_page,
     delete as delete_justificacion_row,
@@ -93,7 +102,7 @@ from services.vacaciones_service import (
     solicitar_vacaciones as solicitar_vacaciones_svc,
 )
 from repositories.vacaciones_repository import get_movimiento_by_id as get_vacaciones_movimiento_by_id
-from services.legajo_attachment_service import resolve_legajo_storage_path
+from services.legajo_attachment_service import resolve_legajo_storage_path, save_legajo_attachment_local
 from services.legajo_service import (
     calcular_resumen_legajo,
     legajo_evento_to_mobile_dict,
@@ -1449,6 +1458,9 @@ def _justificacion_to_dict(j: dict, adjuntos: list[dict] | None = None) -> dict:
     archivo = j.get("archivo") or None
     if not archivo and adjuntos:
         archivo = adjuntos[0].get("download_url")
+    estado = j.get("estado") or "pendiente"
+    resuelto_at = j.get("resuelto_at")
+    visto_at = j.get("visto_por_empleado_at")
     return {
         "id": j["id"],
         "asistencia_id": j.get("asistencia_id"),
@@ -1458,7 +1470,19 @@ def _justificacion_to_dict(j: dict, adjuntos: list[dict] | None = None) -> dict:
         "asistencia_fecha": _to_date_str(j.get("asistencia_fecha")) if j.get("asistencia_fecha") else None,
         "motivo": j.get("motivo"),
         "archivo": archivo,
-        "estado": j.get("estado") or "pendiente",
+        "estado": estado,
+        "resuelto_at": resuelto_at.isoformat() if hasattr(resuelto_at, "isoformat") else (str(resuelto_at) if resuelto_at else None),
+        "resuelto_by_usuario_id": j.get("resuelto_by_usuario_id"),
+        "resuelto_by_usuario": j.get("resuelto_by_usuario"),
+        "comentario_resolucion": j.get("comentario_resolucion"),
+        "motivo_rechazo": j.get("motivo_rechazo"),
+        "notificado_empleado_at": (
+            j.get("notificado_empleado_at").isoformat()
+            if hasattr(j.get("notificado_empleado_at"), "isoformat")
+            else (str(j.get("notificado_empleado_at")) if j.get("notificado_empleado_at") else None)
+        ),
+        "visto_por_empleado_at": visto_at.isoformat() if hasattr(visto_at, "isoformat") else (str(visto_at) if visto_at else None),
+        "tiene_novedad": estado in {"aprobada", "rechazada"} and bool(resuelto_at) and not bool(visto_at),
         "legajo_evento_id": j.get("legajo_evento_id"),
         "adjuntos_count": adjuntos_count,
         "adjuntos_max": MAX_JUSTIFICACION_ADJUNTOS,
@@ -1469,6 +1493,24 @@ def _justificacion_to_dict(j: dict, adjuntos: list[dict] | None = None) -> dict:
         ],
         "created_at": j["created_at"].isoformat() if hasattr(j.get("created_at"), "isoformat") else str(j.get("created_at") or ""),
     }
+
+
+@mobile_v1_bp.route("/me/justificaciones/<int:justificacion_id>/marcar-vista", methods=["POST"])
+@mobile_auth_required
+def me_justificaciones_mark_seen(justificacion_id):
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
+
+    j = get_justificacion_by_id(justificacion_id)
+    if not j or j.get("empleado_id") != int(empleado["id"]):
+        return jsonify({"error": "Justificacion no encontrada"}), 404
+    if (j.get("estado") or "pendiente") == "pendiente":
+        return jsonify({"error": "La justificacion aun no fue resuelta."}), 409
+
+    marcar_justificacion_vista_por_empleado(justificacion_id, int(empleado["id"]))
+    refreshed = get_justificacion_by_id(justificacion_id) or j
+    return jsonify({"ok": True, "justificacion": _justificacion_to_dict(refreshed)})
 
 
 @mobile_v1_bp.route("/me/justificaciones", methods=["GET"])
@@ -2618,6 +2660,285 @@ def _parse_legajo_period(default_periodo: str = "anio_actual"):
     if (hasta_dt - desde_dt).days > 366:
         raise ValueError("El rango maximo permitido es 366 dias.")
     return periodo, desde_dt, hasta_dt
+
+
+def _mobile_legajo_permiso_o_error(actor: dict):
+    alcance = get_mobile_legajo_alcance(int(actor["id"]), PERMISO_CARGAR_EVENTOS_LEGAJO)
+    if not alcance:
+        return None, (jsonify({"ok": False, "error": "No tiene permisos para cargar eventos de legajo."}), 403)
+    return alcance, None
+
+
+def _mobile_legajo_empleado_visible(actor: dict, target: dict, alcance: str) -> bool:
+    if not target or not target.get("activo"):
+        return False
+    if alcance == "global":
+        return True
+    if alcance == "propio":
+        return int(target.get("id") or 0) == int(actor.get("id") or 0)
+    if alcance == "empresa":
+        return int(target.get("empresa_id") or 0) == int(actor.get("empresa_id") or 0)
+    if alcance == "sucursal":
+        return (
+            int(target.get("empresa_id") or 0) == int(actor.get("empresa_id") or 0)
+            and int(target.get("sucursal_id") or 0) == int(actor.get("sucursal_id") or 0)
+        )
+    if alcance == "equipo":
+        return (
+            int(target.get("empresa_id") or 0) == int(actor.get("empresa_id") or 0)
+            and int(target.get("reporta_a_empleado_id") or 0) == int(actor.get("id") or 0)
+        )
+    return (
+        int(target.get("empresa_id") or 0) == int(actor.get("empresa_id") or 0)
+        and int(target.get("sector_id") or 0) == int(actor.get("sector_id") or 0)
+    )
+
+
+def _mobile_legajo_tipo_habilitado(tipo: dict | None) -> bool:
+    return bool(tipo and tipo.get("activo") and tipo.get("habilitado_mobile"))
+
+
+def _mobile_legajo_evento_payload():
+    source = request.form if request.form else (request.get_json(silent=True) or {})
+    try:
+        tipo_id = _parse_int(source.get("tipo_id"), "tipo_id")
+        empleado_id = _parse_int(source.get("empleado_id"), "empleado_id")
+        fecha_evento = _parse_legajo_date_filter(source.get("fecha_evento"), "fecha_evento")
+        fecha_desde = _parse_legajo_date_filter(source.get("fecha_desde"), "fecha_desde")
+        fecha_hasta = _parse_legajo_date_filter(source.get("fecha_hasta"), "fecha_hasta")
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
+
+    if not tipo_id:
+        raise ValueError("tipo_id es obligatorio.")
+    if not empleado_id:
+        raise ValueError("empleado_id es obligatorio.")
+    if not fecha_evento:
+        raise ValueError("fecha_evento es obligatoria.")
+    if fecha_desde and fecha_hasta and fecha_desde > fecha_hasta:
+        raise ValueError("El rango de fechas es invalido (fecha_desde > fecha_hasta).")
+
+    severidad = str(source.get("severidad") or "").strip().lower() or None
+    if severidad and severidad not in {"leve", "media", "grave"}:
+        raise ValueError("severidad debe ser 'leve', 'media' o 'grave'.")
+
+    descripcion = str(source.get("descripcion") or "").strip()
+    if not descripcion:
+        raise ValueError("descripcion es obligatoria.")
+
+    return {
+        "empleado_id": empleado_id,
+        "tipo_id": tipo_id,
+        "fecha_evento": fecha_evento,
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta,
+        "titulo": str(source.get("titulo") or "").strip() or None,
+        "descripcion": descripcion,
+        "severidad": severidad,
+    }
+
+
+def _mobile_legajo_files():
+    files = []
+    for key in ("adjuntos", "adjunto", "archivo", "evidencia"):
+        files.extend(request.files.getlist(key))
+    return [file for file in files if file and str(file.filename or "").strip()]
+
+
+def _save_mobile_legajo_adjuntos(files, *, evento_id: int, empresa_id: int, empleado_id: int):
+    saved_items = []
+    for file_storage in files:
+        saved = save_legajo_attachment_local(
+            file_storage,
+            empresa_id=empresa_id,
+            empleado_id=empleado_id,
+            evento_id=evento_id,
+        )
+        adjunto_id = create_adjunto(
+            {
+                "evento_id": evento_id,
+                "empresa_id": empresa_id,
+                "empleado_id": empleado_id,
+                "nombre_original": saved["nombre_original"],
+                "mime_type": saved["mime_type"],
+                "extension": saved["extension"],
+                "tamano_bytes": saved["tamano_bytes"],
+                "sha256": saved["sha256"],
+                "storage_backend": saved["storage_backend"],
+                "storage_ruta": saved["storage_ruta"],
+                "storage_data": saved.get("storage_data"),
+                "created_by_usuario_id": None,
+            }
+        )
+        saved_items.append({"id": adjunto_id, **saved})
+    return saved_items
+
+
+@mobile_v1_bp.route("/me/legajo/eventos-admin/permisos", methods=["GET"])
+@mobile_auth_required
+def me_legajo_eventos_admin_permisos():
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
+
+    alcance, error_response = _mobile_legajo_permiso_o_error(empleado)
+    if error_response:
+        return jsonify({
+            "ok": True,
+            "puede_cargar": False,
+            "permiso": PERMISO_CARGAR_EVENTOS_LEGAJO,
+            "alcance": None,
+        })
+    return jsonify({
+        "ok": True,
+        "puede_cargar": True,
+        "permiso": PERMISO_CARGAR_EVENTOS_LEGAJO,
+        "alcance": alcance,
+    })
+
+
+@mobile_v1_bp.route("/me/legajo/eventos-admin/empleados", methods=["GET"])
+@mobile_auth_required
+def me_legajo_eventos_admin_empleados():
+    actor = _mobile_user()
+    if not actor:
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
+    alcance, error_response = _mobile_legajo_permiso_o_error(actor)
+    if error_response:
+        return error_response
+
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    per_page = max(1, min(request.args.get("per_page", 20, type=int) or 20, 100))
+    search = (request.args.get("q") or request.args.get("search") or "").strip() or None
+
+    empresa_id = int(actor["empresa_id"]) if alcance in {"empresa", "sucursal", "sector", "equipo", "propio"} and actor.get("empresa_id") else None
+    sucursal_id = int(actor["sucursal_id"]) if alcance == "sucursal" and actor.get("sucursal_id") else None
+    sector_id = int(actor["sector_id"]) if alcance == "sector" and actor.get("sector_id") else None
+
+    rows, total = get_empleados_page(
+        page,
+        per_page,
+        include_inactive=False,
+        search=search,
+        empresa_id=empresa_id,
+        activo=1,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+    )
+    if alcance in {"equipo", "propio"}:
+        filtered = [row for row in rows if _mobile_legajo_empleado_visible(actor, row, alcance)]
+        rows = filtered
+        total = len(filtered)
+
+    return jsonify({
+        "ok": True,
+        "items": [
+            {
+                "id": row.get("id"),
+                "empresa_id": row.get("empresa_id"),
+                "legajo": row.get("legajo"),
+                "dni": row.get("dni"),
+                "apellido": row.get("apellido"),
+                "nombre": row.get("nombre"),
+                "display_name": f"{row.get('apellido') or ''} {row.get('nombre') or ''}".strip(),
+                "empresa_nombre": row.get("empresa_nombre"),
+                "sucursal_id": row.get("sucursal_id"),
+                "sucursal_nombre": row.get("sucursal_nombre"),
+                "sector_id": row.get("sector_id"),
+                "sector_nombre": row.get("sector_nombre"),
+            }
+            for row in rows
+        ],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "alcance": alcance,
+    })
+
+
+@mobile_v1_bp.route("/me/legajo/eventos-admin/tipos", methods=["GET"])
+@mobile_auth_required
+def me_legajo_eventos_admin_tipos():
+    actor = _mobile_user()
+    if not actor:
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
+    _, error_response = _mobile_legajo_permiso_o_error(actor)
+    if error_response:
+        return error_response
+
+    tipos = get_tipos_evento(include_inactive=False, habilitado_mobile=1)
+    return jsonify({
+        "ok": True,
+        "items": [legajo_tipo_evento_to_mobile_dict(tipo) for tipo in tipos],
+        "total": len(tipos),
+    })
+
+
+@mobile_v1_bp.route("/me/legajo/eventos-admin", methods=["POST"])
+@mobile_auth_required
+def me_legajo_eventos_admin_create():
+    actor = _mobile_user()
+    if not actor:
+        return jsonify({"ok": False, "error": "Empleado no encontrado o inactivo"}), 401
+    alcance, error_response = _mobile_legajo_permiso_o_error(actor)
+    if error_response:
+        return error_response
+
+    try:
+        payload = _mobile_legajo_evento_payload()
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    target = get_empleado_by_id(int(payload["empleado_id"]))
+    if not _mobile_legajo_empleado_visible(actor, target, alcance):
+        return jsonify({"ok": False, "error": "No tiene permisos para cargar eventos sobre este empleado."}), 403
+
+    tipo = get_tipo_evento_by_id(int(payload["tipo_id"]))
+    if not _mobile_legajo_tipo_habilitado(tipo):
+        return jsonify({"ok": False, "error": "Tipo de evento no habilitado para carga mobile."}), 400
+    if tipo.get("requiere_rango_fechas") and (not payload.get("fecha_desde") or not payload.get("fecha_hasta")):
+        return jsonify({"ok": False, "error": "Este tipo de evento requiere fecha_desde y fecha_hasta."}), 400
+
+    files = _mobile_legajo_files()
+    if files and not tipo.get("permite_adjuntos"):
+        return jsonify({"ok": False, "error": "Este tipo de evento no permite adjuntos."}), 400
+
+    evento_id = create_evento(
+        {
+            "empresa_id": int(target["empresa_id"]),
+            "empleado_id": int(target["id"]),
+            "tipo_id": int(payload["tipo_id"]),
+            "fecha_evento": payload["fecha_evento"],
+            "fecha_desde": payload["fecha_desde"],
+            "fecha_hasta": payload["fecha_hasta"],
+            "titulo": payload["titulo"],
+            "descripcion": payload["descripcion"],
+            "estado": "vigente",
+            "severidad": payload["severidad"],
+            "created_by_usuario_id": None,
+            "updated_by_usuario_id": None,
+        }
+    )
+
+    try:
+        adjuntos = _save_mobile_legajo_adjuntos(
+            files,
+            evento_id=int(evento_id),
+            empresa_id=int(target["empresa_id"]),
+            empleado_id=int(target["id"]),
+        ) if files else []
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception("mobile_legajo_eventos_admin_adjuntos_error", extra={"extra": {"evento_id": evento_id}})
+        return jsonify({"ok": False, "error": "El evento fue creado, pero no se pudieron guardar los adjuntos."}), 500
+
+    evento = get_evento_by_id_for_empleado(int(evento_id), int(target["id"]), int(target["empresa_id"]))
+    return jsonify({
+        "ok": True,
+        "evento": _evento_to_dict(evento or {"id": evento_id, **payload, "empresa_id": target["empresa_id"]}),
+        "adjuntos_guardados": len(adjuntos),
+    }), 201
 
 
 @mobile_v1_bp.route("/me/legajo/resumen", methods=["GET"])

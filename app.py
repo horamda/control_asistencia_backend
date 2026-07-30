@@ -13,7 +13,7 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 from utils.limiter import limiter
 
-from extensions import init_db
+from extensions import get_db, init_db
 from db import DatabaseConfigError
 from routes.auth_routes import auth_bp          # API
 from routes.external_api_routes import external_api_bp
@@ -142,6 +142,56 @@ def _require_jwt_secret() -> None:
         raise AppConfigError("JWT_SECRET debe tener al menos 32 caracteres.")
 
 
+def _jwt_secret_fingerprint() -> str:
+    return hashlib.sha256(os.getenv("JWT_SECRET", "").encode("utf-8")).hexdigest()[:16]
+
+
+def _check_jwt_secret_integrity(app) -> None:
+    """Detecta si JWT_SECRET cambio respecto del ultimo deploy que arranco
+    con exito. No bloquea el arranque (el valor actual ya es el que sirve
+    trafico), pero deja un log critico inconfundible: un cambio silencioso
+    de esta clave invalida los QR de puerta y los tokens moviles vigentes
+    sin previo aviso. Ver docs/railway_deploy.md."""
+    fingerprint = _jwt_secret_fingerprint()
+    try:
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        try:
+            cursor.execute(
+                "SELECT config_value FROM system_config WHERE config_key = 'jwt_secret_fingerprint'"
+            )
+            row = cursor.fetchone()
+            previous = row["config_value"] if row else None
+            if previous and previous != fingerprint:
+                app.logger.error(
+                    "jwt_secret_changed",
+                    extra={
+                        "extra": {
+                            "previous_fingerprint": previous,
+                            "current_fingerprint": fingerprint,
+                            "impact": (
+                                "QR de puerta y tokens moviles emitidos antes de "
+                                "este deploy dejaron de validar."
+                            ),
+                        }
+                    },
+                )
+            cursor.execute(
+                """
+                INSERT INTO system_config (config_key, config_value)
+                VALUES ('jwt_secret_fingerprint', %s)
+                ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)
+                """,
+                (fingerprint,),
+            )
+            db.commit()
+        finally:
+            cursor.close()
+            db.close()
+    except Exception:
+        app.logger.exception("jwt_secret_integrity_check_failed")
+
+
 def _session_cookie_samesite() -> str:
     raw = str(os.getenv("SESSION_COOKIE_SAMESITE") or "Lax").strip().lower()
     value = _VALID_SAMESITE_VALUES.get(raw)
@@ -251,20 +301,16 @@ def create_app():
     app.logger.setLevel(logging.INFO)
     logging.getLogger("werkzeug").setLevel(logging.INFO)
 
-    # Huella no reversible del JWT_SECRET vigente. Compare este valor entre
-    # deploys en los logs de Railway: si cambia, los QR y tokens moviles
-    # firmados antes del deploy dejan de validar.
     app.logger.info(
         "app_boot",
         extra={
             "extra": {
                 "app_env": _app_env(),
-                "jwt_secret_fingerprint": hashlib.sha256(
-                    os.getenv("JWT_SECRET", "").encode("utf-8")
-                ).hexdigest()[:12],
+                "jwt_secret_fingerprint": _jwt_secret_fingerprint(),
             }
         },
     )
+    _check_jwt_secret_integrity(app)
 
     # Security
     csrf = CSRFProtect(app)

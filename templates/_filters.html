@@ -1,0 +1,17 @@
+{% macro sucursal_select(sucursales, selected, name='sucursal_id', placeholder='Todas las sucursales', autosubmit=false) %}
+<select name="{{ name }}"{% if autosubmit %} onchange="this.form.submit()"{% endif %}>
+  <option value="">{{ placeholder }}</option>
+  {% for sucursal in sucursales %}
+    <option value="{{ sucursal.id }}" {% if selected == sucursal.id %}selected{% endif %}>{{ sucursal.empresa_nombre }} · {{ sucursal.nombre }}</option>
+  {% endfor %}
+</select>
+{% endmacro %}
+
+{% macro sector_select(sectores, selected, name='sector_id', placeholder='Todos los sectores', autosubmit=false) %}
+<select name="{{ name }}"{% if autosubmit %} onchange="this.form.submit()"{% endif %}>
+  <option value="">{{ placeholder }}</option>
+  {% for sector in sectores %}
+    <option value="{{ sector.id }}" {% if selected == sector.id %}selected{% endif %}>{{ sector.empresa_nombre }} · {{ sector.nombre }}</option>
+  {% endfor %}
+</select>
+{% endmacro %}

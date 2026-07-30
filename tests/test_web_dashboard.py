@@ -208,10 +208,22 @@ def test_dashboard_rrhh_render_ok(monkeypatch):
             },
         ),
     )
+    monkeypatch.setattr(web_routes, "get_dias_no_laborables", lambda **kwargs: set())
+    monkeypatch.setattr(web_routes, "has_role", lambda user_id, role: role == "admin")
 
     resp = client.get("/dashboard")
     assert resp.status_code == 200
-    assert b"Dashboard de asistencia" in resp.data
+    assert b"Panel de asistencia" in resp.data
+    assert b"Reporte mensual de asistencia" in resp.data
+    assert b"Dias laborables / no laborables" in resp.data
+    assert b"Editar calendario" in resp.data
+    assert b"no laborable" in resp.data
+    assert b"Alertas operativas" in resp.data
+    assert b"Accesos clave" in resp.data
+    assert b"Abrir reporte mensual" in resp.data
+    assert b"/asistencias/reportes" in resp.data
+    assert b"dashboard-monthly-frame" not in resp.data
+    assert b"<iframe" not in resp.data
     assert b"Aplicar filtros" in resp.data
     assert b"Top empresas con mas ausencias/tardanzas" in resp.data
     assert b"Personas con mas ausencias (acumulado anual)" in resp.data

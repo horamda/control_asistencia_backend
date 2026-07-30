@@ -3,6 +3,8 @@ import datetime
 from flask import current_app, request
 
 from extensions import get_db
+from repositories.asistencia_dia_no_laborable_repository import get_dates as get_dias_no_laborables
+from services.asistencia_monthly_report_service import build_monthly_attendance_report, month_bounds
 
 
 def _safe_count(cursor, query, params=None):
@@ -63,6 +65,190 @@ def _daterange(start_date: datetime.date, end_date: datetime.date):
     while current <= end_date:
         yield current
         current += datetime.timedelta(days=1)
+
+
+def _month_iter(start_date: datetime.date, end_date: datetime.date):
+    current = start_date.replace(day=1)
+    while current <= end_date:
+        yield current.year, current.month
+        if current.month == 12:
+            current = current.replace(year=current.year + 1, month=1)
+        else:
+            current = current.replace(month=current.month + 1)
+
+
+def _date_in_range(value, start_date: datetime.date, end_date: datetime.date) -> bool:
+    parsed = _to_date(value)
+    return bool(parsed and start_date <= parsed <= end_date)
+
+
+def _period_overlaps(row: dict, start_date: datetime.date, end_date: datetime.date) -> bool:
+    desde = _to_date(row.get("fecha_desde") or row.get("fecha"))
+    hasta = _to_date(row.get("fecha_hasta") or row.get("fecha"))
+    return bool(desde and hasta and desde <= end_date and hasta >= start_date)
+
+
+def _build_unified_attendance_summary(
+    db,
+    start_date: datetime.date,
+    end_date: datetime.date,
+    *,
+    empresa_id: int | None = None,
+    sucursal_id: int | None = None,
+) -> dict:
+    if start_date > end_date:
+        return {
+            "dias_laborables": 0,
+            "dias_posibles": 0,
+            "ausencias_computables": 0,
+            "ausencias_justificadas": 0,
+            "presentes": 0,
+            "ausentismo_pct": 0.0,
+            "frecuencia_ausencias": 0.0,
+        }
+
+    dict_cursor = db.cursor(dictionary=True)
+    try:
+        scope_where = []
+        scope_params = []
+        if empresa_id:
+            scope_where.append("e.empresa_id = %s")
+            scope_params.append(int(empresa_id))
+        if sucursal_id:
+            scope_where.append("e.sucursal_id = %s")
+            scope_params.append(int(sucursal_id))
+        scope_sql = (" AND " + " AND ".join(scope_where)) if scope_where else ""
+
+        empleados = _safe_fetchall(
+            dict_cursor,
+            f"""
+            SELECT
+                e.id,
+                e.empresa_id,
+                e.sucursal_id,
+                e.sector_id,
+                e.apellido,
+                e.nombre,
+                e.activo,
+                COALESCE(s.nombre, 'Sin sector') AS sector_nombre
+            FROM empleados e
+            LEFT JOIN sectores s ON s.id = e.sector_id
+            WHERE e.activo = 1
+              AND COALESCE(e.requiere_control_asistencia, 1) = 1
+            {scope_sql}
+            """,
+            tuple(scope_params),
+        )
+
+        marcas = _safe_fetchall(
+            dict_cursor,
+            f"""
+            SELECT a.id, a.empleado_id, a.fecha, a.hora_entrada AS hora, 'ingreso' AS accion
+            FROM asistencias a
+            JOIN empleados e ON e.id = a.empleado_id
+            WHERE a.fecha BETWEEN %s AND %s
+              AND a.hora_entrada IS NOT NULL
+              {scope_sql}
+            UNION ALL
+            SELECT a.id, a.empleado_id, a.fecha, a.hora_salida AS hora, 'egreso' AS accion
+            FROM asistencias a
+            JOIN empleados e ON e.id = a.empleado_id
+            WHERE a.fecha BETWEEN %s AND %s
+              AND a.hora_salida IS NOT NULL
+              {scope_sql}
+            """,
+            (start_date.isoformat(), end_date.isoformat(), *scope_params, start_date.isoformat(), end_date.isoformat(), *scope_params),
+        )
+
+        justificaciones = _safe_fetchall(
+            dict_cursor,
+            f"""
+            SELECT j.empleado_id, j.fecha, j.fecha_desde, j.fecha_hasta, j.estado
+            FROM justificaciones j
+            JOIN empleados e ON e.id = j.empleado_id
+            WHERE COALESCE(j.fecha_desde, j.fecha) <= %s
+              AND COALESCE(j.fecha_hasta, j.fecha) >= %s
+              {scope_sql}
+            """,
+            (end_date.isoformat(), start_date.isoformat(), *scope_params),
+        )
+
+        vacaciones = _safe_fetchall(
+            dict_cursor,
+            f"""
+            SELECT
+                v.id,
+                v.empleado_id,
+                v.tipo,
+                v.estado,
+                v.fecha_desde,
+                v.fecha_hasta,
+                v.revertido_por_movimiento_id,
+                v.origen_movimiento_id
+            FROM vacaciones_movimientos v
+            JOIN empleados e ON e.id = v.empleado_id
+            WHERE v.fecha_desde <= %s
+              AND v.fecha_hasta >= %s
+              {scope_sql}
+            """,
+            (end_date.isoformat(), start_date.isoformat(), *scope_params),
+        )
+    finally:
+        dict_cursor.close()
+
+    totals = {
+        "dias_laborables": 0,
+        "dias_posibles": 0,
+        "ausencias_computables": 0,
+        "ausencias_justificadas": 0,
+        "presentes": 0,
+    }
+    for year, month in _month_iter(start_date, end_date):
+        first, last = month_bounds(year, month)
+        range_first = max(first, start_date)
+        range_last = min(last, end_date)
+        non_laborable_days = set()
+        try:
+            non_laborable_days = get_dias_no_laborables(
+                year=year,
+                month=month,
+                empresa_id=empresa_id,
+                sucursal_id=sucursal_id,
+            )
+        except Exception:
+            current_app.logger.warning("dashboard_unified_non_laborable_error", exc_info=True)
+        for day in _daterange(first, last):
+            if day < range_first or day > range_last:
+                non_laborable_days.add(day.isoformat())
+
+        report = build_monthly_attendance_report(
+            year=year,
+            month=month,
+            empleados=empleados,
+            marcas=[m for m in marcas if _date_in_range(m.get("fecha"), range_first, range_last)],
+            justificaciones=[j for j in justificaciones if _period_overlaps(j, range_first, range_last)],
+            vacaciones=[v for v in vacaciones if _period_overlaps(v, range_first, range_last)],
+            non_laborable_days=non_laborable_days,
+        )
+        kpis = report["kpis"]
+        totals["dias_laborables"] += _to_int(kpis.get("dias_laborables"))
+        totals["dias_posibles"] += _to_int(kpis.get("dias_posibles"))
+        totals["ausencias_computables"] += _to_int(kpis.get("ausencias_computables"))
+        totals["ausencias_justificadas"] += _to_int(kpis.get("ausencias_justificadas"))
+        totals["presentes"] += _to_int(kpis.get("presentes"))
+
+    empleados_activos = len([e for e in empleados if _to_int(e.get("activo")) == 1])
+    totals["ausentismo_pct"] = (
+        round((totals["ausencias_computables"] * 100.0) / totals["dias_posibles"], 1)
+        if totals["dias_posibles"] > 0
+        else 0.0
+    )
+    totals["frecuencia_ausencias"] = (
+        round(totals["ausencias_computables"] / empleados_activos, 2)
+        if empleados_activos > 0
+        else 0.0
+    )
+    return totals
 
 
 def _calc_expected_minutes_from_planillas(
@@ -562,14 +748,19 @@ def _dashboard_metrics():
             scope_params.append(int(sucursal_id))
         scope_sql = (" AND " + " AND ".join(scope_where)) if scope_where else ""
 
-        stats["empleados_activos"] = _safe_count(cursor, "SELECT COUNT(*) FROM empleados WHERE activo = 1")
+        stats["empleados_activos"] = _safe_count(
+            cursor,
+            "SELECT COUNT(*) FROM empleados WHERE activo = 1 AND COALESCE(requiere_control_asistencia, 1) = 1",
+        )
         stats["empleados_con_fichada_hoy"] = _safe_count(
             cursor,
             """
-            SELECT COUNT(DISTINCT empleado_id)
-            FROM asistencias
-            WHERE fecha = %s
-              AND (hora_entrada IS NOT NULL OR hora_salida IS NOT NULL)
+            SELECT COUNT(DISTINCT a.empleado_id)
+            FROM asistencias a
+            JOIN empleados e ON e.id = a.empleado_id
+            WHERE a.fecha = %s
+              AND COALESCE(e.requiere_control_asistencia, 1) = 1
+              AND (a.hora_entrada IS NOT NULL OR a.hora_salida IS NOT NULL)
             """,
             (today,),
         )
@@ -578,15 +769,39 @@ def _dashboard_metrics():
                 (stats["empleados_con_fichada_hoy"] * 100.0) / stats["empleados_activos"],
                 1,
             )
-        stats["asistencias_hoy"] = _safe_count(cursor, "SELECT COUNT(*) FROM asistencias WHERE fecha = %s", (today,))
+        stats["asistencias_hoy"] = _safe_count(
+            cursor,
+            """
+            SELECT COUNT(*)
+            FROM asistencias a
+            JOIN empleados e ON e.id = a.empleado_id
+            WHERE a.fecha = %s
+              AND COALESCE(e.requiere_control_asistencia, 1) = 1
+            """,
+            (today,),
+        )
         stats["tardes_hoy"] = _safe_count(
             cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha = %s AND estado = 'tarde'",
+            """
+            SELECT COUNT(*)
+            FROM asistencias a
+            JOIN empleados e ON e.id = a.empleado_id
+            WHERE a.fecha = %s
+              AND a.estado = 'tarde'
+              AND COALESCE(e.requiere_control_asistencia, 1) = 1
+            """,
             (today,),
         )
         stats["ausentes_hoy"] = _safe_count(
             cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha = %s AND estado = 'ausente'",
+            """
+            SELECT COUNT(*)
+            FROM asistencias a
+            JOIN empleados e ON e.id = a.empleado_id
+            WHERE a.fecha = %s
+              AND a.estado = 'ausente'
+              AND COALESCE(e.requiere_control_asistencia, 1) = 1
+            """,
             (today,),
         )
         stats["excepciones_hoy"] = _safe_count(
@@ -1139,6 +1354,7 @@ def _dashboard_metrics():
                 SELECT COUNT(*)
                 FROM empleados e
                 WHERE e.activo = 1
+                  AND COALESCE(e.requiere_control_asistencia, 1) = 1
                 {scope_sql}
                 """,
                 scoped_params,
@@ -1151,6 +1367,7 @@ def _dashboard_metrics():
                 JOIN empleados e ON e.id = a.empleado_id
                 WHERE 1 = 1
                 {scope_sql}
+                  AND COALESCE(e.requiere_control_asistencia, 1) = 1
                   AND a.fecha = %s
                   AND (a.hora_entrada IS NOT NULL OR a.hora_salida IS NOT NULL)
                 """,
@@ -1721,6 +1938,54 @@ def _dashboard_metrics():
             charts["horas_por_plantilla_mes"] = scoped_hours["horas_por_plantilla"]
             charts["horas_por_sucursal_mes"] = scoped_hours["horas_por_sucursal"]
 
+        unified_month = _build_unified_attendance_summary(
+            db,
+            today_dt.replace(day=1),
+            today_dt,
+            empresa_id=empresa_id,
+            sucursal_id=sucursal_id,
+        )
+        unified_quarter = _build_unified_attendance_summary(
+            db,
+            today_dt.replace(month=quarter_month, day=1),
+            today_dt,
+            empresa_id=empresa_id,
+            sucursal_id=sucursal_id,
+        )
+        unified_year = _build_unified_attendance_summary(
+            db,
+            today_dt.replace(month=1, day=1),
+            today_dt,
+            empresa_id=empresa_id,
+            sucursal_id=sucursal_id,
+        )
+        global_unified_month = _build_unified_attendance_summary(
+            db,
+            today_dt.replace(day=1),
+            today_dt,
+        )
+
+        stats["ausentes_mes"] = unified_month["ausencias_computables"]
+        stats["ausentes_sin_justificacion_mes"] = unified_month["ausencias_computables"]
+        stats["ausentismo_mes_pct"] = unified_month["ausentismo_pct"]
+        stats["resumen_ausentes_mes"] = unified_month["ausencias_computables"]
+        stats["resumen_asistencias_mes"] = unified_month["dias_posibles"]
+        stats["resumen_ausentismo_mes_pct"] = unified_month["ausentismo_pct"]
+        stats["ausentes_trimestre"] = unified_quarter["ausencias_computables"]
+        stats["ausentes_anio"] = unified_year["ausencias_computables"]
+        stats["ausentismo_anual_pct"] = unified_year["ausentismo_pct"]
+        stats["frecuencia_ausencias_mes"] = unified_month["frecuencia_ausencias"]
+        stats["frecuencia_ausencias_trimestre"] = unified_quarter["frecuencia_ausencias"]
+        total_absences_month = unified_month["ausencias_computables"] + unified_month["ausencias_justificadas"]
+        stats["no_show_mes_pct"] = (
+            round((unified_month["ausencias_computables"] * 100.0) / total_absences_month, 1)
+            if total_absences_month > 0
+            else 0.0
+        )
+        stats["global_ausentes_mes"] = global_unified_month["ausencias_computables"]
+        stats["global_asistencias_mes"] = global_unified_month["dias_posibles"]
+        stats["global_ausentismo_mes_pct"] = global_unified_month["ausentismo_pct"]
+
         current_app.logger.info(
             "dashboard_hours_metrics",
             extra={
@@ -2256,6 +2521,7 @@ def _dashboard_metrics():
                 SELECT e.empresa_id, COUNT(*) AS dotacion
                 FROM empleados e
                 WHERE e.activo = 1
+                  AND COALESCE(e.requiere_control_asistencia, 1) = 1
                 {scope_sql}
                 GROUP BY e.empresa_id
             ) d
@@ -2266,6 +2532,7 @@ def _dashboard_metrics():
                 JOIN empleados e ON e.id = a.empleado_id
                 WHERE a.fecha BETWEEN %s AND %s
                   AND a.estado = 'ausente'
+                  AND COALESCE(e.requiere_control_asistencia, 1) = 1
                   {scope_sql}
                 GROUP BY e.empresa_id
             ) a ON a.empresa_id = d.empresa_id
@@ -2288,6 +2555,7 @@ def _dashboard_metrics():
                 SELECT COALESCE(e.sector_id, 0) AS gid, COUNT(*) AS dotacion
                 FROM empleados e
                 WHERE e.activo = 1
+                  AND COALESCE(e.requiere_control_asistencia, 1) = 1
                 {scope_sql}
                 GROUP BY COALESCE(e.sector_id, 0)
             ) d
@@ -2297,6 +2565,7 @@ def _dashboard_metrics():
                 JOIN empleados e ON e.id = a.empleado_id
                 WHERE a.fecha BETWEEN %s AND %s
                   AND a.estado = 'ausente'
+                  AND COALESCE(e.requiere_control_asistencia, 1) = 1
                   {scope_sql}
                 GROUP BY COALESCE(e.sector_id, 0)
             ) a ON a.gid = d.gid
@@ -2323,6 +2592,7 @@ def _dashboard_metrics():
                 SELECT COALESCE(e.sucursal_id, 0) AS gid, COUNT(*) AS dotacion
                 FROM empleados e
                 WHERE e.activo = 1
+                  AND COALESCE(e.requiere_control_asistencia, 1) = 1
                 {scope_sql}
                 GROUP BY COALESCE(e.sucursal_id, 0)
             ) d
@@ -2335,6 +2605,7 @@ def _dashboard_metrics():
                 FROM asistencias a
                 JOIN empleados e ON e.id = a.empleado_id
                 WHERE a.fecha BETWEEN %s AND %s
+                AND COALESCE(e.requiere_control_asistencia, 1) = 1
                 {scope_sql}
                 GROUP BY COALESCE(e.sucursal_id, 0)
             ) a ON a.gid = d.gid

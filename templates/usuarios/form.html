@@ -53,6 +53,18 @@
           {% endfor %}
         </select>
       </div>
+      <div class="row span-2">
+        <label>Empleado vinculado (opcional)</label>
+        <select name="empleado_id">
+          <option value="">Sin vincular</option>
+          {% for e in empleados %}
+            <option value="{{ e.id }}" {% if data.empleado_id == e.id %}selected{% endif %}>
+              {{ e.apellido }} {{ e.nombre }}{% if e.legajo %} &middot; Legajo {{ e.legajo }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+        <div class="helper-text">Si este usuario es tambien un empleado (ej. un jefe de sector), vincularlo permite que use su propia bandeja de feedback y otras vistas personales desde el panel.</div>
+      </div>
       <div class="row">
         <label>Contrasena {% if mode == "edit" %}(dejar vacia para mantener){% endif %}</label>
         <input name="password" type="password" {% if password_required %}required{% endif %}>

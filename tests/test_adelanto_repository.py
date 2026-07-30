@@ -53,6 +53,27 @@ def test_get_page_schema_viejo_no_usa_columnas_resolucion(monkeypatch):
     assert "LEFT JOIN usuarios u ON u.id = a.resuelto_by_usuario_id" not in sql
 
 
+def test_get_page_filtra_por_sucursal_y_sector(monkeypatch):
+    cursor = _FakeCursor(fetchall_rows=[], fetchone_rows=[{"total": 0}])
+    db = _FakeDb(cursor)
+    monkeypatch.setattr(adelanto_repository, "get_db", lambda: db)
+    monkeypatch.setattr(adelanto_repository, "_adelantos_resolution_support", lambda cursor: (False, False))
+
+    rows, total = adelanto_repository.get_page(page=1, per_page=20, sucursal_id=5, sector_id=7)
+
+    assert rows == []
+    assert total == 0
+    select_sql, select_params = cursor.executed[0]
+    assert "LEFT JOIN sucursales s ON s.id = e.sucursal_id" in select_sql
+    assert "LEFT JOIN sectores sec ON sec.id = e.sector_id" in select_sql
+    assert "s.nombre AS sucursal_nombre" in select_sql
+    assert "sec.nombre AS sector_nombre" in select_sql
+    assert "e.sucursal_id = %s" in select_sql
+    assert "e.sector_id = %s" in select_sql
+    assert 5 in select_params
+    assert 7 in select_params
+
+
 def test_update_estado_schema_viejo_actualiza_solo_estado(monkeypatch):
     cursor = _FakeCursor()
     db = _FakeDb(cursor)

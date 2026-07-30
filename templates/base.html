@@ -39,7 +39,11 @@
       {% block content %}{% endblock %}
     {% endset %}
 
-    {% if request.path == '/login' %}
+    {% if request.args.get("embed") == "1" %}
+      <main class="embedded-layout">
+        {{ rendered_content }}
+      </main>
+    {% elif request.path == '/login' %}
       <main class="auth-layout">
         {{ rendered_content }}
       </main>
@@ -51,7 +55,7 @@
             <img class="brand-mark" src="{{ url_for('static', filename='img/fichaya-icon.png') }}" alt="FichaYa" width="40" height="40">
             <div>
               <div class="brand-title">FichaYa</div>
-              <div class="brand-sub">Panel empresarial</div>
+              <div class="brand-sub">Todo en un solo lugar para gestionar tu dia a dia.</div>
             </div>
           </div>
 
@@ -60,7 +64,7 @@
               <div class="nav-label">General</div>
               <a class="nav-link nav-link-icon" href="/dashboard">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                Dashboard
+                Inicio
               </a>
             </div>
 
@@ -86,25 +90,40 @@
               </div>
             {% endif %}
 
-            {% if current_role in ["admin", "rrhh"] %}
+            {% if current_role in ["admin", "rrhh", "supervisor", "jefe"] %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-personas">
                   <span class="nav-toggle-label">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <span class="nav-label">Personas</span>
+                    <span class="nav-label">Capital Humano</span>
                   </span>
                   <span class="nav-caret" aria-hidden="true"></span>
                 </button>
                 <div class="nav-submenu" id="nav-submenu-personas">
-                  <a class="nav-link" href="/empleados/">Empleados</a>
+                  <a class="nav-link" href="/empleados/">Directorio de empleados</a>
                   <a class="nav-link" href="/legajos/">Legajos</a>
-                  <a class="nav-link" href="/legajos/dashboard-empleado">Dashboard empleado</a>
+                  <a class="nav-link" href="/legajos/dashboard-empleado">Resumen por empleado</a>
                   <a class="nav-link" href="/legajos/eventos/">Eventos legajo</a>
                   <a class="nav-link" href="/legajos/tipos-evento/">Tipos evento legajo</a>
+                  <a class="nav-link" href="/legajos/permisos-mobile">Permisos mobile legajo</a>
+                </div>
+              </div>
+            {% endif %}
+
+            {% if current_role == "admin" %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-accesos">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span class="nav-label">Seguridad y accesos</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-accesos">
                   {% if current_role == "admin" %}
+                    <a class="nav-link" href="/usuarios/">Usuarios panel</a>
                     <a class="nav-link" href="/roles/">Roles empleados</a>
                     <a class="nav-link" href="/empleado-roles/">Asignar roles empleados</a>
-                    <a class="nav-link" href="/usuarios/">Usuarios panel</a>
                   {% endif %}
                 </div>
               </div>
@@ -140,6 +159,7 @@
                 {% if current_role in ["admin", "rrhh", "supervisor"] %}
                   <a class="nav-link" href="/asistencias/marcas">Historial marcas</a>
                   <a class="nav-link" href="/asistencias/planilla">Planilla diaria</a>
+                  <a class="nav-link" href="/asistencias/reportes">Reporte mensual</a>
                 {% endif %}
                 {% if current_role in ["admin", "rrhh"] %}
                   <a class="nav-link" href="/qr-puerta/">QR puerta</a>
@@ -181,12 +201,15 @@
                   <span class="nav-caret" aria-hidden="true"></span>
                 </button>
                 <div class="nav-submenu" id="nav-submenu-feedback">
-                  <a class="nav-link" href="/feedback/">Dashboard</a>
-                  <a class="nav-link" href="/feedback/nuevo">Cargar feedback</a>
-                  <a class="nav-link" href="/feedback/registros">Registros y filtros</a>
-                  <a class="nav-link" href="/feedback/motivos">Motivos</a>
-                  <a class="nav-link" href="/feedback/clientes">Clientes</a>
-                  <a class="nav-link" href="/feedback/clientes/importar">Importar clientes</a>
+                  {% if current_role in ["admin", "rrhh"] %}
+                    <a class="nav-link" href="/feedback/">Resumen</a>
+                    <a class="nav-link" href="/feedback/nuevo">Cargar feedback</a>
+                    <a class="nav-link" href="/feedback/registros">Registros y filtros</a>
+                    <a class="nav-link" href="/feedback/motivos">Motivos</a>
+                    <a class="nav-link" href="/feedback/clientes">Clientes</a>
+                    <a class="nav-link" href="/feedback/clientes/importar">Importar clientes</a>
+                  {% endif %}
+                  <a class="nav-link" href="/feedback/bandeja?estado=pendiente">Mi bandeja</a>
                 </div>
               </div>
             {% endif %}
@@ -201,7 +224,7 @@
                   <span class="nav-caret" aria-hidden="true"></span>
                 </button>
                 <div class="nav-submenu" id="nav-submenu-skap">
-                  <a class="nav-link" href="/skap/">Dashboard</a>
+                  <a class="nav-link" href="/skap/">Resumen</a>
                   <a class="nav-link" href="/skap/evaluar">Evaluar empleados</a>
                   <a class="nav-link" href="/skap/evaluaciones">Evaluaciones</a>
                   <a class="nav-link" href="/skap/planes">Planes</a>

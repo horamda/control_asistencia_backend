@@ -63,6 +63,8 @@ def test_pedidos_mercaderia_listado_ok(monkeypatch):
         lambda **kw: {"total": 1, "pendientes": 0, "aprobados": 1, "rechazados": 0, "cancelados": 0},
     )
     monkeypatch.setattr(pedidos_routes, "get_empleados", lambda **kw: _stub_empleados())
+    monkeypatch.setattr(pedidos_routes, "get_sucursales", lambda **kw: [])
+    monkeypatch.setattr(pedidos_routes, "get_sectores", lambda **kw: [])
     client = _build_authed_client(monkeypatch)
     resp = client.get("/pedidos-mercaderia/")
     assert resp.status_code == 200

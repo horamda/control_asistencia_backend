@@ -25,6 +25,20 @@ los QR vigentes y los tokens móviles firmados con la clave anterior. La
 aplicación valida esta variable al arrancar y rechaza el despliegue si falta, si
 es una clave de plantilla o si tiene menos de 32 caracteres.
 
+Guardar el valor vigente de `JWT_SECRET` en un gestor de contraseñas fuera de
+Railway. Si el valor de la variable se pierde no hay forma de recuperarlo: no
+queda respaldado en el código, en `railway.toml` ni en ningún otro lugar.
+
+**Deteccion automatica de cambios.** Cada arranque calcula un hash corto (no
+reversible) del `JWT_SECRET` vigente y lo guarda en la tabla `system_config`
+(clave `jwt_secret_fingerprint`). Si en un deploy el hash no coincide con el
+del deploy anterior, queda un log `jwt_secret_changed` en nivel `error` en los
+Deploy Logs de Railway — esa es la señal inequívoca de que la clave cambió y
+hay que regenerar el QR de puerta y avisar que los usuarios de la app deben
+volver a loguearse. El primer arranque después de instalar esta tabla no
+genera alerta (no hay valor previo con el cual comparar); a partir del
+segundo, cualquier cambio real queda registrado.
+
 Para habilitar la API externa de reportes con usuario, contrasena y token:
 
 ```env
@@ -34,7 +48,7 @@ EXTERNAL_API_JWT_SECRET=<clave-aleatoria-minimo-32-caracteres>
 EXTERNAL_API_TOKEN_TTL_MINUTES=60
 ```
 
-`EXTERNAL_API_KEY` queda disponible como mecanismo anterior opcional. El contrato y los comandos para generar los secretos estan en `docs/external_api_contract.md`.
+No configurar `EXTERNAL_API_ALLOW_STATIC_KEY` ni `EXTERNAL_API_KEY` para integraciones nuevas. La API key estatica queda solo como mecanismo anterior opcional y requiere activacion explicita. El contrato y los comandos para generar los secretos estan en `docs/external_api_contract.md`.
 
 Para MySQL de Railway se pueden usar directamente las variables que expone el
 servicio de base:

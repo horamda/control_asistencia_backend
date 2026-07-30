@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Excepciones de empleados{% endblock %}
 {% block content %}
 <div class="content-stack">
@@ -27,6 +28,14 @@
             </option>
           {% endfor %}
         </select>
+      </div>
+      <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        {{ filtros.sector_select(sectores, sector_id) }}
       </div>
       <div class="row">
         <label>Tipo</label>
@@ -82,6 +91,8 @@
       <table>
         <tr>
           <th>Empleado</th>
+          <th>Sucursal</th>
+          <th>Sector</th>
           <th>Fecha</th>
           <th>Tipo</th>
           <th>Anula</th>
@@ -91,6 +102,8 @@
         {% for e in excepciones %}
         <tr>
           <td data-label="Empleado">{{ e.apellido }} {{ e.nombre }}</td>
+          <td data-label="Sucursal">{{ e.sucursal_nombre or "-" }}</td>
+          <td data-label="Sector">{{ e.sector_nombre or "-" }}</td>
           <td data-label="Fecha">{{ e.fecha }}</td>
           <td data-label="Tipo">{{ e.tipo }}</td>
           <td data-label="Anula">{{ "Si" if e.anula_horario else "No" }}</td>

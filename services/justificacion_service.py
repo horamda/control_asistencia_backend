@@ -301,7 +301,12 @@ def update_justificacion(justificacion_id: int, data: dict) -> None:
     update(justificacion_id, normalized)
 
 
-def aprobar_justificacion(justificacion_id: int) -> None:
+def aprobar_justificacion(
+    justificacion_id: int,
+    *,
+    actor_id: int | None = None,
+    comentario_resolucion: str | None = None,
+) -> None:
     """
     Transitions a justificacion to 'aprobada'.
     Only valid from 'pendiente'.
@@ -313,10 +318,20 @@ def aprobar_justificacion(justificacion_id: int) -> None:
         raise ValueError(
             f"No se puede aprobar una justificacion en estado '{estado_actual}'."
         )
-    update_estado(justificacion_id, "aprobada")
+    update_estado(
+        justificacion_id,
+        "aprobada",
+        resuelto_by_usuario_id=actor_id,
+        comentario_resolucion=comentario_resolucion,
+    )
 
 
-def rechazar_justificacion(justificacion_id: int) -> None:
+def rechazar_justificacion(
+    justificacion_id: int,
+    *,
+    actor_id: int | None = None,
+    motivo_rechazo: str | None = None,
+) -> None:
     """
     Transitions a justificacion to 'rechazada'.
     Only valid from 'pendiente'.
@@ -328,7 +343,15 @@ def rechazar_justificacion(justificacion_id: int) -> None:
         raise ValueError(
             f"No se puede rechazar una justificacion en estado '{estado_actual}'."
         )
-    update_estado(justificacion_id, "rechazada")
+    motivo = str(motivo_rechazo or "").strip()
+    if not motivo:
+        raise ValueError("Motivo de rechazo es requerido.")
+    update_estado(
+        justificacion_id,
+        "rechazada",
+        resuelto_by_usuario_id=actor_id,
+        motivo_rechazo=motivo,
+    )
 
 
 def revertir_justificacion(justificacion_id: int) -> None:

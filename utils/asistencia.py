@@ -223,7 +223,11 @@ def generar_ausentes(fecha_str: str):
     except ValueError:
         return 0, ["Fecha invalida."]
 
-    registros = get_empleados_activos_en_fecha(fecha_str)
+    registros = [
+        reg
+        for reg in get_empleados_activos_en_fecha(fecha_str)
+        if int(reg.get("requiere_control_asistencia", 1) or 0) == 1
+    ]
     ausentes = 0
     errors = []
 

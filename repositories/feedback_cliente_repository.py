@@ -20,6 +20,10 @@ _FEEDBACK_CLIENTE_SEARCH_FIELDS = (
 )
 
 
+def _norm_sql(column: str) -> str:
+    return f"LOWER(TRIM(COALESCE({column}, '')))"
+
+
 def _normalize_search_query(value: str | None) -> str:
     return " ".join(str(value or "").split()).strip().lower()
 
@@ -98,17 +102,14 @@ def _build_feedback_cliente_rank_sql(search: str | None) -> tuple[str, tuple[str
     prefix = f"{phrase}%"
     like = f"%{phrase}%"
 
-    def _norm(column: str) -> str:
-        return f"LOWER(TRIM(COALESCE({column}, '')))"
-
     sql = f"""
     CASE
-        WHEN {_norm('codigo_externo')} = %s OR {_norm('CAST(id AS CHAR)')} = %s THEN 0
-        WHEN {_norm('codigo_externo')} LIKE %s OR {_norm('CAST(id AS CHAR)')} LIKE %s THEN 1
-        WHEN {_norm('razon_social')} = %s OR {_norm('nombre_fantasia')} = %s THEN 2
-        WHEN {_norm('razon_social')} LIKE %s OR {_norm('nombre_fantasia')} LIKE %s THEN 3
-        WHEN {_norm('razon_social')} LIKE %s OR {_norm('nombre_fantasia')} LIKE %s OR {_norm('codigo_externo')} LIKE %s THEN 4
-        WHEN {_norm('telefonos')} LIKE %s OR {_norm('movil')} LIKE %s OR {_norm('email')} LIKE %s OR {_norm('domicilio')} LIKE %s OR {_norm('localidad')} LIKE %s OR {_norm('descripcion_localidad')} LIKE %s OR {_norm('provincia')} LIKE %s OR {_norm('descripcion_provincia')} LIKE %s OR {_norm('tipo_codigo')} LIKE %s OR {_norm('tipo_descripcion')} LIKE %s THEN 5
+        WHEN {_norm_sql('codigo_externo')} = %s OR {_norm_sql('CAST(id AS CHAR)')} = %s THEN 0
+        WHEN {_norm_sql('codigo_externo')} LIKE %s OR {_norm_sql('CAST(id AS CHAR)')} LIKE %s THEN 1
+        WHEN {_norm_sql('razon_social')} = %s OR {_norm_sql('nombre_fantasia')} = %s THEN 2
+        WHEN {_norm_sql('razon_social')} LIKE %s OR {_norm_sql('nombre_fantasia')} LIKE %s THEN 3
+        WHEN {_norm_sql('razon_social')} LIKE %s OR {_norm_sql('nombre_fantasia')} LIKE %s OR {_norm_sql('codigo_externo')} LIKE %s THEN 4
+        WHEN {_norm_sql('telefonos')} LIKE %s OR {_norm_sql('movil')} LIKE %s OR {_norm_sql('email')} LIKE %s OR {_norm_sql('domicilio')} LIKE %s OR {_norm_sql('localidad')} LIKE %s OR {_norm_sql('descripcion_localidad')} LIKE %s OR {_norm_sql('provincia')} LIKE %s OR {_norm_sql('descripcion_provincia')} LIKE %s OR {_norm_sql('tipo_codigo')} LIKE %s OR {_norm_sql('tipo_descripcion')} LIKE %s THEN 5
         ELSE 99
     END
     """.strip()
@@ -122,6 +123,9 @@ def _build_feedback_cliente_rank_sql(search: str | None) -> tuple[str, tuple[str
         phrase,
         prefix,
         prefix,
+        like,
+        like,
+        like,
         like,
         like,
         like,
@@ -194,23 +198,23 @@ def get_page(
         if search:
             clause, clause_params = build_tokenized_like_clause(
                 [
-                    "CAST(id AS CHAR)",
-                    "CAST(sucursal_origen AS CHAR)",
-                    "codigo_externo",
-                    "razon_social",
-                    "nombre_fantasia",
-                    "telefonos",
-                    "movil",
-                    "email",
-                    "domicilio",
-                    "localidad",
-                    "descripcion_localidad",
-                    "provincia",
-                    "descripcion_provincia",
-                    "tipo_codigo",
-                    "tipo_descripcion",
+                    _norm_sql("CAST(id AS CHAR)"),
+                    _norm_sql("CAST(sucursal_origen AS CHAR)"),
+                    _norm_sql("codigo_externo"),
+                    _norm_sql("razon_social"),
+                    _norm_sql("nombre_fantasia"),
+                    _norm_sql("telefonos"),
+                    _norm_sql("movil"),
+                    _norm_sql("email"),
+                    _norm_sql("domicilio"),
+                    _norm_sql("localidad"),
+                    _norm_sql("descripcion_localidad"),
+                    _norm_sql("provincia"),
+                    _norm_sql("descripcion_provincia"),
+                    _norm_sql("tipo_codigo"),
+                    _norm_sql("tipo_descripcion"),
                 ],
-                search,
+                _normalize_search_query(search),
                 max_terms=6,
             )
             if clause:
@@ -225,17 +229,36 @@ def get_page(
         if rank_sql:
             order_sql = f"ORDER BY {rank_sql}, razon_social ASC, codigo_externo ASC"
 
-        cursor.execute(
-            f"""
-            SELECT *
-            FROM feedback_clientes
-            {where_sql}
-            {order_sql}
-            LIMIT %s OFFSET %s
-            """,
-            (*params, *rank_params, int(per_page), offset),
-        )
-        rows = cursor.fetchall()
+        try:
+            cursor.execute(
+                f"""
+                SELECT *
+                FROM feedback_clientes
+                {where_sql}
+                {order_sql}
+                LIMIT %s OFFSET %s
+                """,
+                (*params, *rank_params, int(per_page), offset),
+            )
+            rows = cursor.fetchall()
+        except Exception:
+            if not search:
+                raise
+            return _get_page_python_fallback(
+                cursor,
+                page=int(page),
+                per_page=int(per_page),
+                search=search,
+                activo=activo,
+            )
+        if search and not rows:
+            return _get_page_python_fallback(
+                cursor,
+                page=int(page),
+                per_page=int(per_page),
+                search=search,
+                activo=activo,
+            )
 
         cursor.execute(
             f"""
@@ -250,6 +273,34 @@ def get_page(
     finally:
         cursor.close()
         db.close()
+
+
+def _get_page_python_fallback(
+    cursor,
+    *,
+    page: int,
+    per_page: int,
+    search: str | None,
+    activo: int | None,
+) -> tuple[list[dict], int]:
+    where = []
+    params = []
+    if activo in (0, 1):
+        where.append("activo = %s")
+        params.append(int(activo))
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+    cursor.execute(
+        f"""
+        SELECT *
+        FROM feedback_clientes
+        {where_sql}
+        """,
+        tuple(params),
+    )
+    ranked = _feedback_cliente_ranked_rows(cursor.fetchall(), search)
+    total = len(ranked)
+    offset = max(0, (int(page) - 1) * int(per_page))
+    return ranked[offset: offset + int(per_page)], total
 
 
 def search(q: str | None = None, *, limit: int = 25):

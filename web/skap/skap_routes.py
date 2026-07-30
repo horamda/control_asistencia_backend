@@ -416,12 +416,14 @@ def evaluaciones_listado():
     per_page = max(1, min(_parse_int(request.args.get("per"), 20) or 20, 100))
     anio = _parse_int(request.args.get("anio"))
     sector_id = _parse_int(request.args.get("sector_id"))
+    sucursal_id = _parse_int(request.args.get("sucursal_id"))
     search = (request.args.get("q") or "").strip() or None
     rows, total = get_evaluaciones_page(
         page,
         per_page,
         anio=anio,
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         search=search,
     )
     return render_template(
@@ -432,8 +434,10 @@ def evaluaciones_listado():
         per_page=per_page,
         anio=anio or "",
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         q=search or "",
         sectores=_sector_options(),
+        sucursales=_sucursal_options(),
         error=(request.args.get("error") or "").strip() or None,
         msg=(request.args.get("msg") or "").strip() or None,
     )
@@ -465,12 +469,14 @@ def planes_listado():
     per_page = max(1, min(_parse_int(request.args.get("per"), 20) or 20, 100))
     anio = _parse_int(request.args.get("anio"))
     sector_id = _parse_int(request.args.get("sector_id"))
+    sucursal_id = _parse_int(request.args.get("sucursal_id"))
     search = (request.args.get("q") or "").strip() or None
     rows, total = get_planes_page(
         page,
         per_page,
         anio=anio,
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         search=search,
     )
     return render_template(
@@ -481,8 +487,10 @@ def planes_listado():
         per_page=per_page,
         anio=anio or "",
         sector_id=sector_id,
+        sucursal_id=sucursal_id,
         q=search or "",
         sectores=_sector_options(),
+        sucursales=_sucursal_options(),
         error=(request.args.get("error") or "").strip() or None,
         msg=(request.args.get("msg") or "").strip() or None,
     )

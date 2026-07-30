@@ -37,6 +37,7 @@ def _extract(form):
         "nombre": (form.get("nombre") or "").strip(),
         "requiere_rango_fechas": form.get("requiere_rango_fechas") == "1",
         "permite_adjuntos": form.get("permite_adjuntos") == "1",
+        "habilitado_mobile": form.get("habilitado_mobile") == "1",
         "activo": form.get("activo") == "1",
     }
 
@@ -109,7 +110,7 @@ def nuevo():
     return render_template(
         "legajos_tipos_evento/form.html",
         mode="new",
-        data={"requiere_rango_fechas": False, "permite_adjuntos": True, "activo": True},
+        data={"requiere_rango_fechas": False, "permite_adjuntos": True, "habilitado_mobile": False, "activo": True},
     )
 
 

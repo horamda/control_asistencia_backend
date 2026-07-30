@@ -13,16 +13,27 @@ from repositories.asistencia_marca_repository import get_for_export_admin as get
 from repositories.asistencia_marca_repository import update_basic as update_marca_basic
 from repositories.asistencia_marca_repository import get_page_admin as get_marcas_admin_page
 from repositories.asistencia_marca_repository import backfill_from_asistencias as backfill_marcas
+from repositories.asistencia_dia_no_laborable_repository import get_dates as get_dias_no_laborables
+from repositories.asistencia_dia_no_laborable_repository import replace_month_dates as replace_dias_no_laborables
 from repositories.configuracion_empresa_repository import get_by_empresa_id as get_configuracion_empresa_by_id
 from repositories.asistencia_repository import create, delete, get_by_id, get_page, sync_from_asistencia_marcas, update
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.sucursal_repository import get_all as get_sucursales
+from repositories.sector_repository import get_all as get_sectores
+from repositories.vacaciones_repository import get_periodos_aprobados_export as get_vacaciones_aprobadas_export
 from utils.asistencia import generar_ausentes, generar_ausentes_rango, get_horario_esperado, validar_asistencia
 from utils.audit import log_audit
-from web.auth.decorators import role_required
+from web.auth.decorators import has_role, role_required
 from services.export_excel_service import generar_historial_marcas_excel, generar_planilla_fichadas_excel
 from services.asistencia_reporte_service import build_asistencia_reporte_csv
+from repositories.justificacion_repository import get_page as get_justificaciones_page
+from services.asistencia_monthly_report_service import (
+    build_monthly_attendance_report,
+    month_bounds,
+    parse_month,
+    parse_non_laborable_days,
+)
 
 from web.asistencias.planilla_helpers import (
     DEFAULT_INTERVALO_MINIMO_ENTRE_FICHADAS_MIN,
@@ -37,6 +48,49 @@ from web.asistencias.planilla_helpers import (
 )
 
 asistencias_bp = Blueprint("asistencias", __name__, url_prefix="/asistencias")
+
+
+def _report_scope_args() -> dict:
+    return {
+        "mes": request.values.get("mes") or request.args.get("mes") or "",
+        "empresa_id": request.values.get("empresa_id") or request.args.get("empresa_id") or "",
+        "sucursal_id": request.values.get("sucursal_id") or request.args.get("sucursal_id") or "",
+        "sector_id": request.values.get("sector_id") or request.args.get("sector_id") or "",
+        "tab": request.values.get("tab") or request.args.get("tab") or "resumen",
+    }
+
+
+def _parse_report_non_laborable_dates(raw: str | None, *, year: int, month: int) -> list[str]:
+    dates = []
+    seen = set()
+    for iso in parse_non_laborable_days(raw, year=year, month=month):
+        if iso not in seen:
+            seen.add(iso)
+            dates.append(iso)
+    return sorted(dates)
+
+
+def _can_edit_report_non_laborable_days() -> bool:
+    user_id = session.get("user_id")
+    if not user_id:
+        return False
+    try:
+        return has_role(user_id, "admin")
+    except Exception:
+        current_app.logger.warning("report_non_laborable_role_error", exc_info=True)
+        return False
+
+
+def _get_empleados_control_asistencia(**kwargs):
+    try:
+        return get_empleados(**kwargs, requiere_control_asistencia=1)
+    except TypeError:
+        empleados = get_empleados(**kwargs)
+        return [
+            e
+            for e in empleados
+            if int(e.get("requiere_control_asistencia", 1) or 0) == 1
+        ]
 
 
 def _sync_simple_marcas_for_asistencia(asistencia_id: int):
@@ -177,7 +231,7 @@ def _build_planilla_context(*, empresa_id: int | None, sucursal_id: int | None, 
     config_empresa = get_configuracion_empresa_by_id(empresa_id) if empresa_id else None
     intervalo_minimo_fichadas = _get_intervalo_minimo_fichadas_min(config_empresa)
 
-    empleados = get_empleados(include_inactive=True)
+    empleados = _get_empleados_control_asistencia(include_inactive=True)
     empleados_by_id = {e.get("id"): e for e in empleados}
     empleados_filtrados = []
     for e in empleados:
@@ -344,9 +398,22 @@ def listado():
     search = request.args.get("q")
     fecha_desde = request.args.get("fecha_desde")
     fecha_hasta = request.args.get("fecha_hasta")
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
     error = (request.args.get("error") or "").strip() or None
-    asistencias, total = get_page(page, per_page, empleado_id, fecha_desde, fecha_hasta, search)
-    empleados = get_empleados(include_inactive=True)
+    asistencias, total = get_page(
+        page,
+        per_page,
+        empleado_id,
+        fecha_desde,
+        fecha_hasta,
+        search,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+    )
+    empleados = _get_empleados_control_asistencia(include_inactive=True)
+    sucursales = get_sucursales(include_inactive=True)
+    sectores = get_sectores(include_inactive=True)
     return render_template(
         "asistencias/listado.html",
         asistencias=asistencias,
@@ -354,6 +421,10 @@ def listado():
         empleado_id=empleado_id,
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
+        sectores=sectores,
+        sector_id=sector_id,
         q=search,
         error=error,
         page=page,
@@ -432,6 +503,226 @@ def planilla_pdf():
         auto_print=auto_print,
         **context,
     )
+
+
+@asistencias_bp.route("/reportes")
+@role_required("admin", "rrhh", "supervisor")
+def reportes_mensuales():
+    year, month = parse_month(request.args.get("mes"))
+    first, last = month_bounds(year, month)
+    mes = f"{year:04d}-{month:02d}"
+    active_tab = (request.args.get("tab") or "resumen").strip().lower()
+    if active_tab not in {"resumen", "ausencias", "analisis", "jornada"}:
+        active_tab = "resumen"
+    empresa_id = request.args.get("empresa_id", type=int)
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    sector_id = request.args.get("sector_id", type=int)
+
+    empresas = get_empresas(include_inactive=True)
+    all_sucursales = get_sucursales(include_inactive=True)
+    all_sectores = get_sectores(include_inactive=True)
+    sucursales = [s for s in all_sucursales if not empresa_id or int(s.get("empresa_id") or 0) == int(empresa_id)]
+    sectores = [s for s in all_sectores if not empresa_id or int(s.get("empresa_id") or 0) == int(empresa_id)]
+    if sucursal_id:
+        sucursal = next((s for s in all_sucursales if int(s.get("id") or 0) == int(sucursal_id)), None)
+        if sucursal:
+            empresa_id = int(sucursal.get("empresa_id") or empresa_id or 0) or empresa_id
+            sectores = [s for s in all_sectores if int(s.get("empresa_id") or 0) == int(empresa_id or 0)]
+    if sector_id:
+        sector = next((s for s in all_sectores if int(s.get("id") or 0) == int(sector_id)), None)
+        if sector:
+            empresa_id = int(sector.get("empresa_id") or empresa_id or 0) or empresa_id
+            sectores = [s for s in all_sectores if int(s.get("empresa_id") or 0) == int(empresa_id or 0)]
+
+    persisted_non_laborable_days = get_dias_no_laborables(
+        year=year,
+        month=month,
+        empresa_id=empresa_id,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+    )
+    non_laborable_days = (
+        parse_non_laborable_days(request.args.get("nl"), year=year, month=month)
+        if request.args.get("nl") is not None
+        else persisted_non_laborable_days
+    )
+    non_laborable_days = set(non_laborable_days)
+    for day in (first + datetime.timedelta(days=i) for i in range((last - first).days + 1)):
+        if day.weekday() == 6:
+            non_laborable_days.add(day.isoformat())
+
+    empleados = _get_empleados_control_asistencia(
+        include_inactive=True,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+    )
+    if empresa_id:
+        empleados = [e for e in empleados if int(e.get("empresa_id") or 0) == int(empresa_id)]
+
+    marcas = get_marcas_admin_export(
+        empresa_id=empresa_id,
+        fecha_desde=first.isoformat(),
+        fecha_hasta=last.isoformat(),
+        limit=20000,
+        order_asc=True,
+    )
+    if sucursal_id:
+        marcas = [m for m in marcas if int(m.get("empleado_id") or 0) in {int(e.get("id")) for e in empleados if e.get("id")}]
+    if sector_id:
+        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+        marcas = [m for m in marcas if int(m.get("empleado_id") or 0) in empleado_ids]
+
+    justificaciones, _ = get_justificaciones_page(
+        1,
+        20000,
+        fecha_desde=first.isoformat(),
+        fecha_hasta=last.isoformat(),
+        sucursal_id=sucursal_id,
+    )
+    if empresa_id:
+        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+        justificaciones = [j for j in justificaciones if int(j.get("empleado_id") or 0) in empleado_ids]
+    if sector_id:
+        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+        justificaciones = [j for j in justificaciones if int(j.get("empleado_id") or 0) in empleado_ids]
+    vacaciones = get_vacaciones_aprobadas_export(
+        fecha_desde=first.isoformat(),
+        fecha_hasta=last.isoformat(),
+        empresa_id=empresa_id,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+    )
+
+    report = build_monthly_attendance_report(
+        year=year,
+        month=month,
+        empleados=empleados,
+        marcas=marcas,
+        justificaciones=justificaciones,
+        vacaciones=vacaciones,
+        non_laborable_days=non_laborable_days,
+    )
+    prev_month = first - datetime.timedelta(days=1)
+    next_month = last + datetime.timedelta(days=1)
+    prev_first, prev_last = month_bounds(prev_month.year, prev_month.month)
+    prev_marcas = get_marcas_admin_export(
+        empresa_id=empresa_id,
+        fecha_desde=prev_first.isoformat(),
+        fecha_hasta=prev_last.isoformat(),
+        limit=20000,
+        order_asc=True,
+    )
+    if sucursal_id:
+        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+        prev_marcas = [m for m in prev_marcas if int(m.get("empleado_id") or 0) in empleado_ids]
+    if sector_id:
+        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+        prev_marcas = [m for m in prev_marcas if int(m.get("empleado_id") or 0) in empleado_ids]
+    prev_justificaciones, _ = get_justificaciones_page(
+        1,
+        20000,
+        fecha_desde=prev_first.isoformat(),
+        fecha_hasta=prev_last.isoformat(),
+        sucursal_id=sucursal_id,
+    )
+    if empresa_id:
+        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+        prev_justificaciones = [j for j in prev_justificaciones if int(j.get("empleado_id") or 0) in empleado_ids]
+    if sector_id:
+        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+        prev_justificaciones = [j for j in prev_justificaciones if int(j.get("empleado_id") or 0) in empleado_ids]
+    prev_vacaciones = get_vacaciones_aprobadas_export(
+        fecha_desde=prev_first.isoformat(),
+        fecha_hasta=prev_last.isoformat(),
+        empresa_id=empresa_id,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+    )
+    prev_non_laborable_days = get_dias_no_laborables(
+        year=prev_month.year,
+        month=prev_month.month,
+        empresa_id=empresa_id,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+    )
+    prev_report = build_monthly_attendance_report(
+        year=prev_month.year,
+        month=prev_month.month,
+        empleados=empleados,
+        marcas=prev_marcas,
+        justificaciones=prev_justificaciones,
+        vacaciones=prev_vacaciones,
+        non_laborable_days=prev_non_laborable_days,
+    )
+    prev_ausentismo = float(prev_report["kpis"].get("ausentismo_pct") or 0)
+    current_ausentismo = float(report["kpis"].get("ausentismo_pct") or 0)
+    ausentismo_delta_pct = None
+    if prev_ausentismo > 0:
+        ausentismo_delta_pct = round(((current_ausentismo - prev_ausentismo) * 100.0) / prev_ausentismo, 2)
+    empresa_sel = next((e for e in empresas if int(e.get("id") or 0) == int(empresa_id or 0)), None)
+    sucursal_sel = next((s for s in all_sucursales if int(s.get("id") or 0) == int(sucursal_id or 0)), None)
+    sector_sel = next((s for s in sectores if int(s.get("id") or 0) == int(sector_id or 0)), None)
+    month_names = [
+        "",
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre",
+    ]
+    return render_template(
+        "asistencias/reportes.html",
+        mes=mes,
+        year=year,
+        month=month,
+        month_label=f"{month_names[month]} {year}",
+        prev_mes=f"{prev_month.year:04d}-{prev_month.month:02d}",
+        next_mes=f"{next_month.year:04d}-{next_month.month:02d}",
+        active_tab=active_tab,
+        empresa_id=empresa_id,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+        empresas=empresas,
+        sucursales=sucursales,
+        sectores=sectores,
+        empresa_sel=empresa_sel,
+        sucursal_sel=sucursal_sel,
+        sector_sel=sector_sel,
+        msg=request.args.get("msg"),
+        nl=",".join(str(datetime.date.fromisoformat(d).day) for d in sorted(non_laborable_days)),
+        ausentismo_delta_pct=ausentismo_delta_pct,
+        can_edit_non_laborable_days=_can_edit_report_non_laborable_days(),
+        **report,
+    )
+
+
+@asistencias_bp.route("/reportes/dias-no-laborables", methods=["POST"])
+@role_required("admin")
+def reportes_dias_no_laborables_guardar():
+    year, month = parse_month(request.form.get("mes"))
+    empresa_id = request.form.get("empresa_id", type=int)
+    sucursal_id = request.form.get("sucursal_id", type=int)
+    sector_id = request.form.get("sector_id", type=int)
+    fechas = _parse_report_non_laborable_dates(request.form.get("nl"), year=year, month=month)
+    replace_dias_no_laborables(
+        year=year,
+        month=month,
+        dates=set(fechas),
+        empresa_id=empresa_id,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+        actor_id=session.get("user_id"),
+    )
+    args = _report_scope_args()
+    args["msg"] = "Dias no laborables guardados."
+    return redirect(url_for("asistencias.reportes_mensuales", **args))
 
 
 @asistencias_bp.route("/planilla/marca/editar/<int:marca_id>", methods=["GET", "POST"])
@@ -685,7 +976,7 @@ def marcas():
         page=page,
         per_page=per_page,
         empresas=get_empresas(include_inactive=True),
-        empleados=get_empleados(include_inactive=True),
+        empleados=_get_empleados_control_asistencia(include_inactive=True),
         empresa_id=empresa_id,
         empleado_id=empleado_id,
         fecha_desde=fecha_desde or "",
@@ -858,7 +1149,7 @@ def marcas_xlsx():
     )
 
     empresas = get_empresas(include_inactive=True)
-    empleados = get_empleados(include_inactive=True)
+    empleados = _get_empleados_control_asistencia(include_inactive=True)
     filtros = {
         "empresa_id": empresa_id,
         "empresa_label": next((e.get("razon_social") for e in empresas if int(e.get("id") or 0) == int(empresa_id or 0)), None),
@@ -917,7 +1208,7 @@ def marcas_backfill():
 @asistencias_bp.route("/nuevo", methods=["GET", "POST"])
 @role_required("admin", "rrhh", "supervisor")
 def nuevo():
-    empleados = get_empleados(include_inactive=True)
+    empleados = _get_empleados_control_asistencia(include_inactive=True)
     if request.method == "POST":
         errors = _validate(request.form)
         data = _extract_form_data(request.form)
@@ -1013,7 +1304,7 @@ def editar(asistencia_id):
     if not asistencia:
         abort(404)
 
-    empleados = get_empleados(include_inactive=True)
+    empleados = _get_empleados_control_asistencia(include_inactive=True)
     if request.method == "POST":
         errors = _validate(request.form)
         data = _extract_form_data(request.form)

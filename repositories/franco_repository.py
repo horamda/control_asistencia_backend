@@ -16,16 +16,28 @@ def _get_empresa_id_for_empleado(cursor, empleado_id: int | None):
     return row[0] if row else None
 
 
-def get_all():
+def get_all(sucursal_id: int | None = None, sector_id: int | None = None):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
-        cursor.execute("""
-            SELECT f.*, e.nombre, e.apellido
+        where = []
+        params = []
+        if sucursal_id:
+            where.append("e.sucursal_id = %s")
+            params.append(sucursal_id)
+        if sector_id:
+            where.append("e.sector_id = %s")
+            params.append(sector_id)
+        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+        cursor.execute(f"""
+            SELECT f.*, e.nombre, e.apellido, s.nombre AS sucursal_nombre, sec.nombre AS sector_nombre
             FROM francos f
             JOIN empleados e ON e.id = f.empleado_id
+            LEFT JOIN sucursales s ON s.id = e.sucursal_id
+            LEFT JOIN sectores sec ON sec.id = e.sector_id
+            {where_sql}
             ORDER BY f.fecha DESC, f.id DESC
-        """)
+        """, params)
         return cursor.fetchall()
     finally:
         cursor.close()

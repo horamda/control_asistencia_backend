@@ -54,9 +54,17 @@ def _safe_seed_from_payload(raw_payload: str):
 @horarios_bp.route("/")
 @role_required("admin", "rrhh")
 def listado():
-    horarios = get_horarios_resumen(include_inactive=True)
+    sucursal_id = request.args.get("sucursal_id", type=int)
+    horarios = get_horarios_resumen(include_inactive=True, sucursal_id=sucursal_id)
+    sucursales = get_sucursales(include_inactive=True)
     error = (request.args.get("error") or "").strip()
-    return render_template("horarios/listado.html", horarios=horarios, error=error)
+    return render_template(
+        "horarios/listado.html",
+        horarios=horarios,
+        sucursales=sucursales,
+        sucursal_id=sucursal_id,
+        error=error,
+    )
 
 
 @horarios_bp.route("/nuevo", methods=["GET", "POST"])

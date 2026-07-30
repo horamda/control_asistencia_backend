@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}Panel de asistencia{% endblock %}
 {% block content %}
 <div class="content-stack">
   <div class="section-head">
     <div>
       <div class="section-kicker">Analitica RRHH</div>
-      <h2>Dashboard de asistencia</h2>
+      <h2>Panel de asistencia</h2>
       <p class="module-intro">
         <span class="copy-desktop">KPIs ejecutivos de puntualidad, ausentismo, cumplimiento y regularizacion.</span>
         <span class="copy-mobile">KPIs clave de asistencia y regularizacion.</span>
@@ -50,7 +50,72 @@
       <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Limpiar</a>
     </div>
   </form>
-  <nav class="dashboard-jump" aria-label="Navegacion rapida del dashboard">
+  <section class="dashboard-executive dashboard-block" aria-label="Resumen ejecutivo de asistencia">
+    <div class="executive-summary">
+      <article class="executive-card {% if stats.ausentismo_mes_pct <= 8 %}tone-ok{% elif stats.ausentismo_mes_pct <= 15 %}tone-warn{% else %}tone-bad{% endif %}">
+        <span>Ausentismo mes</span>
+        <strong>{{ "%.1f"|format(stats.ausentismo_mes_pct) }}%</strong>
+        <small>{{ stats.ausentes_mes }} ausencias computables</small>
+      </article>
+      <article class="executive-card {% if stats.presentismo_hoy_pct >= 90 %}tone-ok{% elif stats.presentismo_hoy_pct >= 75 %}tone-warn{% else %}tone-bad{% endif %}">
+        <span>Presentismo hoy</span>
+        <strong>{{ "%.1f"|format(stats.presentismo_hoy_pct) }}%</strong>
+        <small>{{ stats.empleados_con_fichada_hoy }} con fichada</small>
+      </article>
+      <article class="executive-card {% if stats.justificaciones_pendientes_total == 0 %}tone-ok{% elif stats.justificaciones_pendientes_total <= 10 %}tone-warn{% else %}tone-bad{% endif %}">
+        <span>Justificaciones</span>
+        <strong>{{ stats.justificaciones_pendientes_total }}</strong>
+        <small>pendientes de resolucion</small>
+      </article>
+      <article class="executive-card {% if stats.desvio_horas_mes >= 0 %}tone-ok{% elif stats.desvio_horas_mes >= -80 %}tone-warn{% else %}tone-bad{% endif %}">
+        <span>Desvio horas</span>
+        <strong>{{ "%.1f"|format(stats.desvio_horas_mes) }}h</strong>
+        <small>registradas vs esperadas</small>
+      </article>
+    </div>
+    <div class="executive-action-grid">
+      <article class="executive-alerts">
+        <div class="executive-card-head">
+          <h3>Alertas operativas</h3>
+          <span class="chip scope-chip-filtered">FILTRADO</span>
+        </div>
+        <div class="executive-alert-list">
+          <a class="executive-alert {% if stats.justificaciones_pendientes_total > 0 %}is-warn{% else %}is-ok{% endif %}" href="/justificaciones/">
+            <strong>{{ stats.justificaciones_pendientes_total }}</strong>
+            <span>Justificaciones pendientes</span>
+          </a>
+          <a class="executive-alert {% if stats.ausentes_hoy > 0 %}is-bad{% else %}is-ok{% endif %}" href="/asistencias/">
+            <strong>{{ stats.ausentes_hoy }}</strong>
+            <span>Ausencias hoy</span>
+          </a>
+          <a class="executive-alert {% if stats.salida_anticipada_mes > 0 %}is-warn{% else %}is-ok{% endif %}" href="/asistencias/">
+            <strong>{{ stats.salida_anticipada_mes }}</strong>
+            <span>Salidas anticipadas mes</span>
+          </a>
+          <a class="executive-alert {% if stats.vacaciones_proximas_30d > 0 %}is-info{% else %}is-ok{% endif %}" href="/vacaciones/">
+            <strong>{{ stats.vacaciones_proximas_30d }}</strong>
+            <span>Vacaciones proximas 30d</span>
+          </a>
+        </div>
+      </article>
+      <article class="executive-shortcuts">
+        <div class="executive-card-head">
+          <h3>Accesos clave</h3>
+          <span class="chip scope-chip-general">OPERACION</span>
+        </div>
+        <div class="executive-shortcut-list">
+          <a href="{{ url_for('asistencias.reportes_mensuales', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}">Reporte mensual</a>
+          <a href="/asistencias/planilla">Planilla diaria</a>
+          <a href="/justificaciones/">Justificaciones</a>
+          <a href="/vacaciones/">Vacaciones</a>
+          <a href="/empleados/">Empleados</a>
+          <a href="/feedback/">Feedback</a>
+        </div>
+      </article>
+    </div>
+  </section>
+  <nav class="dashboard-jump" aria-label="Navegacion rapida del panel de asistencia">
+    <a href="#dash-reporte-mensual">Reporte mensual</a>
     <a href="#dash-kpis">KPIs</a>
     <a href="#dash-riesgo">Riesgo</a>
     <a href="#dash-tendencias">Tendencias</a>
@@ -58,6 +123,64 @@
     <a href="#dash-horas">Horas</a>
     <a href="#dash-actividad">Actividad</a>
   </nav>
+  <section id="dash-reporte-mensual" class="dashboard-block dashboard-monthly-report" style="--mobile-order: 1;">
+    <div class="dashboard-monthly-head">
+      <div>
+        <h3>Reporte mensual de asistencia</h3>
+        <p class="helper-text">Acceso directo al reporte completo con calendario, solapas y detalle mensual.</p>
+      </div>
+    </div>
+    <section class="attendance-calendar-panel dashboard-labor-calendar" aria-label="Dias no laborables del mes">
+      <div class="dashboard-labor-calendar-head">
+        <div>
+          <h3>Dias laborables / no laborables</h3>
+          <p class="helper-text">{{ labor_calendar.label }} - {{ labor_calendar.non_laborable_count }} dias marcados como no laborables.</p>
+        </div>
+        {% if labor_calendar.can_edit %}
+          <a class="btn btn-secondary" href="{{ url_for('asistencias.reportes_mensuales', mes=labor_calendar.mes, empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}">
+            Editar calendario
+          </a>
+        {% endif %}
+      </div>
+      <div class="attendance-calendar dashboard-calendar-readonly">
+        {% for day_name in ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"] %}
+          <div class="calendar-head">{{ day_name }}</div>
+        {% endfor %}
+        {% for _ in range(labor_calendar.first_weekday) %}<div class="calendar-empty"></div>{% endfor %}
+        {% for day in labor_calendar.month_dates %}
+          {% set iso = day.isoformat() %}
+          <span class="calendar-day {% if iso in labor_calendar.non_laborable_days %}non-laborable{% endif %}" aria-label="{{ iso }}{% if iso in labor_calendar.non_laborable_days %} no laborable{% else %} laborable{% endif %}">
+            {{ day.day }}
+          </span>
+        {% endfor %}
+      </div>
+      <div class="attendance-calendar-actions">
+        <div class="attendance-calendar-legend"><span></span> Dia marcado como no laborable</div>
+        {% if not labor_calendar.can_edit %}
+          <span class="helper-text">Solo admin puede modificar el calendario.</span>
+        {% endif %}
+      </div>
+    </section>
+    <div class="dashboard-report-access">
+      <div class="dashboard-report-access-copy">
+        <span class="dashboard-report-icon" aria-hidden="true">▦</span>
+        <div>
+          <strong>Reporte mensual completo</strong>
+          <p class="helper-text">
+            Abre la pantalla dedicada del reporte. Mantiene los filtros actuales del panel cuando corresponden.
+          </p>
+        </div>
+      </div>
+      <div class="dashboard-report-access-metrics" aria-label="Resumen mensual">
+        <span><strong>{{ stats.asistencias_mes }}</strong> asistencias mes</span>
+        <span><strong>{{ "%.1f"|format(stats.puntualidad_mes_pct) }}%</strong> puntualidad</span>
+        <span><strong>{{ "%.1f"|format(stats.ausentismo_mes_pct) }}%</strong> ausentismo</span>
+      </div>
+      <a class="btn" href="{{ url_for('asistencias.reportes_mensuales', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}">
+        Abrir reporte mensual
+      </a>
+    </div>
+  </section>
   <section id="dash-kpis" class="grid-kpis dashboard-kpis dashboard-block" style="--mobile-order: 1;">
     <div class="chip-row">
       <span class="chip scope-chip-filtered">FILTRADO</span>
@@ -883,6 +1006,7 @@
         <a href="/empleado-horarios/">Asignaciones vigentes por empleado</a>
         <a href="/empleado-excepciones/">Registrar excepciones puntuales</a>
         <a href="/asistencias/">Control diario de asistencias</a>
+        <a href="{{ url_for('asistencias.reportes_mensuales', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}">Reporte mensual de asistencia</a>
         <a href="/adelantos/">Reporte de adelantos</a>
         <a href="/justificaciones/">Gestion de justificaciones</a>
         <a href="/legajos/eventos/">Eventos de legajo</a>

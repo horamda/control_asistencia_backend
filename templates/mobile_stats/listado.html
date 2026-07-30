@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros_macros %}
 {% block title %}Uso de la app móvil{% endblock %}
 
 {% block content %}
@@ -134,8 +135,16 @@
         {% endfor %}
       </select>
     </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Sucursal</label>
+      {{ filtros_macros.sucursal_select(sucursales, sucursal_id) }}
+    </div>
+    <div>
+      <label class="form-label" style="font-size:.75rem">Sector</label>
+      {{ filtros_macros.sector_select(sectores, sector_id) }}
+    </div>
     <button type="submit" class="btn btn-secondary">Filtrar</button>
-    {% if filtros.q or filtros.fecha_desde or filtros.fecha_hasta or filtros.platform or filtros.app_version %}
+    {% if filtros.q or filtros.fecha_desde or filtros.fecha_hasta or filtros.platform or filtros.app_version or sucursal_id or sector_id %}
     <a href="{{ url_for('mobile_stats.listado') }}" class="btn btn-ghost">Limpiar</a>
     {% endif %}
   </div>
@@ -148,6 +157,8 @@
     <thead>
       <tr>
         <th>Empleado</th>
+        <th>Sucursal</th>
+        <th>Sector</th>
         <th>Plataforma</th>
         <th>Dispositivo</th>
         <th>Versión</th>
@@ -161,8 +172,10 @@
       <tr>
         <td data-label="Empleado">
           <div style="font-weight:600">{{ s.empleado_nombre }}</div>
-          <div style="font-size:.78rem;color:var(--muted)">DNI {{ s.dni }}{% if s.sector_nombre %} · {{ s.sector_nombre }}{% endif %}</div>
+          <div style="font-size:.78rem;color:var(--muted)">DNI {{ s.dni }}</div>
         </td>
+        <td data-label="Sucursal">{{ s.sucursal_nombre or "-" }}</td>
+        <td data-label="Sector">{{ s.sector_nombre or "-" }}</td>
         <td data-label="Plataforma">
           {% if s.platform == 'android' %}
             <span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.82rem;font-weight:600;color:#22c55e">
@@ -193,10 +206,10 @@
     <span style="font-size:.82rem;color:var(--muted)">{{ total }} sesión{{ 'es' if total != 1 else '' }} · página {{ page }} de {{ total_pages }}</span>
     <div style="display:flex;gap:.35rem">
       {% if page > 1 %}
-      <a href="?{{ filtros.items()|selectattr('1')|list|map(attribute=0)|join('&') }}&page={{ page - 1 }}" class="btn btn-ghost" style="padding:.3rem .6rem;font-size:.8rem">← Ant</a>
+      <a href="?{{ filtros|urlencode }}&page={{ page - 1 }}" class="btn btn-ghost" style="padding:.3rem .6rem;font-size:.8rem">← Ant</a>
       {% endif %}
       {% if page < total_pages %}
-      <a href="?{{ filtros.items()|selectattr('1')|list|map(attribute=0)|join('&') }}&page={{ page + 1 }}" class="btn btn-ghost" style="padding:.3rem .6rem;font-size:.8rem">Sig →</a>
+      <a href="?{{ filtros|urlencode }}&page={{ page + 1 }}" class="btn btn-ghost" style="padding:.3rem .6rem;font-size:.8rem">Sig →</a>
       {% endif %}
     </div>
   </div>
@@ -205,7 +218,7 @@
   {% else %}
   <div style="padding:2.5rem;text-align:center;color:var(--muted)">
     <div style="font-size:2rem;margin-bottom:.5rem">📱</div>
-    <div>No hay sesiones{% if filtros.q or filtros.fecha_desde or filtros.fecha_hasta or filtros.platform or filtros.app_version %} con los filtros seleccionados{% endif %}.</div>
+    <div>No hay sesiones{% if filtros.q or filtros.fecha_desde or filtros.fecha_hasta or filtros.platform or filtros.app_version or sucursal_id or sector_id %} con los filtros seleccionados{% endif %}.</div>
   </div>
   {% endif %}
 </div>

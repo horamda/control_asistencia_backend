@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Asignar roles{% endblock %}
 {% block content %}
 <div class="content-stack">
@@ -27,6 +28,14 @@
           {% endfor %}
         </select>
       </div>
+      <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        {{ filtros.sector_select(sectores, sector_id) }}
+      </div>
       <div class="row span-2">
         <label>Buscar</label>
         <input name="q" value="{{ q or '' }}" placeholder="Apellido o nombre">
@@ -50,6 +59,8 @@
           <tr>
             <th>Empleado</th>
             <th>Empresa</th>
+            <th>Sucursal</th>
+            <th>Sector</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -58,6 +69,8 @@
           <tr>
             <td data-label="Empleado">{{ e.apellido }} {{ e.nombre }}</td>
             <td data-label="Empresa">{{ e.empresa_nombre or "-" }}</td>
+            <td data-label="Sucursal">{{ e.sucursal_nombre or "-" }}</td>
+            <td data-label="Sector">{{ e.sector_nombre or "-" }}</td>
             <td data-label="Acciones"><a class="btn btn-secondary" href="/empleado-roles/{{ e.id }}">Editar roles</a></td>
           </tr>
           {% endfor %}
@@ -70,10 +83,10 @@
 
   <div class="pager">
     {% if page > 1 %}
-      <a class="btn btn-secondary" href="/empleado-roles/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&q={{ q or '' }}">Anterior</a>
+      <a class="btn btn-secondary" href="/empleado-roles/?page={{ page - 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&sucursal_id={{ sucursal_id or '' }}&sector_id={{ sector_id or '' }}&q={{ q or '' }}">Anterior</a>
     {% endif %}
     {% if page * per_page < total %}
-      <a class="btn btn-secondary" href="/empleado-roles/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&q={{ q or '' }}">Siguiente</a>
+      <a class="btn btn-secondary" href="/empleado-roles/?page={{ page + 1 }}&per={{ per_page }}&empresa_id={{ empresa_id or '' }}&sucursal_id={{ sucursal_id or '' }}&sector_id={{ sector_id or '' }}&q={{ q or '' }}">Siguiente</a>
     {% endif %}
   </div>
 

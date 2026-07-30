@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Pedidos mercaderia{% endblock %}
 {% block content %}
 <div class="content-stack">
@@ -28,7 +29,7 @@
     <a class="btn btn-secondary" href="{{ url_for('pedidos_mercaderia.importar_csv') }}">Importar articulos CSV</a>
     <a
       class="btn btn-secondary"
-      href="{{ url_for('pedidos_mercaderia.export_csv', empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None) }}"
+      href="{{ url_for('pedidos_mercaderia.export_csv', empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None, sucursal_id=sucursal_id or None, sector_id=sector_id or None) }}"
     >
       Exportar CSV
     </a>
@@ -46,6 +47,16 @@
             </option>
           {% endfor %}
         </select>
+      </div>
+
+      <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+      </div>
+
+      <div class="row">
+        <label>Sector</label>
+        {{ filtros.sector_select(sectores, sector_id) }}
       </div>
 
       <div class="row">
@@ -110,6 +121,8 @@
         <thead>
           <tr>
             <th>Empresa</th>
+            <th>Sucursal</th>
+            <th>Sector</th>
             <th>Empleado</th>
             <th>Periodo</th>
             <th>Estado</th>
@@ -123,6 +136,8 @@
             {% set estado_actual = (p.estado or "")|lower %}
             <tr>
               <td data-label="Empresa">{{ p.empresa_nombre or "-" }}</td>
+              <td data-label="Sucursal">{{ p.sucursal_nombre or "-" }}</td>
+              <td data-label="Sector">{{ p.sector_nombre or "-" }}</td>
               <td data-label="Empleado">
                 <div>{{ p.apellido }} {{ p.nombre }}</div>
                 <small>{{ p.dni or "-" }}</small>
@@ -186,7 +201,7 @@
     {% if page > 1 %}
       <a
         class="btn btn-secondary"
-        href="{{ url_for('pedidos_mercaderia.listado', page=page - 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None) }}"
+        href="{{ url_for('pedidos_mercaderia.listado', page=page - 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None, sucursal_id=sucursal_id or None, sector_id=sector_id or None) }}"
       >
         Anterior
       </a>
@@ -194,7 +209,7 @@
     {% if page * per_page < total %}
       <a
         class="btn btn-secondary"
-        href="{{ url_for('pedidos_mercaderia.listado', page=page + 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None) }}"
+        href="{{ url_for('pedidos_mercaderia.listado', page=page + 1, per=per_page, empleado_id=empleado_id or None, q=q or None, estado=estado or None, anio=anio or None, mes=mes or None, sucursal_id=sucursal_id or None, sector_id=sector_id or None) }}"
       >
         Siguiente
       </a>

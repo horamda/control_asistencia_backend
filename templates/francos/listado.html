@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_filters.html" as filtros %}
 {% block title %}Francos{% endblock %}
 {% block content %}
 <div class="content-stack">
@@ -20,6 +21,23 @@
     <a class="btn" href="/francos/nuevo">Nuevo franco</a>
   </div>
 
+  <form method="get" action="{{ url_for('francos.listado') }}">
+    <div class="form-grid">
+      <div class="row">
+        <label>Sucursal</label>
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+      </div>
+      <div class="row">
+        <label>Sector</label>
+        {{ filtros.sector_select(sectores, sector_id) }}
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('francos.listado') }}">Limpiar</a>
+    </div>
+  </form>
+
   <div class="results-bar">
     <div class="summary">Total: {{ francos|length }} franco(s)</div>
   </div>
@@ -30,6 +48,8 @@
         <thead>
           <tr>
             <th>Empleado</th>
+            <th>Sucursal</th>
+            <th>Sector</th>
             <th>Fecha</th>
             <th>Motivo</th>
             <th>Acciones</th>
@@ -39,6 +59,8 @@
           {% for f in francos %}
           <tr>
             <td data-label="Empleado">{{ f.apellido }} {{ f.nombre }}</td>
+            <td data-label="Sucursal">{{ f.sucursal_nombre or "-" }}</td>
+            <td data-label="Sector">{{ f.sector_nombre or "-" }}</td>
             <td data-label="Fecha">{{ f.fecha }}</td>
             <td data-label="Motivo">{{ f.motivo or "-" }}</td>
             <td data-label="Acciones">

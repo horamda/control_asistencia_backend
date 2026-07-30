@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Control de Asistencia - API externa de reportes
-  version: 1.1.0
-  description: API de solo lectura para obtener un token y descargar reportes de asistencia.
+  version: 1.3.1
+  description: API de solo lectura para obtener un token temporal y consultar asistencia, justificaciones y vacaciones.
 servers:
   - url: https://control-asistencia.up.railway.app/api/v1/external
     description: Produccion
@@ -43,13 +43,98 @@ paths:
           description: Limite de intentos excedido
         "503":
           $ref: "#/components/responses/NotConfigured"
+  /justificaciones:
+    get:
+      summary: Listar justificaciones
+      operationId: listExternalJustificaciones
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EmpresaId"
+        - $ref: "#/components/parameters/EmpleadoId"
+        - $ref: "#/components/parameters/SucursalId"
+        - $ref: "#/components/parameters/SectorId"
+        - $ref: "#/components/parameters/FechaDesde"
+        - $ref: "#/components/parameters/FechaHasta"
+        - name: estado
+          in: query
+          schema:
+            type: string
+            enum: [pendiente, aprobada, rechazada, all]
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Justificaciones paginadas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JustificacionesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/NotConfigured"
+  /vacaciones/movimientos:
+    get:
+      summary: Listar movimientos de vacaciones
+      operationId: listExternalVacacionesMovimientos
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EmpresaId"
+        - $ref: "#/components/parameters/EmpleadoId"
+        - $ref: "#/components/parameters/SucursalId"
+        - $ref: "#/components/parameters/SectorId"
+        - name: anio
+          in: query
+          schema:
+            type: integer
+            minimum: 2000
+            maximum: 2100
+        - name: mes
+          in: query
+          description: Requiere anio.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+        - $ref: "#/components/parameters/FechaDesde"
+        - $ref: "#/components/parameters/FechaHasta"
+        - name: estado
+          in: query
+          schema:
+            type: string
+            enum: [pendiente, aprobado, rechazado, cancelado, all]
+        - name: tipo
+          in: query
+          schema:
+            type: string
+            enum: [tomado, compensatorio, ajuste, all]
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Movimientos de vacaciones paginados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VacacionesMovimientosResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/NotConfigured"
   /reportes/asistencia.csv:
     get:
       summary: Descargar reporte CSV de asistencia
       operationId: downloadAttendanceReport
       security:
         - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - $ref: "#/components/parameters/EmpresaId"
         - $ref: "#/components/parameters/EmpleadoId"
@@ -117,10 +202,6 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-    apiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-API-Key
   parameters:
     EmpresaId:
       name: empresa_id
@@ -130,6 +211,18 @@ components:
         minimum: 1
     EmpleadoId:
       name: empleado_id
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+    SucursalId:
+      name: sucursal_id
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+    SectorId:
+      name: sector_id
       in: query
       schema:
         type: integer
@@ -148,6 +241,26 @@ components:
       schema:
         type: string
         format: date
+    Search:
+      name: q
+      in: query
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PerPage:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 100
   schemas:
     TokenRequest:
       type: object
@@ -174,6 +287,199 @@ components:
         scope:
           type: string
           example: "external:read reports:read"
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+    Justificacion:
+      type: object
+      properties:
+        id:
+          type: integer
+        empleado_id:
+          type: integer
+        empresa_id:
+          type: integer
+        empresa_nombre:
+          type: string
+        sucursal_id:
+          type: integer
+          nullable: true
+        sucursal_nombre:
+          type: string
+          nullable: true
+        sector_id:
+          type: integer
+          nullable: true
+        sector_nombre:
+          type: string
+          nullable: true
+        legajo:
+          type: string
+          nullable: true
+        dni:
+          type: string
+          nullable: true
+        apellido:
+          type: string
+        nombre:
+          type: string
+        asistencia_id:
+          type: integer
+          nullable: true
+        asistencia_fecha:
+          type: string
+          format: date
+          nullable: true
+        fecha:
+          type: string
+          format: date
+          nullable: true
+        fecha_desde:
+          type: string
+          format: date
+          nullable: true
+        fecha_hasta:
+          type: string
+          format: date
+          nullable: true
+        motivo:
+          type: string
+        archivo:
+          type: string
+          nullable: true
+        estado:
+          type: string
+          enum: [pendiente, aprobada, rechazada]
+        resuelto_by_usuario_id:
+          type: integer
+          nullable: true
+        resuelto_by_usuario:
+          type: string
+          nullable: true
+        resuelto_at:
+          type: string
+          nullable: true
+        comentario_resolucion:
+          type: string
+          nullable: true
+        motivo_rechazo:
+          type: string
+          nullable: true
+        notificado_empleado_at:
+          type: string
+          nullable: true
+        visto_por_empleado_at:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          nullable: true
+        adjuntos_count:
+          type: integer
+    JustificacionesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Justificacion"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+    VacacionesMovimiento:
+      type: object
+      properties:
+        id:
+          type: integer
+        empleado_id:
+          type: integer
+        empresa_id:
+          type: integer
+        empresa_nombre:
+          type: string
+        sucursal_id:
+          type: integer
+          nullable: true
+        sucursal_nombre:
+          type: string
+          nullable: true
+        sector_id:
+          type: integer
+          nullable: true
+        sector_nombre:
+          type: string
+          nullable: true
+        legajo:
+          type: string
+          nullable: true
+        dni:
+          type: string
+          nullable: true
+        apellido:
+          type: string
+        nombre:
+          type: string
+        anio:
+          type: integer
+        tipo:
+          type: string
+          enum: [tomado, compensatorio, ajuste]
+        dias:
+          type: number
+        observacion:
+          type: string
+          nullable: true
+        fecha_desde:
+          type: string
+          format: date
+          nullable: true
+        fecha_hasta:
+          type: string
+          format: date
+          nullable: true
+        estado:
+          type: string
+          enum: [pendiente, aprobado, rechazado, cancelado]
+        motivo_resolucion:
+          type: string
+          nullable: true
+        resuelto_by:
+          type: integer
+          nullable: true
+        resuelto_by_nombre:
+          type: string
+          nullable: true
+        resuelto_at:
+          type: string
+          nullable: true
+        origen_movimiento_id:
+          type: integer
+          nullable: true
+        revertido_por_movimiento_id:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          nullable: true
+    VacacionesMovimientosResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/VacacionesMovimiento"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
     Error:
       type: object
       required: [error]
