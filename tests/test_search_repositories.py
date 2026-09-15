@@ -47,9 +47,9 @@ def test_feedback_repository_search_tokenizes_terms(monkeypatch):
     assert rows[0]["id"] == 1
 
     sql, params = fake_cursor.calls[1]
-    assert "fb.resolucion_descripcion LIKE %s" in sql
-    assert params[:25] == tuple(["%cliente%"] * 25)
-    assert params[25:50] == tuple(["%urgente%"] * 25)
+    assert "f.resolucion_descripcion LIKE %s" in sql
+    assert params[:24] == tuple(["%cliente%"] * 24)
+    assert params[24:48] == tuple(["%urgente%"] * 24)
     assert params[-2:] == (20, 0)
 
 

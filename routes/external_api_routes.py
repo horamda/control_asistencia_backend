@@ -372,6 +372,16 @@ def _report_filters() -> tuple[dict | None, str | None]:
     gps_ok, error = _parse_activo("gps_ok", default=None)
     if error:
         return None, error
+    activo, error = _parse_activo("activo", default=1)
+    if error:
+        return None, error
+    estados, estado_all, error = _parse_estados()
+    if error:
+        return None, error
+    if estados:
+        activo = None
+    elif estado_all and "activo" not in request.args:
+        activo = None
 
     limit_raw = str(request.args.get("limit") or "20000").strip()
     try:
@@ -391,6 +401,8 @@ def _report_filters() -> tuple[dict | None, str | None]:
         "metodo": str(request.args.get("metodo") or "").strip() or None,
         "search": str(request.args.get("q") or "").strip() or None,
         "gps_ok": gps_ok,
+        "activo": activo,
+        "estados": estados,
         "limit": min(limit, 20000),
         "order_asc": True,
     }, None

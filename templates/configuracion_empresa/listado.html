@@ -20,6 +20,12 @@
   <div class="results-bar">
     <div class="summary">Empresas configuradas: {{ configs|length }}</div>
   </div>
+  {% if error %}
+    <div class="errors">{{ error }}</div>
+  {% endif %}
+  {% if msg %}
+    <div class="success">{{ msg }}</div>
+  {% endif %}
 
   {% if configs %}
     <div class="table-responsive table-cards">

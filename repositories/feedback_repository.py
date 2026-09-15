@@ -118,79 +118,89 @@ def _build_where(
     params: list = []
 
     if empresa_id:
-        where.append("fb.empresa_id = %s")
+        where.append("f.empresa_id = %s")
         params.append(int(empresa_id))
     if empleado_id:
-        where.append("fb.empleado_id = %s")
+        where.append("f.empleado_id = %s")
         params.append(int(empleado_id))
     if jefe_directo_id:
-        where.append("fb.jefe_directo_id = %s")
+        where.append("f.jefe_directo_id = %s")
         params.append(int(jefe_directo_id))
     if responsable_id:
-        where.append("fb.responsable_id = %s")
+        where.append("COALESCE(f.responsable_id, f.jefe_directo_id) = %s")
         params.append(int(responsable_id))
     if cliente_id:
-        where.append("fb.cliente_id = %s")
+        where.append("f.cliente_id = %s")
         params.append(int(cliente_id))
     if motivo_id:
-        where.append("fb.motivo_id = %s")
+        where.append("f.motivo_id = %s")
         params.append(int(motivo_id))
     if sector_id:
-        where.append("fb.sector_origen_id = %s")
+        where.append("COALESCE(f.sector_origen_id, ee.sector_id) = %s")
         params.append(int(sector_id))
     if sector_origen_id:
-        where.append("fb.sector_origen_id = %s")
+        where.append("COALESCE(f.sector_origen_id, ee.sector_id) = %s")
         params.append(int(sector_origen_id))
     if sector_responsable_id:
-        where.append("fb.sector_responsable_id = %s")
+        where.append("COALESCE(f.sector_responsable_id, m.sector_id) = %s")
         params.append(int(sector_responsable_id))
     if sucursal_id:
-        where.append("fb.sucursal_id = %s")
+        where.append("COALESCE(f.sucursal_id, ee.sucursal_id) = %s")
         params.append(int(sucursal_id))
     if empleado_activo in (0, 1):
-        where.append("fb.empleado_activo = %s")
+        where.append("ee.activo = %s")
         params.append(int(empleado_activo))
     if estado:
         estado_norm = str(estado).strip().lower()
-        if estado_norm in {"pendiente", "resuelto"}:
-            where.append("fb.estado_actual = %s")
-            params.append(estado_norm)
+        if estado_norm == "resuelto":
+            where.append("f.estado = 'resuelto'")
+        elif estado_norm == "pendiente":
+            where.append("(f.estado <> 'resuelto' OR f.estado IS NULL)")
         elif estado_norm == "vencido":
-            where.append("fb.condicion_temporal = %s")
-            params.append("pendiente_vencido")
+            where.append("(f.estado <> 'resuelto' OR f.estado IS NULL)")
+            where.append("NOW() > COALESCE(f.fecha_limite, TIMESTAMP(f.fecha_vencimiento, '23:59:59'))")
     if condicion_temporal:
         condicion_norm = str(condicion_temporal).strip().lower()
-        if condicion_norm in {"pendiente_en_termino", "pendiente_vencido", "resuelto_en_termino", "resuelto_fuera_termino"}:
-            where.append("fb.condicion_temporal = %s")
-            params.append(condicion_norm)
+        fecha_limite_expr = "COALESCE(f.fecha_limite, TIMESTAMP(f.fecha_vencimiento, '23:59:59'))"
+        if condicion_norm == "pendiente_en_termino":
+            where.append("(f.estado <> 'resuelto' OR f.estado IS NULL)")
+            where.append(f"NOW() <= {fecha_limite_expr}")
+        elif condicion_norm == "pendiente_vencido":
+            where.append("(f.estado <> 'resuelto' OR f.estado IS NULL)")
+            where.append(f"NOW() > {fecha_limite_expr}")
+        elif condicion_norm == "resuelto_en_termino":
+            where.append("f.estado = 'resuelto'")
+            where.append(f"f.resuelto_at <= {fecha_limite_expr}")
+        elif condicion_norm == "resuelto_fuera_termino":
+            where.append("f.estado = 'resuelto'")
+            where.append(f"f.resuelto_at > {fecha_limite_expr}")
     if search:
         clause, clause_params = build_tokenized_like_clause(
             [
-                "CAST(fb.id AS CHAR)",
-                "fb.estado",
-                "fb.estado_actual",
-                "fb.condicion_temporal",
-                "fb.cliente_razon_social",
-                "fb.cliente_nombre_fantasia",
-                "fb.cliente_codigo",
-                "fb.cliente_razon_social_snapshot",
-                "fb.cliente_nombre_fantasia_snapshot",
-                "fb.cliente_codigo_snapshot",
-                "fb.motivo_nombre",
-                "fb.motivo_nombre_snapshot",
-                "fb.descripcion",
-                "fb.resolucion_descripcion",
-                "fb.empleado_nombre",
-                "fb.empleado_legajo",
-                "fb.empleado_dni",
-                "fb.jefe_directo_nombre",
-                "fb.jefe_directo_legajo",
-                "fb.jefe_directo_dni",
-                "fb.resuelto_por_nombre",
-                "fb.resuelto_por_legajo",
-                "fb.sector_origen_nombre",
-                "fb.sector_responsable_nombre",
-                "fb.responsable_nombre",
+                "CAST(f.id AS CHAR)",
+                "f.numero",
+                "f.estado",
+                "COALESCE(c.razon_social, f.cliente_razon_social_snapshot)",
+                "COALESCE(c.nombre_fantasia, f.cliente_nombre_fantasia_snapshot)",
+                "COALESCE(c.codigo_externo, f.cliente_codigo_snapshot)",
+                "f.cliente_razon_social_snapshot",
+                "f.cliente_nombre_fantasia_snapshot",
+                "f.cliente_codigo_snapshot",
+                "COALESCE(m.nombre, f.motivo_nombre_snapshot)",
+                "f.motivo_nombre_snapshot",
+                "f.descripcion",
+                "f.resolucion_descripcion",
+                "CONCAT(ee.apellido, ' ', ee.nombre)",
+                "ee.legajo",
+                "ee.dni",
+                "COALESCE(CONCAT(jd.apellido, ' ', jd.nombre), f.jefe_directo_nombre_snapshot)",
+                "jd.legajo",
+                "jd.dni",
+                "COALESCE(CONCAT(res.apellido, ' ', res.nombre), '')",
+                "res.legajo",
+                "so.nombre",
+                "sr.nombre",
+                "COALESCE(CONCAT(resp.apellido, ' ', resp.nombre), f.jefe_directo_nombre_snapshot)",
             ],
             search,
             max_terms=5,
@@ -208,11 +218,18 @@ def _fetch_page(page: int, per_page: int, where_sql: str, params: list):
     cursor = db.cursor(dictionary=True)
     try:
         offset = max(0, (int(page) - 1) * int(per_page))
-        base = f"SELECT * FROM ({_base_select_sql()}) fb"
         cursor.execute(
             f"""
             SELECT COUNT(*) AS total
-            FROM ({_base_select_sql()}) fb
+            FROM feedbacks f
+            JOIN empleados ee ON ee.id = f.empleado_id
+            LEFT JOIN feedback_motivos m ON m.id = f.motivo_id
+            LEFT JOIN sectores so ON so.id = COALESCE(f.sector_origen_id, ee.sector_id)
+            LEFT JOIN sectores sr ON sr.id = COALESCE(f.sector_responsable_id, m.sector_id)
+            LEFT JOIN empleados jd ON jd.id = f.jefe_directo_id
+            LEFT JOIN empleados resp ON resp.id = COALESCE(f.responsable_id, f.jefe_directo_id)
+            LEFT JOIN feedback_clientes c ON c.id = f.cliente_id
+            LEFT JOIN empleados res ON res.id = f.resuelto_por_empleado_id
             {where_sql}
             """,
             tuple(params),
@@ -221,9 +238,9 @@ def _fetch_page(page: int, per_page: int, where_sql: str, params: list):
 
         cursor.execute(
             f"""
-            {base}
+            {_base_select_sql()}
             {where_sql}
-            ORDER BY fb.created_at DESC, fb.id DESC
+            ORDER BY f.created_at DESC, f.id DESC
             LIMIT %s OFFSET %s
             """,
             (*params, int(per_page), offset),
@@ -241,9 +258,8 @@ def get_by_id(feedback_id: int):
     try:
         cursor.execute(
             f"""
-            SELECT *
-            FROM ({_base_select_sql()}) fb
-            WHERE fb.id = %s
+            {_base_select_sql()}
+            WHERE f.id = %s
             LIMIT 1
             """,
             (feedback_id,),

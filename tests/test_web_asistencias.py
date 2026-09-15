@@ -10,6 +10,7 @@ import web.asistencias.asistencias_routes as asistencias_routes
 
 def _build_client(monkeypatch):
     monkeypatch.setattr(app_module, "init_db", lambda: None)
+    monkeypatch.setattr(asistencias_routes, "get_sectores", lambda include_inactive=True: [])
     app = app_module.create_app()
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
@@ -728,6 +729,45 @@ def test_planilla_diaria_detecta_intervalo_corto(monkeypatch):
     assert "Intervalo corto" in html
 
 
+def test_planilla_diaria_filtra_sector_y_jefe_directo(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(asistencias_routes, "get_empresas", lambda include_inactive=True: [{"id": 1, "razon_social": "X"}])
+    monkeypatch.setattr(asistencias_routes, "get_sucursales", lambda include_inactive=True: [])
+    monkeypatch.setattr(asistencias_routes, "get_sectores", lambda include_inactive=True: [{"id": 20, "empresa_id": 1, "nombre": "Ventas"}])
+    monkeypatch.setattr(
+        asistencias_routes,
+        "get_empleados",
+        lambda include_inactive=True: [
+            {"id": "10", "empresa_id": "1", "sucursal_id": None, "sector_id": "20", "reporta_a_empleado_id": None, "apellido": "Jefa", "nombre": "Directa", "dni": "10"},
+            {"id": "101", "empresa_id": "1", "sucursal_id": None, "sector_id": "20", "sector_nombre": "Ventas", "reporta_a_empleado_id": "10", "apellido": "Persona", "nombre": "Incluida", "dni": "101"},
+            {"id": "102", "empresa_id": "1", "sucursal_id": None, "sector_id": "30", "sector_nombre": "Deposito", "reporta_a_empleado_id": "10", "apellido": "Persona", "nombre": "Otro Sector", "dni": "102"},
+            {"id": "103", "empresa_id": "1", "sucursal_id": None, "sector_id": "20", "sector_nombre": "Ventas", "reporta_a_empleado_id": "11", "apellido": "Persona", "nombre": "Otro Jefe", "dni": "103"},
+        ],
+    )
+    monkeypatch.setattr(
+        asistencias_routes,
+        "get_marcas_admin_export",
+        lambda **kwargs: [
+            {"id": 1, "empleado_id": "101", "asistencia_id": 88, "hora": "08:00:00", "accion": "ingreso"},
+            {"id": 2, "empleado_id": "102", "asistencia_id": 89, "hora": "08:00:00", "accion": "ingreso"},
+            {"id": 3, "empleado_id": "103", "asistencia_id": 90, "hora": "08:00:00", "accion": "ingreso"},
+        ],
+    )
+    monkeypatch.setattr(asistencias_routes, "get_configuracion_empresa_by_id", lambda empresa_id: {"intervalo_minimo_fichadas_minutos": 60})
+    monkeypatch.setattr(asistencias_routes, "get_page", lambda *args, **kwargs: ([], 0))
+
+    resp = client.get("/asistencias/planilla?empresa_id=1&sector_id=20&jefe_directo_id=10&fecha=2026-03-10")
+    html = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert "Persona Incluida" in html
+    assert "Ventas" in html
+    assert "Jefa Directa" in html
+    assert "Otro Sector" not in html
+    assert "Otro Jefe" not in html
+
+
 def test_planilla_diaria_normaliza_hora_hhmm(monkeypatch):
     client = _build_client(monkeypatch)
     _login_session(client)
@@ -807,14 +847,16 @@ def test_planilla_diaria_export_excel_ok(monkeypatch):
 
     ws = wb["Planilla"]
     assert ws["A1"].value == "Planilla diaria de fichadas"
-    assert ws["A5"].value == "Empleado"
-    assert ws["B5"].value == "DNI"
-    assert ws["C5"].value == "Ingreso 1"
-    assert ws["D5"].value == "Egreso 1"
-    assert ws["A6"].value == "Persona Uno"
-    assert ws["B6"].value == "123"
-    assert ws["C6"].value == "07:00"
-    assert ws["D6"].value == "12:00"
+    assert ws["A6"].value == "Empleado"
+    assert ws["B6"].value == "DNI"
+    assert ws["C6"].value == "Sector"
+    assert ws["D6"].value == "Jefe directo"
+    assert ws["E6"].value == "Ingreso 1"
+    assert ws["F6"].value == "Egreso 1"
+    assert ws["A7"].value == "Persona Uno"
+    assert ws["B7"].value == "123"
+    assert ws["E7"].value == "07:00"
+    assert ws["F7"].value == "12:00"
 
 
 def test_planilla_diaria_export_pdf_ok(monkeypatch):

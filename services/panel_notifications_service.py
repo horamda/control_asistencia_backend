@@ -45,7 +45,8 @@ def build_panel_notifications(role: str | None) -> dict:
             """
             SELECT COUNT(*) AS total
             FROM justificaciones
-            WHERE LOWER(COALESCE(estado, 'pendiente')) = 'pendiente'
+            WHERE estado = 'pendiente'
+               OR estado IS NULL
             """,
         )
         if justificaciones:
@@ -87,7 +88,8 @@ def build_panel_notifications(role: str | None) -> dict:
             """
             SELECT COUNT(*) AS total
             FROM adelantos
-            WHERE LOWER(COALESCE(estado, 'pendiente')) = 'pendiente'
+            WHERE estado = 'pendiente'
+               OR estado IS NULL
             """,
         )
         if adelantos:
@@ -107,7 +109,8 @@ def build_panel_notifications(role: str | None) -> dict:
             """
             SELECT COUNT(*) AS total
             FROM pedidos_mercaderia
-            WHERE LOWER(COALESCE(estado, 'pendiente')) = 'pendiente'
+            WHERE estado = 'pendiente'
+               OR estado IS NULL
             """,
         )
         if pedidos:

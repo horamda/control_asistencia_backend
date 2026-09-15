@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from flask import Flask, redirect, url_for, request, jsonify, render_template, session
+from flask import Flask, g, redirect, url_for, request, jsonify, render_template, session
 from flask_cors import CORS
 from dotenv import load_dotenv
 import hashlib
@@ -21,6 +21,7 @@ from routes.mobile_v1_routes import mobile_v1_bp
 from routes.media_routes import media_bp, public_media_bp
 from web.auth.web_auth_routes import web_auth_bp  # WEB
 from web.web_routes import web_bp
+from web.presencia_routes import presencia_bp
 from web.empleados.empleados_routes import empleados_bp
 from web.empresas.empresas_routes import empresas_bp
 from web.sucursales.sucursales_routes import sucursales_bp
@@ -332,6 +333,7 @@ def create_app():
     # PANEL WEB
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_bp)
+    app.register_blueprint(presencia_bp)
     
     app.register_blueprint(empleados_bp)
     app.register_blueprint(empresas_bp)
@@ -473,9 +475,47 @@ def create_app():
 
     @app.context_processor
     def _inject_panel_notifications():
+        def panel_notifications_for_role(role):
+            cache_key = f"panel_notifications:{role}"
+            now = time.time()
+            if request.method == "GET":
+                cached = session.get(cache_key)
+                if cached and now - float(cached.get("ts") or 0) < 30:
+                    return cached.get("data") or {
+                        "enabled": True,
+                        "total": 0,
+                        "items": [],
+                        "has_items": False,
+                    }
+
+            from services.panel_notifications_service import build_panel_notifications
+
+            data = build_panel_notifications(role)
+            if request.method == "GET":
+                session[cache_key] = {"ts": now, "data": data}
+            return data
+
+        def can_web(module, action="ver"):
+            user_id = session.get("user_id")
+            if not user_id:
+                return False
+            cache_key = f"{module}:{action}"
+            if not hasattr(g, "_web_permission_cache"):
+                g._web_permission_cache = {}
+            if cache_key not in g._web_permission_cache:
+                try:
+                    from web.auth.decorators import can_access_module
+
+                    g._web_permission_cache[cache_key] = can_access_module(user_id, module, action)
+                except Exception:
+                    app.logger.warning("web_permission_context_error", exc_info=True)
+                    g._web_permission_cache[cache_key] = False
+            return g._web_permission_cache[cache_key]
+
         role = str(session.get("user_role") or "").strip().lower()
         if not session.get("user_id") or role not in {"admin", "rrhh"}:
             return {
+                "can_web": can_web,
                 "panel_notifications": {
                     "enabled": False,
                     "total": 0,
@@ -486,15 +526,15 @@ def create_app():
             }
 
         try:
-            from services.panel_notifications_service import build_panel_notifications
-
             return {
-                "panel_notifications": build_panel_notifications(role),
+                "can_web": can_web,
+                "panel_notifications": panel_notifications_for_role(role),
                 "export_toolbar": build_export_toolbar(request.endpoint),
             }
         except Exception:
             app.logger.warning("panel_notifications_context_error", exc_info=True)
             return {
+                "can_web": can_web,
                 "panel_notifications": {
                     "enabled": True,
                     "total": 0,

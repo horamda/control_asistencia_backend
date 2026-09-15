@@ -24,6 +24,14 @@
         <td>{{ sucursal_sel.nombre if sucursal_sel else "-" }}</td>
       </tr>
       <tr>
+        <td>Sector</td>
+        <td>{{ sector_sel.nombre if sector_sel else "-" }}</td>
+      </tr>
+      <tr>
+        <td>Jefe directo</td>
+        <td>{{ (jefe_directo_sel.apellido ~ " " ~ jefe_directo_sel.nombre) if jefe_directo_sel else "-" }}</td>
+      </tr>
+      <tr>
         <td>Fecha</td>
         <td>{{ fecha }}</td>
       </tr>

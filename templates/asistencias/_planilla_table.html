@@ -4,6 +4,8 @@
       <thead>
         <tr>
           <th>Apellido y nombre</th>
+          <th>Sector</th>
+          <th>Jefe directo</th>
           {% for idx in range(max_pares) %}
             <th>Ingreso {{ idx + 1 }}</th>
             <th>Egreso {{ idx + 1 }}</th>
@@ -24,6 +26,8 @@
               </div>
             {% endif %}
           </td>
+          <td data-label="Sector">{{ row.sector_nombre or "-" }}</td>
+          <td data-label="Jefe directo">{{ row.jefe_directo_nombre or "-" }}</td>
           {% for idx in range(max_pares) %}
             {% set par = row.pares[idx] if idx < (row.pares|length) else None %}
             {% set asistencia_ref = (par.asistencia_id if par and par.asistencia_id else row.asistencia_base_id) %}
@@ -35,16 +39,18 @@
               {% if show_actions %}
                 <div class="inline-actions planilla-actions">
                   {% if par and par.ingreso_marca_id %}
-                    <a class="planilla-action-edit" href="{{ url_for('asistencias.planilla_marca_editar', marca_id=par.ingreso_marca_id, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">Editar</a>
+                    <a class="planilla-action-edit" href="{{ url_for('asistencias.planilla_marca_editar', marca_id=par.ingreso_marca_id, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', jefe_directo_id=jefe_directo_id or '', fecha=fecha) }}">Editar</a>
                     <form method="post" action="{{ url_for('asistencias.planilla_marca_eliminar', marca_id=par.ingreso_marca_id) }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <input type="hidden" name="empresa_id" value="{{ empresa_id or '' }}">
                       <input type="hidden" name="sucursal_id" value="{{ sucursal_id or '' }}">
+                      <input type="hidden" name="sector_id" value="{{ sector_id or '' }}">
+                      <input type="hidden" name="jefe_directo_id" value="{{ jefe_directo_id or '' }}">
                       <input type="hidden" name="fecha" value="{{ fecha }}">
                       <button class="planilla-action-delete" type="submit">Eliminar</button>
                     </form>
                   {% elif asistencia_ref %}
-                    <a class="planilla-action-add" href="{{ url_for('asistencias.planilla_marca_agregar', asistencia_id=asistencia_ref, accion='ingreso', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">Agregar</a>
+                    <a class="planilla-action-add" href="{{ url_for('asistencias.planilla_marca_agregar', asistencia_id=asistencia_ref, accion='ingreso', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', jefe_directo_id=jefe_directo_id or '', fecha=fecha) }}">Agregar</a>
                   {% endif %}
                 </div>
               {% endif %}
@@ -57,16 +63,18 @@
               {% if show_actions %}
                 <div class="inline-actions planilla-actions">
                   {% if par and par.egreso_marca_id %}
-                    <a class="planilla-action-edit" href="{{ url_for('asistencias.planilla_marca_editar', marca_id=par.egreso_marca_id, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">Editar</a>
+                    <a class="planilla-action-edit" href="{{ url_for('asistencias.planilla_marca_editar', marca_id=par.egreso_marca_id, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', jefe_directo_id=jefe_directo_id or '', fecha=fecha) }}">Editar</a>
                     <form method="post" action="{{ url_for('asistencias.planilla_marca_eliminar', marca_id=par.egreso_marca_id) }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <input type="hidden" name="empresa_id" value="{{ empresa_id or '' }}">
                       <input type="hidden" name="sucursal_id" value="{{ sucursal_id or '' }}">
+                      <input type="hidden" name="sector_id" value="{{ sector_id or '' }}">
+                      <input type="hidden" name="jefe_directo_id" value="{{ jefe_directo_id or '' }}">
                       <input type="hidden" name="fecha" value="{{ fecha }}">
                       <button class="planilla-action-delete" type="submit">Eliminar</button>
                     </form>
                   {% elif asistencia_ref %}
-                    <a class="planilla-action-add" href="{{ url_for('asistencias.planilla_marca_agregar', asistencia_id=asistencia_ref, accion='egreso', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">Agregar</a>
+                    <a class="planilla-action-add" href="{{ url_for('asistencias.planilla_marca_agregar', asistencia_id=asistencia_ref, accion='egreso', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', jefe_directo_id=jefe_directo_id or '', fecha=fecha) }}">Agregar</a>
                   {% endif %}
                 </div>
               {% endif %}

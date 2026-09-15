@@ -1,6 +1,6 @@
 # Contrato API Externa v1
 
-Version de contrato: 1.3.1
+Version de contrato: 1.3.2
 Fecha de corte: 2026-07-23
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`
@@ -529,6 +529,9 @@ Descarga el reporte de fichadas en CSV, ordenado por fecha y hora ascendente, co
 | `accion` | string | - | `ingreso` o `egreso`. |
 | `metodo` | string | - | Filtra el metodo, por ejemplo `qr` o `manual`. |
 | `gps_ok` | bool/all | `all` | `1`, `0` o `all`. |
+| `activo` | bool/all | `1` | Filtra por empleados activos por defecto. Usar `all` para incluir inactivos. |
+| `estado` | string/csv/repetible | - | Filtra por estado del empleado: `activo`, `inactivo`, `suspendido` o `all`. Si se envia, no se aplica `activo`, salvo `estado=all&activo=1`. |
+| `estados` | string/csv/repetible | - | Alias de `estado`. |
 | `q` | string | - | Busca por apellido, nombre, DNI o legajo. |
 | `limit` | int | `20000` | Maximo de filas. El backend limita el valor a `20000`. |
 
@@ -546,7 +549,7 @@ MES,FECHA,HORA,PUERTA,TIPO MOV,CODIGO,NOMBRE,SECTOR
 #### Ejemplo
 
 ```http
-GET /api/v1/external/reportes/asistencia.csv?empresa_id=1&fecha_desde=2026-06-01&fecha_hasta=2026-06-30
+GET /api/v1/external/reportes/asistencia.csv?empresa_id=1&fecha_desde=2026-06-01&fecha_hasta=2026-06-30&estado=activo
 Authorization: Bearer <TOKEN_JWT>
 ```
 

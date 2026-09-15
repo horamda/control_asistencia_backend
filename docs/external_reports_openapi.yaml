@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Control de Asistencia - API externa de reportes
-  version: 1.3.1
+  version: 1.3.2
   description: API de solo lectura para obtener un token temporal y consultar asistencia, justificaciones y vacaciones.
 servers:
   - url: https://control-asistencia.up.railway.app/api/v1/external
@@ -161,6 +161,24 @@ paths:
             type: string
             enum: ["1", "0", all]
             default: all
+        - name: activo
+          in: query
+          description: Filtra por empleados activos por defecto. Usar all para incluir inactivos.
+          schema:
+            type: string
+            enum: ["1", "0", all]
+            default: "1"
+        - name: estado
+          in: query
+          description: Estado del empleado. Si se envia, no se aplica activo salvo estado=all&activo=1.
+          schema:
+            type: string
+            enum: [activo, inactivo, suspendido, all]
+        - name: estados
+          in: query
+          description: Alias csv/repetible de estado.
+          schema:
+            type: string
         - name: q
           in: query
           description: Busca por apellido, nombre, DNI o legajo.

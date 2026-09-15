@@ -89,3 +89,38 @@ def test_monthly_report_excludes_employees_without_attendance_control():
     assert report["kpis"]["empleados_activos"] == 1
     assert report["kpis"]["dias_posibles"] == 1
     assert report["kpis"]["ausencias_computables"] == 1
+
+
+def test_monthly_report_builds_panel_grid_statuses():
+    empleados = [
+        {"id": 1, "apellido": "Aguirre", "nombre": "Leandro", "sector_nombre": "Operaciones", "activo": 1},
+    ]
+    marcas = [
+        {"id": 1, "empleado_id": 1, "fecha": "2026-07-01", "hora": "08:00", "accion": "ingreso"},
+        {"id": 2, "empleado_id": 1, "fecha": "2026-07-01", "hora": "17:00", "accion": "egreso"},
+        {"id": 3, "empleado_id": 1, "fecha": "2026-07-02", "hora": "08:00", "accion": "ingreso"},
+    ]
+    justificaciones = [
+        {"empleado_id": 1, "fecha_desde": "2026-07-03", "fecha_hasta": "2026-07-03", "estado": "aprobada"}
+    ]
+
+    report = build_monthly_attendance_report(
+        year=2026,
+        month=7,
+        empleados=empleados,
+        marcas=marcas,
+        justificaciones=justificaciones,
+        vacaciones=[],
+        non_laborable_days={dt.date(2026, 7, day).isoformat() for day in range(5, 32)},
+    )
+
+    row = report["planilla_rows"][0]
+    assert [cell["status"] for cell in row["cells"][:4]] == [
+        "present",
+        "incomplete",
+        "justified",
+        "unjustified",
+    ]
+    assert report["kpis"]["presentes"] == 2
+    assert report["kpis"]["fichajes_incompletos"] == 1
+    assert report["kpis"]["horas_trabajadas"] == 9.0

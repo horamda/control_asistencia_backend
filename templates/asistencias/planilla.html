@@ -13,6 +13,8 @@
     <div class="chip-row planilla-chip-row">
       <span class="chip">Por fecha</span>
       <span class="chip">Por sucursal</span>
+      <span class="chip">Por sector</span>
+      <span class="chip">Por jefe</span>
       <span class="chip">Corregible</span>
     </div>
   </div>
@@ -66,6 +68,24 @@
         </select>
       </div>
       <div class="row">
+        <label>Sector</label>
+        <select name="sector_id">
+          <option value="">Todos</option>
+          {% for s in sectores %}
+            <option value="{{ s.id }}" {% if sector_id and (sector_id|int) == (s.id|int) %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Jefe directo</label>
+        <select name="jefe_directo_id">
+          <option value="">Todos</option>
+          {% for jefe in jefes_directos %}
+            <option value="{{ jefe.id }}" {% if jefe_directo_id and (jefe_directo_id|int) == (jefe.id|int) %}selected{% endif %}>{{ jefe.apellido }} {{ jefe.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
         <label>Fecha</label>
         <input type="date" name="fecha" value="{{ fecha }}" max="{{ today }}">
       </div>
@@ -79,6 +99,8 @@
   <div class="muted-box planilla-context-strip">
     <strong>Empresa:</strong> {{ empresa_sel.razon_social if empresa_sel else "-" }} |
     <strong>Sucursal:</strong> {{ sucursal_sel.nombre if sucursal_sel else "-" }} |
+    <strong>Sector:</strong> {{ sector_sel.nombre if sector_sel else "-" }} |
+    <strong>Jefe directo:</strong> {{ (jefe_directo_sel.apellido ~ " " ~ jefe_directo_sel.nombre) if jefe_directo_sel else "-" }} |
     <strong>Fecha:</strong> {{ fecha }} |
     <strong>Intervalo minimo:</strong> {{ intervalo_minimo_fichadas }} min
   </div>
@@ -94,13 +116,13 @@
     <a class="btn btn-secondary" href="/asistencias/marcas?fecha_desde={{ fecha }}&fecha_hasta={{ fecha }}{% if empresa_id %}&empresa_id={{ empresa_id }}{% endif %}">
       Ver historial del dia
     </a>
-    <a class="btn btn-secondary" href="{{ url_for('asistencias.reportes_mensuales', mes=fecha[:7], empresa_id=empresa_id or '', sucursal_id=sucursal_id or '') }}">
+    <a class="btn btn-secondary" href="{{ url_for('asistencias.reportes_mensuales', mes=fecha[:7], empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '') }}">
       Reporte mensual
     </a>
-    <a class="btn btn-secondary" href="{{ url_for('asistencias.planilla_xls', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">
+    <a class="btn btn-secondary" href="{{ url_for('asistencias.planilla_xls', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', jefe_directo_id=jefe_directo_id or '', fecha=fecha) }}">
       Exportar Excel
     </a>
-    <a class="btn btn-secondary" target="_blank" rel="noopener" href="{{ url_for('asistencias.planilla_pdf', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha, auto_print=1) }}">
+    <a class="btn btn-secondary" target="_blank" rel="noopener" href="{{ url_for('asistencias.planilla_pdf', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', jefe_directo_id=jefe_directo_id or '', fecha=fecha, auto_print=1) }}">
       Exportar PDF
     </a>
   </div>

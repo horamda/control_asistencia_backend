@@ -33,13 +33,68 @@
   </div>
 
   <nav class="attendance-tabs">
-    {% for key, label in [("resumen", "Resumen"), ("ausencias", "Ausencias"), ("analisis", "Analisis"), ("jornada", "Jornada")] %}
+    {% for key, label in [("planilla", "Planilla"), ("resumen", "Resumen"), ("ausencias", "Ausencias"), ("analisis", "Analisis"), ("jornada", "Jornada")] %}
       <a class="{% if active_tab == key %}active{% endif %}" href="{{ url_for('asistencias.reportes_mensuales', mes=mes, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', tab=key) }}">{{ label }}</a>
     {% endfor %}
   </nav>
   {% if msg %}<div class="alert success">{{ msg }}</div>{% endif %}
 
-  {% if active_tab == "resumen" %}
+  {% if active_tab == "planilla" %}
+    <section class="attendance-kpis attendance-board-kpis">
+      <article><span>Dias habiles</span><strong>{{ kpis.dias_laborables }}</strong></article>
+      <article><span>Empleados</span><strong>{{ kpis.empleados_activos }}</strong></article>
+      <article><span>Dias presentes</span><strong class="ok">{{ kpis.presentes }}</strong></article>
+      <article><span>Vacaciones</span><strong>{{ kpis.vacaciones }}</strong></article>
+      <article><span>Faltas justificadas</span><strong class="warn">{{ kpis.ausencias_justificadas }}</strong></article>
+      <article><span>Faltas injustificadas</span><strong class="danger">{{ kpis.ausencias_computables }}</strong></article>
+      <article><span>Hs. trabajadas</span><strong>{{ "%.1f"|format(kpis.horas_trabajadas) }}</strong></article>
+      <article><span>Fichajes incompletos</span><strong class="warn">{{ kpis.fichajes_incompletos }}</strong></article>
+    </section>
+
+    <div class="attendance-board-legend">
+      <span><i class="status-present"></i>Presente</span>
+      <span><i class="status-vacation"></i>Vacaciones</span>
+      <span><i class="status-justified"></i>Falta justificada</span>
+      <span><i class="status-unjustified"></i>Falta injustificada</span>
+      <span><i class="status-non-laborable"></i>No laborable</span>
+      <span><i class="status-incomplete"></i>Fichaje incompleto</span>
+    </div>
+
+    <div class="attendance-board-wrap">
+      <table class="attendance-board-table">
+        <thead>
+          <tr>
+            <th class="employee-col">Empleado</th>
+            {% for day in month_dates %}
+              <th class="{% if day.isoformat() in non_laborable_days %}day-non-laborable{% endif %}">
+                <span>{{ ["L", "M", "M", "J", "V", "S", "D"][day.weekday()] }}</span>
+                <strong>{{ day.day }}</strong>
+              </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in planilla_rows %}
+            <tr>
+              <td class="employee-col">
+                <strong>{{ row.empleado }}</strong>
+                <small>{{ row.sector }}</small>
+              </td>
+              {% for cell in row.cells %}
+                <td>
+                  <span class="attendance-day-cell status-{{ cell.status }}" title="{{ cell.iso }} - {{ cell.title }}{% if cell.hours %} - {{ "%.2f"|format(cell.hours) }} hs{% endif %}">
+                    {% if cell.status == "present" %}&#10003;{% elif cell.status == "unjustified" %}&times;{% elif cell.status == "incomplete" %}!{% else %}{{ cell.label }}{% endif %}
+                  </span>
+                </td>
+              {% endfor %}
+            </tr>
+          {% else %}
+            <tr><td colspan="{{ 1 + (month_dates|length) }}">No hay empleados para los filtros seleccionados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif active_tab == "resumen" %}
     <section class="attendance-kpis">
       <article>
         <span>Indice de ausentismo</span>

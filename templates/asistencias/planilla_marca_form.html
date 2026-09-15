@@ -20,6 +20,8 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="empresa_id" value="{{ empresa_id or '' }}">
     <input type="hidden" name="sucursal_id" value="{{ sucursal_id or '' }}">
+    <input type="hidden" name="sector_id" value="{{ sector_id or '' }}">
+    <input type="hidden" name="jefe_directo_id" value="{{ jefe_directo_id or '' }}">
     <input type="hidden" name="fecha" value="{{ fecha }}">
     {% if mode == "new" %}
       <input type="hidden" name="asistencia_id" value="{{ marca.asistencia_id }}">
@@ -58,7 +60,7 @@
 
     <div class="actions">
       <button type="submit">Guardar</button>
-      <a class="btn btn-secondary" href="{{ url_for('asistencias.planilla', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', fecha=fecha) }}">Cancelar</a>
+      <a class="btn btn-secondary" href="{{ url_for('asistencias.planilla', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', jefe_directo_id=jefe_directo_id or '', fecha=fecha) }}">Cancelar</a>
     </div>
   </form>
 </div>

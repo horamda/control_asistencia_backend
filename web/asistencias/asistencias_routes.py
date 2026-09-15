@@ -184,6 +184,8 @@ def _resolve_planilla_filters(args):
     today = datetime.date.today().isoformat()
     empresa_id = args.get("empresa_id", type=int)
     sucursal_id = args.get("sucursal_id", type=int)
+    sector_id = args.get("sector_id", type=int)
+    jefe_directo_id = args.get("jefe_directo_id", type=int)
     fecha_raw = args.get("fecha") or today
     error = (args.get("error") or "").strip() or None
     msg = (args.get("msg") or "").strip() or None
@@ -197,18 +199,33 @@ def _resolve_planilla_filters(args):
         "today": today,
         "empresa_id": empresa_id,
         "sucursal_id": sucursal_id,
+        "sector_id": sector_id,
+        "jefe_directo_id": jefe_directo_id,
         "fecha": fecha,
         "error": error,
         "msg": msg,
     }
 
 
-def _planilla_redirect(*, empresa_id: int | None, sucursal_id: int | None, fecha: str, error: str | None = None, msg: str | None = None):
+def _planilla_redirect(
+    *,
+    empresa_id: int | None,
+    sucursal_id: int | None,
+    sector_id: int | None = None,
+    jefe_directo_id: int | None = None,
+    fecha: str,
+    error: str | None = None,
+    msg: str | None = None,
+):
     params = {"fecha": fecha}
     if empresa_id:
         params["empresa_id"] = empresa_id
     if sucursal_id:
         params["sucursal_id"] = sucursal_id
+    if sector_id:
+        params["sector_id"] = sector_id
+    if jefe_directo_id:
+        params["jefe_directo_id"] = jefe_directo_id
     if error:
         params["error"] = error
     if msg:
@@ -223,21 +240,69 @@ def _marca_for_form(marca: dict):
     return data
 
 
-def _build_planilla_context(*, empresa_id: int | None, sucursal_id: int | None, fecha: str):
+def _format_empleado_nombre(empleado: dict | None) -> str:
+    if not empleado:
+        return ""
+    return f"{empleado.get('apellido') or ''} {empleado.get('nombre') or ''}".strip()
+
+
+def _id_value(value):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _same_id(left, right) -> bool:
+    left_id = _id_value(left)
+    right_id = _id_value(right)
+    return left_id is not None and right_id is not None and left_id == right_id
+
+
+def _build_planilla_context(
+    *,
+    empresa_id: int | None,
+    sucursal_id: int | None,
+    sector_id: int | None,
+    jefe_directo_id: int | None,
+    fecha: str,
+):
     empresas = get_empresas(include_inactive=True)
     all_sucursales = get_sucursales(include_inactive=True)
-    sucursales = [s for s in all_sucursales if not empresa_id or s.get("empresa_id") == empresa_id]
+    all_sectores = get_sectores(include_inactive=True)
+    sucursales = [s for s in all_sucursales if not empresa_id or _same_id(s.get("empresa_id"), empresa_id)]
+    sectores = [s for s in all_sectores if not empresa_id or _same_id(s.get("empresa_id"), empresa_id)]
 
     config_empresa = get_configuracion_empresa_by_id(empresa_id) if empresa_id else None
     intervalo_minimo_fichadas = _get_intervalo_minimo_fichadas_min(config_empresa)
 
     empleados = _get_empleados_control_asistencia(include_inactive=True)
-    empleados_by_id = {e.get("id"): e for e in empleados}
+    empleados_by_id = {_id_value(e.get("id")): e for e in empleados if _id_value(e.get("id"))}
+    jefes_directos = []
+    seen_jefes = set()
+    for e in empleados:
+        jefe_id = _id_value(e.get("reporta_a_empleado_id"))
+        if not jefe_id or jefe_id in seen_jefes:
+            continue
+        jefe = empleados_by_id.get(jefe_id)
+        if not jefe:
+            continue
+        if empresa_id and not _same_id(jefe.get("empresa_id"), empresa_id):
+            continue
+        seen_jefes.add(jefe_id)
+        jefes_directos.append(jefe)
+    jefes_directos.sort(key=lambda e: ((e.get("apellido") or "").lower(), (e.get("nombre") or "").lower()))
+
     empleados_filtrados = []
     for e in empleados:
-        if empresa_id and e.get("empresa_id") != empresa_id:
+        if empresa_id and not _same_id(e.get("empresa_id"), empresa_id):
             continue
-        if sucursal_id and e.get("sucursal_id") != sucursal_id:
+        if sucursal_id and not _same_id(e.get("sucursal_id"), sucursal_id):
+            continue
+        if sector_id and not _same_id(e.get("sector_id"), sector_id):
+            continue
+        if jefe_directo_id and not _same_id(e.get("reporta_a_empleado_id"), jefe_directo_id):
             continue
         empleados_filtrados.append(e)
 
@@ -251,15 +316,21 @@ def _build_planilla_context(*, empresa_id: int | None, sucursal_id: int | None, 
 
     marcas_por_empleado = {}
     for m in marcas:
-        if sucursal_id:
-            emp_info = empleados_by_id.get(m.get("empleado_id"))
-            if not emp_info or emp_info.get("sucursal_id") != sucursal_id:
-                continue
-        marcas_por_empleado.setdefault(m.get("empleado_id"), []).append(m)
+        marca_empleado_id = _id_value(m.get("empleado_id"))
+        emp_info = empleados_by_id.get(marca_empleado_id)
+        if not emp_info:
+            continue
+        if sucursal_id and not _same_id(emp_info.get("sucursal_id"), sucursal_id):
+            continue
+        if sector_id and not _same_id(emp_info.get("sector_id"), sector_id):
+            continue
+        if jefe_directo_id and not _same_id(emp_info.get("reporta_a_empleado_id"), jefe_directo_id):
+            continue
+        marcas_por_empleado.setdefault(marca_empleado_id, []).append(m)
 
     asistencias_por_empleado = {}
     for a in asistencias_rows:
-        empleado_id = a.get("empleado_id")
+        empleado_id = _id_value(a.get("empleado_id"))
         if not empleado_id:
             continue
         if not _to_hhmm(a.get("hora_entrada")) and not _to_hhmm(a.get("hora_salida")):
@@ -267,9 +338,13 @@ def _build_planilla_context(*, empresa_id: int | None, sucursal_id: int | None, 
         emp_info = empleados_by_id.get(empleado_id)
         if not emp_info:
             continue
-        if empresa_id and emp_info.get("empresa_id") != empresa_id:
+        if empresa_id and not _same_id(emp_info.get("empresa_id"), empresa_id):
             continue
-        if sucursal_id and emp_info.get("sucursal_id") != sucursal_id:
+        if sucursal_id and not _same_id(emp_info.get("sucursal_id"), sucursal_id):
+            continue
+        if sector_id and not _same_id(emp_info.get("sector_id"), sector_id):
+            continue
+        if jefe_directo_id and not _same_id(emp_info.get("reporta_a_empleado_id"), jefe_directo_id):
             continue
         asistencias_por_empleado.setdefault(empleado_id, []).append(a)
 
@@ -278,16 +353,17 @@ def _build_planilla_context(*, empresa_id: int | None, sucursal_id: int | None, 
         ids_con_marca = {emp_id for emp_id in marcas_por_empleado.keys() if emp_id}
         ids_con_asistencia = {emp_id for emp_id in asistencias_por_empleado.keys() if emp_id}
         ids_visibles = ids_con_marca | ids_con_asistencia
-        empleados_filtrados = [e for e in empleados_filtrados if e.get("id") in ids_visibles]
+        empleados_filtrados = [e for e in empleados_filtrados if _id_value(e.get("id")) in ids_visibles]
 
     planilla_rows = []
     max_pares = 3
     for e in empleados_filtrados:
-        emp_marcas = marcas_por_empleado.get(e["id"], [])
+        empleado_id = _id_value(e.get("id"))
+        emp_marcas = marcas_por_empleado.get(empleado_id, [])
         if emp_marcas:
             source_marcas = emp_marcas
         else:
-            source_marcas = _build_marcas_from_asistencias(asistencias_por_empleado.get(e["id"], []))
+            source_marcas = _build_marcas_from_asistencias(asistencias_por_empleado.get(empleado_id, []))
 
         emp_marcas = sorted(
             source_marcas,
@@ -306,10 +382,14 @@ def _build_planilla_context(*, empresa_id: int | None, sucursal_id: int | None, 
 
         planilla_rows.append(
             {
-                "empleado_id": e["id"],
+                "empleado_id": empleado_id,
                 "apellido": e.get("apellido"),
                 "nombre": e.get("nombre"),
                 "dni": e.get("dni"),
+                "sector_id": e.get("sector_id"),
+                "sector_nombre": e.get("sector_nombre"),
+                "jefe_directo_id": e.get("reporta_a_empleado_id"),
+                "jefe_directo_nombre": _format_empleado_nombre(empleados_by_id.get(e.get("reporta_a_empleado_id"))),
                 "pares": pares,
                 "errores": errores,
                 "asistencia_ids": asistencia_ids,
@@ -318,13 +398,19 @@ def _build_planilla_context(*, empresa_id: int | None, sucursal_id: int | None, 
         )
 
     planilla_rows.sort(key=lambda r: ((r.get("apellido") or "").lower(), (r.get("nombre") or "").lower()))
-    empresa_sel = next((emp for emp in empresas if emp.get("id") == empresa_id), None)
-    sucursal_sel = next((s for s in sucursales if s.get("id") == sucursal_id), None)
+    empresa_sel = next((emp for emp in empresas if _same_id(emp.get("id"), empresa_id)), None)
+    sucursal_sel = next((s for s in sucursales if _same_id(s.get("id"), sucursal_id)), None)
+    sector_sel = next((s for s in sectores if _same_id(s.get("id"), sector_id)), None)
+    jefe_directo_sel = next((j for j in jefes_directos if _same_id(j.get("id"), jefe_directo_id)), None)
     return {
         "empresas": empresas,
         "sucursales": sucursales,
+        "sectores": sectores,
+        "jefes_directos": jefes_directos,
         "empresa_sel": empresa_sel,
         "sucursal_sel": sucursal_sel,
+        "sector_sel": sector_sel,
+        "jefe_directo_sel": jefe_directo_sel,
         "planilla_rows": planilla_rows,
         "max_pares": max_pares,
         "intervalo_minimo_fichadas": intervalo_minimo_fichadas,
@@ -441,12 +527,16 @@ def planilla():
     context = _build_planilla_context(
         empresa_id=filters["empresa_id"],
         sucursal_id=filters["sucursal_id"],
+        sector_id=filters["sector_id"],
+        jefe_directo_id=filters["jefe_directo_id"],
         fecha=filters["fecha"],
     )
     return render_template(
         "asistencias/planilla.html",
         empresa_id=filters["empresa_id"],
         sucursal_id=filters["sucursal_id"],
+        sector_id=filters["sector_id"],
+        jefe_directo_id=filters["jefe_directo_id"],
         fecha=filters["fecha"],
         today=filters["today"],
         error=filters["error"],
@@ -462,6 +552,8 @@ def planilla_xls():
     context = _build_planilla_context(
         empresa_id=filters["empresa_id"],
         sucursal_id=filters["sucursal_id"],
+        sector_id=filters["sector_id"],
+        jefe_directo_id=filters["jefe_directo_id"],
         fecha=filters["fecha"],
     )
     try:
@@ -469,6 +561,8 @@ def planilla_xls():
             planilla_rows=context["planilla_rows"],
             empresa_sel=context["empresa_sel"],
             sucursal_sel=context["sucursal_sel"],
+            sector_sel=context["sector_sel"],
+            jefe_directo_sel=context["jefe_directo_sel"],
             fecha=filters["fecha"],
             intervalo_minimo_fichadas=context["intervalo_minimo_fichadas"],
             max_pares=context["max_pares"],
@@ -492,6 +586,8 @@ def planilla_pdf():
     context = _build_planilla_context(
         empresa_id=filters["empresa_id"],
         sucursal_id=filters["sucursal_id"],
+        sector_id=filters["sector_id"],
+        jefe_directo_id=filters["jefe_directo_id"],
         fecha=filters["fecha"],
     )
     auto_print = (request.args.get("auto_print") or "").strip() == "1"
@@ -499,6 +595,8 @@ def planilla_pdf():
         "asistencias/planilla_pdf.html",
         empresa_id=filters["empresa_id"],
         sucursal_id=filters["sucursal_id"],
+        sector_id=filters["sector_id"],
+        jefe_directo_id=filters["jefe_directo_id"],
         fecha=filters["fecha"],
         auto_print=auto_print,
         **context,
@@ -512,7 +610,7 @@ def reportes_mensuales():
     first, last = month_bounds(year, month)
     mes = f"{year:04d}-{month:02d}"
     active_tab = (request.args.get("tab") or "resumen").strip().lower()
-    if active_tab not in {"resumen", "ausencias", "analisis", "jornada"}:
+    if active_tab not in {"planilla", "resumen", "ausencias", "analisis", "jornada"}:
         active_tab = "resumen"
     empresa_id = request.args.get("empresa_id", type=int)
     sucursal_id = request.args.get("sucursal_id", type=int)
@@ -733,12 +831,16 @@ def planilla_marca_editar(marca_id):
         return _planilla_redirect(
             empresa_id=request.args.get("empresa_id", type=int),
             sucursal_id=request.args.get("sucursal_id", type=int),
+            sector_id=request.args.get("sector_id", type=int),
+            jefe_directo_id=request.args.get("jefe_directo_id", type=int),
             fecha=(request.args.get("fecha") or datetime.date.today().isoformat()),
             error="Marca no encontrada.",
         )
 
     empresa_id = request.values.get("empresa_id", type=int)
     sucursal_id = request.values.get("sucursal_id", type=int)
+    sector_id = request.values.get("sector_id", type=int)
+    jefe_directo_id = request.values.get("jefe_directo_id", type=int)
     fecha = (request.values.get("fecha") or _to_date_iso(marca.get("fecha")) or datetime.date.today().isoformat()).strip()
 
     if request.method == "POST":
@@ -756,6 +858,8 @@ def planilla_marca_editar(marca_id):
                 marca=_marca_for_form({**marca, "hora": hora_raw, "accion": accion, "observaciones": observaciones}),
                 empresa_id=empresa_id,
                 sucursal_id=sucursal_id,
+                sector_id=sector_id,
+                jefe_directo_id=jefe_directo_id,
                 fecha=fecha,
                 error=str(exc),
             )
@@ -767,6 +871,8 @@ def planilla_marca_editar(marca_id):
         return _planilla_redirect(
             empresa_id=empresa_id,
             sucursal_id=sucursal_id,
+            sector_id=sector_id,
+            jefe_directo_id=jefe_directo_id,
             fecha=fecha,
             msg=f"Marca #{marca_id} actualizada.",
         )
@@ -777,6 +883,8 @@ def planilla_marca_editar(marca_id):
         marca=_marca_for_form(marca),
         empresa_id=empresa_id,
         sucursal_id=sucursal_id,
+        sector_id=sector_id,
+        jefe_directo_id=jefe_directo_id,
         fecha=fecha,
         error=None,
     )
@@ -787,6 +895,8 @@ def planilla_marca_editar(marca_id):
 def planilla_marca_eliminar(marca_id):
     empresa_id = request.form.get("empresa_id", type=int)
     sucursal_id = request.form.get("sucursal_id", type=int)
+    sector_id = request.form.get("sector_id", type=int)
+    jefe_directo_id = request.form.get("jefe_directo_id", type=int)
     fecha = (request.form.get("fecha") or datetime.date.today().isoformat()).strip()
 
     marca = get_marca_by_id(marca_id)
@@ -794,6 +904,8 @@ def planilla_marca_eliminar(marca_id):
         return _planilla_redirect(
             empresa_id=empresa_id,
             sucursal_id=sucursal_id,
+            sector_id=sector_id,
+            jefe_directo_id=jefe_directo_id,
             fecha=fecha,
             error="Marca no encontrada.",
         )
@@ -806,6 +918,8 @@ def planilla_marca_eliminar(marca_id):
     return _planilla_redirect(
         empresa_id=empresa_id,
         sucursal_id=sucursal_id,
+        sector_id=sector_id,
+        jefe_directo_id=jefe_directo_id,
         fecha=fecha,
         msg=f"Marca #{marca_id} eliminada.",
     )
@@ -817,6 +931,8 @@ def planilla_marca_agregar():
     asistencia_id = request.values.get("asistencia_id", type=int)
     empresa_id = request.values.get("empresa_id", type=int)
     sucursal_id = request.values.get("sucursal_id", type=int)
+    sector_id = request.values.get("sector_id", type=int)
+    jefe_directo_id = request.values.get("jefe_directo_id", type=int)
     fecha = (request.values.get("fecha") or datetime.date.today().isoformat()).strip()
     accion = (request.values.get("accion") or "").strip().lower()
 
@@ -824,6 +940,8 @@ def planilla_marca_agregar():
         return _planilla_redirect(
             empresa_id=empresa_id,
             sucursal_id=sucursal_id,
+            sector_id=sector_id,
+            jefe_directo_id=jefe_directo_id,
             fecha=fecha,
             error="Debe indicar una asistencia para agregar la marca.",
         )
@@ -833,6 +951,8 @@ def planilla_marca_agregar():
         return _planilla_redirect(
             empresa_id=empresa_id,
             sucursal_id=sucursal_id,
+            sector_id=sector_id,
+            jefe_directo_id=jefe_directo_id,
             fecha=fecha,
             error="Asistencia no encontrada.",
         )
@@ -857,6 +977,8 @@ def planilla_marca_agregar():
                 }),
                 empresa_id=empresa_id,
                 sucursal_id=sucursal_id,
+                sector_id=sector_id,
+                jefe_directo_id=jefe_directo_id,
                 fecha=fecha,
                 error=str(exc),
             )
@@ -907,6 +1029,8 @@ def planilla_marca_agregar():
         return _planilla_redirect(
             empresa_id=empresa_id,
             sucursal_id=sucursal_id,
+            sector_id=sector_id,
+            jefe_directo_id=jefe_directo_id,
             fecha=fecha,
             msg=f"Marca #{marca_id} agregada.",
         )
@@ -923,6 +1047,8 @@ def planilla_marca_agregar():
         }),
         empresa_id=empresa_id,
         sucursal_id=sucursal_id,
+        sector_id=sector_id,
+        jefe_directo_id=jefe_directo_id,
         fecha=fecha,
         error=None,
     )

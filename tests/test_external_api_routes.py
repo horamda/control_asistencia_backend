@@ -137,10 +137,38 @@ def test_external_asistencia_report_accepts_bearer_token(monkeypatch):
     assert captured["empresa_id"] == 1
     assert captured["fecha_desde"] == "2026-06-11"
     assert captured["fecha_hasta"] == "2026-06-11"
+    assert captured["activo"] == 1
+    assert captured["estados"] is None
     assert captured["order_asc"] is True
     lines = resp.data.decode("utf-8-sig").splitlines()
     assert lines[0] == "MES,FECHA,HORA,PUERTA,TIPO MOV,CODIGO,NOMBRE,SECTOR"
     assert lines[1] == "6,11/6/2026,13:50,Porton Lateral,Entrada,58,PEREYRA GABRIEL,Reparto"
+
+
+def test_external_asistencia_report_accepts_estado_activo_filter(monkeypatch):
+    _configure_token_auth(monkeypatch)
+    client = _build_client(monkeypatch, api_key=None)
+    captured = {}
+
+    monkeypatch.setattr(
+        external_routes,
+        "get_marcas_admin_export",
+        lambda **kwargs: captured.update(kwargs) or [],
+    )
+    token_resp = client.post(
+        "/api/v1/external/auth/token",
+        json={"username": "reportes", "password": "clave-segura"},
+    )
+    token = token_resp.get_json()["access_token"]
+
+    resp = client.get(
+        "/api/v1/external/reportes/asistencia.csv?estado=activo",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    assert captured["estados"] == ["activo"]
+    assert captured["activo"] is None
 
 
 def test_external_asistencia_report_rejects_invalid_date_range(monkeypatch):

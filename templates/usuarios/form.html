@@ -75,6 +75,42 @@
           Activo
         </label>
       </div>
+      <div class="row span-3">
+        <label>Modulos habilitados</label>
+        <div class="permissions-grid">
+          <div class="permissions-head">
+            <span>Modulo</span>
+            {% for action in actions %}
+              <span>{{ action|capitalize }}</span>
+            {% endfor %}
+          </div>
+          {% set ns = namespace(group='') %}
+          {% for module in modules %}
+            {% if module.group != ns.group %}
+              {% set ns.group = module.group %}
+              <div class="permissions-group">{{ module.group }}</div>
+            {% endif %}
+            <div class="permissions-row">
+              <div class="permissions-module">
+                <strong>{{ module.label }}</strong>
+                <small>{{ module.code }}</small>
+              </div>
+              {% for action in actions %}
+                <label class="permission-check" title="{{ module.label }} - {{ action }}">
+                  <input
+                    type="checkbox"
+                    name="perm_{{ module.code }}_{{ action }}"
+                    value="1"
+                    {% if permissions.get(module.code, {}).get(action) %}checked{% endif %}
+                  >
+                  <span>{{ action[:1]|upper }}</span>
+                </label>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+        <div class="helper-text">Admin conserva acceso total. Si un usuario no tiene permisos explicitos, se respetan los accesos historicos de su rol.</div>
+      </div>
     </div>
     <div class="actions">
       <button type="submit">Guardar</button>

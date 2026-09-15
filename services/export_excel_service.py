@@ -158,6 +158,8 @@ def generar_planilla_fichadas_excel(
     planilla_rows: list[dict],
     empresa_sel: dict | None,
     sucursal_sel: dict | None,
+    sector_sel: dict | None,
+    jefe_directo_sel: dict | None,
     fecha: str,
     intervalo_minimo_fichadas: int,
     max_pares: int,
@@ -166,30 +168,34 @@ def generar_planilla_fichadas_excel(
     ws = wb.active
     ws.title = "Planilla"
 
-    total_cols = 2 + (max_pares * 2) + 1
+    total_cols = 4 + (max_pares * 2) + 1
     _write_title(ws, "Planilla diaria de fichadas", total_cols)
 
     _write_meta_pair(ws, 2, 1, 2, "Empresa", (empresa_sel or {}).get("razon_social") or "-")
     _write_meta_pair(ws, 2, 3, 4, "Sucursal", (sucursal_sel or {}).get("nombre") or "-")
-    _write_meta_pair(ws, 3, 1, 2, "Fecha", fecha)
-    _write_meta_pair(ws, 3, 3, 4, "Intervalo minimo", f"{intervalo_minimo_fichadas} min")
-    _write_meta_pair(ws, 4, 1, 2, "Personas", len(planilla_rows))
+    _write_meta_pair(ws, 3, 1, 2, "Sector", (sector_sel or {}).get("nombre") or "-")
+    _write_meta_pair(ws, 3, 3, 4, "Jefe directo", _format_name(jefe_directo_sel) if jefe_directo_sel else "-")
+    _write_meta_pair(ws, 4, 1, 2, "Fecha", fecha)
+    _write_meta_pair(ws, 4, 3, 4, "Intervalo minimo", f"{intervalo_minimo_fichadas} min")
+    _write_meta_pair(ws, 5, 1, 2, "Personas", len(planilla_rows))
 
-    headers = ["Empleado", "DNI"]
+    headers = ["Empleado", "DNI", "Sector", "Jefe directo"]
     for idx in range(max_pares):
         headers.extend([f"Ingreso {idx + 1}", f"Egreso {idx + 1}"])
     headers.append("Errores")
-    _write_header_row(ws, 5, headers)
+    _write_header_row(ws, 6, headers)
 
-    current_row = 6
+    current_row = 7
     for row in planilla_rows:
         empleado = f"{row.get('apellido') or ''} {row.get('nombre') or ''}".strip()
         ws.cell(row=current_row, column=1, value=empleado or "-")
         ws.cell(row=current_row, column=2, value=row.get("dni") or "")
+        ws.cell(row=current_row, column=3, value=row.get("sector_nombre") or "")
+        ws.cell(row=current_row, column=4, value=row.get("jefe_directo_nombre") or "")
 
         pares = row.get("pares") or []
         for idx in range(max_pares):
-            ingreso_col = 3 + (idx * 2)
+            ingreso_col = 5 + (idx * 2)
             egreso_col = ingreso_col + 1
             par = pares[idx] if idx < len(pares) else None
             ws.cell(row=current_row, column=ingreso_col, value=(par or {}).get("ingreso") or "")
@@ -209,8 +215,8 @@ def generar_planilla_fichadas_excel(
 
         current_row += 1
 
-    ws.freeze_panes = "C6"
-    ws.auto_filter.ref = f"A5:{get_column_letter(total_cols)}{max(5, current_row - 1)}"
+    ws.freeze_panes = "E7"
+    ws.auto_filter.ref = f"A6:{get_column_letter(total_cols)}{max(6, current_row - 1)}"
     _autofit(ws, max_width=34)
 
     buf = BytesIO()

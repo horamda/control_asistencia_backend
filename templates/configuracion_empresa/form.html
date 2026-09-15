@@ -13,6 +13,9 @@
   </div>
 
   <form method="post">
+    {% if error %}
+      <div class="errors">{{ error }}</div>
+    {% endif %}
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid">
       <div class="row">
@@ -35,16 +38,16 @@
       </div>
       <div class="row">
         <label>Tolerancia global (min)</label>
-        <input name="tolerancia_global" value="{{ data.tolerancia_global or '' }}">
+        <input type="number" min="0" step="1" name="tolerancia_global" value="{{ data.tolerancia_global or '' }}">
       </div>
       <div class="row">
         <label>Cooldown scan QR (seg)</label>
-        <input name="cooldown_scan_segundos" value="{{ data.cooldown_scan_segundos if data.cooldown_scan_segundos is not none else 60 }}">
+        <input type="number" min="0" step="1" name="cooldown_scan_segundos" value="{{ data.cooldown_scan_segundos if data.cooldown_scan_segundos is not none else 60 }}">
         <div class="helper-text">Evita doble escaneo accidental. Use 0 para desactivar.</div>
       </div>
       <div class="row">
         <label>Intervalo minimo entre fichadas (min)</label>
-        <input name="intervalo_minimo_fichadas_minutos" value="{{ data.intervalo_minimo_fichadas_minutos if data.intervalo_minimo_fichadas_minutos is not none else 60 }}">
+        <input type="number" min="0" step="1" name="intervalo_minimo_fichadas_minutos" value="{{ data.intervalo_minimo_fichadas_minutos if data.intervalo_minimo_fichadas_minutos is not none else 60 }}">
         <div class="helper-text">Tiempo prudencial entre marcas consecutivas. Use 0 para desactivar.</div>
       </div>
     </div>

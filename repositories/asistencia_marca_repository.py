@@ -272,6 +272,8 @@ def _build_admin_where(
     metodo: str | None = None,
     search: str | None = None,
     gps_ok: int | None = None,
+    activo: int | None = None,
+    estados: list[str] | None = None,
 ):
     where = ["1=1"]
     params: list = []
@@ -304,6 +306,13 @@ def _build_admin_where(
     if gps_ok in (0, 1):
         where.append("am.gps_ok = %s")
         params.append(gps_ok)
+    estados = [str(v).strip().lower() for v in (estados or []) if str(v).strip()]
+    if estados:
+        where.append(f"LOWER(TRIM(e.estado)) IN ({','.join(['%s'] * len(estados))})")
+        params.extend(estados)
+    elif activo in (0, 1):
+        where.append("e.activo = %s")
+        params.append(int(activo))
 
     return " AND ".join(where), params
 
@@ -321,6 +330,8 @@ def get_page_admin(
     metodo: str | None = None,
     search: str | None = None,
     gps_ok: int | None = None,
+    activo: int | None = None,
+    estados: list[str] | None = None,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -336,6 +347,8 @@ def get_page_admin(
             metodo=metodo,
             search=search,
             gps_ok=gps_ok,
+            activo=activo,
+            estados=estados,
         )
 
         cursor.execute(
@@ -401,6 +414,8 @@ def get_for_export_admin(
     metodo: str | None = None,
     search: str | None = None,
     gps_ok: int | None = None,
+    activo: int | None = None,
+    estados: list[str] | None = None,
     limit: int = 5000,
     order_asc: bool = False,
 ):
@@ -417,6 +432,8 @@ def get_for_export_admin(
             metodo=metodo,
             search=search,
             gps_ok=gps_ok,
+            activo=activo,
+            estados=estados,
         )
 
         order_direction = "ASC" if order_asc else "DESC"

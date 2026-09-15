@@ -10,8 +10,14 @@ from repositories.usuarios_app_repository import (
     set_activo,
     exists_unique
 )
+from repositories.web_permission_repository import get_user_permissions, set_user_permissions
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.empleado_repository import get_all as get_empleados
+from services.web_permissions_service import (
+    PERMISSION_ACTIONS,
+    WEB_MODULES,
+    default_permission_payload_for_role,
+)
 from utils.audit import log_audit
 from utils.validators import UsuarioValidator
 
@@ -25,6 +31,31 @@ def _validate(form, require_password: bool, user_id: int | None = None):
 
 def _empleados_para_vincular():
     return get_empleados(include_inactive=False)
+
+
+def _permissions_from_form(form, rol: str | None) -> dict[str, dict[str, bool]]:
+    defaults = default_permission_payload_for_role(rol)
+    permissions = {}
+    for module in WEB_MODULES:
+        code = module["code"]
+        permissions[code] = {}
+        for action in PERMISSION_ACTIONS:
+            field = f"perm_{code}_{action}"
+            permissions[code][action] = field in form
+        # Si puede realizar cualquier accion operativa, tambien puede ver el modulo.
+        if any(permissions[code].get(action) for action in PERMISSION_ACTIONS if action != "ver"):
+            permissions[code]["ver"] = True
+    if not any(any(actions.values()) for actions in permissions.values()):
+        return defaults
+    return permissions
+
+
+def _permissions_for_form(user_id: int | None, rol: str | None):
+    if user_id:
+        current = get_user_permissions(user_id)
+        if current:
+            return current
+    return default_permission_payload_for_role(rol)
 
 
 @usuarios_bp.route("/")
@@ -66,10 +97,14 @@ def nuevo():
                 errors=errors,
                 password_required=True,
                 empresas=empresas,
-                empleados=empleados
+                empleados=empleados,
+                modules=WEB_MODULES,
+                actions=PERMISSION_ACTIONS,
+                permissions=_permissions_from_form(request.form, rol),
             )
 
         password = (request.form.get("password") or "").strip()
+        permissions = _permissions_from_form(request.form, rol)
         new_id = create({
             "empresa_id": empresa_id,
             "empleado_id": empleado_id,
@@ -78,6 +113,7 @@ def nuevo():
             "rol": rol,
             "activo": activo
         })
+        set_user_permissions(new_id, permissions)
         log_audit(session, "create", "usuarios", new_id)
         return redirect(url_for("usuarios.listado"))
 
@@ -87,7 +123,10 @@ def nuevo():
         data={"activo": True},
         password_required=True,
         empresas=empresas,
-        empleados=empleados
+        empleados=empleados,
+        modules=WEB_MODULES,
+        actions=PERMISSION_ACTIONS,
+        permissions=default_permission_payload_for_role("supervisor"),
     )
 
 
@@ -111,7 +150,10 @@ def editar(user_id):
                 errors=errors,
                 password_required=False,
                 empresas=empresas,
-                empleados=empleados
+                empleados=empleados,
+                modules=WEB_MODULES,
+                actions=PERMISSION_ACTIONS,
+                permissions=_permissions_from_form(request.form, rol),
             )
 
         update(user_id, {
@@ -121,6 +163,7 @@ def editar(user_id):
             "rol": rol,
             "activo": activo
         })
+        set_user_permissions(user_id, _permissions_from_form(request.form, rol))
         log_audit(session, "update", "usuarios", user_id)
 
         password = (request.form.get("password") or "").strip()
@@ -136,7 +179,10 @@ def editar(user_id):
         data=user,
         password_required=False,
         empresas=empresas,
-        empleados=empleados
+        empleados=empleados,
+        modules=WEB_MODULES,
+        actions=PERMISSION_ACTIONS,
+        permissions=_permissions_for_form(user_id, user.get("rol")),
     )
 
 
