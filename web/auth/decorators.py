@@ -190,3 +190,20 @@ def permission_required(module, action="ver", *fallback_roles):
 
         return wrapped
     return decorator
+
+
+def is_strict_admin():
+    """No acepta permisos de módulo como sustituto del rol administrador."""
+    user = _cached_web_user(_current_web_user_id())
+    return bool(user and user.get("activo") and str(user.get("rol") or "").lower() == "admin")
+
+
+def strict_admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not _current_web_user_id():
+            return redirect(url_for("web_auth.login"))
+        if not is_strict_admin():
+            abort(403)
+        return view(*args, **kwargs)
+    return wrapped

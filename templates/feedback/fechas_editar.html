@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Corrección FDBK{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/feedback-fechas.css') }}">{% endblock %}
+{% block content %}
+<div class="content-stack fdbk-dates">
+  <div class="section-head"><div><div class="section-kicker">Sistema · Corrección FDBK</div><h2>Fechas de {{ row.numero or row.id }}</h2>
+    <p>{{ row.empleado_nombre }} · {{ row.motivo_nombre or row.motivo_nombre_snapshot }} · {{ row.estado_actual }}</p></div></div>
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  {% if guardado and not error %}<div class="alert alert-success" role="status">Fechas actualizadas. La corrección quedó registrada en auditoría.</div>{% endif %}
+  <section class="panel">
+    <h3>Datos del feedback</h3>
+    <div class="form-grid">
+      <div><strong>N.º de cliente</strong><p>{{ row.cliente_codigo or row.cliente_codigo_snapshot or 'Sin número' }}</p></div>
+      <div><strong>Razón social</strong><p>{{ row.cliente_razon_social or row.cliente_razon_social_snapshot or 'Sin razón social' }}</p></div>
+      <div><strong>Nombre de fantasía</strong><p>{{ row.cliente_nombre_fantasia or row.cliente_nombre_fantasia_snapshot or '—' }}</p></div>
+      <div><strong>Sucursal / sector de origen</strong><p>{{ row.empleado_sucursal_nombre or 'Sin sucursal' }} · {{ row.sector_origen_nombre or row.empleado_sector_nombre or 'Sin sector' }}</p></div>
+      <div><strong>Responsable</strong><p>{{ row.responsable_nombre or row.jefe_directo_nombre or 'Sin responsable' }}</p></div>
+    </div>
+    <strong>Descripción del problema</strong><p class="feedback-row-text" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ row.descripcion or 'Sin descripción' }}</p>
+    {% if row.resolucion_descripcion %}<strong>Detalle de resolución</strong><p class="feedback-row-text" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ row.resolucion_descripcion }}</p>{% endif %}
+  </section>
+  <section class="panel">
+    <p>Carga actual: <strong>{{ row.created_at }}</strong> · Resolución actual: <strong>{{ row.resuelto_at or 'Sin resolver' }}</strong></p>
+    <p>Vencimiento actual: <strong>{{ row.fecha_limite }}</strong> · Resultado: <strong>{{ row.condicion_temporal|replace('_', ' ') }}</strong></p>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="version" value="{{ values.get('version', version) }}">
+      <div class="form-grid">
+        <div class="row"><label for="created_at">Fecha y hora de carga</label><input type="datetime-local" step="1" id="created_at" name="created_at" required value="{{ values.get('created_at', row.created_at.strftime('%Y-%m-%dT%H:%M:%S')) }}"></div>
+        {% if row.estado_actual == 'resuelto' %}
+        <div class="row"><label for="resuelto_at">Fecha y hora de resolución</label><input type="datetime-local" step="1" id="resuelto_at" name="resuelto_at" required value="{{ values.get('resuelto_at', row.resuelto_at.strftime('%Y-%m-%dT%H:%M:%S') if row.resuelto_at else '') }}"></div>
+        {% endif %}
+        <div class="row span-2"><label for="motivo_correccion">Motivo de corrección</label><textarea id="motivo_correccion" name="motivo_correccion" maxlength="160" required>{{ values.get('motivo_correccion', '') }}</textarea></div>
+      </div>
+      <p>Al cambiar la carga, el vencimiento se recalcula con el plazo actual del motivo. Los indicadores se actualizarán con estas fechas. El estado del feedback se conserva.</p>
+      <div class="actions"><button class="btn" type="submit">Guardar corrección</button><a class="btn btn-secondary" href="{{ url_for('feedback_web.fechas_listado') }}">Volver al listado</a></div>
+    </form>
+  </section>
+</div>
+{% endblock %}

@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request
-from web.auth.decorators import role_required
+from web.auth.decorators import role_required, is_strict_admin
 from repositories.auditoria_repository import get_page
 
 auditoria_bp = Blueprint("auditoria", __name__, url_prefix="/auditoria")
@@ -10,7 +10,7 @@ auditoria_bp = Blueprint("auditoria", __name__, url_prefix="/auditoria")
 def listado():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per", 20, type=int)
-    registros, total = get_page(page, per_page)
+    registros, total = get_page(page, per_page, include_feedback_dates=is_strict_admin())
     return render_template(
         "auditoria/listado.html",
         registros=registros,

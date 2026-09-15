@@ -191,13 +191,20 @@
   function markActiveNav() {
     var path = window.location.pathname || "";
     var links = document.querySelectorAll(".nav-link");
+    var bestMatch = null;
+    var bestLength = 0;
     links.forEach(function (link) {
-      var href = link.getAttribute("href") || "";
+      var href = (link.getAttribute("href") || "").split("?")[0].replace(/\/$/, "");
+      link.classList.remove("active");
       if (!href || href === "/") return;
-      if (path === href || (href !== "/dashboard" && path.indexOf(href) === 0)) {
-        link.classList.add("active");
+      if (path === href || (href !== "/dashboard" && path.indexOf(href + "/") === 0)) {
+        if (href.length > bestLength) {
+          bestMatch = link;
+          bestLength = href.length;
+        }
       }
     });
+    if (bestMatch) bestMatch.classList.add("active");
   }
 
   function initNavGroups() {

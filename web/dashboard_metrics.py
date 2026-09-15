@@ -2671,6 +2671,7 @@ def _dashboard_metrics():
             SELECT a.fecha, a.accion, a.tabla_afectada, a.registro_id, u.usuario AS usuario_nombre
             FROM auditoria a
             LEFT JOIN usuarios u ON u.id = a.usuario_id
+            WHERE a.tabla_afectada IS NULL OR a.tabla_afectada <> 'feedback_fechas'
             ORDER BY a.fecha DESC, a.id DESC
             LIMIT 8
             """,

@@ -1,7 +1,7 @@
 from extensions import get_db
 
 
-def get_all():
+def get_all(*, include_feedback_dates=False):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -9,15 +9,16 @@ def get_all():
             SELECT a.*, u.usuario AS usuario_nombre
             FROM auditoria a
             LEFT JOIN usuarios u ON u.id = a.usuario_id
+            WHERE (%s OR a.tabla_afectada IS NULL OR a.tabla_afectada <> 'feedback_fechas')
             ORDER BY a.fecha DESC, a.id DESC
-        """)
+        """, (include_feedback_dates,))
         return cursor.fetchall()
     finally:
         cursor.close()
         db.close()
 
 
-def get_page(page: int, per_page: int):
+def get_page(page: int, per_page: int, *, include_feedback_dates=False):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -26,12 +27,13 @@ def get_page(page: int, per_page: int):
             SELECT a.*, u.usuario AS usuario_nombre
             FROM auditoria a
             LEFT JOIN usuarios u ON u.id = a.usuario_id
+            WHERE (%s OR a.tabla_afectada IS NULL OR a.tabla_afectada <> 'feedback_fechas')
             ORDER BY a.fecha DESC, a.id DESC
             LIMIT %s OFFSET %s
-        """, (per_page, offset))
+        """, (include_feedback_dates, per_page, offset))
         rows = cursor.fetchall()
 
-        cursor.execute("SELECT COUNT(*) AS total FROM auditoria")
+        cursor.execute("SELECT COUNT(*) AS total FROM auditoria WHERE (%s OR tabla_afectada IS NULL OR tabla_afectada <> 'feedback_fechas')", (include_feedback_dates,))
         total = cursor.fetchone()["total"]
         return rows, total
     finally:

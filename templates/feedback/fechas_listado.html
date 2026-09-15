@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Corrección FDBK{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/feedback-fechas.css') }}">{% endblock %}
+{% block content %}
+<div class="content-stack fdbk-dates">
+  <div class="section-head"><div><div class="section-kicker">Sistema · Administración</div>
+    <h2>Corrección FDBK</h2><p class="module-intro">Revisá y corregí las fechas de los feedbacks cargados.</p></div></div>
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="get" class="panel">
+    <div class="form-grid">
+      <div class="row"><label for="q">Buscar</label><input id="q" name="q" value="{{ q }}" placeholder="N.º de cliente, feedback, empleado o descripción"></div>
+      <div class="row"><label for="estado">Estado</label><select id="estado" name="estado">
+        <option value="">Todos</option>{% for code, label in [('pendiente','Pendiente'),('resuelto','Resuelto'),('vencido','Vencido')] %}<option value="{{ code }}" {% if estado == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></div>
+      <div class="row"><label for="sucursal">Sucursal</label><select id="sucursal" name="sucursal_id"><option value="">Todas</option>
+        {% for s in sucursales %}<option value="{{ s.id }}" {% if sucursal_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}</select></div>
+      <div class="row"><label for="cliente_codigo">N.º de cliente exacto</label><input id="cliente_codigo" name="cliente_codigo" value="{{ filters.cliente_codigo }}"></div>
+      <div class="row"><label for="empleado_id">Empleado</label><select id="empleado_id" name="empleado_id"><option value="">Todos</option>{% for e in empleados %}<option value="{{ e.id }}" {% if filters.empleado_id == e.id|string %}selected{% endif %}>{{ e.apellido }} {{ e.nombre }} · {{ e.legajo or 'Sin legajo' }}</option>{% endfor %}</select></div>
+      <div class="row"><label for="motivo_id">Motivo</label><select id="motivo_id" name="motivo_id"><option value="">Todos</option>{% for m in motivos %}<option value="{{ m.id }}" {% if filters.motivo_id == m.id|string %}selected{% endif %}>{{ m.nombre }}</option>{% endfor %}</select></div>
+      {% for key, label in [('sector_id','Sector de origen'),('sector_responsable_id','Sector responsable')] %}
+      <div class="row"><label for="{{ key }}">{{ label }}</label><select id="{{ key }}" name="{{ key }}"><option value="">Todos</option>{% for s in sectores %}<option value="{{ s.id }}" {% if filters[key] == s.id|string %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}</select></div>
+      {% endfor %}
+      <div class="row"><label for="condicion_temporal">Cumplimiento del plazo</label><select id="condicion_temporal" name="condicion_temporal"><option value="">Todos</option>
+        {% for key, label in [('pendiente_en_termino','Pendiente en término'),('pendiente_vencido','Pendiente vencido'),('resuelto_en_termino','Resuelto en término'),('resuelto_fuera_termino','Resuelto fuera de término')] %}<option value="{{ key }}" {% if filters.condicion_temporal == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></div>
+      {% for key, label in [('carga_desde','Carga desde'),('carga_hasta','Carga hasta'),('resolucion_desde','Resolución desde'),('resolucion_hasta','Resolución hasta')] %}
+      <div class="row"><label for="{{ key }}">{{ label }}</label><input type="date" id="{{ key }}" name="{{ key }}" value="{{ filters[key] }}"></div>
+      {% endfor %}
+    </div><div class="actions"><button class="btn" type="submit">Filtrar</button><a class="btn btn-secondary" href="{{ url_for('feedback_web.fechas_listado') }}">Limpiar filtros</a></div>
+  </form>
+  <div class="summary">{{ total }} registros</div>
+  <div class="table-responsive fdbk-table"><table><thead><tr><th>Feedback</th><th>Cliente</th><th>Empleado / sucursal</th><th>Problema</th><th>Estado</th><th>Carga</th><th>Resolución</th><th></th></tr></thead><tbody>
+    {% for r in rows %}<tr>
+      <td data-label="Feedback">{{ r.numero or r.id }}</td>
+      <td data-label="Cliente"><strong>N.º {{ r.cliente_codigo or r.cliente_codigo_snapshot or 'Sin número' }}</strong>
+        <div>{{ r.cliente_razon_social or r.cliente_razon_social_snapshot or 'Sin razón social' }}</div>
+        {% if r.cliente_nombre_fantasia or r.cliente_nombre_fantasia_snapshot %}<div class="summary">{{ r.cliente_nombre_fantasia or r.cliente_nombre_fantasia_snapshot }}</div>{% endif %}
+      </td>
+      <td data-label="Empleado / sucursal">{{ r.empleado_nombre }}<div class="summary">{{ r.empleado_sucursal_nombre or 'Sin sucursal' }} · {{ r.sector_origen_nombre or r.empleado_sector_nombre or 'Sin sector' }}</div></td>
+      <td data-label="Problema"><strong>{{ r.motivo_nombre or r.motivo_nombre_snapshot }}</strong><p class="feedback-row-text">{{ (r.descripcion or 'Sin descripción')|truncate(160) }}</p></td>
+      <td data-label="Estado">{{ r.estado_actual }}</td><td data-label="Carga">{{ r.created_at }}</td><td data-label="Resolución">{{ r.resuelto_at or '—' }}</td><td data-label="Acciones"><a class="btn btn-secondary" href="{{ url_for('feedback_web.fechas_editar', feedback_id=r.id) }}">Editar fechas</a></td></tr>
+    {% else %}<tr><td colspan="8">No se encontraron feedbacks.</td></tr>{% endfor %}
+  </tbody></table></div>
+  <div class="pager">
+    {% if page > 1 %}<a class="btn btn-secondary" href="{{ previous_url }}">Anterior</a>{% endif %}
+    <span>Página {{ page }}</span>
+    {% if page * 20 < total %}<a class="btn btn-secondary" href="{{ next_url }}">Siguiente</a>{% endif %}
+  </div>
+</div>
+{% endblock %}

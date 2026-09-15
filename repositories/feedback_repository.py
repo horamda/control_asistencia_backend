@@ -288,6 +288,11 @@ def get_page(
     sector_responsable_id: int | None = None,
     sucursal_id: int | None = None,
     empleado_activo: int | None = None,
+    cliente_codigo: str | None = None,
+    carga_desde=None,
+    carga_hasta=None,
+    resolucion_desde=None,
+    resolucion_hasta=None,
 ):
     where_sql, params = _build_where(
         empresa_id=empresa_id,
@@ -305,6 +310,22 @@ def get_page(
         sucursal_id=sucursal_id,
         empleado_activo=empleado_activo,
     )
+    # Límites superiores exclusivos para incluir todo el día seleccionado.
+    import datetime as dt
+    extra = []
+    if cliente_codigo:
+        extra.append("COALESCE(c.codigo_externo, f.cliente_codigo_snapshot) = %s")
+        params.append(cliente_codigo)
+    for column, start, end in (("f.created_at", carga_desde, carga_hasta),
+                               ("f.resuelto_at", resolucion_desde, resolucion_hasta)):
+        if start:
+            extra.append(f"{column} >= %s")
+            params.append(start)
+        if end:
+            extra.append(f"{column} < %s")
+            params.append(end + dt.timedelta(days=1))
+    if extra:
+        where_sql += (" AND " if where_sql else "WHERE ") + " AND ".join(extra)
     return _fetch_page(page, per_page, where_sql, params)
 
 

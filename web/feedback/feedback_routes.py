@@ -32,7 +32,8 @@ from services.feedback_service import (
     tomar_feedback,
 )
 from utils.audit import log_audit
-from web.auth.decorators import current_empleado_id, has_role, login_required, role_required
+from web.auth.decorators import current_empleado_id, has_role, login_required, role_required, strict_admin_required, is_strict_admin
+from services.feedback_dates_service import correct_dates, date_version
 
 feedback_web_bp = Blueprint("feedback_web", __name__, url_prefix="/feedback")
 
@@ -572,3 +573,77 @@ def clientes_importar():
                 resultado = {"error": f"No se pudo procesar el archivo: {exc}"}
 
     return render_template("feedback/clientes_importar.html", resultado=resultado)
+
+
+# Las correcciones tienen una autorización independiente del permiso de Feedback.
+
+
+@feedback_web_bp.app_context_processor
+def feedback_dates_context():
+    return {"can_correct_feedback_dates": is_strict_admin}
+
+
+@feedback_web_bp.route("/correccion-fechas")
+@strict_admin_required
+def fechas_listado():
+    import datetime as dt
+    page = max(1, request.args.get("page", 1, type=int) or 1)
+    q = (request.args.get("q") or "").strip()
+    estado = request.args.get("estado") or None
+    if estado not in {"resuelto", "pendiente", "vencido"}:
+        estado = None
+    filters = {key: (request.args.get(key) or "").strip() for key in (
+        "cliente_codigo", "empleado_id", "motivo_id", "sector_id", "sector_responsable_id",
+        "condicion_temporal", "carga_desde", "carga_hasta", "resolucion_desde", "resolucion_hasta")}
+    conditions = {"pendiente_en_termino", "pendiente_vencido", "resuelto_en_termino", "resuelto_fuera_termino"}
+    if filters["condicion_temporal"] not in conditions:
+        filters["condicion_temporal"] = ""
+    options = {key: _parse_int(filters[key]) for key in ("empleado_id", "motivo_id", "sector_id", "sector_responsable_id")}
+    options.update(cliente_codigo=filters["cliente_codigo"], condicion_temporal=filters["condicion_temporal"] or None)
+    error = None
+    try:
+        for key in ("carga_desde", "carga_hasta", "resolucion_desde", "resolucion_hasta"):
+            options[key] = dt.date.fromisoformat(filters[key]) if filters[key] else None
+            if options[key] == dt.date.max:
+                raise ValueError()
+        for prefix in ("carga", "resolucion"):
+            start, end = options[prefix + "_desde"], options[prefix + "_hasta"]
+            if start and end and start > end:
+                raise ValueError()
+    except ValueError:
+        error = "Revisá las fechas: deben ser válidas y Desde no puede ser posterior a Hasta."
+    if error:
+        rows, total = [], 0
+    else:
+        rows, total = get_feedbacks_page(page, 20, search=q, estado=estado,
+                                       sucursal_id=_parse_int(request.args.get("sucursal_id")), **options)
+    pagination = dict(filters, q=q, estado=estado or "", sucursal_id=request.args.get("sucursal_id") or "")
+    return render_template("feedback/fechas_listado.html", rows=rows, total=total,
+                           page=page, q=q, estado=estado, sucursales=get_sucursales(include_inactive=True),
+                           sucursal_id=_parse_int(request.args.get("sucursal_id")), filters=filters, error=error,
+                           empleados=get_empleados(include_inactive=True), motivos=get_motivos(include_inactive=True),
+                           sectores=get_sectores(include_inactive=True),
+                           previous_url=url_for("feedback_web.fechas_listado", page=page-1, **pagination),
+                           next_url=url_for("feedback_web.fechas_listado", page=page+1, **pagination))
+
+
+@feedback_web_bp.route("/correccion-fechas/<int:feedback_id>", methods=["GET", "POST"])
+@strict_admin_required
+def fechas_editar(feedback_id):
+    from flask import abort
+    row = get_feedback_by_id(feedback_id)
+    if not row:
+        abort(404)
+    error = None
+    if request.method == "POST":
+        try:
+            correct_dates(feedback_id, request.form, session["user_id"])
+            return redirect(url_for("feedback_web.fechas_editar", feedback_id=feedback_id, guardado=1))
+        except ValueError as exc:
+            error = str(exc)
+        except Exception:
+            current_app.logger.exception("feedback_dates_save_error")
+            error = "No se pudo guardar la corrección. No se aplicaron cambios. Reintentá."
+    return render_template("feedback/fechas_editar.html", row=row, error=error,
+                           version=date_version(row), guardado=request.args.get("guardado") == "1",
+                           values=request.form if request.method == "POST" else {})
