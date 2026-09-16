@@ -10,6 +10,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 EXTERNAL_API_ISSUER = "control-asistencia-external"
 EXTERNAL_API_AUDIENCE = "control-asistencia-reports"
 EXTERNAL_API_SCOPE = "external:read reports:read"
+EXTERNAL_API_KPI_WRITE_SCOPE = "kpis:write"
 _MIN_SECRET_LENGTH = 32
 _PLACEHOLDER_SECRETS = {
     "changeme",
@@ -26,6 +27,16 @@ class ExternalApiAuthConfigError(RuntimeError):
 
 class ExternalApiTokenError(ValueError):
     pass
+
+
+def external_kpi_write_enabled() -> bool:
+    return str(os.getenv("EXTERNAL_API_KPI_WRITE_ENABLED") or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def external_api_scopes() -> str:
+    if external_kpi_write_enabled():
+        return f"{EXTERNAL_API_SCOPE} {EXTERNAL_API_KPI_WRITE_SCOPE}"
+    return EXTERNAL_API_SCOPE
 
 
 def external_credentials_configured() -> bool:
@@ -99,7 +110,7 @@ def issue_external_access_token(username: str) -> tuple[str, int]:
     payload = {
         "sub": str(username).strip(),
         "type": "external_api",
-        "scope": EXTERNAL_API_SCOPE,
+        "scope": external_api_scopes(),
         "iss": EXTERNAL_API_ISSUER,
         "aud": EXTERNAL_API_AUDIENCE,
         "iat": now,

@@ -1,5 +1,7 @@
 import io
 
+import pytest
+
 from openpyxl import load_workbook
 
 import app as app_module
@@ -56,6 +58,38 @@ def _stub_concursos(*args, **kwargs):
             "sector_nombre": None,
         }
     ]
+
+
+@pytest.mark.parametrize("editing", [False, True])
+@pytest.mark.parametrize("allow", [False, True])
+def test_resultado_manual_sector_exception(monkeypatch, editing, allow):
+    captured = []
+    monkeypatch.setattr(premios_routes, "save_resultado", lambda data, **kw: captured.append(data) or (7, True))
+    monkeypatch.setattr(premios_routes, "log_audit", lambda *a, **kw: None)
+    monkeypatch.setattr(premios_routes, "get_resultado_by_id", lambda result_id: {"id": result_id, "empresa_id": 1})
+    client = _build_authed_client(monkeypatch)
+    data = {"empresa_id": "1", "empleado_id": "10", "concurso_id": "9", "periodo": "2026-09", "ranking": "1"}
+    if allow:
+        data["permitir_otro_sector"] = "1"
+    path = "/premios-concursos/resultados/7/editar" if editing else "/premios-concursos/resultados/nuevo"
+    response = client.post(path, data=data)
+    assert response.status_code == 302
+    assert captured[0]["permitir_otro_sector"] is allow
+
+
+def test_resultado_form_keeps_exception_after_validation_error(monkeypatch):
+    monkeypatch.setattr(premios_routes, "get_empresas", lambda **kw: _stub_empresas())
+    monkeypatch.setattr(premios_routes, "_get_sectores", _stub_sectores)
+    monkeypatch.setattr(premios_routes, "get_empleados", _stub_empleados)
+    monkeypatch.setattr(premios_routes, "get_concursos_for_empresa", _stub_concursos)
+    client = _build_authed_client(monkeypatch)
+    response = client.post("/premios-concursos/resultados/nuevo", data={
+        "empresa_id": "1", "empleado_id": "10", "concurso_id": "9", "periodo": "2026-09",
+        "ranking": "0", "permitir_otro_sector": "1",
+    })
+    assert response.status_code == 200
+    assert b'Permitir ganador de otro sector' in response.data
+    assert b'name="permitir_otro_sector" value="1" checked' in response.data
 
 
 def test_premios_concursos_listado_ok(monkeypatch):

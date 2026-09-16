@@ -58,14 +58,29 @@
         </select>
       </div>
 
+      <div class="row span-2">
+        <label>
+          <input type="checkbox" name="permitir_otro_sector" value="1" {% if data.permitir_otro_sector %}checked{% endif %}>
+          Permitir ganador de otro sector
+        </label>
+        <small class="helper-text">Marque esta opción si ganó un concurso de otro sector de la misma empresa. Puede explicar el motivo en Observaciones.</small>
+      </div>
+
       <div class="row">
         <label>Ranking <span class="required">*</span></label>
         <input type="number" name="ranking" value="{{ data.ranking or '' }}" min="1" step="1" required>
       </div>
 
-      <div class="row span-2">
-        <label>Observaciones</label>
-        <input name="observaciones" value="{{ data.observaciones or '' }}" maxlength="255">
+      <div class="row span-2 premio-observaciones">
+        <label for="premio-observaciones">Observaciones <span class="observaciones-optional">(opcional)</span></label>
+        <textarea id="premio-observaciones" name="observaciones" rows="7" maxlength="5000"
+          aria-describedby="observaciones-help observaciones-count observaciones-status"
+          placeholder="Agregá detalles del premio o explicá por qué el ganador participó en un concurso de otro sector.">{{ data.observaciones or '' }}</textarea>
+        <div class="observaciones-footer">
+          <small id="observaciones-help" class="helper-text">Podés escribir en varios párrafos. Los espacios y saltos de línea también cuentan.</small>
+          <small id="observaciones-count" class="observaciones-count">{{ (data.observaciones or '')|length }} / 5.000 caracteres</small>
+        </div>
+        <small id="observaciones-status" class="observaciones-status" role="status" aria-live="polite"></small>
       </div>
     </div>
 
@@ -75,4 +90,7 @@
     </div>
   </form>
 </div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/premio_observaciones.js') }}" defer></script>
 {% endblock %}

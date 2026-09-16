@@ -17,6 +17,58 @@ def _safe_count(cursor, query, params=None):
         return 0
 
 
+def _attendance_period_counts(cursor, start, end, *, empresa_id=None, sucursal_id=None):
+    """Read the three attendance counters with one database round trip."""
+    filters = []
+    params = [start, end]
+    for column, value in (("empresa_id", empresa_id), ("sucursal_id", sucursal_id)):
+        if value:
+            filters.append(f"e.{column} = %s")
+            params.append(int(value))
+    join_sql = "JOIN empleados e ON e.id = a.empleado_id" if filters else ""
+    scope_sql = " AND " + " AND ".join(filters) if filters else ""
+    try:
+        cursor.execute(
+            f"""
+            SELECT COUNT(*),
+                   COUNT(CASE WHEN a.estado = 'tarde' THEN 1 END),
+                   COUNT(CASE WHEN a.estado = 'ausente' THEN 1 END)
+            FROM asistencias a
+            {join_sql}
+            WHERE a.fecha BETWEEN %s AND %s
+            {scope_sql}
+            """,
+            tuple(params),
+        )
+        row = cursor.fetchone()
+        return tuple(int(value or 0) for value in row) if row else (0, 0, 0)
+    except Exception:
+        current_app.logger.warning("dashboard_attendance_counts_error", exc_info=True)
+        return (0, 0, 0)
+
+
+
+def _justification_period_counts(cursor, start, end):
+    """Keep the timestamp index usable and include the entire final day."""
+    try:
+        cursor.execute(
+            """
+            SELECT COUNT(*),
+                   COUNT(CASE WHEN LOWER(COALESCE(estado, 'pendiente')) = 'pendiente' THEN 1 END),
+                   COUNT(CASE WHEN LOWER(COALESCE(estado, 'pendiente')) = 'aprobada' THEN 1 END),
+                   COUNT(CASE WHEN LOWER(COALESCE(estado, 'pendiente')) = 'rechazada' THEN 1 END)
+            FROM justificaciones
+            WHERE created_at >= %s AND created_at < %s
+            """,
+            (start, end + datetime.timedelta(days=1)),
+        )
+        row = cursor.fetchone()
+        return tuple(int(value or 0) for value in row) if row else (0, 0, 0, 0)
+    except Exception:
+        current_app.logger.warning("dashboard_justification_counts_error", exc_info=True)
+        return (0, 0, 0, 0)
+
+
 def _safe_fetchall(cursor, query, params=None):
     try:
         cursor.execute(query, params or ())
@@ -866,21 +918,11 @@ def _dashboard_metrics():
             """,
             (month_start, today, *scope_params),
         )
-        stats["asistencias_30d"] = _safe_count(
-            cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha BETWEEN %s AND %s",
-            (since_30, today),
-        )
-        stats["tardes_30d"] = _safe_count(
-            cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha BETWEEN %s AND %s AND estado = 'tarde'",
-            (since_30, today),
-        )
-        stats["ausentes_30d"] = _safe_count(
-            cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha BETWEEN %s AND %s AND estado = 'ausente'",
-            (since_30, today),
-        )
+        (
+            stats["asistencias_30d"],
+            stats["tardes_30d"],
+            stats["ausentes_30d"],
+        ) = _attendance_period_counts(cursor, since_30, today)
         stats["fichadas_mes"] = _safe_count(
             cursor,
             """
@@ -905,21 +947,11 @@ def _dashboard_metrics():
         if stats["fichadas_mes"] > 0:
             stats["puntualidad_mes_pct"] = round((stats["ok_fichadas_mes"] * 100.0) / stats["fichadas_mes"], 1)
 
-        stats["asistencias_mes"] = _safe_count(
-            cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha BETWEEN %s AND %s",
-            (month_start, today),
-        )
-        stats["tardes_mes"] = _safe_count(
-            cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha BETWEEN %s AND %s AND estado = 'tarde'",
-            (month_start, today),
-        )
-        stats["ausentes_mes"] = _safe_count(
-            cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha BETWEEN %s AND %s AND estado = 'ausente'",
-            (month_start, today),
-        )
+        (
+            stats["asistencias_mes"],
+            stats["tardes_mes"],
+            stats["ausentes_mes"],
+        ) = _attendance_period_counts(cursor, month_start, today)
         if stats["asistencias_mes"] > 0:
             stats["ausentismo_mes_pct"] = round((stats["ausentes_mes"] * 100.0) / stats["asistencias_mes"], 1)
         resumen_cursor = db.cursor(dictionary=True)
@@ -972,45 +1004,12 @@ def _dashboard_metrics():
                 (stats["ausentes_sin_justificacion_mes"] * 100.0) / stats["ausentes_mes"],
                 1,
             )
-        stats["justificaciones_mes_total"] = _safe_count(
-            cursor,
-            """
-            SELECT COUNT(*)
-            FROM justificaciones
-            WHERE DATE(created_at) BETWEEN %s AND %s
-            """,
-            (month_start, today),
-        )
-        stats["justificaciones_mes_pendientes"] = _safe_count(
-            cursor,
-            """
-            SELECT COUNT(*)
-            FROM justificaciones
-            WHERE DATE(created_at) BETWEEN %s AND %s
-              AND LOWER(COALESCE(estado, 'pendiente')) = 'pendiente'
-            """,
-            (month_start, today),
-        )
-        stats["justificaciones_mes_aprobadas"] = _safe_count(
-            cursor,
-            """
-            SELECT COUNT(*)
-            FROM justificaciones
-            WHERE DATE(created_at) BETWEEN %s AND %s
-              AND LOWER(COALESCE(estado, 'pendiente')) = 'aprobada'
-            """,
-            (month_start, today),
-        )
-        stats["justificaciones_mes_rechazadas"] = _safe_count(
-            cursor,
-            """
-            SELECT COUNT(*)
-            FROM justificaciones
-            WHERE DATE(created_at) BETWEEN %s AND %s
-              AND LOWER(COALESCE(estado, 'pendiente')) = 'rechazada'
-            """,
-            (month_start, today),
-        )
+        (
+            stats["justificaciones_mes_total"],
+            stats["justificaciones_mes_pendientes"],
+            stats["justificaciones_mes_aprobadas"],
+            stats["justificaciones_mes_rechazadas"],
+        ) = _justification_period_counts(cursor, month_start, today)
         stats["justificaciones_pendientes_total"] = _safe_count(
             cursor,
             """
@@ -1099,21 +1098,11 @@ def _dashboard_metrics():
                 2,
             )
 
-        stats["asistencias_anio"] = _safe_count(
-            cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha BETWEEN %s AND %s",
-            (year_start, today),
-        )
-        stats["tardes_anio"] = _safe_count(
-            cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha BETWEEN %s AND %s AND estado = 'tarde'",
-            (year_start, today),
-        )
-        stats["ausentes_anio"] = _safe_count(
-            cursor,
-            "SELECT COUNT(*) FROM asistencias WHERE fecha BETWEEN %s AND %s AND estado = 'ausente'",
-            (year_start, today),
-        )
+        (
+            stats["asistencias_anio"],
+            stats["tardes_anio"],
+            stats["ausentes_anio"],
+        ) = _attendance_period_counts(cursor, year_start, today)
         if stats["asistencias_anio"] > 0:
             stats["ausentismo_anual_pct"] = round((stats["ausentes_anio"] * 100.0) / stats["asistencias_anio"], 1)
 
@@ -1381,43 +1370,12 @@ def _dashboard_metrics():
             else:
                 stats["presentismo_hoy_pct"] = 0.0
 
-            stats["asistencias_hoy"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha = %s
-                """,
-                (*scoped_params, today),
-            )
-            stats["tardes_hoy"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha = %s
-                  AND a.estado = 'tarde'
-                """,
-                (*scoped_params, today),
-            )
-            stats["ausentes_hoy"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha = %s
-                  AND a.estado = 'ausente'
-                """,
-                (*scoped_params, today),
+            (
+                stats["asistencias_hoy"],
+                stats["tardes_hoy"],
+                stats["ausentes_hoy"],
+            ) = _attendance_period_counts(
+                cursor, today, today, empresa_id=empresa_id, sucursal_id=sucursal_id,
             )
             stats["excepciones_hoy"] = _safe_count(
                 cursor,
@@ -1445,43 +1403,12 @@ def _dashboard_metrics():
                 (*scoped_params, today, today),
             )
 
-            stats["asistencias_30d"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha BETWEEN %s AND %s
-                """,
-                (*scoped_params, since_30, today),
-            )
-            stats["tardes_30d"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha BETWEEN %s AND %s
-                  AND a.estado = 'tarde'
-                """,
-                (*scoped_params, since_30, today),
-            )
-            stats["ausentes_30d"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha BETWEEN %s AND %s
-                  AND a.estado = 'ausente'
-                """,
-                (*scoped_params, since_30, today),
+            (
+                stats["asistencias_30d"],
+                stats["tardes_30d"],
+                stats["ausentes_30d"],
+            ) = _attendance_period_counts(
+                cursor, since_30, today, empresa_id=empresa_id, sucursal_id=sucursal_id,
             )
             stats["fichadas_mes"] = _safe_count(
                 cursor,
@@ -1515,43 +1442,12 @@ def _dashboard_metrics():
                 if stats["fichadas_mes"] > 0
                 else 0.0
             )
-            stats["asistencias_mes"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha BETWEEN %s AND %s
-                """,
-                (*scoped_params, month_start, today),
-            )
-            stats["tardes_mes"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha BETWEEN %s AND %s
-                  AND a.estado = 'tarde'
-                """,
-                (*scoped_params, month_start, today),
-            )
-            stats["ausentes_mes"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha BETWEEN %s AND %s
-                  AND a.estado = 'ausente'
-                """,
-                (*scoped_params, month_start, today),
+            (
+                stats["asistencias_mes"],
+                stats["tardes_mes"],
+                stats["ausentes_mes"],
+            ) = _attendance_period_counts(
+                cursor, month_start, today, empresa_id=empresa_id, sucursal_id=sucursal_id,
             )
             stats["ausentismo_mes_pct"] = (
                 round((stats["ausentes_mes"] * 100.0) / stats["asistencias_mes"], 1)
@@ -1598,43 +1494,12 @@ def _dashboard_metrics():
                 """,
                 (*scoped_params, quarter_start, today),
             )
-            stats["asistencias_anio"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha BETWEEN %s AND %s
-                """,
-                (*scoped_params, year_start, today),
-            )
-            stats["tardes_anio"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha BETWEEN %s AND %s
-                  AND a.estado = 'tarde'
-                """,
-                (*scoped_params, year_start, today),
-            )
-            stats["ausentes_anio"] = _safe_count(
-                cursor,
-                f"""
-                SELECT COUNT(*)
-                FROM asistencias a
-                JOIN empleados e ON e.id = a.empleado_id
-                WHERE 1 = 1
-                {scope_sql}
-                  AND a.fecha BETWEEN %s AND %s
-                  AND a.estado = 'ausente'
-                """,
-                (*scoped_params, year_start, today),
+            (
+                stats["asistencias_anio"],
+                stats["tardes_anio"],
+                stats["ausentes_anio"],
+            ) = _attendance_period_counts(
+                cursor, year_start, today, empresa_id=empresa_id, sucursal_id=sucursal_id,
             )
             stats["ausentismo_anual_pct"] = (
                 round((stats["ausentes_anio"] * 100.0) / stats["asistencias_anio"], 1)

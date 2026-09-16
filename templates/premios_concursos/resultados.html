@@ -162,7 +162,7 @@
                   <span class="badge">{{ r.ranking }}</span>
                 {% endif %}
                 {% if r.observaciones %}
-                  <small style="display:block;color:var(--muted)">{{ r.observaciones }}</small>
+                  <small style="display:block;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere">{{ r.observaciones }}</small>
                 {% endif %}
               </td>
               <td data-label="Acciones">

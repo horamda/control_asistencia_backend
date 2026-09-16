@@ -118,42 +118,27 @@ def get_page(
             where.append("COALESCE(e.requiere_control_asistencia, 1) = %s")
             params.append(int(requiere_control_asistencia))
         if legajo_eventos == "con_eventos":
-            where.append("COALESCE(legajo_stats.eventos_total, 0) > 0")
+            where.append("EXISTS (SELECT 1 FROM legajo_eventos le WHERE le.empleado_id = e.id)")
         elif legajo_eventos == "sin_eventos":
-            where.append("COALESCE(legajo_stats.eventos_total, 0) = 0")
+            where.append("NOT EXISTS (SELECT 1 FROM legajo_eventos le WHERE le.empleado_id = e.id)")
         elif legajo_eventos == "vigentes":
-            where.append("COALESCE(legajo_stats.eventos_vigentes, 0) > 0")
+            where.append("EXISTS (SELECT 1 FROM legajo_eventos le WHERE le.empleado_id = e.id AND le.estado = 'vigente')")
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         cursor.execute(f"""
             SELECT e.*, emp.razon_social AS empresa_nombre, s.nombre AS sucursal_nombre,
                    sec.nombre AS sector_nombre, p.nombre AS puesto_nombre, l.localidad AS localidad_nombre,
-                   extras.puestos_adicionales_nombres,
-                   COALESCE(legajo_stats.eventos_total, 0) AS legajo_eventos_total,
-                   COALESCE(legajo_stats.eventos_vigentes, 0) AS legajo_eventos_vigentes,
-                   legajo_stats.ultima_fecha_evento AS legajo_ultima_fecha_evento
+                   (SELECT GROUP_CONCAT(DISTINCT pa.nombre ORDER BY pa.nombre SEPARATOR ', ')
+                    FROM empleado_puestos ep JOIN puestos pa ON pa.id = ep.puesto_id
+                    WHERE ep.empleado_id = e.id AND ep.activo = 1) AS puestos_adicionales_nombres,
+                   (SELECT COUNT(*) FROM legajo_eventos le WHERE le.empleado_id = e.id) AS legajo_eventos_total,
+                   (SELECT COUNT(*) FROM legajo_eventos le WHERE le.empleado_id = e.id AND le.estado = 'vigente') AS legajo_eventos_vigentes,
+                   (SELECT MAX(le.fecha_evento) FROM legajo_eventos le WHERE le.empleado_id = e.id) AS legajo_ultima_fecha_evento
             FROM empleados e
             JOIN empresas emp ON emp.id = e.empresa_id
             LEFT JOIN sucursales s ON s.id = e.sucursal_id
             LEFT JOIN sectores sec ON sec.id = e.sector_id
             LEFT JOIN puestos p ON p.id = e.puesto_id
             LEFT JOIN localidades l ON l.codigo_postal = e.codigo_postal
-            LEFT JOIN (
-                SELECT ep.empleado_id,
-                       GROUP_CONCAT(DISTINCT pa.nombre ORDER BY pa.nombre SEPARATOR ', ') AS puestos_adicionales_nombres
-                FROM empleado_puestos ep
-                JOIN puestos pa ON pa.id = ep.puesto_id
-                WHERE ep.activo = 1
-                GROUP BY ep.empleado_id
-            ) extras ON extras.empleado_id = e.id
-            LEFT JOIN (
-                SELECT
-                    empleado_id,
-                    COUNT(*) AS eventos_total,
-                    SUM(CASE WHEN estado = 'vigente' THEN 1 ELSE 0 END) AS eventos_vigentes,
-                    MAX(fecha_evento) AS ultima_fecha_evento
-                FROM legajo_eventos
-                GROUP BY empleado_id
-            ) legajo_stats ON legajo_stats.empleado_id = e.id
             {where_sql}
             ORDER BY e.apellido, e.nombre
             LIMIT %s OFFSET %s
@@ -163,14 +148,6 @@ def get_page(
         cursor.execute(f"""
             SELECT COUNT(*) AS total
             FROM empleados e
-            LEFT JOIN (
-                SELECT
-                    empleado_id,
-                    COUNT(*) AS eventos_total,
-                    SUM(CASE WHEN estado = 'vigente' THEN 1 ELSE 0 END) AS eventos_vigentes
-                FROM legajo_eventos
-                GROUP BY empleado_id
-            ) legajo_stats ON legajo_stats.empleado_id = e.id
             {where_sql}
         """, params)
         total = cursor.fetchone()["total"]

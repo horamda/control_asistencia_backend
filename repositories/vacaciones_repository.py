@@ -1,6 +1,41 @@
 from extensions import get_db
 
 
+def get_resumen_inputs_batch(empleado_ids, anio):
+    """Load only the employees on the current page; two queries, no per-row IO."""
+    ids = sorted({int(value) for value in empleado_ids})
+    if not ids:
+        return [], []
+    placeholders = ",".join(["%s"] * len(ids))
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            f"""
+            SELECT DISTINCT empleado_id, empresa_id, fecha
+            FROM asistencias
+            WHERE empleado_id IN ({placeholders}) AND fecha BETWEEN %s AND %s
+              AND (hora_entrada IS NOT NULL OR hora_salida IS NOT NULL
+                   OR LOWER(COALESCE(estado, '')) IN ('ok', 'tarde', 'salida_anticipada'))
+            """,
+            (*ids, f"{int(anio):04d}-01-01", f"{int(anio):04d}-12-31"),
+        )
+        worked_days = cursor.fetchall()
+        cursor.execute(
+            f"""
+            SELECT empleado_id, empresa_id, tipo, estado, dias,
+                   origen_movimiento_id, revertido_por_movimiento_id
+            FROM vacaciones_movimientos
+            WHERE empleado_id IN ({placeholders}) AND anio = %s
+            """,
+            (*ids, int(anio)),
+        )
+        return worked_days, cursor.fetchall()
+    finally:
+        cursor.close()
+        db.close()
+
+
 def get_empleado_for_vacaciones(empleado_id: int):
     db = get_db()
     cursor = db.cursor(dictionary=True)

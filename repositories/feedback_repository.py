@@ -112,6 +112,7 @@ def _build_where(
     sector_origen_id: int | None = None,
     sector_responsable_id: int | None = None,
     sucursal_id: int | None = None,
+    sucursal_ids: list[int] | None = None,
     empleado_activo: int | None = None,
 ):
     where = []
@@ -147,6 +148,12 @@ def _build_where(
     if sucursal_id:
         where.append("COALESCE(f.sucursal_id, ee.sucursal_id) = %s")
         params.append(int(sucursal_id))
+    if sucursal_ids is not None:
+        if sucursal_ids:
+            where.append("COALESCE(f.sucursal_id, ee.sucursal_id) IN (" + ",".join(["%s"] * len(sucursal_ids)) + ")")
+            params.extend(int(value) for value in sucursal_ids)
+        else:
+            where.append("1 = 0")
     if empleado_activo in (0, 1):
         where.append("ee.activo = %s")
         params.append(int(empleado_activo))
@@ -287,6 +294,7 @@ def get_page(
     sector_origen_id: int | None = None,
     sector_responsable_id: int | None = None,
     sucursal_id: int | None = None,
+    sucursal_ids: list[int] | None = None,
     empleado_activo: int | None = None,
     cliente_codigo: str | None = None,
     carga_desde=None,
@@ -308,6 +316,7 @@ def get_page(
         sector_origen_id=sector_origen_id,
         sector_responsable_id=sector_responsable_id,
         sucursal_id=sucursal_id,
+        sucursal_ids=sucursal_ids,
         empleado_activo=empleado_activo,
     )
     # Límites superiores exclusivos para incluir todo el día seleccionado.

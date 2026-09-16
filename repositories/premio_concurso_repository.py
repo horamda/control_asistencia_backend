@@ -1,4 +1,5 @@
 import datetime
+import calendar
 
 from extensions import get_db
 
@@ -352,10 +353,20 @@ def _build_resultado_filters(
             ")"
         )
         params.extend([like, like, like, like, like, like])
-    if periodo_year:
-        where.append("YEAR(r.periodo) = %s")
-        params.append(int(periodo_year))
-    if periodo_month:
+    if periodo_year and 1 <= int(periodo_year) <= 9999:
+        year = int(periodo_year)
+        month = int(periodo_month) if periodo_month else None
+        if month is None or 1 <= month <= 12:
+            first = datetime.date(year, month or 1, 1)
+            last_month = month or 12
+            last = datetime.date(year, last_month, calendar.monthrange(year, last_month)[1])
+            where.append("r.periodo BETWEEN %s AND %s")
+            params.extend([first.isoformat(), last.isoformat()])
+        else:
+            where.append("1 = 0")
+    elif periodo_year:
+        where.append("1 = 0")
+    elif periodo_month:
         where.append("MONTH(r.periodo) = %s")
         params.append(int(periodo_month))
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
@@ -595,14 +606,14 @@ def _fetch_concurso(cursor, empresa_id: int, concurso_id: int):
     return cursor.fetchone()
 
 
-def _validate_resultado_data(empleado: dict, concurso: dict) -> None:
+def _validate_resultado_data(empleado: dict, concurso: dict, *, permitir_otro_sector: bool = False) -> None:
     if not empleado:
         raise ValueError("Empleado no encontrado para la empresa seleccionada.")
     if not concurso:
         raise ValueError("Concurso no encontrado para la empresa seleccionada.")
     alcance = str(concurso.get("alcance") or "").lower()
-    if alcance == "sector" and int(empleado.get("sector_id") or 0) != int(concurso.get("sector_id") or 0):
-        raise ValueError("El empleado no pertenece al sector configurado para este concurso.")
+    if not permitir_otro_sector and alcance == "sector" and int(empleado.get("sector_id") or 0) != int(concurso.get("sector_id") or 0):
+        raise ValueError("El empleado no pertenece al sector configurado para este concurso. Para registrar la excepcion, marque 'Permitir ganador de otro sector' en la carga manual.")
 
 
 def _prepare_resultado(
@@ -614,8 +625,12 @@ def _prepare_resultado(
     ranking: int,
     observaciones: str | None = None,
     actor_id: int | None = None,
+    permitir_otro_sector: bool = False,
 ) -> dict:
-    _validate_resultado_data(empleado, concurso)
+    _validate_resultado_data(empleado, concurso, permitir_otro_sector=permitir_otro_sector)
+    observaciones = (observaciones or "").strip() or None
+    if observaciones and len(observaciones) > 5000:
+        raise ValueError("Observaciones admite hasta 5000 caracteres.")
     ranking_int = int(ranking)
     if ranking_int < 1:
         raise ValueError("Ranking debe ser mayor o igual a 1.")
@@ -633,7 +648,7 @@ def _prepare_resultado(
         "empleado_nombre_snapshot": empleado_nombre,
         "concurso_codigo_snapshot": _normalize_codigo(concurso.get("codigo")),
         "concurso_nombre_snapshot": str(concurso.get("nombre") or "").strip(),
-        "observaciones": (observaciones or "").strip() or None,
+        "observaciones": observaciones,
         "actor_id": int(actor_id) if actor_id else None,
     }
 
@@ -813,6 +828,7 @@ def save_resultado(data: dict, *, resultado_id: int | None = None):
             ranking=int(data.get("ranking")),
             observaciones=data.get("observaciones"),
             actor_id=data.get("actor_id"),
+            permitir_otro_sector=data.get("permitir_otro_sector") is True,
         )
         saved_id, created = _save_prepared_resultado(cursor, prepared, resultado_id=resultado_id)
         db.commit()

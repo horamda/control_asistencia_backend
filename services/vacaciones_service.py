@@ -1,4 +1,6 @@
 import datetime
+from bisect import bisect_left, bisect_right
+from collections import defaultdict
 from decimal import Decimal
 
 from repositories.vacaciones_repository import (
@@ -8,6 +10,7 @@ from repositories.vacaciones_repository import (
     get_empleado_for_vacaciones,
     get_movimiento_by_id,
     get_movimientos_by_empleado_anio,
+    get_resumen_inputs_batch,
     mark_movimiento_revertido,
     update_movimiento,
     update_movimiento_estado,
@@ -142,6 +145,46 @@ def _get_empleado_activo(empleado_id: int) -> dict:
 
 def calcular_resumen_vacaciones(empleado_id: int, anio: int) -> dict:
     empleado = _get_empleado_activo(empleado_id)
+    return _calcular_resumen_vacaciones(
+        empleado, anio, count_worked=count_dias_efectivamente_trabajados,
+        load_movimientos=get_movimientos_by_empleado_anio,
+    )
+
+
+def calcular_resumenes_vacaciones(empleados: list[dict], anio: int) -> dict:
+    valid = [e for e in empleados if e.get("id") and e.get("activo") and e.get("empresa_id")]
+    if not valid:
+        return {}
+    worked, movimientos = get_resumen_inputs_batch([e["id"] for e in valid], anio)
+    days_by_employee = defaultdict(set)
+    movements_by_employee = defaultdict(list)
+    for row in worked:
+        days_by_employee[(int(row["empleado_id"]), int(row["empresa_id"]))].add(_parse_date(row["fecha"]))
+    dates = {key: sorted(values) for key, values in days_by_employee.items()}
+    for row in movimientos:
+        movements_by_employee[(int(row["empleado_id"]), int(row["empresa_id"]))].append(row)
+
+    def count_worked(*, empleado_id, empresa_id, fecha_desde, fecha_hasta):
+        days = dates.get((empleado_id, empresa_id), [])
+        return bisect_right(days, _parse_date(fecha_hasta)) - bisect_left(days, _parse_date(fecha_desde))
+
+    def load_movimientos(*, empleado_id, empresa_id, anio):
+        return movements_by_employee.get((empleado_id, empresa_id), [])
+
+    result = {}
+    for empleado in valid:
+        try:
+            result[int(empleado["id"])] = _calcular_resumen_vacaciones(
+                empleado, anio, count_worked=count_worked, load_movimientos=load_movimientos,
+            )
+        except VacacionesError:
+            # The individual panel summary also omits invalid employee dates.
+            result[int(empleado["id"])] = None
+    return result
+
+
+def _calcular_resumen_vacaciones(empleado, anio, *, count_worked, load_movimientos):
+    empleado_id = int(empleado["id"])
     fecha_ingreso = _parse_date(empleado.get("fecha_ingreso"), "fecha_ingreso")
     fecha_baja = (
         _parse_date(empleado.get("fecha_baja"), "fecha_baja")
@@ -177,7 +220,7 @@ def calcular_resumen_vacaciones(empleado_id: int, anio: int) -> dict:
         else _count_workdays(desde_trabajado, fin_anio)
     )
     hasta_trabajado = fin_evaluacion or fin_anio
-    dias_trabajados_anio = count_dias_efectivamente_trabajados(
+    dias_trabajados_anio = count_worked(
         empleado_id=int(empleado_id),
         empresa_id=empresa_id,
         fecha_desde=desde_trabajado.isoformat(),
@@ -196,7 +239,7 @@ def calcular_resumen_vacaciones(empleado_id: int, anio: int) -> dict:
     if calculo_proporcional:
         dias_base = dias_trabajados_anio // 20
 
-    movimientos = get_movimientos_by_empleado_anio(
+    movimientos = load_movimientos(
         empleado_id=int(empleado_id),
         empresa_id=empresa_id,
         anio=anio,

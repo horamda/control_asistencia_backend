@@ -364,6 +364,9 @@ def bulk_upsert_resultados(rows: list[tuple]):
             rows,
         )
         db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         cursor.close()
         db.close()

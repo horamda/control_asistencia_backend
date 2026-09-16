@@ -4,7 +4,7 @@ import hmac
 import math
 import os
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, current_app, g, jsonify, request
 
 from repositories.asistencia_marca_repository import (
     get_for_export_admin as get_marcas_admin_export,
@@ -18,7 +18,9 @@ from repositories.external_api_repository import (
 )
 from services.asistencia_reporte_service import build_asistencia_reporte_csv
 from services.external_api_auth_service import (
-    EXTERNAL_API_SCOPE,
+    EXTERNAL_API_KPI_WRITE_SCOPE,
+    external_api_scopes,
+    external_kpi_write_enabled,
     ExternalApiAuthConfigError,
     ExternalApiTokenError,
     authenticate_external_credentials,
@@ -27,6 +29,7 @@ from services.external_api_auth_service import (
     verify_external_access_token,
 )
 from utils.limiter import limiter
+from services.external_kpi_service import KpiBatchError, guardar_resultados_kpi
 
 external_api_bp = Blueprint("external_api", __name__, url_prefix="/api/v1/external")
 
@@ -87,7 +90,7 @@ def _require_external_api_key():
         if expected_key and hmac.compare_digest(bearer_token, expected_key):
             return None
         try:
-            verify_external_access_token(bearer_token)
+            g.external_api_identity = verify_external_access_token(bearer_token)
             return None
         except ExternalApiAuthConfigError as exc:
             return jsonify({"error": str(exc)}), 503
@@ -118,11 +121,32 @@ def auth_token():
         "access_token": token,
         "token_type": "Bearer",
         "expires_in": expires_in,
-        "scope": EXTERNAL_API_SCOPE,
+        "scope": external_api_scopes(),
     })
     response.headers["Cache-Control"] = "no-store"
     response.headers["Pragma"] = "no-cache"
     return response
+
+
+@external_api_bp.route("/kpis/resultados", methods=["POST"])
+@limiter.limit("30 per minute")
+def cargar_resultados_kpi():
+    identity = getattr(g, "external_api_identity", {})
+    scopes = set(str(identity.get("scope") or "").split())
+    if not external_kpi_write_enabled() or EXTERNAL_API_KPI_WRITE_SCOPE not in scopes:
+        return jsonify({"error": "Se requiere un token con permiso kpis:write y la escritura de KPIs habilitada."}), 403
+    if not request.is_json:
+        return jsonify({"error": "Use Content-Type: application/json."}), 415
+    try:
+        result = guardar_resultados_kpi(request.get_json(silent=True))
+    except KpiBatchError as exc:
+        return jsonify({"error": str(exc), "guardados": 0, "detalle_errores": exc.errors}), exc.status
+    except Exception:
+        current_app.logger.exception("external_kpi_write_error")
+        return jsonify({"error": "No se pudo completar la carga. Puede reintentar el mismo lote."}), 500
+    current_app.logger.info("external_kpi_write user=%s empresa_id=%s guardados=%s",
+                            identity.get("sub"), result["empresa_id"], result["guardados"])
+    return jsonify(result)
 
 
 def _split_values(*names: str) -> list[str]:

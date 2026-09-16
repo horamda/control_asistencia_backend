@@ -19,7 +19,14 @@
 
   <section class="panel">
     <form method="get" class="dashboard-filter-form feedback-filter">
+      {% if sucursal_grupo %}<input type="hidden" name="sucursal_grupo" value="{{ sucursal_grupo }}">{% endif %}
       <div class="form-grid">
+        <div class="row"><label for="reg-desde">Registrado desde</label><input id="reg-desde" type="date" name="desde" value="{{ desde }}"></div>
+        <div class="row"><label for="reg-hasta">Registrado hasta</label><input id="reg-hasta" type="date" name="hasta" value="{{ hasta }}"></div>
+        <div class="row"><label for="reg-condicion">Plazo de resolución</label><select id="reg-condicion" name="condicion_temporal">
+          <option value="">Todos</option>
+          {% for value, label in [('pendiente_en_termino', 'Pendiente en plazo'), ('pendiente_vencido', 'Pendiente vencido'), ('resuelto_en_termino', 'Resuelto en plazo'), ('resuelto_fuera_termino', 'Resuelto fuera de plazo')] %}<option value="{{ value }}" {% if condicion_temporal == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select></div>
         <div class="row span-2">
           <label>Buscar</label>
           <input type="text" name="q" value="{{ q }}" placeholder="Empleado, cliente, motivo o descripcion">
@@ -178,8 +185,8 @@
     </div>
 
     <div class="pager feedback-pager">
-      {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado', page=page-1, per=per_page, q=q, sector_id=sector_id, sector_responsable_id=sector_responsable_id, sucursal_id=sucursal_id, jefe_directo_id=jefe_directo_id, empleado_activo=empleado_activo, estado=estado) }}">Anterior</a>{% endif %}
-      {% if page * per_page < total %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado', page=page+1, per=per_page, q=q, sector_id=sector_id, sector_responsable_id=sector_responsable_id, sucursal_id=sucursal_id, jefe_directo_id=jefe_directo_id, empleado_activo=empleado_activo, estado=estado) }}">Siguiente</a>{% endif %}
+      {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado', page=page-1, per=per_page, q=q, sector_id=sector_id, sector_responsable_id=sector_responsable_id, sucursal_id=sucursal_id, jefe_directo_id=jefe_directo_id, empleado_activo=empleado_activo, estado=estado, desde=desde, hasta=hasta, condicion_temporal=condicion_temporal, sucursal_grupo=sucursal_grupo) }}">Anterior</a>{% endif %}
+      {% if page * per_page < total %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.registros_listado', page=page+1, per=per_page, q=q, sector_id=sector_id, sector_responsable_id=sector_responsable_id, sucursal_id=sucursal_id, jefe_directo_id=jefe_directo_id, empleado_activo=empleado_activo, estado=estado, desde=desde, hasta=hasta, condicion_temporal=condicion_temporal, sucursal_grupo=sucursal_grupo) }}">Siguiente</a>{% endif %}
       <span class="summary">Pagina {{ page }} - {{ total }} registros</span>
     </div>
   </section>

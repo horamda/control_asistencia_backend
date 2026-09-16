@@ -664,9 +664,7 @@ def reportes_mensuales():
         limit=20000,
         order_asc=True,
     )
-    if sucursal_id:
-        marcas = [m for m in marcas if int(m.get("empleado_id") or 0) in {int(e.get("id")) for e in empleados if e.get("id")}]
-    if sector_id:
+    if sucursal_id or sector_id:
         empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
         marcas = [m for m in marcas if int(m.get("empleado_id") or 0) in empleado_ids]
 

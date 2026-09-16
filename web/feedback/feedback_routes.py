@@ -34,6 +34,7 @@ from services.feedback_service import (
 from utils.audit import log_audit
 from web.auth.decorators import current_empleado_id, has_role, login_required, role_required, strict_admin_required, is_strict_admin
 from services.feedback_dates_service import correct_dates, date_version
+from services.feedback_dashboard_service import branch_groups, resolve_branch, parse_period, build_dashboard
 
 feedback_web_bp = Blueprint("feedback_web", __name__, url_prefix="/feedback")
 
@@ -153,51 +154,34 @@ def _can_respond_feedback_item(item: dict, actor_empleado_id: int | None) -> boo
 @role_required("admin", "rrhh", "supervisor", "jefe")
 def dashboard():
     scope = _current_feedback_scope()
-    sector_id = _parse_int(request.args.get("sector_id"))
-    if not scope.get("global"):
-        sector_id = scope.get("sector_id")
-    sucursal_id = _parse_int(request.args.get("sucursal_id"))
-    empleado_activo_raw = (request.args.get("empleado_activo") or "1").strip().lower()
-    empleado_activo = None
-    if empleado_activo_raw == "1":
-        empleado_activo = 1
-    elif empleado_activo_raw == "0":
-        empleado_activo = 0
-    else:
-        empleado_activo_raw = "all"
-    empleado_id = current_empleado_id()
-    if scope.get("error"):
-        datos = get_feedback_dashboard(sector_id=-1, empleado_id=empleado_id, empleado_activo=empleado_activo)
-        bandeja_pendiente = 0
-    else:
-        datos = get_feedback_dashboard(
-            sector_id=sector_id,
-            sucursal_id=sucursal_id,
-            empleado_id=empleado_id,
-            empleado_activo=empleado_activo,
-        )
-        bandeja_pendiente = 0
-        if empleado_id:
-            _, bandeja_pendiente = get_feedback_bandeja(jefe_directo_id=empleado_id, page=1, per_page=1, estado="pendiente")
+    sector_id = _parse_int(request.args.get("sector_id")) if scope.get("global") else scope.get("sector_id")
+    groups = branch_groups(get_sucursales(include_inactive=True))
+    sucursal_id, sucursal_ids = resolve_branch(groups, _parse_int(request.args.get("sucursal_id")))
+    activo_raw = request.args.get("empleado_activo", "all")
+    activo_raw = activo_raw if activo_raw in {"1", "0"} else "all"
+    empleado_activo = int(activo_raw) if activo_raw != "all" else None
+    error = scope.get("error")
+    try:
+        desde, hasta = parse_period(request.args, default=True)
+    except ValueError as exc:
+        error = str(exc)
+        desde, hasta = parse_period({}, default=True)
+    datos = build_dashboard(desde=desde, hasta=hasta, groups=groups, sector_id=sector_id,
+                            sucursal_ids=sucursal_ids, empleado_activo=empleado_activo, blocked=bool(error))
+    link_filters = dict(sector_id=sector_id, sucursal_id=sucursal_id, sucursal_grupo="1",
+                        empleado_activo=activo_raw, desde=desde.isoformat(), hasta=hasta.isoformat())
+    def registros_url(**overrides):
+        return url_for("feedback_web.registros_listado", **dict(link_filters, **overrides))
+    quick_filters = dict(sector_id=sector_id, sucursal_id=sucursal_id, empleado_activo=activo_raw)
     return render_template(
-        "feedback/dashboard.html",
-        resumen=datos["resumen"],
-        top_motivos=datos["top_motivos"],
-        ranking=datos["ranking"],
-        personal=datos.get("personal"),
-        totales=datos.get("totales"),
-        total_motivos=count_motivos(include_inactive=True),
-        total_clientes=count_clientes(include_inactive=True),
-        sectores=get_sectores(include_inactive=True),
-        sucursales=get_sucursales(include_inactive=True),
+        "feedback/dashboard.html", **datos,
+        grupos_sucursales=groups, sectores=get_sectores(include_inactive=True),
+        sector_id=sector_id, sucursal_id=sucursal_id, empleado_activo=activo_raw,
+        desde=desde.isoformat(), hasta=hasta.isoformat(), scope_error=error,
         can_manage_feedback=scope.get("global"),
-        scope_error=scope.get("error"),
         scope_sector_nombre=(scope.get("empleado") or {}).get("sector_nombre"),
-        sector_id=sector_id,
-        sucursal_id=sucursal_id,
-        empleado_activo=empleado_activo_raw,
-        tiene_empleado_vinculado=bool(empleado_id),
-        bandeja_pendiente=bandeja_pendiente,
+        registros_url=registros_url, quick_filters=quick_filters,
+        tiene_empleado_vinculado=bool(current_empleado_id()),
     )
 
 
@@ -230,6 +214,28 @@ def registros_listado():
     empleado_activo = 1 if activo_raw == "1" else 0 if activo_raw == "0" else None
     activo_raw = activo_raw if activo_raw in {"1", "0"} else "all"
     search = (request.args.get("q") or "").strip() or None
+    sucursales = get_sucursales(include_inactive=True)
+    grouped = request.args.get("sucursal_grupo") == "1"
+    extra_filters = {}
+    if grouped:
+        sucursales = branch_groups(sucursales)
+        sucursal_id, ids = resolve_branch(sucursales, sucursal_id)
+        if ids is not None:
+            extra_filters["sucursal_ids"] = ids
+    desde = hasta = None
+    try:
+        desde, hasta = parse_period(request.args)
+        if desde:
+            extra_filters.update(carga_desde=desde, carga_hasta=hasta)
+    except ValueError as exc:
+        error = str(exc)
+        blocked_by_missing_employee = True
+        rows, total = [], 0
+    condicion = request.args.get("condicion_temporal", "")
+    if condicion not in {"pendiente_en_termino", "pendiente_vencido", "resuelto_en_termino", "resuelto_fuera_termino"}:
+        condicion = ""
+    if condicion:
+        extra_filters["condicion_temporal"] = condicion
     if not blocked_by_missing_employee:
         rows, total = get_feedbacks_page(
             page,
@@ -238,9 +244,10 @@ def registros_listado():
             search=search,
             sector_id=sector_id,
             sector_responsable_id=sector_responsable_id,
-            sucursal_id=sucursal_id,
+            sucursal_id=None if grouped else sucursal_id,
             jefe_directo_id=jefe_directo_id,
             empleado_activo=empleado_activo,
+            **extra_filters,
         )
     serialized_feedbacks = [serialize_feedback(row) for row in rows]
     actor_empleado_id = current_empleado_id()
@@ -251,7 +258,10 @@ def registros_listado():
         "feedback/registros_listado.html",
         feedbacks=serialized_feedbacks,
         sectores=get_sectores(include_inactive=True),
-        sucursales=get_sucursales(include_inactive=True),
+        sucursales=sucursales,
+        sucursal_grupo="1" if grouped else "",
+        desde=desde.isoformat() if desde else "", hasta=hasta.isoformat() if hasta else "",
+        condicion_temporal=condicion,
         jefes=get_empleados(include_inactive=True) if can_manage_feedback else [],
         can_manage_feedback=can_manage_feedback,
         scope_sector_nombre=(scope.get("empleado") or {}).get("sector_nombre"),

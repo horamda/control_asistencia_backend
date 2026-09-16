@@ -1,4 +1,5 @@
 import app as app_module
+import pytest
 import routes.external_api_routes as external_routes
 from werkzeug.security import generate_password_hash
 
@@ -25,6 +26,68 @@ def _configure_token_auth(monkeypatch, *, username="reportes", password="clave-s
     monkeypatch.setenv("EXTERNAL_API_PASSWORD_HASH", generate_password_hash(password))
     monkeypatch.setenv("EXTERNAL_API_JWT_SECRET", "e" * 48)
     monkeypatch.setenv("EXTERNAL_API_TOKEN_TTL_MINUTES", "60")
+
+
+def _kpi_token_client(monkeypatch, enabled=True):
+    _configure_token_auth(monkeypatch)
+    monkeypatch.setenv("EXTERNAL_API_KPI_WRITE_ENABLED", "1" if enabled else "0")
+    client = _build_client(monkeypatch, api_key=None)
+    response = client.post("/api/v1/external/auth/token", json={"username": "reportes", "password": "clave-segura"})
+    assert response.status_code == 200
+    token = response.get_json()["access_token"]
+    return client, {"Authorization": f"Bearer {token}"}
+
+
+def test_external_kpi_write_accepts_scoped_token(monkeypatch):
+    client, headers = _kpi_token_client(monkeypatch)
+    client.application.config["WTF_CSRF_ENABLED"] = True
+    saved = []
+    monkeypatch.setattr(external_routes, "guardar_resultados_kpi", lambda data: saved.append(data) or {"guardados": 1, "empresa_id": 1})
+    payload = {"empresa_id": 1, "resultados": [{"legajo": "001", "fecha": "2026-01-01", "codigo_kpi": "BULTOS", "valor": 125}]}
+    response = client.post("/api/v1/external/kpis/resultados", headers=headers, json=payload)
+    assert response.status_code == 200
+    assert saved == [payload]
+
+
+@pytest.mark.parametrize("mode", ["missing", "static", "read_only", "disabled"])
+def test_external_kpi_write_rejects_unauthorized_access(monkeypatch, mode):
+    if mode in {"missing", "static"}:
+        client = _build_client(monkeypatch)
+        monkeypatch.setenv("EXTERNAL_API_KPI_WRITE_ENABLED", "1")
+        headers = {} if mode == "missing" else {"X-API-Key": "secret-api-key"}
+    else:
+        client, headers = _kpi_token_client(monkeypatch, enabled=mode == "disabled")
+        monkeypatch.setenv("EXTERNAL_API_KPI_WRITE_ENABLED", "1" if mode == "read_only" else "0")
+    def unexpected(data):
+        pytest.fail("Unauthorized write reached the service")
+    monkeypatch.setattr(external_routes, "guardar_resultados_kpi", unexpected)
+    response = client.post("/api/v1/external/kpis/resultados", headers=headers, json={})
+    assert response.status_code == (401 if mode == "missing" else 403)
+
+
+def test_external_kpi_validation_and_content_type(monkeypatch):
+    client, headers = _kpi_token_client(monkeypatch)
+    response = client.post("/api/v1/external/kpis/resultados", headers=headers, data="text")
+    assert response.status_code == 415
+    response = client.post("/api/v1/external/kpis/resultados", headers=headers, data="{bad", content_type="application/json")
+    assert response.status_code == 400
+    def invalid(data):
+        raise external_routes.KpiBatchError("Lote rechazado", errors=[{"fila": 2, "error": "KPI invalido"}], status=422)
+    monkeypatch.setattr(external_routes, "guardar_resultados_kpi", invalid)
+    response = client.post("/api/v1/external/kpis/resultados", headers=headers, json={})
+    assert response.status_code == 422
+    assert response.get_json()["guardados"] == 0
+    assert response.get_json()["detalle_errores"][0]["fila"] == 2
+
+
+def test_external_kpi_database_error_hides_details(monkeypatch):
+    client, headers = _kpi_token_client(monkeypatch)
+    def failing(data):
+        raise RuntimeError("private database details")
+    monkeypatch.setattr(external_routes, "guardar_resultados_kpi", failing)
+    response = client.post("/api/v1/external/kpis/resultados", headers=headers, json={})
+    assert response.status_code == 500
+    assert b"private database details" not in response.data
 
 
 def test_external_api_requires_configured_key(monkeypatch):

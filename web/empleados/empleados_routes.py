@@ -7,7 +7,7 @@ from utils.forms import parse_int as _parse_int, safe_next_url as _safe_next_url
 from services.empleado_export_service import exportar_empleados_excel
 from services.empleado_import_service import importar_desde_csv
 from services.empleado_template_service import generar_template_excel
-from services.vacaciones_service import VacacionesError, calcular_resumen_vacaciones
+from services.vacaciones_service import VacacionesError, calcular_resumen_vacaciones, calcular_resumenes_vacaciones
 
 from repositories.empleado_repository import (
     create,
@@ -175,14 +175,16 @@ def _get_empleados_lista_para_form():
         return []
 
 
-def _vacaciones_resumen_para_empleado(empleado, anio: int) -> dict | None:
+def _vacaciones_resumen_para_empleado(empleado, anio: int, resumenes=None) -> dict | None:
     try:
         emp_id = int((empleado or {}).get("id"))
     except (TypeError, ValueError):
         return None
 
     try:
-        resumen = calcular_resumen_vacaciones(emp_id, anio)
+        resumen = resumenes.get(emp_id) if resumenes is not None else calcular_resumen_vacaciones(emp_id, anio)
+        if not resumen:
+            return None
         vac = resumen.get("vacaciones") or {}
         return {
             "anio": int(resumen.get("anio") or anio),
@@ -234,8 +236,13 @@ def listado():
         sector_id=sector_id,
     )
     anio_vacaciones = datetime.date.today().year
+    try:
+        resumenes = calcular_resumenes_vacaciones(empleados, anio_vacaciones)
+    except Exception:
+        current_app.logger.warning("empleados_vacaciones_batch_error", exc_info=True)
+        resumenes = {}
     for empleado in empleados:
-        empleado["vacaciones_resumen"] = _vacaciones_resumen_para_empleado(empleado, anio_vacaciones)
+        empleado["vacaciones_resumen"] = _vacaciones_resumen_para_empleado(empleado, anio_vacaciones, resumenes)
 
     return_to = url_for(
         "empleados.listado",

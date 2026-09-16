@@ -149,8 +149,8 @@ def test_empleados_listado_muestra_vacaciones_resumen(monkeypatch):
     )
     monkeypatch.setattr(
         empleados_routes,
-        "calcular_resumen_vacaciones",
-        lambda empleado_id, anio: {
+        "calcular_resumenes_vacaciones",
+        lambda empleados, anio: {7: {
             "anio": anio,
             "vacaciones": {
                 "dias_base": 14,
@@ -160,7 +160,7 @@ def test_empleados_listado_muestra_vacaciones_resumen(monkeypatch):
                 "dias_disponibles_con_pendientes": 8,
                 "dias_pendientes": 2,
             },
-        },
+        }},
     )
     monkeypatch.setattr(empleados_routes, "get_empresas", lambda *args, **kwargs: [])
     monkeypatch.setattr(empleados_routes, "get_sucursales", lambda *args, **kwargs: [])

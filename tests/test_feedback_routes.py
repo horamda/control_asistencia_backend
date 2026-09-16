@@ -1,5 +1,6 @@
 import io
 
+import services.feedback_dashboard_service as dashboard_service
 import app as app_module
 import routes.feedback_routes as feedback_routes
 from repositories.feedback_cliente_repository import _build_feedback_cliente_rank_sql
@@ -301,8 +302,8 @@ def test_web_feedback_dashboard_ok(monkeypatch):
     _login(client)
     captured = {}
     monkeypatch.setattr(
-        feedback_web_routes,
-        "get_feedback_dashboard",
+        dashboard_service,
+        "get_dashboard_data",
         lambda **kw: captured.update(kw) or {
             "resumen": {
                 "total": 3,
@@ -315,8 +316,7 @@ def test_web_feedback_dashboard_ok(monkeypatch):
             },
             "top_motivos": [{"motivo_nombre": "Rotura", "total": 2, "resueltos": 1}],
             "ranking": [{"apellido": "Lopez", "nombre": "Ana", "legajo": "L10", "total": 5}],
-            "personal": {"total_cargados": 5, "posicion_ranking": 1},
-            "totales": {"empleados_activos": 10, "empleados_con_carga": 4},
+            "meses": [], "sucursales": [],
         },
     )
     monkeypatch.setattr(feedback_web_routes, "count_motivos", lambda include_inactive=True: 2)
@@ -340,13 +340,16 @@ def test_web_feedback_dashboard_ok(monkeypatch):
     assert resp.status_code == 200
     assert b"Resumen general" in resp.data
     assert b"Rotura" in resp.data
-    assert b"Sector del empleado" in resp.data
+    assert b"Sector de origen" in resp.data
     assert b"Ventas" in resp.data
-    assert b"Sucursal del empleado" in resp.data
+    assert b"Sucursal agrupada" in resp.data
     assert b"Centro" in resp.data
     assert b"Cargar feedback" in resp.data
     assert b"Ver registros" in resp.data
-    assert captured == {"sector_id": 7, "sucursal_id": 4, "empleado_id": None, "empleado_activo": 0}
+    assert captured["sector_id"] == 7
+    assert captured["sucursal_ids"] == [4]
+    assert captured["empleado_activo"] == 0
+    assert captured["desde"] <= captured["hasta"]
 
 
 def test_web_feedback_registros_filtra_sector_estado_y_empleado(monkeypatch):
@@ -397,6 +400,75 @@ def test_web_feedback_registros_filtra_sector_estado_y_empleado(monkeypatch):
         "jefe_directo_id": None,
         "empleado_activo": 1,
     }
+
+
+def test_web_feedback_drilldown_preserves_group_dates_and_pagination(monkeypatch):
+    import datetime as dt
+    monkeypatch.setattr(auth_decorators, "has_role", lambda *args: True)
+    monkeypatch.setattr(feedback_web_routes, "_current_feedback_scope", lambda: {"global": True})
+    client = _build_client(monkeypatch)
+    _login(client)
+    captured = {}
+    def get_page(page, per, **kw):
+        captured.update(kw)
+        return [], 45
+    monkeypatch.setattr(feedback_web_routes, "get_feedbacks_page", get_page)
+    monkeypatch.setattr(feedback_web_routes, "get_sectores", lambda **kw: [])
+    monkeypatch.setattr(feedback_web_routes, "get_empleados", lambda **kw: [])
+    monkeypatch.setattr(feedback_web_routes, "get_sucursales", lambda **kw: [
+        {"id": 2, "empresa_id": 1, "nombre": "DOLORES"},
+        {"id": 3, "empresa_id": 1, "nombre": "CHASCOMUS"}])
+    response = client.get('/feedback/registros?sucursal_id=3&sucursal_grupo=1&desde=2026-01-01&hasta=2026-01-31&condicion_temporal=pendiente_en_termino')
+    assert response.status_code == 200
+    assert captured['sucursal_id'] is None
+    assert captured['sucursal_ids'] == [2, 3]
+    assert captured['carga_desde'] == dt.date(2026, 1, 1)
+    assert captured['carga_hasta'] == dt.date(2026, 1, 31)
+    assert captured['condicion_temporal'] == 'pendiente_en_termino'
+    html = response.get_data(as_text=True)
+    from html.parser import HTMLParser
+    class Links(HTMLParser):
+        links = []
+        def handle_starttag(self, tag, attrs):
+            if tag == 'a': self.links.append(dict(attrs).get('href', ''))
+    parser = Links()
+    parser.feed(html)
+    next_link = next(link for link in parser.links if 'page=2' in link)
+    assert 'sucursal_grupo=1' in next_link and 'sucursal_id=2' in next_link
+    assert 'desde=2026-01-01' in next_link and 'hasta=2026-01-31' in next_link
+
+
+def test_web_feedback_dashboard_keeps_restricted_sector(monkeypatch):
+    monkeypatch.setattr(auth_decorators, 'has_role', lambda *args: True)
+    monkeypatch.setattr(feedback_web_routes, '_current_feedback_scope', lambda: {'global': False, 'sector_id': 7, 'empleado': {}})
+    monkeypatch.setattr(feedback_web_routes, 'get_sucursales', lambda **kw: [])
+    monkeypatch.setattr(feedback_web_routes, 'get_sectores', lambda **kw: [])
+    captured = {}
+    monkeypatch.setattr(dashboard_service, 'get_dashboard_data', lambda **kw: captured.update(kw) or dict(resumen={}, meses=[], sucursales=[], top_motivos=[], ranking=[]))
+    client = _build_client(monkeypatch)
+    _login(client)
+    response = client.get('/feedback/?sector_id=99&desde=2026-01-01&hasta=2026-01-31')
+    assert response.status_code == 200
+    assert captured['sector_id'] == 7
+    assert captured['empleado_activo'] is None
+    assert b'Sin datos' in response.data
+    assert b'Feedbacks por mes' in response.data
+    assert b'Administrar motivos' in response.data
+
+
+def test_web_feedback_missing_scope_does_not_read_cases(monkeypatch):
+    monkeypatch.setattr(auth_decorators, 'has_role', lambda *args: True)
+    monkeypatch.setattr(feedback_web_routes, '_current_feedback_scope', lambda: {'global': False, 'error': 'Sin empleado vinculado'})
+    monkeypatch.setattr(feedback_web_routes, 'get_sucursales', lambda **kw: [])
+    monkeypatch.setattr(feedback_web_routes, 'get_sectores', lambda **kw: [])
+    def no_query(**kw):
+        raise AssertionError('Read attempted without scope')
+    monkeypatch.setattr(dashboard_service, 'get_dashboard_data', no_query)
+    client = _build_client(monkeypatch)
+    _login(client)
+    response = client.get('/feedback/')
+    assert response.status_code == 200
+    assert b'Sin empleado vinculado' in response.data
 
 
 def test_web_feedback_nuevo_reutiliza_servicio_mobile(monkeypatch):

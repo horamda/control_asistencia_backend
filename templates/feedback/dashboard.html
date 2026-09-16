@@ -1,247 +1,81 @@
 {% extends "base.html" %}
-{% block title %}Feedback{% endblock %}
+{% block title %}Resumen de Feedback{% endblock %}
 {% block content %}
-<div class="content-stack feedback-admin">
+<div class="content-stack feedback-admin feedback-overview">
   <div class="section-head">
-    <div>
-      <div class="section-kicker">Feedback</div>
-      <h2>Resumen general</h2>
-      <p class="module-intro">
-        <span class="copy-desktop">Motivos, clientes cargados y distribucion general del feedback registrado.</span>
-        <span class="copy-mobile">Motivos, clientes y distribucion del feedback.</span>
-      </p>
-    </div>
-    <div class="chip-row">
-      {% if sector_id or (sucursal_id) or (empleado_activo and empleado_activo != "all") %}
-        <span class="chip scope-chip-filtered">FILTRADO</span>
-      {% else %}
-        <span class="chip scope-chip-general">GENERAL</span>
-      {% endif %}
-      <span class="chip">{{ resumen.total }} registros</span>
-    </div>
+    <div><div class="section-kicker">Feedback · Seguimiento</div><h2>Resumen general</h2>
+      <p class="module-intro">Volumen de casos, evolución mensual y resolución por sucursal.</p></div>
+    <div class="actions"><a class="btn btn-secondary" href="{{ registros_url() }}">Ver registros</a>
+      <a class="btn" href="{{ url_for('feedback_web.nuevo_feedback') }}">Cargar feedback</a></div>
   </div>
-  {% if request.args.get("error") %}<div class="alert alert-error">{{ request.args.get("error") }}</div>{% endif %}
-  {% if scope_error %}<div class="alert alert-error">{{ scope_error }}</div>{% endif %}
-
-  <form method="get" class="dashboard-filter-form">
-    <div class="form-grid">
-      {% if can_manage_feedback %}
-        <div class="row">
-          <label>Sector del empleado</label>
-          <select name="sector_id">
-            <option value="">Todos los sectores</option>
-            {% for sector in sectores %}
-              <option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>
-                {{ sector.empresa_nombre }} &middot; {{ sector.nombre }}{% if not sector.activo %} (inactivo){% endif %}
-              </option>
-            {% endfor %}
-          </select>
+  {% if scope_error %}<div class="alert alert-error" role="alert">{{ scope_error }}</div>{% endif %}
+  {% if request.args.get('error') %}<div class="alert alert-error">{{ request.args.get('error') }}</div>{% endif %}
+  <section class="panel feedback-period-panel">
+    <form method="get" class="dashboard-filter-form">
+      <div class="feedback-filter-grid">
+        <div class="row"><label for="fb-desde">Desde</label><input id="fb-desde" type="date" name="desde" value="{{ desde }}" required></div>
+        <div class="row"><label for="fb-hasta">Hasta</label><input id="fb-hasta" type="date" name="hasta" value="{{ hasta }}" required></div>
+        <div class="row"><label for="fb-sector">Sector de origen</label>
+          {% if can_manage_feedback %}<select id="fb-sector" name="sector_id"><option value="">Todos los sectores</option>
+            {% for sector in sectores %}<option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>{{ sector.empresa_nombre }} · {{ sector.nombre }}</option>{% endfor %}</select>
+          {% else %}<input id="fb-sector" value="{{ scope_sector_nombre or 'Sin sector asignado' }}" disabled>{% endif %}
         </div>
-      {% else %}
-        <div class="row">
-          <label>Sector del empleado</label>
-          <input type="text" value="{{ scope_sector_nombre or 'Sin sector asignado' }}" disabled>
-        </div>
-      {% endif %}
-      <div class="row">
-        <label>Sucursal del empleado</label>
-        <select name="sucursal_id">
-          <option value="">Todas las sucursales</option>
-          {% for sucursal in sucursales %}
-            <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id %}selected{% endif %}>
-              {{ sucursal.empresa_nombre }} &middot; {{ sucursal.nombre }}{% if not sucursal.activa %} (inactiva){% endif %}
-            </option>
-          {% endfor %}
-        </select>
+        <div class="row"><label for="fb-sucursal">Sucursal agrupada</label><select id="fb-sucursal" name="sucursal_id"><option value="">Todas las sucursales</option>
+          {% for sucursal in grupos_sucursales %}<option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id %}selected{% endif %}>{{ sucursal.empresa_nombre }} · {{ sucursal.nombre }}</option>{% endfor %}</select></div>
+        <div class="row"><label for="fb-activo">Empleados</label><select id="fb-activo" name="empleado_activo">
+          <option value="all" {% if empleado_activo == 'all' %}selected{% endif %}>Activos e inactivos</option>
+          <option value="1" {% if empleado_activo == '1' %}selected{% endif %}>Solo activos</option>
+          <option value="0" {% if empleado_activo == '0' %}selected{% endif %}>Solo inactivos</option></select></div>
       </div>
-      <div class="row">
-        <label>Estado del empleado</label>
-        <select name="empleado_activo">
-          <option value="all" {% if empleado_activo == "all" %}selected{% endif %}>Todos</option>
-          <option value="1" {% if empleado_activo == "1" %}selected{% endif %}>Activos</option>
-          <option value="0" {% if empleado_activo == "0" %}selected{% endif %}>Inactivos</option>
-        </select>
+      <div class="feedback-filter-actions"><div class="actions"><button class="btn" type="submit">Aplicar filtros</button><a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Limpiar</a></div>
+        <nav class="feedback-quick-periods" aria-label="Períodos rápidos">
+          {% for months, label in [(1, 'Este mes'), (6, '6 meses'), (12, '12 meses')] %}<a href="{{ url_for('feedback_web.dashboard', periodo=months, **quick_filters) }}">{{ label }}</a>{% endfor %}
+        </nav></div>
+    </form>
+    <p class="helper-text feedback-scope-note">Casos registrados del {{ desde }} al {{ hasta }}. Dolores incluye Dolores y Chascomús. El estado de cada caso corresponde al momento de la consulta.</p>
+  </section>
+
+  <section class="feedback-summary-grid" aria-label="Indicadores del período">
+    <a class="kpi-card feedback-kpi-link" href="{{ registros_url() }}"><div class="kpi-label">Registrados</div><div class="kpi-value">{{ resumen.total }}</div><div class="kpi-desc">{{ resumen.empleados_con_carga }} empleados con carga</div></a>
+    <a class="kpi-card feedback-kpi-link" href="{{ registros_url(condicion_temporal='pendiente_en_termino') }}"><div class="kpi-label">Pendientes en plazo</div><div class="kpi-value">{{ resumen.pendientes }}</div><div class="kpi-desc">Todavía dentro del plazo de resolución</div></a>
+    <a class="kpi-card feedback-kpi-link {% if resumen.vencidos %}feedback-attention{% endif %}" href="{{ registros_url(estado='vencido') }}"><div class="kpi-label">Vencidos</div><div class="kpi-value">{{ resumen.vencidos }}</div><div class="kpi-desc">Casos abiertos que necesitan atención</div></a>
+    <a class="kpi-card feedback-kpi-link" href="{{ registros_url(estado='resuelto') }}"><div class="kpi-label">Resueltos</div><div class="kpi-value">{{ resumen.resueltos }}</div><div class="kpi-desc">{{ '%.1f'|format(resumen.resueltos * 100 / resumen.total) if resumen.total else '0' }}% de los registrados</div></a>
+    <article class="kpi-card"><div class="kpi-label">Cumplimiento del plazo</div><div class="kpi-value {% if resumen.sla_pct is none %}feedback-no-data{% endif %}">{{ ('%.1f'|format(resumen.sla_pct) ~ '%') if resumen.sla_pct is not none else 'Sin datos' }}</div><div class="kpi-desc">{{ resumen.resueltos_en_sla }} en plazo · {{ resumen.resueltos_fuera_sla }} fuera de plazo</div></article>
+  </section>
+  {% if resumen.sin_plazo or resumen.sin_datos_sla %}<p class="helper-text">Datos por completar: {{ resumen.sin_plazo }} pendientes sin plazo y {{ resumen.sin_datos_sla }} resueltos sin fechas suficientes para evaluar el cumplimiento.</p>{% endif %}
+
+  <section class="panel feedback-month-panel">
+    <div class="section-head"><div><div class="section-kicker">Evolución</div><h3>Feedbacks por mes</h3><p class="helper-text">Cantidad registrada. Seleccioná un mes para ver sus casos.</p></div><span class="chip">{{ resumen.total }} en el período</span></div>
+    {% if not resumen.total %}<p class="feedback-empty">No hay feedbacks para estos filtros. Podés ampliar el período o cambiar la sucursal.</p>{% endif %}
+    <div class="feedback-month-scroll" tabindex="0" role="region" aria-label="Gráfico mensual, desplazable horizontalmente">
+      <div class="feedback-month-chart">
+        {% for month in meses %}<a class="feedback-month-column" href="{{ registros_url(desde=month.desde, hasta=month.hasta) }}" aria-label="{{ month.label }}: {{ month.total }} feedbacks{% if month.parcial %}, período parcial{% endif %}">
+          <div class="feedback-month-track"><span class="feedback-month-bar {% if month.actual %}is-current{% endif %} {% if not month.total %}is-zero{% endif %}" style="--bar-height: {{ month.total * 100 / max_mes }}%"><strong>{{ month.total }}</strong></span></div>
+          <span class="feedback-month-label">{{ month.label }}</span><small>{{ 'En curso' if month.actual else ('Parcial' if month.parcial else '') }}</small>
+        </a>{% endfor %}
       </div>
     </div>
-    <div class="actions">
-      <button class="btn" type="submit">Aplicar filtros</button>
-      <a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Limpiar</a>
-    </div>
-  </form>
-
-  {% set resueltos_pct = ((resumen.resueltos * 100) / resumen.total) if resumen.total else 0 %}
-  {% set sla_pct = ((resumen.resueltos_en_sla * 100) / resumen.resueltos) if resumen.resueltos else 0 %}
-  {% set vencidos_pct = ((resumen.vencidos * 100) / resumen.total) if resumen.total else 0 %}
-
-  <section class="grid-kpis dashboard-kpis">
-    <article class="kpi-card" style="--kpi-order:1;">
-      <div class="kpi-label">Total</div>
-      <div class="kpi-value">{{ resumen.total }}</div>
-      <div class="kpi-desc">Feedbacks registrados</div>
-    </article>
-    <article class="kpi-card kpi-critical {% if resueltos_pct >= 80 %}tone-ok{% elif resueltos_pct >= 50 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:2;">
-      <div class="kpi-label">Resueltos</div>
-      <div class="kpi-value">{{ resumen.resueltos }}</div>
-      <div class="kpi-desc">{{ "%.1f"|format(resueltos_pct) }}% del total. Bueno: &ge;80%</div>
-    </article>
-    <article class="kpi-card kpi-critical {% if resumen.vencidos == 0 %}tone-ok{% elif vencidos_pct <= 10 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:3;">
-      <div class="kpi-label">Vencidos</div>
-      <div class="kpi-value">{{ resumen.vencidos }}</div>
-      <div class="kpi-desc">Pendientes fuera de SLA. Bueno: 0</div>
-    </article>
-    <article class="kpi-card kpi-critical {% if sla_pct >= 85 %}tone-ok{% elif sla_pct >= 60 %}tone-warn{% else %}tone-bad{% endif %}" style="--kpi-order:4;">
-      <div class="kpi-label">Cumplimiento SLA</div>
-      <div class="kpi-value">{{ "%.1f"|format(sla_pct) }}%</div>
-      <div class="kpi-desc">Resueltos dentro de plazo. Bueno: &ge;85%</div>
-    </article>
-    <article class="kpi-card" style="--kpi-order:5;">
-      <div class="kpi-label">Motivos</div>
-      <div class="kpi-value">{{ total_motivos }}</div>
-      <div class="kpi-desc">Motivos configurados</div>
-    </article>
-    <article class="kpi-card" style="--kpi-order:6;">
-      <div class="kpi-label">Clientes</div>
-      <div class="kpi-value">{{ total_clientes }}</div>
-      <div class="kpi-desc">Base importada</div>
-    </article>
-    <article class="kpi-card" style="--kpi-order:7;">
-      <div class="kpi-label">Carga propia</div>
-      <div class="kpi-value">{{ personal.total_cargados if personal else 0 }}</div>
-      <div class="kpi-desc">
-        {% if personal and personal.posicion_ranking %}
-          Posicion #{{ personal.posicion_ranking }} en el ranking
-        {% else %}
-          Sin ranking propio
-        {% endif %}
-      </div>
-    </article>
-    <article class="kpi-card" style="--kpi-order:8;">
-      <div class="kpi-label">Personal en alcance</div>
-      <div class="kpi-value">{{ totales.empleados_activos if totales else 0 }}</div>
-      <div class="kpi-desc">{{ totales.empleados_con_carga if totales else 0 }} con carga de feedback</div>
-    </article>
+    <p class="helper-text">Los meses parciales incluyen solo las fechas seleccionadas. No son comparables directamente con un mes completo.</p>
   </section>
 
   <section class="panel">
-    <h3 class="section-title">Estado de los casos</h3>
-    <p class="helper-text">Distribucion sobre el total de feedback en el alcance actual.</p>
-    {% if resumen.total %}
-      <div class="status-stack">
-        <div class="status-row">
-          <span class="status-label">Pendientes</span>
-          <div class="status-track"><span class="status-fill warning" style="width: {{ (resumen.pendientes * 100 / resumen.total) | round(1) }}%"></span></div>
-          <strong>{{ resumen.pendientes }}</strong>
-        </div>
-        <div class="status-row">
-          <span class="status-label">Pendientes vencidos</span>
-          <div class="status-track"><span class="status-fill danger" style="width: {{ (resumen.vencidos * 100 / resumen.total) | round(1) }}%"></span></div>
-          <strong>{{ resumen.vencidos }}</strong>
-        </div>
-        <div class="status-row">
-          <span class="status-label">Resueltos en SLA</span>
-          <div class="status-track"><span class="status-fill ok" style="width: {{ (resumen.resueltos_en_sla * 100 / resumen.total) | round(1) }}%"></span></div>
-          <strong>{{ resumen.resueltos_en_sla }}</strong>
-        </div>
-        <div class="status-row">
-          <span class="status-label">Resueltos fuera de SLA</span>
-          <div class="status-track"><span class="status-fill danger" style="width: {{ (resumen.resueltos_fuera_sla * 100 / resumen.total) | round(1) }}%"></span></div>
-          <strong>{{ resumen.resueltos_fuera_sla }}</strong>
-        </div>
-      </div>
-    {% else %}
-      <p>No hay feedback cargado en el alcance actual.</p>
-    {% endif %}
+    <div class="section-head"><div><div class="section-kicker">Distribución</div><h3>Comparación por sucursal</h3><p class="helper-text">Mismo período y filtros. Dolores reúne los casos de ambas sucursales.</p></div></div>
+    <div class="table-responsive"><table class="table"><thead><tr><th>Sucursal</th><th>Registrados</th><th>Vencidos</th><th>Resueltos</th><th>Resolución</th></tr></thead><tbody>
+      {% for branch in sucursales %}<tr><td>{% if branch.id %}<a href="{{ registros_url(sucursal_id=branch.id) }}">{{ branch.nombre }}</a>{% else %}{{ branch.nombre }}{% endif %}<small class="feedback-company">{{ branch.empresa_nombre or '' }}</small></td><td>{{ branch.total }}</td><td><span class="badge {{ 'danger' if branch.vencidos else 'neutral' }}">{{ branch.vencidos }}</span></td><td>{{ branch.resueltos }}</td><td><div class="feedback-resolution"><span>{{ '%.1f'|format(branch.resueltos_pct) }}%</span><span class="feedback-resolution-track"><span style="width:{{ branch.resueltos_pct }}%"></span></span></div></td></tr>
+      {% else %}<tr><td colspan="5">No hay casos para comparar en este período.</td></tr>{% endfor %}
+    </tbody></table></div>
   </section>
 
   <section class="panel-grid">
-    <article class="panel">
-      <h3 class="section-title">Top motivos</h3>
-      <p class="helper-text">Motivos con mayor carga y su tasa de resolucion.</p>
-      {% if top_motivos %}
-        {% set max_motivo = top_motivos | map(attribute='total') | max %}
-        <div class="mini-bars">
-          {% for item in top_motivos %}
-            <div class="mini-row">
-              <div class="mini-label">{{ item.motivo_nombre }}</div>
-              <div class="mini-track">
-                <span class="mini-fill total" style="width: {{ ((item.total * 100) / (max_motivo if max_motivo > 0 else 1)) | round(1) }}%"></span>
-              </div>
-              <strong>{{ item.total }}</strong>
-            </div>
-          {% endfor %}
-        </div>
-        <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:.75rem;">
-          <table>
-            <thead>
-              <tr><th>Motivo</th><th>Total</th><th>Resueltos</th></tr>
-            </thead>
-            <tbody>
-              {% for item in top_motivos %}
-                <tr>
-                  <td data-label="Motivo">{{ item.motivo_nombre }}</td>
-                  <td data-label="Total">{{ item.total }}</td>
-                  <td data-label="Resueltos"><span class="badge {% if item.resueltos >= item.total %}ok{% elif item.resueltos > 0 %}warning{% else %}danger{% endif %}">{{ item.resueltos }}</span></td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p>No hay feedback cargado.</p>
-      {% endif %}
-    </article>
-
-    <article class="panel">
-      <h3 class="section-title">Carga por empleado</h3>
-      <p class="helper-text">Top empleados que mas feedback cargaron en el alcance actual.</p>
-      {% if ranking %}
-        {% set max_carga = ranking | map(attribute='total') | max %}
-        <div class="mini-bars">
-          {% for row in ranking[:6] %}
-            <div class="mini-row">
-              <div class="mini-label">{{ row.apellido }}, {{ row.nombre }}</div>
-              <div class="mini-track">
-                <span class="mini-fill neutral" style="width: {{ ((row.total * 100) / (max_carga if max_carga > 0 else 1)) | round(1) }}%"></span>
-              </div>
-              <strong>{{ row.total }}</strong>
-            </div>
-          {% endfor %}
-        </div>
-        <div class="table-responsive table-cards dashboard-mobile-compact" style="margin-top:.75rem;">
-          <table>
-            <thead>
-              <tr><th>#</th><th>Empleado</th><th>Legajo</th><th>Total</th></tr>
-            </thead>
-            <tbody>
-              {% for row in ranking %}
-                <tr>
-                  <td data-label="#">{{ loop.index }}</td>
-                  <td data-label="Empleado">{{ row.apellido }}, {{ row.nombre }}</td>
-                  <td data-label="Legajo">{{ row.legajo or "-" }}</td>
-                  <td data-label="Total">{{ row.total }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p>No hay ranking disponible.</p>
-      {% endif %}
-    </article>
+    <article class="panel"><div class="section-kicker">Causas frecuentes</div><h3>Top motivos</h3><p class="helper-text">Los cinco motivos con más casos dentro del período.</p>
+      <div class="table-responsive"><table class="table"><thead><tr><th>Motivo</th><th>Casos</th><th>Resueltos</th></tr></thead><tbody>
+        {% for item in top_motivos %}<tr><td>{{ item.motivo_nombre }}</td><td>{{ item.total }}</td><td>{{ item.resueltos or 0 }}</td></tr>{% else %}<tr><td colspan="3">Sin motivos registrados en el período.</td></tr>{% endfor %}
+      </tbody></table></div></article>
+    <article class="panel"><div class="section-kicker">Participación</div><h3>Carga por empleado</h3><p class="helper-text">Hasta diez empleados, según los mismos filtros del resumen.</p>
+      <div class="table-responsive"><table class="table"><thead><tr><th>#</th><th>Empleado</th><th>Casos</th></tr></thead><tbody>
+        {% for row in ranking %}<tr><td>{{ loop.index }}</td><td>{{ row.apellido }}, {{ row.nombre }}<small class="feedback-company">{{ row.legajo or '' }}</small></td><td>{{ row.total }}</td></tr>{% else %}<tr><td colspan="3">Sin cargas en el período.</td></tr>{% endfor %}
+      </tbody></table></div></article>
   </section>
-
-  <section class="panel">
-    <div class="section-kicker">Accesos</div>
-    <div class="actions">
-      <a class="btn" href="{{ url_for('feedback_web.nuevo_feedback') }}">Cargar feedback</a>
-      <a class="btn" href="{{ url_for('feedback_web.registros_listado', sector_id=sector_id, sucursal_id=sucursal_id, empleado_activo=empleado_activo) }}">Ver registros</a>
-      {% if tiene_empleado_vinculado %}
-        <a class="btn" href="{{ url_for('feedback_web.bandeja_jefe', estado='pendiente') }}">Mi bandeja{% if bandeja_pendiente %} ({{ bandeja_pendiente }}){% endif %}</a>
-      {% endif %}
-      <a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado') }}">Motivos</a>
-      <a class="btn btn-secondary" href="{{ url_for('feedback_web.clientes_listado') }}">Clientes</a>
-      <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver al inicio</a>
-    </div>
-  </section>
+  <nav class="actions" aria-label="Configuración de feedback"><a class="btn btn-secondary" href="{{ url_for('feedback_web.motivos_listado') }}">Administrar motivos</a><a class="btn btn-secondary" href="{{ url_for('feedback_web.clientes_listado') }}">Consultar clientes</a>{% if tiene_empleado_vinculado %}<a class="btn btn-secondary" href="{{ url_for('feedback_web.bandeja_jefe') }}">Mi bandeja</a>{% endif %}</nav>
 </div>
 {% endblock %}

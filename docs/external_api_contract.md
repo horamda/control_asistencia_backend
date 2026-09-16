@@ -1,13 +1,17 @@
 # Contrato API Externa v1
 
-Version de contrato: 1.3.2
-Fecha de corte: 2026-07-23
+Version de contrato: 1.4.0
+Fecha de corte: 2026-09-15
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`
 Prefijo: `/api/v1/external`
 
 Este documento fija el contrato para aplicaciones externas que necesiten consultar empresas, sucursales, empleados, justificaciones, vacaciones y reportes de asistencia.
 Fuente tecnica: `routes/external_api_routes.py`.
+
+Desde 1.4.0 tambien admite carga incremental de resultados diarios de KPIs mediante
+`POST /api/v1/external/kpis/resultados`. Requiere habilitar escritura y obtener un
+token con `kpis:write`. Contrato y ejemplos: [Carga de KPIs](external_kpis_api.md).
 
 ## Autenticacion
 

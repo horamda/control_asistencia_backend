@@ -358,6 +358,7 @@ def _extract_resultado_form(form):
         "ranking": form.get("ranking", type=int),
         "observaciones": (form.get("observaciones") or "").strip() or None,
         "actor_id": session.get("user_id"),
+        "permitir_otro_sector": form.get("permitir_otro_sector") == "1",
     }
 
 
