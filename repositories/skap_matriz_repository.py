@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
+from flask import g, has_request_context
 from contextlib import contextmanager
 
 from extensions import get_db
-from services.skap_excel_service import name_key, normalize
+from services.skap_excel_service import name_key, normalize, summarize
 
 
 def dumps(value):
@@ -28,9 +30,19 @@ def transaction():
 
 
 def _rows(sql, args=()):
-    with transaction() as c:
+    started = time.perf_counter()
+    db = get_db()
+    c = db.cursor(dictionary=True)
+    try:
         c.execute(sql, args)
         return c.fetchall()
+    finally:
+        c.close()
+        # Pool return rolls back the read transaction; no redundant COMMIT.
+        db.close()
+        if has_request_context():
+            g.skap_db_ms = getattr(g, 'skap_db_ms', 0) + (time.perf_counter() - started) * 1000
+            g.skap_db_reads = getattr(g, 'skap_db_reads', 0) + 1
 
 
 def employee_options(empresa_id):
@@ -61,6 +73,8 @@ def get_import(import_id, empresa_id):
         return None
     row = rows[0]
     row['payload'] = json.loads(row['contenido'])
+    for evaluation in row['payload']['evaluaciones']:
+        evaluation['resumen'] = summarize(evaluation['respuestas'])
     return row
 
 
@@ -84,20 +98,34 @@ def _scope(actor, alias='ev', own=False):
     return conditions, args
 
 
-def list_evaluations(actor, *, own=False, anio=None, sucursal_id=None, empleado_id=None, rol=None):
+def list_evaluations(actor, *, own=False, anio=None, sucursal_id=None, empleado_id=None, rol=None, limit=None, offset=0):
     where, args = _scope(actor, own=own)
     for column, value in [('anio', anio), ('sucursal_id', sucursal_id), ('empleado_id', empleado_id), ('rol_clave', rol)]:
         if value is not None:
             where.append(f'ev.{column}=%s')
             args.append(value)
+    suffix = ''
+    if limit is not None:
+        suffix = ' LIMIT %s OFFSET %s'
+        args.extend([max(1, min(int(limit), 101)), max(0, int(offset))])
     rows = _rows(f'''SELECT ev.*, e.legajo,e.apellido,e.nombre,s.nombre AS sucursal_nombre
                     FROM skap_matriz_evaluaciones ev JOIN empleados e ON e.id=ev.empleado_id
                     JOIN sucursales s ON s.id=ev.sucursal_id WHERE {' AND '.join(where)}
-                    ORDER BY ev.anio DESC,e.apellido,e.nombre,ev.rol''', tuple(args))
+                    ORDER BY ev.anio DESC,e.apellido,e.nombre,ev.rol,ev.id{suffix}''', tuple(args))
     for row in rows:
         payload = json.loads(row.pop('contenido'))
-        row['resumen'] = payload['resumen']
+        row['resumen'] = summarize(payload['respuestas'])
     return rows
+
+
+def role_options(actor, *, anio=None, sucursal_id=None, empleado_id=None):
+    where, args = _scope(actor)
+    for column, value in [('anio', anio), ('sucursal_id', sucursal_id), ('empleado_id', empleado_id)]:
+        if value is not None:
+            where.append(f'ev.{column}=%s')
+            args.append(value)
+    return [(r['rol_clave'], r['rol']) for r in _rows(
+        f"SELECT ev.rol_clave, MIN(ev.rol) AS rol FROM skap_matriz_evaluaciones ev WHERE {' AND '.join(where)} GROUP BY ev.rol_clave ORDER BY rol", tuple(args))]
 
 
 def get_evaluation(evaluation_id, actor, *, own=False):
@@ -112,6 +140,7 @@ def get_evaluation(evaluation_id, actor, *, own=False):
         return None
     row = rows[0]
     row['payload'] = json.loads(row.pop('contenido'))
+    row['payload']['resumen'] = summarize(row['payload']['respuestas'])
     row['acciones'] = _rows('''SELECT a.*,CONCAT(e.apellido,' ',e.nombre) AS responsable
                               FROM skap_matriz_acciones a LEFT JOIN empleados e ON e.id=a.responsable_empleado_id
                               WHERE a.evaluacion_id=%s ORDER BY a.criticidad,a.id''', (evaluation_id,))

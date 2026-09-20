@@ -1,0 +1,25 @@
+                    <div class="notifications-header">
+                      <div>
+                        <div class="notifications-kicker">Alertas</div>
+                        <div class="notifications-title">Solicitudes mobile</div>
+                      </div>
+                      <span class="notifications-total">{{ panel_notifications.total }}</span>
+                    </div>
+
+                    {% if panel_notifications["items"] %}
+                      <div class="notifications-list">
+                        {% for item in panel_notifications["items"] %}
+                          <a class="notification-item notification-item-{{ item.tone }}" href="{{ item.href }}">
+                            <div class="notification-item-body">
+                              <div class="notification-item-title">{{ item.label }}</div>
+                              <div class="notification-item-description">{{ item.description }}</div>
+                            </div>
+                            <span class="notification-item-count">{{ item.count if item.count < 100 else "99+" }}</span>
+                          </a>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <div class="notifications-empty">
+                        No hay solicitudes pendientes.
+                      </div>
+                    {% endif %}

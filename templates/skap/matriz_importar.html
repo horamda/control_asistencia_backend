@@ -1,10 +1,10 @@
-{% extends 'base.html' %}{% block title %}Importar matriz SKAP{% endblock %}{% block content %}
-<div class="content-stack"><h2>Importar matriz SKAP</h2><p>Subí el Excel de Almacén o Distribución. Primero se revisan las personas y sus legajos.</p>
-{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
-{% for category,message in get_flashed_messages(with_categories=true) %}<div class="alert">{{ message }}</div>{% endfor %}
-<form method="post" enctype="multipart/form-data" class="panel"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<label>Archivo Excel (.xlsx, hasta 12 MB)<input type="file" name="archivo" accept=".xlsx" required></label><button class="btn" type="submit">Revisar archivo</button></form>
-<div class="panel table-responsive"><h3>Importaciones</h3><table class="table"><thead><tr><th>Archivo</th><th>Fecha</th><th>Estado</th><th></th></tr></thead><tbody>
-{% for b in batches %}<tr><td><a href="{{ url_for('skap_matriz.preview',import_id=b.id) }}">{{ b.archivo }}</a></td><td>{{ b.created_at }}</td><td>{{ b.estado }}</td><td>
-{% if b.estado == 'aplicada' %}<form method="post" action="{{ url_for('skap_matriz.revert',import_id=b.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Revertir carga sin seguimiento</button></form>{% endif %}</td></tr>{% endfor %}
+{% extends 'base.html' %}{% block title %}Importar matriz SKAP{% endblock %}{% block extra_head %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/skap.css') }}">{% endblock %}{% block content %}
+<div class="content-stack skap-module"><nav aria-label="Navegación SKAP"><a class="skap-back" href="{{ url_for('skap_matriz.index') }}">← Evaluaciones SKAP</a></nav><h2>Importar matriz SKAP</h2><p>Subí el Excel de Almacén o Distribución. Primero se revisan las personas y sus legajos.</p>
+{% if error %}<div role="status" class="alert alert-danger">{{ error }}</div>{% endif %}
+{% for category,message in get_flashed_messages(with_categories=true) %}<div role="status" class="alert">{{ message }}</div>{% endfor %}
+<ol class="skap-steps" aria-label="Pasos de importación"><li aria-current="step">1. Subir Excel</li><li>2. Revisar legajos</li><li>3. Confirmar carga</li></ol><form method="post" enctype="multipart/form-data" class="panel skap-upload"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label>Archivo Excel (.xlsx, hasta 12 MB)<input type="file" aria-describedby="skap-file-help" name="archivo" accept=".xlsx" required></label><p id="skap-file-help" class="skap-muted">Seleccioná un archivo .xlsx de hasta 12 MB. Podrás revisar las evaluaciones antes de incorporarlas.</p><button class="btn" type="submit">Revisar archivo</button></form>
+<div class="panel table-responsive"><h3>Importaciones</h3><table class="table skap-table"><thead><tr><th>Archivo</th><th>Fecha</th><th>Estado</th><th><span class="skap-sr-only">Acciones</span></th></tr></thead><tbody>
+{% for b in batches %}<tr><td data-label="Archivo"><a href="{{ url_for('skap_matriz.preview',import_id=b.id) }}">{{ b.archivo }}</a></td><td data-label="Fecha">{{ b.created_at }}</td><td data-label="Estado">{{ b.estado }}</td><td data-label="Acciones">
+{% if b.estado == 'aplicada' %}<form method="post" action="{{ url_for('skap_matriz.revert',import_id=b.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Revertir carga sin seguimiento</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="4"><div class="skap-empty">Todavía no se registraron importaciones.</div></td></tr>{% endfor %}
 </tbody></table></div></div>{% endblock %}

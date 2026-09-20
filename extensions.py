@@ -7,8 +7,8 @@ REQUIRED_INDEXES = {
         "idx_eh_horario": "(horario_id)",
     },
     "asistencias": {
-        "idx_asis_empleado_fecha": "(empleado_id, fecha)",
-        "idx_asis_empresa_fecha": "(empresa_id, fecha)",
+        "idx_asistencias_empleado_fecha": "(empleado_id, fecha)",
+        "idx_asistencias_empresa_fecha": "(empresa_id, fecha)",
     },
     "empleado_excepciones": {
         "idx_ex_emp_fecha": "(empleado_id, fecha)",

@@ -1,18 +1,18 @@
-{% extends 'base.html' %}{% block title %}Revisar importación SKAP{% endblock %}{% block content %}
-<div class="content-stack"><h2>{{ payload.archivo }}</h2><p>{{ payload.evaluaciones|length }} evaluaciones · {{ payload.pendientes }} vínculos pendientes · {{ payload.formacion|length }} contenidos de formación.</p>
+{% extends 'base.html' %}{% block title %}Revisar importación SKAP{% endblock %}{% block extra_head %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/skap.css') }}">{% endblock %}{% block content %}
+<div class="content-stack skap-module"><nav aria-label="Navegación SKAP"><a class="skap-back" href="{{ url_for('skap_matriz.index') }}">← Evaluaciones SKAP</a></nav><h2>{{ payload.archivo }}</h2><p>{{ payload.evaluaciones|length }} evaluaciones · {{ payload.pendientes }} vínculos pendientes · {{ payload.formacion|length }} contenidos de formación.</p>
 <p>Las hojas DOL corresponden a Dolores; las demás a Casa Central. Se conserva esa sucursal histórica sin modificar la ficha actual del empleado.</p>
-{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
-<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="panel table-responsive"><table class="table">
+{% if error %}<div role="status" class="alert alert-danger">{{ error }}</div>{% endif %}
+<ol class="skap-steps" aria-label="Pasos de importación"><li>1. Subir Excel</li><li aria-current="step">2. Revisar legajos</li><li>3. Confirmar carga</li></ol><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="panel table-responsive"><table class="table skap-table">
 <thead><tr><th>Cargar</th><th>Persona / hoja</th><th>Año / sucursal</th><th>Legajo de FichaYa</th><th>Validación</th></tr></thead><tbody>
-{% for e in payload.evaluaciones %}<tr><td><input aria-label="Importar {{ e.nombre_original }} {{ e.rol }}" type="checkbox" name="seleccion" value="{{ e.clave }}" {% if e.vinculo == 'resuelto' %}checked{% endif %}></td>
-<td>{{ e.nombre_original }}<br><small>{{ e.hoja }}</small></td><td>{{ e.anio }} · {{ e.sucursal }}</td><td><select name="empleado_{{ e.clave }}" aria-label="Legajo de {{ e.nombre_original }}"><option value="">Sin vincular</option>
+{% for e in payload.evaluaciones %}<tr><td data-label="Cargar"><input aria-label="Importar {{ e.nombre_original }} {{ e.rol }}" type="checkbox" name="seleccion" value="{{ e.clave }}" {% if e.vinculo == 'resuelto' %}checked{% endif %}></td>
+<td data-label="Persona / hoja">{{ e.nombre_original }}<br><small>{{ e.hoja }}</small></td><td data-label="Año / sucursal">{{ e.anio }} · {{ e.sucursal }}</td><td data-label="Legajo de FichaYa"><select name="empleado_{{ e.clave }}" aria-label="Legajo de {{ e.nombre_original }}"><option value="">Sin vincular</option>
 {% for p in staff %}<option value="{{ p.id }}" {% if p.id == e.empleado_id %}selected{% endif %}>{{ p.legajo }} · {{ p.apellido }} {{ p.nombre }} · {{ p.sucursal_nombre }}{% if not p.activo %} (inactivo){% endif %}</option>{% endfor %}</select></td>
-<td>{{ e.vinculo }}{% if e.sucursal_actual_distinta %}<br>Sucursal actual distinta: se conserva la del Excel.{% endif %}
+<td data-label="Validación"><span class="skap-pill">{{ e.vinculo|capitalize }}</span>{% if e.sucursal_actual_distinta %}<br>Sucursal actual distinta: se conserva la del Excel.{% endif %}
 {% if e.resumen.faltantes %}<br>{{ e.resumen.faltantes }} puntajes sin completar.{% endif %}
 {% if e.resumen.criticidad_sin_definir %}<br>{{ e.resumen.criticidad_sin_definir }} criticidades sin definir.{% endif %}
 {% set original = e.resultados_originales.get('general',{}).get('valor') %}
 {% if original is not none and e.resumen.cumplimiento_pct is not none and ((original*100-e.resumen.cumplimiento_pct)|abs)>0.02 %}<br>Excel: {{ (original*100)|round(2) }} % · Recalculado: {{ e.resumen.cumplimiento_pct }} %.{% endif %}</td></tr>{% endfor %}
 </tbody></table></div>
-{% if batch.estado == 'vista_previa' %}<div class="actions"><button class="btn btn-secondary" name="operacion" value="revisar">Revisar vínculos</button><button class="btn" name="operacion" value="importar">Importar seleccionadas</button></div>{% else %}<p>Estado: {{ batch.estado }}. Esta carga ya no se puede aplicar nuevamente.</p>{% endif %}</form>
+{% if batch.estado == 'vista_previa' %}<div class="actions skap-import-actions"><button class="btn btn-secondary" name="operacion" value="revisar">Revisar vínculos</button><button class="btn" name="operacion" value="importar">Importar seleccionadas</button></div>{% else %}<p>Estado: {{ batch.estado }}. Esta carga ya no se puede aplicar nuevamente.</p>{% endif %}</form>
 <details class="panel"><summary>Contenidos de formación de referencia</summary>{% for f in payload.formacion %}<p><strong>{{ f.competencia }}</strong> · {{ f.hoja }}<br>{{ f.alcance or '' }}<br>{{ f.material or 'Material sin especificar' }}</p>{% endfor %}</details>
 </div>{% endblock %}

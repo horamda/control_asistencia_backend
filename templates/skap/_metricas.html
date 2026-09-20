@@ -1,0 +1,8 @@
+{% macro ratio(m) -%}
+{% if m.cumplimiento_pct is not none %}<strong>{{ ('%.2f'|format(m.cumplimiento_pct))|replace('.', ',') }} %</strong>
+{% elif m.faltantes %}<span class="skap-pill">Incompleta</span><small class="skap-cell-note">{{ m.faltantes }} sin evaluar{% if m.parcial_pct is not none %} · Parcial: {{ ('%.2f'|format(m.parcial_pct))|replace('.', ',') }} %{% endif %}</small>
+{% else %}<span>Sin base suficiente</span>{% endif %}
+{%- endmacro %}
+{% macro coverage(m) -%}
+<strong>{{ m.evaluadas - m.brechas }} / {{ m.evaluadas }}</strong><small class="skap-cell-note">evaluadas alcanzan el estándar · {{ m.expertas }} de nivel experto{% if m.faltantes %} · {{ m.faltantes }} pendientes{% endif %}</small>
+{%- endmacro %}

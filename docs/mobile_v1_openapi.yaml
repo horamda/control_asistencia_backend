@@ -1,7 +1,7 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - Mobile API v1
-  version: 1.25.0
+  version: 1.27.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -1864,6 +1864,219 @@ components:
             empresa_id:
               type: integer
 
+    SkapMatrizMetricas:
+      type: object
+      required:
+      - total
+      - evaluadas
+      - no_aplica
+      - faltantes
+      - obtenido
+      - esperado
+      - brechas
+      - cumplimiento_pct
+      - parcial_pct
+      description: Cumplimiento limitado por competencia (0 a 100), sin compensar brechas. obtenido conserva la suma original; acreditado limita cada puntaje al estandar; expertas cuenta puntajes 4.
+      properties:
+        acreditado:
+          type: integer
+        expertas:
+          type: integer
+        total: &id001
+          type: integer
+        evaluadas: *id001
+        no_aplica: *id001
+        faltantes: *id001
+        obtenido: *id001
+        esperado: *id001
+        brechas: *id001
+        cumplimiento_pct:
+          type: number
+          nullable: true
+        parcial_pct:
+          type: number
+          nullable: true
+    SkapMatrizResumen:
+      allOf:
+      - $ref: '#/components/schemas/SkapMatrizMetricas'
+      - type: object
+        required:
+        - criticidad_sin_definir
+        - criticas
+        - bloques
+        properties:
+          criticidad_sin_definir: *id001
+          criticas:
+            $ref: '#/components/schemas/SkapMatrizMetricas'
+          bloques:
+            type: object
+            additionalProperties:
+              $ref: '#/components/schemas/SkapMatrizMetricas'
+    SkapMatrizItem:
+      type: object
+      required:
+      - id
+      - rol
+      - anio
+      - escala
+      - resumen
+      - sucursal_nombre
+      properties:
+        id: *id001
+        rol: &id002
+          type: string
+        anio: *id001
+        escala: &id003
+          type: string
+          enum:
+          - operativa_0_4
+        resumen: &id004
+          $ref: '#/components/schemas/SkapMatrizResumen'
+        sucursal_nombre: *id002
+    SkapMatrizRespuesta:
+      type: object
+      required:
+      - fila
+      - celda
+      - competencia
+      - bloque
+      - criticidad
+      - estandar
+      - valor_original
+      - estado
+      - puntaje
+      properties:
+        fila: *id001
+        celda: *id002
+        competencia: *id002
+        bloque: *id002
+        criticidad:
+          type: string
+          nullable: true
+          enum:
+          - A
+          - B
+          - C
+          - null
+        estandar:
+          type: integer
+          minimum: 0
+          maximum: 4
+        valor_original:
+          type: string
+          nullable: true
+        estado:
+          type: string
+          enum:
+          - evaluado
+          - no_aplica
+          - sin_evaluar
+        puntaje:
+          type: integer
+          minimum: 0
+          maximum: 4
+          nullable: true
+    SkapMatrizAccion:
+      type: object
+      required:
+      - id
+      - accion
+      - estado
+      - progreso
+      - responsable
+      - fecha_inicio
+      - fecha_fin
+      - comentarios
+      properties:
+        id: *id001
+        accion: *id002
+        estado:
+          type: string
+          enum:
+          - propuesta
+          - pendiente
+          - en_proceso
+          - completado
+          - cancelado
+        progreso:
+          type: integer
+          minimum: 0
+          maximum: 100
+        responsable:
+          type: string
+          nullable: true
+        fecha_inicio:
+          type: string
+          nullable: true
+          format: date
+        fecha_fin:
+          type: string
+          nullable: true
+          format: date
+        comentarios:
+          type: string
+          nullable: true
+    SkapMatricesResponse:
+      type: object
+      required:
+      - success
+      - data
+      properties:
+        success:
+          type: boolean
+          enum:
+          - true
+        data:
+          type: object
+          required:
+          - items
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkapMatrizItem'
+    SkapMatrizDetalleResponse:
+      type: object
+      required:
+      - success
+      - data
+      properties:
+        success:
+          type: boolean
+          enum:
+          - true
+        data:
+          type: object
+          required:
+          - id
+          - rol
+          - anio
+          - escala
+          - resumen
+          - sucursal
+          - fecha_evaluacion
+          - respuestas
+          - acciones
+          properties:
+            id: *id001
+            rol: *id002
+            anio: *id001
+            escala: *id003
+            resumen: *id004
+            sucursal: *id002
+            fecha_evaluacion:
+              type: string
+              nullable: true
+              format: date
+            respuestas:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkapMatrizRespuesta'
+            acciones:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkapMatrizAccion'
+
     # --- SKAP ---
     SkapErrorResponse:
       type: object
@@ -2262,9 +2475,6 @@ components:
               nullable: true
               allOf:
                 - $ref: '#/components/schemas/SkapPlan'
-            ranking:
-              type: object
-              nullable: true
             badge:
               type: string
               nullable: true
@@ -4814,7 +5024,8 @@ paths:
         description: Produccion root
     get:
       tags: [SKAP]
-      summary: Preguntas SKAP por sector
+      summary: Catalogo historico propio
+      description: empleado_id, sector_id y puesto_id deben coincidir con el perfil propio; de lo contrario devuelve 403.
       security:
         - BearerAuth: []
       parameters:
@@ -4905,7 +5116,8 @@ paths:
         description: Produccion root
     get:
       tags: [SKAP]
-      summary: Detalle de evaluacion SKAP
+      summary: Detalle historico propio
+      description: Solo el titular de la misma empresa puede leer; otro titular devuelve 403, inexistente 404.
       security:
         - BearerAuth: []
       parameters:
@@ -4954,7 +5166,7 @@ paths:
           required: false
       responses:
         '200':
-          description: Evaluacion, cards SKAP, historial, plan, ranking y badge
+          description: Evaluacion propia, cards SKAP, historial, plan y badge (sin ranking)
           content:
             application/json:
               schema:
@@ -4962,48 +5174,50 @@ paths:
 
   /api/skap/ranking:
     servers:
-      - url: http://localhost:5000
-        description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
-        description: Produccion root
+    - url: http://localhost:5000
+      description: Local root
+    - url: https://control-asistencia-backend-8gle.onrender.com
+      description: Produccion root
     get:
-      tags: [SKAP]
-      summary: Ranking personal SKAP
+      tags:
+      - SKAP
+      summary: Ranking deshabilitado en consulta personal
+      deprecated: true
       security:
-        - BearerAuth: []
-      parameters:
-        - name: anio
-          in: query
-          schema:
-            type: integer
-            example: 2026
-          required: false
+      - BearerAuth: []
       responses:
-        '200':
-          description: Posicion personal del empleado autenticado
+        '401':
+          description: Sesion invalida
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SkapRankingResponse'
+                $ref: '#/components/schemas/SkapErrorResponse'
+        '403':
+          description: Ranking deshabilitado en consulta personal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'
 
   /api/skap/planes:
     servers:
-      - url: http://localhost:5000
-        description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
-        description: Produccion root
+    - url: http://localhost:5000
+      description: Local root
+    - url: https://control-asistencia-backend-8gle.onrender.com
+      description: Produccion root
     get:
-      tags: [SKAP]
+      tags:
+      - SKAP
       summary: Planes PDP del empleado autenticado
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       parameters:
-        - name: anio
-          in: query
-          schema:
-            type: integer
-            example: 2026
-          required: false
+      - name: anio
+        in: query
+        schema:
+          type: integer
+          example: 2026
+        required: false
       responses:
         '200':
           description: Historial de planes y plan actual
@@ -5012,37 +5226,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/SkapPlanesResponse'
     post:
-      tags: [SKAP]
-      summary: Crea o actualiza acciones extra del PDP
+      tags:
+      - SKAP
+      summary: Plan de solo lectura; seguimiento desde el panel
+      deprecated: true
       security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SkapPlanUpsertRequest'
+      - BearerAuth: []
       responses:
-        '200':
-          description: Plan actualizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SkapPlanUpsertResponse'
-        '400':
-          description: Payload invalido
+        '401':
+          description: Sesion invalida
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SkapErrorResponse'
         '403':
-          description: Sin permiso para administrar este PDP
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SkapErrorResponse'
-        '404':
-          description: Evaluacion no encontrada
+          description: Plan de solo lectura; seguimiento desde el panel
           content:
             application/json:
               schema:
@@ -5095,3 +5293,64 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+
+  /api/skap/matrices:
+    servers: &matrixpath001
+    - url: http://localhost:5000
+      description: Local root
+    - url: https://control-asistencia-backend-8gle.onrender.com
+      description: Produccion root
+    get:
+      tags:
+      - SKAP
+      summary: Lista sin paginacion de matrices propias. Anio invalido omite el filtro. Sin resultados devuelve items
+        vacio.
+      description: Empleado y empresa derivados de la sesion. Escala operativa 0?4 separada del historico 1?5. Ver
+        interpretacion de resumen en mobile_v1_contract.md.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: anio
+        in: query
+        required: false
+        schema: &matrixpath002
+          type: integer
+      responses:
+        '200':
+          description: Consulta personal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapMatricesResponse'
+        '401':
+          description: Sesion invalida o legajo inactivo; el guard puede devolver solo error.
+  /api/skap/matrices/{evaluation_id}:
+    servers: *matrixpath001
+    get:
+      tags:
+      - SKAP
+      summary: Detalle propio de solo lectura; ID ajeno, de otra empresa o inexistente devuelve 404.
+      description: Empleado y empresa derivados de la sesion. Escala operativa 0?4 separada del historico 1?5. Ver
+        interpretacion de resumen en mobile_v1_contract.md.
+      security:
+      - BearerAuth: []
+      parameters:
+      - name: evaluation_id
+        in: path
+        required: true
+        schema: *matrixpath002
+      responses:
+        '200':
+          description: Consulta personal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapMatrizDetalleResponse'
+        '401':
+          description: Sesion invalida o legajo inactivo; el guard puede devolver solo error.
+        '404':
+          description: Evaluacion no encontrada o fuera del alcance personal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkapErrorResponse'

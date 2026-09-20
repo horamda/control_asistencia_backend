@@ -23,7 +23,11 @@ iniciales; no se aplica automáticamente a futuros archivos.
 
 - 0 es una evaluación válida. NA no aporta puntaje ni estándar al denominador.
 - Un dato ausente es `sin_evaluar`; se muestra resultado incompleto, no cero.
-- Cumplimiento: suma de puntajes / suma de estándares aplicables × 100.
+- Cumplimiento: suma de mínimo(puntaje, estándar) / suma de estándares aplicables × 100.
+  Cada contribución se limita por competencia, sin compensar brechas con fortalezas.
+  `obtenido` conserva la suma original; `acreditado` es la suma limitada y `expertas`
+  cuenta puntajes 4. Los resúmenes se recalculan al consultar (también los ya cargados);
+  los archivos, respuestas y resúmenes de importación originales permanecen intactos.
 - Las críticas son únicamente A. Una criticidad desconocida impide informar
   cumplimiento crítico definitivo. No se deduce la criticidad por color o vecindad.
 - Se conservan los valores y fórmulas de resumen originales como referencia.

@@ -338,7 +338,7 @@
                 <span class="theme-toggle-text">Modo oscuro</span>
               </button>
               {% if current_role in ["admin", "rrhh"] %}
-                <div class="notifications-shell" id="notifications-shell">
+                <div class="notifications-shell" id="notifications-shell" data-notifications-url="/panel/notificaciones">
                   <button
                     type="button"
                     class="notifications-toggle{% if panel_notifications.total > 0 %} has-alerts{% endif %}"
@@ -357,31 +357,7 @@
                     {% endif %}
                   </button>
                   <div class="notifications-panel" id="notifications-panel" aria-hidden="true">
-                    <div class="notifications-header">
-                      <div>
-                        <div class="notifications-kicker">Alertas</div>
-                        <div class="notifications-title">Solicitudes mobile</div>
-                      </div>
-                      <span class="notifications-total">{{ panel_notifications.total }}</span>
-                    </div>
-
-                    {% if panel_notifications["items"] %}
-                      <div class="notifications-list">
-                        {% for item in panel_notifications["items"] %}
-                          <a class="notification-item notification-item-{{ item.tone }}" href="{{ item.href }}">
-                            <div class="notification-item-body">
-                              <div class="notification-item-title">{{ item.label }}</div>
-                              <div class="notification-item-description">{{ item.description }}</div>
-                            </div>
-                            <span class="notification-item-count">{{ item.count if item.count < 100 else "99+" }}</span>
-                          </a>
-                        {% endfor %}
-                      </div>
-                    {% else %}
-                      <div class="notifications-empty">
-                        No hay solicitudes pendientes.
-                      </div>
-                    {% endif %}
+                    <div class="notifications-empty" role="status">Cargando alertas…</div>
                   </div>
                 </div>
               {% endif %}
@@ -412,6 +388,7 @@
     {% endif %}
 
     <script src="{{ url_for('static', filename='js/panel.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/panel-notifications.js') }}" defer></script>
     {% block extra_scripts %}{% endblock %}
   </body>
 </html>

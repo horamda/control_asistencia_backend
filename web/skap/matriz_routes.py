@@ -45,13 +45,20 @@ def index():
     if not manager(actor):
         return redirect(url_for('skap_matriz.mine'))
     filters = {key: request.args.get(key, type=int) for key in ('anio','sucursal_id','empleado_id')}
-    rows = repo.list_evaluations(actor, **filters)
-    roles = sorted({row['rol_clave']: row['rol'] for row in rows}.items())
+    roles = repo.role_options(actor, **filters)
     filters['rol'] = normalize(request.args.get('rol'))
-    if filters['rol']:
-        rows = [row for row in rows if row['rol_clave'] == filters['rol']]
-    return render_template('skap/matrices.html',rows=rows,own=False,actor=actor,
-                           branches=repo.branch_options(actor['empresa_id']),filters=filters,roles=roles)
+    page = max(1, request.args.get('page', 1, type=int) or 1)
+    per = 25
+    query_filters = {**filters, 'rol': filters['rol'] or None}
+    rows = repo.list_evaluations(actor, **query_filters, limit=per+1, offset=(page-1)*per)
+    has_next = len(rows) > per
+    link_filters = {k:v for k,v in filters.items() if v}
+    return render_template('skap/matrices.html',rows=rows[:per],own=False,actor=actor,
+                           branches=repo.branch_options(actor['empresa_id']),filters=filters,roles=roles,
+                           page=page,has_next=has_next,
+                           previous_url=url_for('skap_matriz.index',page=page-1,**link_filters) if page>1 else None,
+                           next_url=url_for('skap_matriz.index',page=page+1,**link_filters) if has_next else None)
+
 
 
 @skap_matriz_bp.get('/matrices/<int:evaluation_id>')

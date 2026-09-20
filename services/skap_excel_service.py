@@ -86,9 +86,11 @@ def summarize(responses):
         missing = sum(r["estado"] == "sin_evaluar" for r in items)
         expected = sum(r["estandar"] for r in numeric)
         obtained = sum(r["puntaje"] for r in numeric)
-        partial = round(100 * obtained / expected, 2) if expected else None
+        credited = sum(min(r["puntaje"], r["estandar"]) for r in numeric)
+        partial = round(100 * credited / expected, 2) if expected else None
         return {"total": len(items), "evaluadas": len(numeric), "no_aplica": sum(r["estado"] == "no_aplica" for r in items),
                 "faltantes": missing, "obtenido": obtained, "esperado": expected,
+                "acreditado": credited, "expertas": sum(r["puntaje"] == 4 for r in numeric),
                 "cumplimiento_pct": partial if not missing else None, "parcial_pct": partial,
                 "brechas": sum(r["puntaje"] < r["estandar"] for r in numeric)}
     result = metric(responses)

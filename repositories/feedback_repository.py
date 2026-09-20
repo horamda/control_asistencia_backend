@@ -242,6 +242,9 @@ def _fetch_page(page: int, per_page: int, where_sql: str, params: list):
             tuple(params),
         )
         total = int((cursor.fetchone() or {}).get("total") or 0)
+        if total == 0:
+            return [], 0
+
 
         cursor.execute(
             f"""

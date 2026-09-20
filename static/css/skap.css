@@ -1,0 +1,84 @@
+﻿/* Scoped operational SKAP screens; inherit the panel's light/dark theme. */
+.skap-module { min-width: 0; gap: 22px; }
+.skap-module .panel { min-width: 0; padding: 22px; }
+.skap-module h2 { font-size: clamp(1.5rem, 3vw, 2rem); overflow-wrap: anywhere; }
+.skap-module p { line-height: 1.6; }
+.skap-module .section-head { align-items: flex-start; gap: 20px; }
+.skap-module .section-head > div { min-width: 0; }
+.skap-back { color: var(--primary); font-weight: 600; text-underline-offset: 4px; }
+.skap-module a:focus-visible, .skap-module summary:focus-visible,
+.skap-module input:focus-visible, .skap-module select:focus-visible,
+.skap-module textarea:focus-visible, .skap-module button:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+.skap-module .btn, .skap-module input:not([type=hidden]), .skap-module select { min-height: 44px; }
+.skap-module input[type=checkbox] { min-height: 24px; width: 24px; accent-color: var(--primary); }
+.skap-module label { display: grid; gap: 8px; min-width: 0; font-weight: 600; }
+.skap-module input, .skap-module select, .skap-module textarea { max-width: 100%; min-width: 0; width: 100%; font: inherit; }
+.skap-module textarea { min-height: 100px; resize: vertical; }
+.skap-module .skap-filters { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)) auto auto; align-items: end; gap: 16px; }
+.skap-filters .skap-back { padding: 12px 0; }
+.skap-list-heading, .skap-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.skap-list-heading { justify-content: space-between; }
+.skap-list-heading h3 { margin: 0; }
+.skap-pill { display: inline-block; border: 1px solid var(--border); border-radius: 100px; padding: 5px 12px; background: var(--surface-soft); font-size: .875rem; font-weight: 600; white-space: normal; }
+.skap-tabs a { padding: 12px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); text-decoration: none; font-weight: 600; }
+.skap-tabs a:hover { background: var(--primary-soft); }
+.skap-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.skap-stat { display: flex; flex-direction: column; gap: 10px; border-top: 3px solid var(--primary); }
+.skap-stat strong { font-size: clamp(1.35rem,2.4vw,2rem); line-height: 1.25; }
+.skap-stat span, .skap-stat small, .skap-muted { color: var(--muted); }
+.skap-note { padding: 18px 22px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 12px; line-height: 1.6; }
+.skap-module summary { cursor: pointer; padding: 12px 0; font-weight: 600; overflow-wrap: anywhere; }
+.skap-action { border-top: 1px solid var(--border); padding: 10px 0; }
+.skap-action summary .skap-pill { margin: 8px 0 0 10px; }
+.skap-module .skap-action-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; padding: 18px 0; }
+.skap-action-form label:first-of-type, .skap-action-form label:last-of-type { grid-column: 1 / -1; }
+.skap-action-form button { justify-self: start; }
+.skap-table { width: 100%; border-collapse: collapse; }
+.skap-table th { color: var(--muted); font-size: .85rem; text-align: left; }
+.skap-table th, .skap-table td { padding: 15px 12px; vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+.skap-table td { border-top: 1px solid var(--border); }
+.skap-table tbody tr:hover { background: var(--surface-soft); }
+.skap-table select { min-width: 190px; }
+.skap-empty { text-align: center; padding: 32px 16px; color: var(--muted); }
+.skap-empty strong { display: block; color: var(--text); font-size: 1.1rem; }
+.skap-steps { display: flex; flex-wrap: wrap; gap: 12px; padding: 0; list-style: none; }
+.skap-steps li { padding: 10px 16px; border-radius: 8px; background: var(--surface-soft); color: var(--muted); }
+.skap-steps [aria-current] { background: var(--primary-soft); color: var(--text); font-weight: 700; }
+.skap-upload { border: 2px dashed var(--border); }
+.skap-import-actions { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 0; }
+.skap-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skap-module [id] { scroll-margin-top: 24px; }
+@media (max-width: 1100px) {
+ .skap-module .skap-filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 760px) {
+ .skap-module { gap: 16px; }
+ .skap-module .panel { padding: 16px; }
+ .skap-module .section-head { flex-direction: column; }
+ .skap-stats { grid-template-columns: 1fr; }
+ .skap-module .skap-filters, .skap-module .skap-action-form { grid-template-columns: 1fr; }
+ .skap-module .table-responsive { overflow: visible; }
+ .skap-table, .skap-table tbody { display: block; min-width: 0; }
+ .skap-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+ .skap-table tr { display: block; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 16px; }
+ .skap-table tr:last-child { margin-bottom: 0; }
+ .skap-table td { display: grid; grid-template-columns: minmax(85px,32%) minmax(0,1fr); gap: 12px; padding: 10px 0; border: 0; }
+ .skap-table td::before { content: attr(data-label); color: var(--muted); font-size: .85rem; font-weight: 600; }
+ .skap-table td[colspan] { display: block; }
+ .skap-table td[colspan]::before { display: none; }
+ .skap-table td[data-label="Legajo de FichaYa"], .skap-table td[data-label="Competencia"], .skap-table td[data-label="Persona / hoja"] { display: block; }
+ .skap-table td[data-label="Legajo de FichaYa"]::before, .skap-table td[data-label="Competencia"]::before, .skap-table td[data-label="Persona / hoja"]::before { display: block; margin-bottom: 6px; }
+ .skap-table select { min-width: 0; }
+ .skap-module .btn { white-space: normal; text-align: center; }
+ .skap-import-actions > *, .skap-upload > .btn { width: 100%; }
+ .skap-tabs { gap: 8px; }
+ .skap-tabs a { flex: 1 1 auto; text-align: center; padding: 12px; }
+ .skap-action summary .skap-pill { margin-left: 0; }
+}
+@media (max-width: 760px) {
+ .skap-module .table-responsive .skap-table { min-width: 0; width: 100%; }
+}
+.skap-cell-note { display: block; margin-top: 6px; font-size: .85rem; font-weight: 400; color: var(--muted); line-height: 1.5; }
+.skap-block-summary { margin-bottom: 18px; }
+.skap-block-summary > strong + strong { margin-left: 18px; }
+.skap-module .skap-stat .skap-cell-note { font-size: .9rem; }

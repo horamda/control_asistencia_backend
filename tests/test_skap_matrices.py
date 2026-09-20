@@ -262,3 +262,43 @@ def test_web_upload_review_and_apply(database,monkeypatch):
     response=client.post(response.location,data={'operacion':'importar','seleccion':'OPERARIOS DOL:H','empleado_OPERARIOS DOL:H':'10'})
     assert response.status_code == 302
     assert len(repo.list_evaluations(ACTOR)) == 1
+
+
+def test_capped_contributions_do_not_compensate_individual_gaps():
+    responses = [
+        {'estado': 'evaluado', 'puntaje': 4, 'estandar': 2, 'criticidad': 'A', 'bloque': 'Operacion'},
+        {'estado': 'evaluado', 'puntaje': 2, 'estandar': 3, 'criticidad': 'A', 'bloque': 'Operacion'},
+    ]
+    result = summarize(responses)
+    assert result['cumplimiento_pct'] == 80
+    assert result['obtenido'] == 6
+    assert result['acreditado'] == 4
+    assert result['expertas'] == 1
+    assert result['brechas'] == 1
+    assert result['evaluadas'] - result['brechas'] == 1
+    from jinja2 import Environment, FileSystemLoader
+    env = Environment(loader=FileSystemLoader(str(Path(__file__).parents[1] / 'templates')), autoescape=True)
+    macros = env.get_template('skap/_metricas.html').module
+    assert '80,00 %' in macros.ratio(result)
+    assert '1 / 2' in macros.coverage(result)
+    responses.append({'estado': 'sin_evaluar', 'puntaje': None, 'estandar': 3, 'criticidad': 'A', 'bloque': 'Operacion'})
+    incomplete = summarize(responses)
+    assert 'Incompleta' in macros.ratio(incomplete)
+    assert 'Parcial: 80,00 %' in macros.ratio(incomplete)
+    assert '1 pendientes' in macros.coverage(incomplete)
+    assert 'Sin base suficiente' in macros.ratio(summarize([]))
+
+
+def test_paginated_rows_preserve_scope_and_filter(database):
+    _, _, payload = import_sample()
+    for year in (2020, 2021):
+        p = copy.deepcopy(payload)
+        p['evaluaciones'][0]['anio'] = year
+        batch = repo.save_preview(p, 1, 99)
+        repo.commit_import(batch, p, ACTOR, {'OPERARIOS DOL:H'})
+    first = repo.list_evaluations(ACTOR, limit=2)
+    second = repo.list_evaluations(ACTOR, limit=2, offset=2)
+    assert [r['anio'] for r in first + second] == [2021, 2020, 2019]
+    assert not repo.list_evaluations(ACTOR, rol='CHOFER', limit=2)
+    assert not repo.list_evaluations({'empresa_id':2, 'rol':'admin'}, limit=2)
+    assert repo.role_options(ACTOR) == [('OPERARIOS', 'Operarios')]

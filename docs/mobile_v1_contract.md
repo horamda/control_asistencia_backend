@@ -1,7 +1,7 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.25.0
-Fecha de corte: 2026-07-27
+Version de contrato: 1.27.0
+Fecha de corte: 2026-09-20
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
 Prefijo principal: `/api/v1/mobile`
@@ -2976,7 +2976,7 @@ Modelo base `FeedbackItem`:
 Prefijo: `/api/skap`
 Auth: `Bearer JWT` mobile.
 
-Uso funcional: SKAP mide `Skills`, `Knowledge`, `Attitude` y `Performance` por sector, genera evaluaciones anuales, ranking personal y plan de desarrollo (PDP).
+Uso funcional: consulta personal de matrices operativas importadas (`operativa_0_4`) y del historico SKAP 1?5. Cada empleado consulta solo sus evaluaciones, sin rankings ni edicion de planes desde la app. Los endpoints historicos conservan su escala; no convertir ni mezclar ambas escalas.
 
 Envelope de respuesta:
 ```json
@@ -2987,7 +2987,7 @@ Errores:
 {"success": false, "error": "mensaje"}
 ```
 
-Categorias:
+Categorias del historico 1?5:
 - `S`: Skills
 - `K`: Knowledge
 - `A`: Attitude
@@ -3005,16 +3005,13 @@ Niveles:
 Badges: `Oro`, `Plata`, `Bronce` o `null`.
 
 #### 55A. `GET /api/skap/preguntas?sector_id=&empleado_id=&categoria=&activo=`
-- Devuelve catalogo de preguntas SKAP para un sector.
-- Resolucion de sector:
-  1. `sector_id` explicito.
-  2. `empleado_id` objetivo y su sector.
-  3. sector del empleado autenticado.
+- Devuelve el catalogo historico del empleado autenticado.
+- `empleado_id`, `sector_id` y `puesto_id`, si se envian, deben coincidir con los propios; un valor distinto devuelve 403. Omitirlos para usar el perfil del JWT.
 - Query:
   | Campo | Tipo | Default | Notas |
   |---|---|---|---|
-  | `sector_id` | int | null | Sector a evaluar |
-  | `empleado_id` | int | null | Empleado objetivo para deducir sector |
+  | `sector_id` | int | null | Sector propio |
+  | `empleado_id` | int | null | Empleado autenticado |
   | `categoria` | string | null | `S`, `K`, `A` o `P` |
   | `activo` | bool | `1` | `1/true/si` o `0/false/no` |
 - Response 200:
@@ -3079,7 +3076,7 @@ Badges: `Oro`, `Plata`, `Bronce` o `null`.
 
 #### 55C. `GET /api/skap/evaluacion/<evaluacion_id>`
 - Detalle de evaluacion con detalles por pregunta y plan asociado.
-- Permiso: empleado evaluado, evaluador, jefe directo o rol autorizado por backend.
+- Permiso de lectura: solo el empleado evaluado y su misma empresa; otro titular devuelve 403 y un ID inexistente 404.
 - Response 200:
 ```json
 {"success": true, "data": {"evaluacion": {"id": 77, "detalles": [], "categoria_cards": []}, "plan": {"id": 30, "acciones": []}}}
@@ -3088,7 +3085,7 @@ Badges: `Oro`, `Plata`, `Bronce` o `null`.
 ---
 
 #### 55D. `GET /api/skap/mi_desarrollo?anio=YYYY`
-- Vista principal para el empleado autenticado.
+- Vista del historico 1?5 para el empleado autenticado. No incluye el campo `ranking`.
 - Response 200:
 ```json
 {
@@ -3100,7 +3097,6 @@ Badges: `Oro`, `Plata`, `Bronce` o `null`.
     "categoria_cards": [{"categoria": "S", "label": "Skills", "promedio": 4.2, "esperado": 4.0, "nivel": "Destacado", "respuestas": 5, "badge": "Plata"}],
     "historial": [],
     "plan": {"id": 30, "acciones": []},
-    "ranking": {"posicion": 3, "total": 25, "puntaje": 4.1},
     "badge": "Plata"
   }
 }
@@ -3108,12 +3104,9 @@ Badges: `Oro`, `Plata`, `Bronce` o `null`.
 
 ---
 
-#### 55E. `GET /api/skap/ranking?anio=YYYY`
-- Ranking personal del empleado autenticado para el anio.
-- Response 200:
-```json
-{"success": true, "data": {"anio": 2026, "posicion": 3, "total": 25, "puntaje": 4.1, "nivel": "Destacado", "badge": "Plata"}}
-```
+#### 55E. `GET /api/skap/ranking?anio=YYYY` (deshabilitado)
+- Con sesion valida devuelve 403: `{"success": false, "error": "Los rankings no est?n disponibles en la consulta personal."}`.
+- Flutter no debe llamar este endpoint ni mostrar comparaciones entre empleados.
 
 ---
 
@@ -3126,38 +3119,47 @@ Badges: `Oro`, `Plata`, `Bronce` o `null`.
 
 ---
 
-#### 55G. `POST /api/skap/planes`
-- Crea o actualiza acciones extra del PDP de una evaluacion existente.
-- Permiso: empleado evaluado, evaluador, jefe directo o rol autorizado por backend.
-- Request:
+#### 55G. `POST /api/skap/planes` (deshabilitado)
+- Con sesion valida devuelve 403: `{"success": false, "error": "El plan es de consulta. Su responsable gestiona el seguimiento desde el panel."}`.
+- No crea ni modifica acciones. La app presenta el seguimiento en modo lectura.
+
+#### 55H. `GET /api/skap/matrices?anio=YYYY`
+- Lista todas las matrices operativas propias; sin paginacion. `anio` es opcional; si no se puede convertir a entero, se omite el filtro.
+- Empleado y empresa se obtienen del JWT y del legajo activo. No se admite seleccionar a otra persona; parametros como `empleado_id` no cambian el alcance.
+- Orden: anio descendente y rol. Puede haber varias evaluaciones por anio, puesto y sucursal historica.
+- Response 200 (sin evaluaciones: `items: []`):
 ```json
-{
-  "evaluacion_id": 77,
-  "acciones": [
-    {
-      "categoria": "S",
-      "accion": "Acompanamiento en visitas complejas.",
-      "responsable_empleado_id": 2,
-      "fecha_compromiso": "2026-09-08",
-      "estado": "pendiente",
-      "comentarios": "Seguimiento mensual."
-    }
-  ]
-}
+{"success": true, "data": {"items": [{"id": 1, "rol": "Autoelevadorista", "anio": 2025, "sucursal_nombre": "Dolores", "escala": "operativa_0_4", "resumen": {"total": 1, "evaluadas": 1, "no_aplica": 0, "faltantes": 0, "obtenido": 2, "esperado": 4, "cumplimiento_pct": 50, "parcial_pct": 50, "brechas": 1, "criticidad_sin_definir": 0, "criticas": {"total": 1, "evaluadas": 1, "no_aplica": 0, "faltantes": 0, "obtenido": 2, "esperado": 4, "cumplimiento_pct": 50, "parcial_pct": 50, "brechas": 1}, "bloques": {"Operacion": {"total": 1, "evaluadas": 1, "no_aplica": 0, "faltantes": 0, "obtenido": 2, "esperado": 4, "cumplimiento_pct": 50, "parcial_pct": 50, "brechas": 1}}}}]}}
 ```
-- Response 200:
-```json
-{"success": true, "data": {"plan": {"id": 30, "acciones": []}}, "message": "Plan actualizado correctamente."}
-```
+
+#### 55I. `GET /api/skap/matrices/<evaluation_id>`
+- Detalle propio, solo lectura. Response 404 tanto para ID inexistente como para evaluaciones ajenas o de otra empresa.
+- `data` contiene: `id`, `rol`, `anio`, `sucursal` (nombre historico; en el listado se llama `sucursal_nombre`), `escala`, `fecha_evaluacion` (fecha ISO o null), `resumen`, `respuestas` y `acciones`.
+- `resumen` tiene la misma estructura del listado.
+- Cada respuesta contiene `fila` (entero), `celda`, `competencia`, `bloque`, `criticidad` (`A`, `B`, `C` o null), `estandar` (entero 0?4), `valor_original` (string o null), `estado` y `puntaje` (entero 0?4 o null).
+- Estados: `evaluado` tiene puntaje numerico (0 es valido); `no_aplica` corresponde a NA; `sin_evaluar` es un dato ausente. Estos dos ultimos tienen puntaje null.
+- Cada accion contiene `id`, `accion`, `estado` (`propuesta`, `pendiente`, `en_proceso`, `completado`, `cancelado`), `progreso` (entero 0?100), `responsable` (nombre o null), `fecha_inicio`, `fecha_fin` (fechas ISO o null) y `comentarios` (string o null). Sin acciones: `[]`.
+- Las acciones generadas son propuestas; no implican capacitacion realizada. Fechas y responsables pueden estar pendientes.
+- Ambos endpoints requieren sesion mobile vigente y legajo activo; sesion invalida devuelve 401. El guard de autenticacion puede devolver `error` sin el envelope `success`.
+
+#### Interpretacion de resultados operativos
+
+- `cumplimiento_pct` = suma de minimo(puntaje, estandar) / suma de estandares de respuestas numericas × 100. NA se excluye de ambas sumas.
+- Con faltantes, el cumplimiento definitivo es null; `parcial_pct` informa el calculo disponible. Si el denominador es cero, ambos son null. No reemplazar null por cero.
+- `criticas` considera solamente criticidad A; si hay criticidad sin definir, su cumplimiento definitivo es null.
+- `bloques` es un mapa de nombres de bloque a metricas, sin categorias fijas S/K/A/P. Los porcentajes van de 0 a 100; los excedentes no compensan brechas. `acreditado` contiene la suma limitada por competencia, `obtenido` conserva la suma original y `expertas` cuenta puntajes 4. Esta regla 1.27.0 se aplica tambien a evaluaciones ya importadas al consultarlas.
+- La sucursal corresponde al momento de la evaluacion y puede diferir de la sucursal actual del legajo.
 
 #### Flujo recomendado Flutter - SKAP
 
-1. Pantalla "Mi desarrollo": `GET /api/skap/mi_desarrollo?anio=YYYY`.
-2. Ranking: usar `data.ranking` de `mi_desarrollo` o refrescar con `GET /api/skap/ranking`.
-3. Plan PDP: listar con `GET /api/skap/planes?anio=YYYY`; mostrar `current.acciones`.
-4. Si la app permite evaluar: cargar preguntas con `GET /api/skap/preguntas?empleado_id=<id>` y enviar `POST /api/skap/evaluacion`.
-5. Para detalle historico: `GET /api/skap/evaluacion/<id>`.
-6. Para administrar PDP desde mobile: `POST /api/skap/planes` con `evaluacion_id` y `acciones`.
+1. Pantalla "Mis evaluaciones": cargar `GET /api/skap/matrices` con el JWT, sin enviar empleado ni empresa.
+2. Abrir cada detalle por su ID con `GET /api/skap/matrices/<evaluation_id>`; mostrar resultados y acciones en lectura.
+3. Diferenciar visualmente cero, NA y sin evaluar; indicar resultados incompletos cuando corresponda.
+4. Acceso separado al historico 1?5: `mi_desarrollo`, `planes` (GET) y `evaluacion/<id>` propios. No mezclar IDs ni escalas con las matrices.
+5. No mostrar ranking ni editor de planes. `POST /evaluacion` sigue siendo una operacion historica sujeta a permisos del evaluador; no importa matrices operativas.
+6. Contemplar carga, lista vacia, error con reintento y sesion vencida. Un 404 del detalle no autoriza buscar otro empleado.
+
+Cambio 1.26.0: incorpora matrices operativas y documenta las restricciones de privacidad del backend. Desplegar backend actualizado antes de publicar Flutter que use estas rutas; el contrato no implica que el despliegue ya se haya realizado.
 
 ---
 

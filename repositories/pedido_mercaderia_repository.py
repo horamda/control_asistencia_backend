@@ -165,6 +165,9 @@ def get_page_by_empleado(
             (*params, int(per_page), offset),
         )
         rows = _attach_items(cursor, cursor.fetchall())
+        # A short first page already determines the exact total.
+        if int(page) == 1 and 0 < int(per_page) and len(rows) < int(per_page):
+            return rows, len(rows)
 
         cursor.execute(
             f"""
@@ -262,6 +265,9 @@ def get_page(
             (*params, int(per_page), offset),
         )
         rows = cursor.fetchall()
+        # A short first page already determines the exact total.
+        if int(page) == 1 and 0 < int(per_page) and len(rows) < int(per_page):
+            return rows, len(rows)
 
         cursor.execute(
             f"""

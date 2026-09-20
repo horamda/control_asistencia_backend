@@ -1,23 +1,26 @@
 {% extends 'base.html' %}
+{% from 'skap/_metricas.html' import ratio, coverage %}
 {% block title %}{{ 'Mis evaluaciones' if own else 'Matrices SKAP' }}{% endblock %}
-{% block content %}
-<div class="content-stack">
+{% block extra_head %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/skap.css') }}">{% endblock %}{% block content %}
+<div class="content-stack skap-module">
  <div class="section-head"><div><div class="section-kicker">Desarrollo profesional</div>
  <h2>{{ 'Mis evaluaciones' if own else 'Matrices SKAP' }}</h2>
  <p class="module-intro">Competencias por rol y año · escala 0 a 4. Los resultados se comparan con el estándar de cada competencia.</p></div>
  {% if not own and actor.rol in ['admin','rrhh'] %}<a class="btn" href="{{ url_for('skap_matriz.upload') }}">Importar Excel</a>{% endif %}</div>
- {% for category,message in get_flashed_messages(with_categories=true) %}<div class="alert">{{ message }}</div>{% endfor %}
- {% if not own %}<form method="get" class="panel form-grid">
+ {% for category,message in get_flashed_messages(with_categories=true) %}<div role="status" class="alert">{{ message }}</div>{% endfor %}
+ {% if not own %}<form method="get" class="panel form-grid skap-filters">
  <label>Año<input type="number" name="anio" min="1900" max="2100" value="{{ filters.anio or '' }}"></label>
  <label>Sucursal de la evaluación<select name="sucursal_id"><option value="">Todas</option>{% for s in branches %}<option value="{{ s.id }}" {% if filters.sucursal_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}</select></label>
  <label>Rol evaluado<select name="rol"><option value="">Todos</option>{% for key,label in roles %}<option value="{{ key }}" {% if filters.rol == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
- {% if filters.empleado_id %}<input type="hidden" name="empleado_id" value="{{ filters.empleado_id }}">{% endif %}<button class="btn" type="submit">Filtrar</button></form>{% endif %}
- <div class="panel table-responsive"><table class="table"><thead><tr>{% if not own %}<th>Legajo / empleado</th>{% endif %}<th>Rol</th><th>Sucursal</th><th>Año</th><th>Cumplimiento</th><th>Críticas</th><th>Brechas</th><th></th></tr></thead><tbody>
- {% for r in rows %}<tr>{% if not own %}<td>{{ r.legajo }} · {{ r.apellido }} {{ r.nombre }}</td>{% endif %}
- <td>{{ r.rol }}</td><td>{{ r.sucursal_nombre }}</td><td>{{ r.anio }}</td>
- <td>{{ (r.resumen.cumplimiento_pct|string ~ '%') if r.resumen.cumplimiento_pct is not none else 'Sin completar' }}</td>
- <td>{{ (r.resumen.criticas.cumplimiento_pct|string ~ '%') if r.resumen.criticas.cumplimiento_pct is not none else 'Sin datos suficientes' }}</td>
- <td>{{ r.resumen.brechas }}</td><td><a class="btn btn-secondary" href="{{ url_for('skap_matriz.detail',evaluation_id=r.id) }}">Ver evaluación</a></td></tr>
+ {% if filters.empleado_id %}<input type="hidden" name="empleado_id" value="{{ filters.empleado_id }}">{% endif %}<button class="btn" type="submit">Aplicar filtros</button><a class="skap-back" href="{{ url_for('skap_matriz.index', empleado_id=filters.empleado_id) if filters.empleado_id else url_for('skap_matriz.index') }}">Limpiar filtros</a></form>{% endif %}
+ <details class="skap-note"><summary>Cómo leer los resultados</summary><p>El cumplimiento va de 0 a 100 %. Cada competencia aporta como máximo su estándar: un puntaje alto no compensa otro por debajo del nivel esperado. El nivel 4 se conserva y se destaca como competencia experta. NA se excluye y los datos faltantes dejan el resultado incompleto.</p><p>Por eso mostramos también cuántas competencias alcanzan el estándar y cuántas requieren desarrollo. Las críticas son las clasificadas A. Los resultados incompletos son parciales; NA se excluye del cálculo.</p><p>Una persona puede tener evaluaciones de distintos roles en el mismo año. La sucursal corresponde a la evaluación y puede diferir de su asignación actual.</p></details>
+ <div class="skap-list-heading"><h3>Evaluaciones disponibles</h3><span class="skap-pill">{{ rows|length }} evaluaciones{% if page is defined %} · Página {{ page }}{% endif %}</span></div><div class="panel table-responsive"><table class="table skap-table"><thead><tr>{% if not own %}<th>Legajo / empleado</th>{% endif %}<th>Rol</th><th>Sucursal</th><th>Año</th><th>Cumplimiento general</th><th>Cumplimiento crítico (A)</th><th>Competencias por desarrollar</th><th><span class="skap-sr-only">Acciones</span></th></tr></thead><tbody>
+ {% for r in rows %}<tr>{% if not own %}<td data-label="Legajo / empleado">{{ r.legajo }} · {{ r.apellido }} {{ r.nombre }}</td>{% endif %}
+ <td data-label="Rol">{{ r.rol }}</td><td data-label="Sucursal">{{ r.sucursal_nombre }}</td><td data-label="Año">{{ r.anio }}</td>
+ <td data-label="Cumplimiento general"><div>{{ ratio(r.resumen) }}{{ coverage(r.resumen) }}</div></td>
+ <td data-label="Cumplimiento crítico (A)"><div>{{ ratio(r.resumen.criticas) }}<small class="skap-cell-note">{{ r.resumen.criticas.brechas }} críticas por desarrollar{% if r.resumen.criticidad_sin_definir %} · Criticidad sin definir{% endif %}</small></div></td>
+ <td data-label="Por desarrollar"><span class="skap-pill">{{ r.resumen.brechas }} competencias</span></td><td data-label="Detalle"><a class="btn btn-secondary" href="{{ url_for('skap_matriz.detail',evaluation_id=r.id) }}">Ver evaluación</a></td></tr>
  {% else %}<tr><td colspan="8">Todavía no hay evaluaciones disponibles.</td></tr>{% endfor %}
  </tbody></table></div>
+{% if previous_url or next_url %}<nav class="skap-tabs" aria-label="Páginas de evaluaciones">{% if previous_url %}<a href="{{ previous_url }}">Anterior</a>{% endif %}{% if next_url %}<a href="{{ next_url }}">Siguiente</a>{% endif %}</nav>{% endif %}
 </div>{% endblock %}

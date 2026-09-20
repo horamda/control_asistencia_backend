@@ -369,6 +369,8 @@ def create_app():
     app.register_blueprint(feedback_web_bp)
     app.register_blueprint(skap_web_bp)
     app.register_blueprint(skap_matriz_bp)
+    from web.panel_notifications_routes import panel_notifications_bp
+    app.register_blueprint(panel_notifications_bp)
 
     # API móvil trivia (exento de CSRF como el resto de la API)
     csrf.exempt(trivia_bp)
@@ -458,6 +460,11 @@ def create_app():
         elapsed = None
         if hasattr(request, "_start_time"):
             elapsed = round((time.time() - request._start_time) * 1000, 2)
+        if elapsed is not None:
+            response.headers["Server-Timing"] = f"app;dur={elapsed}"
+            if hasattr(g, 'skap_db_ms'):
+                response.headers["Server-Timing"] += f", skap_db;dur={g.skap_db_ms:.2f}"
+
         user_id = session.get("user_id")
         user_role = session.get("user_role")
         app.logger.info(
@@ -468,6 +475,8 @@ def create_app():
                     "method": request.method,
                     "status": response.status_code,
                     "ms": elapsed,
+                    "skap_db_ms": round(g.skap_db_ms, 2) if hasattr(g, "skap_db_ms") else None,
+                    "skap_db_reads": getattr(g, "skap_db_reads", None),
                     "user_id": user_id,
                     "user_role": user_role,
                 }
@@ -477,26 +486,6 @@ def create_app():
 
     @app.context_processor
     def _inject_panel_notifications():
-        def panel_notifications_for_role(role):
-            cache_key = f"panel_notifications:{role}"
-            now = time.time()
-            if request.method == "GET":
-                cached = session.get(cache_key)
-                if cached and now - float(cached.get("ts") or 0) < 30:
-                    return cached.get("data") or {
-                        "enabled": True,
-                        "total": 0,
-                        "items": [],
-                        "has_items": False,
-                    }
-
-            from services.panel_notifications_service import build_panel_notifications
-
-            data = build_panel_notifications(role)
-            if request.method == "GET":
-                session[cache_key] = {"ts": now, "data": data}
-            return data
-
         def can_web(module, action="ver"):
             user_id = session.get("user_id")
             if not user_id:
@@ -527,24 +516,11 @@ def create_app():
                 "export_toolbar": build_export_toolbar(request.endpoint),
             }
 
-        try:
-            return {
-                "can_web": can_web,
-                "panel_notifications": panel_notifications_for_role(role),
-                "export_toolbar": build_export_toolbar(request.endpoint),
-            }
-        except Exception:
-            app.logger.warning("panel_notifications_context_error", exc_info=True)
-            return {
-                "can_web": can_web,
-                "panel_notifications": {
-                    "enabled": True,
-                    "total": 0,
-                    "items": [],
-                    "has_items": False,
-                },
-                "export_toolbar": build_export_toolbar(request.endpoint),
-            }
+        return {
+            "can_web": can_web,
+            "panel_notifications": {"enabled": True, "total": 0, "items": [], "has_items": False},
+            "export_toolbar": build_export_toolbar(request.endpoint),
+        }
     
      
     return app
