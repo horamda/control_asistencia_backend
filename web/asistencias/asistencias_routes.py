@@ -5,24 +5,21 @@ import io
 from flask import Blueprint, Response, abort, current_app, jsonify, redirect, render_template, request, session, url_for
 from utils.forms import parse_date as _parse_date_iso, parse_float as _parse_float, parse_int as _parse_int
 
-from repositories.asistencia_marca_repository import create as create_marca
-from repositories.asistencia_marca_repository import get_by_asistencia as get_marcas_by_asistencia
-from repositories.asistencia_marca_repository import delete_by_id as delete_marca_by_id
 from repositories.asistencia_marca_repository import get_by_id as get_marca_by_id
 from repositories.asistencia_marca_repository import get_for_export_admin as get_marcas_admin_export
-from repositories.asistencia_marca_repository import update_basic as update_marca_basic
 from repositories.asistencia_marca_repository import get_page_admin as get_marcas_admin_page
 from repositories.asistencia_marca_repository import backfill_from_asistencias as backfill_marcas
 from repositories.asistencia_dia_no_laborable_repository import get_dates as get_dias_no_laborables
 from repositories.asistencia_dia_no_laborable_repository import replace_month_dates as replace_dias_no_laborables
 from repositories.configuracion_empresa_repository import get_by_empresa_id as get_configuracion_empresa_by_id
-from repositories.asistencia_repository import create, delete, get_by_id, get_page, sync_from_asistencia_marcas, update
+from repositories.asistencia_repository import get_by_id, get_page
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.sucursal_repository import get_all as get_sucursales
 from repositories.sector_repository import get_all as get_sectores
 from repositories.vacaciones_repository import get_periodos_aprobados_export as get_vacaciones_aprobadas_export
 from utils.asistencia import generar_ausentes, generar_ausentes_rango, get_horario_esperado, validar_asistencia
+from services.asistencia_manual_service import save_manual, change_mark, delete_manual
 from utils.audit import log_audit
 from web.auth.decorators import has_role, role_required
 from services.export_excel_service import generar_historial_marcas_excel, generar_planilla_fichadas_excel
@@ -91,93 +88,6 @@ def _get_empleados_control_asistencia(**kwargs):
             for e in empleados
             if int(e.get("requiere_control_asistencia", 1) or 0) == 1
         ]
-
-
-def _sync_simple_marcas_for_asistencia(asistencia_id: int):
-    asistencia = get_by_id(asistencia_id)
-    if not asistencia:
-        return {"synced": False, "reason": "asistencia_not_found"}
-
-    marcas = get_marcas_by_asistencia(asistencia_id)
-    non_jornada = [
-        m
-        for m in marcas
-        if str(m.get("tipo_marca") or "").strip().lower() not in {"", "jornada"}
-    ]
-    if non_jornada:
-        return {"synced": False, "reason": "complex_tipo_marca"}
-
-    by_action = {"ingreso": [], "egreso": []}
-    for m in marcas:
-        accion = str(m.get("accion") or "").strip().lower()
-        if accion in by_action:
-            by_action[accion].append(m)
-
-    if len(by_action["ingreso"]) > 1 or len(by_action["egreso"]) > 1:
-        return {"synced": False, "reason": "multiple_marcas"}
-
-    specs = {
-        "ingreso": {
-            "hora": _to_hhmm(asistencia.get("hora_entrada")),
-            "lat": asistencia.get("lat_entrada"),
-            "lon": asistencia.get("lon_entrada"),
-            "foto": asistencia.get("foto_entrada"),
-            "metodo": asistencia.get("metodo_entrada") or "manual",
-            "gps_ok": asistencia.get("gps_ok_entrada"),
-            "gps_distancia_m": asistencia.get("gps_distancia_entrada_m"),
-            "gps_tolerancia_m": asistencia.get("gps_tolerancia_entrada_m"),
-            "gps_ref_lat": asistencia.get("gps_ref_lat_entrada"),
-            "gps_ref_lon": asistencia.get("gps_ref_lon_entrada"),
-        },
-        "egreso": {
-            "hora": _to_hhmm(asistencia.get("hora_salida")),
-            "lat": asistencia.get("lat_salida"),
-            "lon": asistencia.get("lon_salida"),
-            "foto": asistencia.get("foto_salida"),
-            "metodo": asistencia.get("metodo_salida") or "manual",
-            "gps_ok": asistencia.get("gps_ok_salida"),
-            "gps_distancia_m": asistencia.get("gps_distancia_salida_m"),
-            "gps_tolerancia_m": asistencia.get("gps_tolerancia_salida_m"),
-            "gps_ref_lat": asistencia.get("gps_ref_lat_salida"),
-            "gps_ref_lon": asistencia.get("gps_ref_lon_salida"),
-        },
-    }
-
-    created = 0
-    deleted = 0
-    for accion in ("ingreso", "egreso"):
-        existing = by_action[accion][0] if by_action[accion] else None
-        if existing:
-            delete_marca_by_id(int(existing["id"]))
-            deleted += 1
-
-        spec = specs[accion]
-        if not spec["hora"]:
-            continue
-
-        create_marca(
-            empresa_id=int(asistencia["empresa_id"]),
-            empleado_id=int(asistencia["empleado_id"]),
-            asistencia_id=int(asistencia_id),
-            fecha=_to_date_iso(asistencia.get("fecha")),
-            hora=spec["hora"],
-            accion=accion,
-            metodo=spec["metodo"],
-            tipo_marca="jornada",
-            lat=spec["lat"],
-            lon=spec["lon"],
-            foto=spec["foto"],
-            gps_ok=spec["gps_ok"],
-            gps_distancia_m=spec["gps_distancia_m"],
-            gps_tolerancia_m=spec["gps_tolerancia_m"],
-            gps_ref_lat=spec["gps_ref_lat"],
-            gps_ref_lon=spec["gps_ref_lon"],
-            estado=asistencia.get("estado"),
-            observaciones=asistencia.get("observaciones"),
-        )
-        created += 1
-
-    return {"synced": True, "created": created, "deleted": deleted}
 
 
 def _resolve_planilla_filters(args):
@@ -310,7 +220,7 @@ def _build_planilla_context(
         empresa_id=empresa_id,
         fecha_desde=fecha,
         fecha_hasta=fecha,
-        limit=20000,
+        limit=None,
     )
     asistencias_rows, _ = get_page(1, 20000, None, fecha, fecha, None)
 
@@ -661,7 +571,7 @@ def reportes_mensuales():
         empresa_id=empresa_id,
         fecha_desde=first.isoformat(),
         fecha_hasta=last.isoformat(),
-        limit=20000,
+        limit=None,
         order_asc=True,
     )
     if sucursal_id or sector_id:
@@ -705,7 +615,7 @@ def reportes_mensuales():
         empresa_id=empresa_id,
         fecha_desde=prev_first.isoformat(),
         fecha_hasta=prev_last.isoformat(),
-        limit=20000,
+        limit=None,
         order_asc=True,
     )
     if sucursal_id:
@@ -862,10 +772,13 @@ def planilla_marca_editar(marca_id):
                 error=str(exc),
             )
 
-        update_marca_basic(marca_id, hora=hora, accion=accion, observaciones=observaciones)
-        if marca.get("asistencia_id"):
-            sync_from_asistencia_marcas(int(marca["asistencia_id"]))
-        log_audit(session, "update", "asistencia_marcas", marca_id)
+        try:
+            change_mark(marca_id=marca_id, hora=hora, accion=accion, observaciones=observaciones, actor=session.get('user_id'))
+        except ValueError as exc:
+            return render_template("asistencias/planilla_marca_form.html", mode="edit",
+                marca=_marca_for_form({**marca, "hora": hora, "accion": accion, "observaciones": observaciones}),
+                empresa_id=empresa_id, sucursal_id=sucursal_id, sector_id=sector_id,
+                jefe_directo_id=jefe_directo_id, fecha=fecha, error=str(exc)), 400
         return _planilla_redirect(
             empresa_id=empresa_id,
             sucursal_id=sucursal_id,
@@ -908,11 +821,11 @@ def planilla_marca_eliminar(marca_id):
             error="Marca no encontrada.",
         )
 
-    asistencia_id = marca.get("asistencia_id")
-    delete_marca_by_id(marca_id)
-    if asistencia_id:
-        sync_from_asistencia_marcas(int(asistencia_id))
-    log_audit(session, "delete", "asistencia_marcas", marca_id)
+    try:
+        change_mark(marca_id=marca_id, action='eliminar', actor=session.get('user_id'))
+    except ValueError as exc:
+        return _planilla_redirect(empresa_id=empresa_id, sucursal_id=sucursal_id,
+            sector_id=sector_id, jefe_directo_id=jefe_directo_id, fecha=fecha, error=str(exc))
     return _planilla_redirect(
         empresa_id=empresa_id,
         sucursal_id=sucursal_id,
@@ -981,49 +894,15 @@ def planilla_marca_agregar():
                 error=str(exc),
             )
 
-        if accion == "ingreso":
-            lat = asistencia.get("lat_entrada")
-            lon = asistencia.get("lon_entrada")
-            foto = asistencia.get("foto_entrada")
-            metodo = asistencia.get("metodo_entrada") or "manual"
-            gps_ok = asistencia.get("gps_ok_entrada")
-            gps_distancia_m = asistencia.get("gps_distancia_entrada_m")
-            gps_tolerancia_m = asistencia.get("gps_tolerancia_entrada_m")
-            gps_ref_lat = asistencia.get("gps_ref_lat_entrada")
-            gps_ref_lon = asistencia.get("gps_ref_lon_entrada")
-        else:
-            lat = asistencia.get("lat_salida")
-            lon = asistencia.get("lon_salida")
-            foto = asistencia.get("foto_salida")
-            metodo = asistencia.get("metodo_salida") or "manual"
-            gps_ok = asistencia.get("gps_ok_salida")
-            gps_distancia_m = asistencia.get("gps_distancia_salida_m")
-            gps_tolerancia_m = asistencia.get("gps_tolerancia_salida_m")
-            gps_ref_lat = asistencia.get("gps_ref_lat_salida")
-            gps_ref_lon = asistencia.get("gps_ref_lon_salida")
-
-        marca_id = create_marca(
-            empresa_id=int(asistencia["empresa_id"]),
-            empleado_id=int(asistencia["empleado_id"]),
-            asistencia_id=int(asistencia_id),
-            fecha=_to_date_iso(asistencia.get("fecha")) or fecha,
-            hora=hora,
-            accion=accion,
-            metodo=metodo,
-            tipo_marca="jornada",
-            lat=lat,
-            lon=lon,
-            foto=foto,
-            gps_ok=gps_ok,
-            gps_distancia_m=gps_distancia_m,
-            gps_tolerancia_m=gps_tolerancia_m,
-            gps_ref_lat=gps_ref_lat,
-            gps_ref_lon=gps_ref_lon,
-            estado=asistencia.get("estado"),
-            observaciones=observaciones,
-        )
-        sync_from_asistencia_marcas(int(asistencia_id))
-        log_audit(session, "create", "asistencia_marcas", marca_id)
+        try:
+            marca_id = change_mark(asistencia_id=asistencia_id, action='crear', hora=hora,
+                accion=accion, observaciones=observaciones, actor=session.get('user_id'))
+        except ValueError as exc:
+            return render_template("asistencias/planilla_marca_form.html", mode="new",
+                marca=_marca_for_form({"asistencia_id": asistencia_id, "fecha": fecha, "hora": hora,
+                                      "accion": accion, "observaciones": observaciones}),
+                empresa_id=empresa_id, sucursal_id=sucursal_id, sector_id=sector_id,
+                jefe_directo_id=jefe_directo_id, fecha=fecha, error=str(exc)), 400
         return _planilla_redirect(
             empresa_id=empresa_id,
             sucursal_id=sucursal_id,
@@ -1143,7 +1022,7 @@ def marcas_csv():
         metodo=metodo,
         search=q or None,
         gps_ok=gps_ok if gps_ok in (0, 1) else None,
-        limit=10000,
+        limit=None,
     )
 
     out = io.StringIO()
@@ -1167,6 +1046,8 @@ def marcas_csv():
             "estado",
             "observaciones",
             "fecha_creacion",
+            "corregida_manualmente",
+            "es_resumen",
         ]
     )
 
@@ -1190,6 +1071,8 @@ def marcas_csv():
                 r.get("estado"),
                 r.get("observaciones"),
                 r.get("fecha_creacion"),
+                int(bool(r.get("corregida_manualmente"))),
+                int(bool(r.get("es_resumen"))),
             ]
         )
 
@@ -1229,7 +1112,7 @@ def marcas_reporte_csv():
         metodo=metodo,
         search=q or None,
         gps_ok=gps_ok if gps_ok in (0, 1) else None,
-        limit=20000,
+        limit=None,
         order_asc=True,
     )
 
@@ -1269,7 +1152,7 @@ def marcas_xlsx():
         metodo=metodo,
         search=q or None,
         gps_ok=gps_ok if gps_ok in (0, 1) else None,
-        limit=10000,
+        limit=None,
     )
 
     empresas = get_empresas(include_inactive=True)
@@ -1347,14 +1230,10 @@ def nuevo():
         )
         data["estado"] = estado_calc or ("ausente" if not data.get("hora_entrada") and not data.get("hora_salida") else "ok")
 
-        asistencia_id = create(data)
-        log_audit(session, "create", "asistencias", asistencia_id)
-        sync_result = _sync_simple_marcas_for_asistencia(int(asistencia_id))
-        if not sync_result.get("synced"):
-            current_app.logger.warning(
-                "asistencias_nuevo_sync_marcas_skipped",
-                extra={"extra": {"asistencia_id": int(asistencia_id), "reason": sync_result.get("reason")}},
-            )
+        try:
+            asistencia_id = save_manual(data, actor=session.get('user_id'))
+        except ValueError as exc:
+            return render_template("asistencias/form.html", mode="new", data=data, errors=[str(exc)], empleados=empleados), 400
         return redirect(url_for("asistencias.listado"))
 
     return render_template("asistencias/form.html", mode="new", data={}, empleados=empleados)
@@ -1445,14 +1324,10 @@ def editar(asistencia_id):
         )
         data["estado"] = estado_calc or ("ausente" if not data.get("hora_entrada") and not data.get("hora_salida") else "ok")
 
-        update(asistencia_id, data)
-        log_audit(session, "update", "asistencias", asistencia_id)
-        sync_result = _sync_simple_marcas_for_asistencia(int(asistencia_id))
-        if not sync_result.get("synced"):
-            current_app.logger.warning(
-                "asistencias_editar_sync_marcas_skipped",
-                extra={"extra": {"asistencia_id": int(asistencia_id), "reason": sync_result.get("reason")}},
-            )
+        try:
+            save_manual(data, asistencia_id=asistencia_id, actor=session.get('user_id'))
+        except ValueError as exc:
+            return render_template("asistencias/form.html", mode="edit", data={**asistencia, **data}, errors=[str(exc)], empleados=empleados), 400
         return redirect(url_for("asistencias.listado"))
 
     return render_template("asistencias/form.html", mode="edit", data=asistencia, empleados=empleados)
@@ -1461,8 +1336,7 @@ def editar(asistencia_id):
 @asistencias_bp.route("/eliminar/<int:asistencia_id>", methods=["POST"])
 @role_required("admin", "rrhh", "supervisor")
 def eliminar(asistencia_id):
-    delete(asistencia_id)
-    log_audit(session, "delete", "asistencias", asistencia_id)
+    delete_manual(asistencia_id, actor=session.get('user_id'))
     return redirect(url_for("asistencias.listado"))
 
 

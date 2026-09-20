@@ -495,7 +495,7 @@ def generar_historial_marcas_excel(*, rows: list[dict], filtros: dict) -> bytes:
             r.get("hora"),
             r.get("accion"),
             r.get("tipo_marca"),
-            r.get("metodo"),
+            (r.get("metodo") or "") + (" (corregida manualmente)" if r.get("corregida_manualmente") else ""),
             r.get("gps_ok"),
             r.get("gps_distancia_m"),
             r.get("gps_tolerancia_m"),

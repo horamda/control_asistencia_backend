@@ -167,7 +167,7 @@
               {% endif %}
             </td>
             <td data-label="Tipo">{{ m.tipo_marca or "jornada" }}</td>
-            <td data-label="Metodo">{{ m.metodo or "-" }}</td>
+            <td data-label="Metodo">{{ m.metodo or "-" }}{% if m.corregida_manualmente %} <span class="badge warning">Corregida manualmente</span>{% endif %}{% if m.es_resumen %} <span class="badge ghost">Resumen historico</span>{% endif %}</td>
             <td data-label="GPS">
               {% if m.gps_ok is none %}
                 -

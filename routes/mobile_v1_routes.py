@@ -854,7 +854,9 @@ def me_marcas():
     for row in rows:
         items.append(
             {
-                "id": row["id"],
+                "id": row["id"] if row["id"] is not None else -(int(row["asistencia_id"]) * 2 + (1 if row.get("accion") == "egreso" else 0)),
+                "es_resumen": bool(row.get("es_resumen")),
+                "corregida_manualmente": bool(row.get("corregida_manualmente")),
                 "asistencia_id": row.get("asistencia_id"),
                 "fecha": _to_date_str(row.get("fecha")),
                 "hora": _to_hhmm(row.get("hora")),

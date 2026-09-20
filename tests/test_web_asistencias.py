@@ -279,92 +279,6 @@ def test_generar_ausentes_rango_fecha_hasta_futura(monkeypatch):
     assert called["rango"] is False
 
 
-def test_sync_simple_marcas_for_asistencia_crea_par_basico(monkeypatch):
-    monkeypatch.setattr(
-        asistencias_routes,
-        "get_by_id",
-        lambda asistencia_id: {
-            "id": asistencia_id,
-            "empresa_id": 1,
-            "empleado_id": 100,
-            "fecha": "2026-03-10",
-            "hora_entrada": "08:00:00",
-            "hora_salida": "12:00:00",
-            "metodo_entrada": "manual",
-            "metodo_salida": "manual",
-            "lat_entrada": None,
-            "lon_entrada": None,
-            "lat_salida": None,
-            "lon_salida": None,
-            "foto_entrada": None,
-            "foto_salida": None,
-            "gps_ok_entrada": None,
-            "gps_ok_salida": None,
-            "gps_distancia_entrada_m": None,
-            "gps_distancia_salida_m": None,
-            "gps_tolerancia_entrada_m": None,
-            "gps_tolerancia_salida_m": None,
-            "gps_ref_lat_entrada": None,
-            "gps_ref_lon_entrada": None,
-            "gps_ref_lat_salida": None,
-            "gps_ref_lon_salida": None,
-            "estado": "ok",
-            "observaciones": "manual",
-        },
-    )
-    monkeypatch.setattr(asistencias_routes, "get_marcas_by_asistencia", lambda asistencia_id: [])
-    deleted = {"count": 0}
-    created = {"rows": []}
-
-    monkeypatch.setattr(
-        asistencias_routes,
-        "delete_marca_by_id",
-        lambda marca_id: deleted.__setitem__("count", deleted["count"] + 1) or True,
-    )
-
-    def _fake_create_marca(**kwargs):
-        created["rows"].append(kwargs)
-        return len(created["rows"])
-
-    monkeypatch.setattr(asistencias_routes, "create_marca", _fake_create_marca)
-
-    result = asistencias_routes._sync_simple_marcas_for_asistencia(77)
-    assert result["synced"] is True
-    assert result["created"] == 2
-    assert result["deleted"] == 0
-    assert len(created["rows"]) == 2
-    assert created["rows"][0]["accion"] == "ingreso"
-    assert created["rows"][1]["accion"] == "egreso"
-    assert deleted["count"] == 0
-
-
-def test_sync_simple_marcas_for_asistencia_saltea_si_hay_multiples(monkeypatch):
-    monkeypatch.setattr(
-        asistencias_routes,
-        "get_by_id",
-        lambda asistencia_id: {
-            "id": asistencia_id,
-            "empresa_id": 1,
-            "empleado_id": 100,
-            "fecha": "2026-03-10",
-            "hora_entrada": "08:00:00",
-            "hora_salida": "12:00:00",
-        },
-    )
-    monkeypatch.setattr(
-        asistencias_routes,
-        "get_marcas_by_asistencia",
-        lambda asistencia_id: [
-            {"id": 1, "accion": "ingreso", "tipo_marca": "jornada"},
-            {"id": 2, "accion": "ingreso", "tipo_marca": "jornada"},
-        ],
-    )
-
-    result = asistencias_routes._sync_simple_marcas_for_asistencia(77)
-    assert result["synced"] is False
-    assert result["reason"] == "multiple_marcas"
-
-
 def test_asistencias_nuevo_dispara_sync_automatico(monkeypatch):
     client = _build_client(monkeypatch)
     _login_session(client)
@@ -376,13 +290,12 @@ def test_asistencias_nuevo_dispara_sync_automatico(monkeypatch):
     )
     monkeypatch.setattr(asistencias_routes, "_validate", lambda form: [])
     monkeypatch.setattr(asistencias_routes, "validar_asistencia", lambda *args, **kwargs: ([], "ok"))
-    monkeypatch.setattr(asistencias_routes, "create", lambda data: 321)
     monkeypatch.setattr(asistencias_routes, "log_audit", lambda *args, **kwargs: True)
     captured = {}
     monkeypatch.setattr(
         asistencias_routes,
-        "_sync_simple_marcas_for_asistencia",
-        lambda asistencia_id: captured.__setitem__("id", asistencia_id) or {"synced": True},
+        "save_manual",
+        lambda data, **kwargs: captured.__setitem__("id", kwargs.get("asistencia_id", 321)) or 321,
     )
 
     resp = client.post(
@@ -418,13 +331,12 @@ def test_asistencias_editar_dispara_sync_automatico(monkeypatch):
     )
     monkeypatch.setattr(asistencias_routes, "_validate", lambda form: [])
     monkeypatch.setattr(asistencias_routes, "validar_asistencia", lambda *args, **kwargs: ([], "ok"))
-    monkeypatch.setattr(asistencias_routes, "update", lambda asistencia_id, data: True)
     monkeypatch.setattr(asistencias_routes, "log_audit", lambda *args, **kwargs: True)
     captured = {}
     monkeypatch.setattr(
         asistencias_routes,
-        "_sync_simple_marcas_for_asistencia",
-        lambda asistencia_id: captured.__setitem__("id", asistencia_id) or {"synced": True},
+        "save_manual",
+        lambda data, **kwargs: captured.__setitem__("id", kwargs.get("asistencia_id", 321)) or 321,
     )
 
     resp = client.post(
@@ -974,13 +886,8 @@ def test_planilla_marca_eliminar_post_ok(monkeypatch):
         "get_marca_by_id",
         lambda marca_id: {"id": marca_id, "asistencia_id": 77, "fecha": "2026-03-10", "hora": "08:00:00", "accion": "ingreso"},
     )
-    deleted = {"ok": False}
-    synced = {"ok": False}
-    monkeypatch.setattr(asistencias_routes, "delete_marca_by_id", lambda marca_id: deleted.__setitem__("ok", True) or True)
-    monkeypatch.setattr(
-        asistencias_routes, "sync_from_asistencia_marcas", lambda asistencia_id: synced.__setitem__("ok", True) or True
-    )
-    monkeypatch.setattr(asistencias_routes, "log_audit", lambda *args, **kwargs: True)
+    calls=[]
+    monkeypatch.setattr(asistencias_routes, "change_mark", lambda **kw: calls.append(kw))
 
     resp = client.post(
         "/asistencias/planilla/marca/eliminar/1",
@@ -990,8 +897,8 @@ def test_planilla_marca_eliminar_post_ok(monkeypatch):
     assert resp.status_code == 302
     assert "/asistencias/planilla" in resp.headers["Location"]
     assert "msg=Marca+%231+eliminada." in resp.headers["Location"]
-    assert deleted["ok"] is True
-    assert synced["ok"] is True
+    assert calls[0]['marca_id'] == 1
+    assert calls[0]['action'] == 'eliminar'
 
 
 def test_planilla_marca_agregar_post_ok(monkeypatch):
@@ -1018,8 +925,7 @@ def test_planilla_marca_agregar_post_ok(monkeypatch):
             "estado": "ok",
         },
     )
-    monkeypatch.setattr(asistencias_routes, "create_marca", lambda **kwargs: 999)
-    monkeypatch.setattr(asistencias_routes, "sync_from_asistencia_marcas", lambda asistencia_id: True)
+    monkeypatch.setattr(asistencias_routes, "change_mark", lambda **kwargs: 999)
     monkeypatch.setattr(asistencias_routes, "log_audit", lambda *args, **kwargs: True)
 
     resp = client.post(
@@ -1037,3 +943,17 @@ def test_planilla_marca_agregar_post_ok(monkeypatch):
     assert resp.status_code == 302
     assert "/asistencias/planilla" in resp.headers["Location"]
     assert "msg=Marca+%23999+agregada." in resp.headers["Location"]
+
+def test_summary_edit_reports_ambiguous_marks_without_saving(monkeypatch):
+    client=_build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators,'has_role',lambda *a:True)
+    monkeypatch.setattr(asistencias_routes,'get_by_id',lambda aid:{'id':aid,'empleado_id':100,'fecha':'2026-09-18'})
+    monkeypatch.setattr(asistencias_routes,'get_empleados',lambda **kw:[])
+    monkeypatch.setattr(asistencias_routes,'_validate',lambda form:[])
+    monkeypatch.setattr(asistencias_routes,'validar_asistencia',lambda *a:([],'ok'))
+    def reject(*a,**kw):raise ValueError('Corregi la marca concreta desde la planilla diaria.')
+    monkeypatch.setattr(asistencias_routes,'save_manual',reject)
+    response=client.post('/asistencias/editar/1',data={'empleado_id':'100','fecha':'2026-09-18','hora_entrada':'08:00'})
+    assert response.status_code==400
+    assert b'planilla diaria' in response.data

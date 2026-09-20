@@ -7,13 +7,13 @@
       <div class="section-kicker">Control Diario</div>
       <h2>{% if mode == "edit" %}Editar asistencia{% else %}Nueva asistencia{% endif %}</h2>
       <p class="module-intro">
-        Registre la marcacion y metadatos operativos. El estado se determina desde backend con reglas de negocio.
+        Carga o corrige los horarios. Las marcas, el resumen y el estado se actualizan juntos.
       </p>
     </div>
     <div class="chip-row">
       <span class="chip">Calculo automatico</span>
       <span class="chip">Trazabilidad GPS</span>
-      <span class="chip">Sin logica en frontend</span>
+      <span class="chip">Correcciones registradas</span>
     </div>
   </div>
 
@@ -57,21 +57,11 @@
       </div>
       <div class="row">
         <label>Metodo de entrada</label>
-        <select name="metodo_entrada">
-          <option value="">Seleccione</option>
-          {% for m in ["qr", "manual", "facial"] %}
-            <option value="{{ m }}" {% if data.metodo_entrada == m %}selected{% endif %}>{{ m|upper }}</option>
-          {% endfor %}
-        </select>
+        <input name="metodo_entrada" value="{{ (data.metodo_entrada or 'manual') if mode == 'edit' else 'manual' }}" readonly>
       </div>
       <div class="row">
         <label>Metodo de salida</label>
-        <select name="metodo_salida">
-          <option value="">Seleccione</option>
-          {% for m in ["qr", "manual", "facial"] %}
-            <option value="{{ m }}" {% if data.metodo_salida == m %}selected{% endif %}>{{ m|upper }}</option>
-          {% endfor %}
-        </select>
+        <input name="metodo_salida" value="{{ (data.metodo_salida or 'manual') if mode == 'edit' else 'manual' }}" readonly>
       </div>
     </div>
 
@@ -80,31 +70,32 @@
       segun horario esperado, tolerancia y excepciones vigentes.
     </div>
 
-    <h3 class="section-title">Trazabilidad (opcional)</h3>
+    <h3 class="section-title">Evidencia original</h3>
+    <p class="muted">El método, las coordenadas y las fotos son de consulta. Las correcciones de horarios se identifican por separado.</p>
     <div class="form-grid">
       <div class="row">
         <label>Latitud entrada</label>
-        <input name="lat_entrada" value="{{ data.lat_entrada or '' }}">
+        <input readonly name="lat_entrada" value="{{ data.lat_entrada or '' }}">
       </div>
       <div class="row">
         <label>Longitud entrada</label>
-        <input name="lon_entrada" value="{{ data.lon_entrada or '' }}">
+        <input readonly name="lon_entrada" value="{{ data.lon_entrada or '' }}">
       </div>
       <div class="row">
         <label>Latitud salida</label>
-        <input name="lat_salida" value="{{ data.lat_salida or '' }}">
+        <input readonly name="lat_salida" value="{{ data.lat_salida or '' }}">
       </div>
       <div class="row">
         <label>Longitud salida</label>
-        <input name="lon_salida" value="{{ data.lon_salida or '' }}">
+        <input readonly name="lon_salida" value="{{ data.lon_salida or '' }}">
       </div>
       <div class="row span-2">
         <label>Foto entrada (URL)</label>
-        <input name="foto_entrada" value="{{ data.foto_entrada or '' }}">
+        <input readonly name="foto_entrada" value="{{ data.foto_entrada or '' }}">
       </div>
       <div class="row span-2">
         <label>Foto salida (URL)</label>
-        <input name="foto_salida" value="{{ data.foto_salida or '' }}">
+        <input readonly name="foto_salida" value="{{ data.foto_salida or '' }}">
       </div>
       <div class="row span-3">
         <label>Observaciones</label>

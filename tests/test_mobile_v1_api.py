@@ -3933,3 +3933,18 @@ def test_mobile_premios_anio_invalido(monkeypatch):
     resp = client.get("/api/v1/mobile/me/premios?anio=abc", headers=_auth_headers())
     assert resp.status_code == 400
     assert "Ano invalido" in resp.get_json()["error"]
+
+def test_mobile_marcas_includes_correction_and_legacy_flags(monkeypatch):
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, 'verificar_token', lambda token: {'empleado_id': 6})
+    monkeypatch.setattr(mobile_routes, 'get_empleado_by_id', lambda eid: {'id':eid,'activo':1,'empresa_id':1,'dni':'6'})
+    monkeypatch.setattr(mobile_routes, 'get_marcas_page_by_empleado', lambda **kw: ([
+        {'id':9001,'asistencia_id':10,'accion':'ingreso','corregida_manualmente':1},
+        {'id':None,'asistencia_id':11,'accion':'egreso','es_resumen':1}
+    ],2))
+    response=client.get('/api/v1/mobile/me/marcas',headers={'Authorization':'Bearer abc'})
+    assert response.status_code==200
+    real,legacy=response.get_json()['items']
+    assert real['corregida_manualmente'] is True and real['es_resumen'] is False
+    assert legacy['es_resumen'] is True and legacy['id']==-23
+    assert legacy['asistencia_id']==11

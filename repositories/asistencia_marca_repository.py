@@ -21,8 +21,9 @@ def create(
     estado: str | None,
     observaciones: str | None = None,
     asistencia_id: int | None = None,
+    _db=None,
 ):
-    db = get_db()
+    db = _db if _db is not None else get_db()
     cursor = db.cursor()
     try:
         cursor.execute(
@@ -70,11 +71,13 @@ def create(
                 observaciones,
             ),
         )
-        db.commit()
+        if _db is None:
+            db.commit()
         return int(cursor.lastrowid)
     finally:
         cursor.close()
-        db.close()
+        if _db is None:
+            db.close()
 
 
 def get_by_id(marca_id: int):
@@ -115,11 +118,11 @@ def get_by_asistencia(asistencia_id: int):
         db.close()
 
 
-def update_basic(marca_id: int, *, hora: str, accion: str, observaciones: str | None = None):
+def update_basic(marca_id: int, *, hora: str, accion: str, observaciones: str | None = None, _db=None):
     if accion not in {"ingreso", "egreso"}:
         raise ValueError("accion invalida")
 
-    db = get_db()
+    db = _db if _db is not None else get_db()
     cursor = db.cursor()
     try:
         cursor.execute(
@@ -132,15 +135,17 @@ def update_basic(marca_id: int, *, hora: str, accion: str, observaciones: str | 
             """,
             (hora, accion, observaciones, marca_id),
         )
-        db.commit()
+        if _db is None:
+            db.commit()
         return cursor.rowcount > 0
     finally:
         cursor.close()
-        db.close()
+        if _db is None:
+            db.close()
 
 
-def delete_by_id(marca_id: int):
-    db = get_db()
+def delete_by_id(marca_id: int, _db=None):
+    db = _db if _db is not None else get_db()
     cursor = db.cursor()
     try:
         cursor.execute(
@@ -150,11 +155,13 @@ def delete_by_id(marca_id: int):
             """,
             (marca_id,),
         )
-        db.commit()
+        if _db is None:
+            db.commit()
         return cursor.rowcount > 0
     finally:
         cursor.close()
-        db.close()
+        if _db is None:
+            db.close()
 
 
 def get_last_by_empleado_fecha(empleado_id: int, fecha: str):
@@ -223,6 +230,8 @@ def get_page_by_empleado(
             f"""
             SELECT
                 id,
+                corregida_manualmente,
+                es_resumen,
                 asistencia_id,
                 fecha,
                 hora,
@@ -237,7 +246,7 @@ def get_page_by_empleado(
                 estado,
                 observaciones,
                 fecha_creacion
-            FROM asistencia_marcas
+            FROM asistencia_marcas_reporte
             WHERE {where_sql}
             ORDER BY fecha DESC, hora DESC, id DESC
             LIMIT %s OFFSET %s
@@ -252,7 +261,7 @@ def get_page_by_empleado(
         cursor.execute(
             f"""
             SELECT COUNT(*) AS total
-            FROM asistencia_marcas
+            FROM asistencia_marcas_reporte
             WHERE {where_sql}
             """,
             params,
@@ -358,6 +367,8 @@ def get_page_admin(
             f"""
             SELECT
                 am.id,
+                am.corregida_manualmente,
+                am.es_resumen,
                 am.empresa_id,
                 am.empleado_id,
                 am.asistencia_id,
@@ -378,7 +389,7 @@ def get_page_admin(
                 e.nombre,
                 e.dni,
                 emp.razon_social AS empresa_nombre
-            FROM asistencia_marcas am
+            FROM asistencia_marcas_reporte am
             JOIN empleados e ON e.id = am.empleado_id
             JOIN empresas emp ON emp.id = am.empresa_id
             WHERE {where_sql}
@@ -395,7 +406,7 @@ def get_page_admin(
         cursor.execute(
             f"""
             SELECT COUNT(*) AS total
-            FROM asistencia_marcas am
+            FROM asistencia_marcas_reporte am
             JOIN empleados e ON e.id = am.empleado_id
             JOIN empresas emp ON emp.id = am.empresa_id
             WHERE {where_sql}
@@ -422,7 +433,7 @@ def get_for_export_admin(
     gps_ok: int | None = None,
     activo: int | None = None,
     estados: list[str] | None = None,
-    limit: int = 5000,
+    limit: int | None = None,
     order_asc: bool = False,
 ):
     db = get_db()
@@ -443,10 +454,14 @@ def get_for_export_admin(
         )
 
         order_direction = "ASC" if order_asc else "DESC"
+        limit_sql = "LIMIT %s" if limit is not None else ""
+        limit_params = (max(1, int(limit)),) if limit is not None else ()
         cursor.execute(
             f"""
             SELECT
                 am.id,
+                am.corregida_manualmente,
+                am.es_resumen,
                 am.empresa_id,
                 am.empleado_id,
                 am.asistencia_id,
@@ -470,16 +485,16 @@ def get_for_export_admin(
                 suc.nombre AS sucursal_nombre,
                 sec.nombre AS sector_nombre,
                 emp.razon_social AS empresa_nombre
-            FROM asistencia_marcas am
+            FROM asistencia_marcas_reporte am
             JOIN empleados e ON e.id = am.empleado_id
             JOIN empresas emp ON emp.id = am.empresa_id
             LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
             LEFT JOIN sectores sec ON sec.id = e.sector_id
             WHERE {where_sql}
             ORDER BY am.fecha {order_direction}, am.hora {order_direction}, am.id {order_direction}
-            LIMIT %s
+            {limit_sql}
             """,
-            (*params, max(1, min(limit, 20000))),
+            (*params, *limit_params),
         )
         return cursor.fetchall()
     finally:

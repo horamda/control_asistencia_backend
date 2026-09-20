@@ -1,6 +1,6 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.28.0
+Version de contrato: 1.29.0
 Fecha de corte: 2026-09-20
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`
@@ -3210,3 +3210,18 @@ Al excluir una participacion se limpia su posicion y condicion de ganador;
 al volver a incluirla se recalculan los rankings. La eliminacion completa de una
 trivia borra tambien sus respuestas y resultados personales y recalcula el anual.
 Los enlaces guardados hacia una trivia eliminada dejan de estar disponibles.
+
+
+### Asistencias: correcciones y registros historicos (1.29.0)
+
+`GET /api/v1/mobile/me/marcas` incorpora campos booleanos aditivos:
+- `corregida_manualmente`: la marca fue corregida desde el panel; conserva su metodo original.
+- `es_resumen`: movimiento calculado a partir de un resumen historico sin marcas reales ese dia.
+
+Ambos campos valen `false` cuando no vienen en versiones anteriores.
+Para movimientos de resumen, `id` es un entero negativo estable de solo lectura;
+`asistencia_id` identifica el resumen real. No debe enviarse ese ID virtual a rutas
+que modifican marcas. Los IDs de marcas reales siguen siendo positivos.
+Las correcciones recalculan los horarios y estado del resumen, por lo que
+`me/asistencias` y `me/estadisticas` reflejan el cambio al volver a consultar.
+Las paginas abiertas y archivos ya descargados deben refrescarse o regenerarse.

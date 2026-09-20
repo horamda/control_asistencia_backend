@@ -1,7 +1,7 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - Mobile API v1
-  version: 1.28.0
+  version: 1.29.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -3331,7 +3331,35 @@ paths:
             default: 20
       responses:
         '200':
-          description: Lista de marcas
+          description: Marcas reales y resumenes historicos; actualizar la consulta despues de una correccion.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: Positivo para marcas reales; negativo estable para movimientos virtuales de solo lectura.
+                        asistencia_id:
+                          type: integer
+                          nullable: true
+                        corregida_manualmente:
+                          type: boolean
+                          default: false
+                        es_resumen:
+                          type: boolean
+                          default: false
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
 
   # ---- Estadisticas ----
   /me/estadisticas:

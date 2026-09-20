@@ -230,8 +230,8 @@ def create_ausente(empleado_id: int, fecha: str, observaciones: str | None = Non
         db.close()
 
 
-def create(data: dict):
-    db = get_db()
+def create(data: dict, _db=None):
+    db = _db if _db is not None else get_db()
     cursor = db.cursor()
     try:
         empleado_id = data.get("empleado_id")
@@ -275,11 +275,13 @@ def create(data: dict):
             data.get("estado"),
             data.get("observaciones")
         ))
-        db.commit()
+        if _db is None:
+            db.commit()
         return cursor.lastrowid
     finally:
         cursor.close()
-        db.close()
+        if _db is None:
+            db.close()
 
 
 def register_entrada(
@@ -737,8 +739,8 @@ def upsert_resumen_desde_marca(
         db.close()
 
 
-def update(asistencia_id: int, data: dict):
-    db = get_db()
+def update(asistencia_id: int, data: dict, _db=None):
+    db = _db if _db is not None else get_db()
     cursor = db.cursor()
     try:
         empleado_id = data.get("empleado_id")
@@ -782,30 +784,34 @@ def update(asistencia_id: int, data: dict):
             data.get("observaciones"),
             asistencia_id
         ))
-        db.commit()
+        if _db is None:
+            db.commit()
         return True
     finally:
         cursor.close()
-        db.close()
+        if _db is None:
+            db.close()
 
 
-def delete(asistencia_id: int):
-    db = get_db()
+def delete(asistencia_id: int, _db=None):
+    db = _db if _db is not None else get_db()
     cursor = db.cursor()
     try:
         cursor.execute("""
             DELETE FROM asistencias
             WHERE id = %s
         """, (asistencia_id,))
-        db.commit()
+        if _db is None:
+            db.commit()
         return True
     finally:
         cursor.close()
-        db.close()
+        if _db is None:
+            db.close()
 
 
-def sync_from_asistencia_marcas(asistencia_id: int):
-    db = get_db()
+def sync_from_asistencia_marcas(asistencia_id: int, _db=None):
+    db = _db if _db is not None else get_db()
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute(
@@ -841,11 +847,13 @@ def sync_from_asistencia_marcas(asistencia_id: int):
         hora_entrada = ingreso.get("hora") if ingreso else None
         hora_salida = egreso.get("hora") if egreso else None
 
-        estado = row.get("estado")
-        if not hora_entrada and not hora_salida:
-            estado = "ausente"
-        elif not estado:
-            estado = "ok"
+        from utils.asistencia import validar_asistencia
+        from web.asistencias.planilla_helpers import _to_hhmm
+        _, estado = validar_asistencia(row['empleado_id'], str(row['fecha'])[:10],
+                                       _to_hhmm(hora_entrada), _to_hhmm(hora_salida))
+        estado = estado or ('ausente' if hora_entrada is None and hora_salida is None else 'ok')
+        cursor.execute("UPDATE asistencia_marcas SET estado=%s WHERE asistencia_id=%s",
+                       (estado, asistencia_id))
 
         cursor.execute(
             """
@@ -898,8 +906,10 @@ def sync_from_asistencia_marcas(asistencia_id: int):
                 asistencia_id,
             ),
         )
-        db.commit()
+        if _db is None:
+            db.commit()
         return True
     finally:
         cursor.close()
-        db.close()
+        if _db is None:
+            db.close()
