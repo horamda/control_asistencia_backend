@@ -97,11 +97,13 @@ def test_mobile_skap_mi_desarrollo_ok(monkeypatch):
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["success"] is True
-    assert body["data"]["ranking"]["posicion"] == 2
+    assert "ranking" not in body["data"]
     assert body["data"]["anio_evaluado"] == 2025
 
 
 def test_web_skap_dashboard_ok(monkeypatch):
+    monkeypatch.setattr(skap_web_routes, "current_actor", lambda: {"id":99,"empresa_id":3,"rol":"admin","activo":1})
+    monkeypatch.setattr(skap_web_routes, "get_sector_by_id", lambda i: {"id":i,"empresa_id":3})
     monkeypatch.setattr(auth_decorators, "has_role", lambda user_id, role: True)
     client = _build_client(monkeypatch)
     _login_web_session(client)
@@ -109,7 +111,7 @@ def test_web_skap_dashboard_ok(monkeypatch):
     monkeypatch.setattr(
         skap_web_routes,
         "get_sectores_page",
-        lambda page, per_page, activo=None: ([{"id": 7, "nombre": "Operaciones"}], 1),
+        lambda page, per_page, activo=None, empresa_id=None: ([{"id": 7, "nombre": "Operaciones"}], 1),
     )
     monkeypatch.setattr(
         skap_web_routes,
@@ -136,7 +138,7 @@ def test_web_skap_dashboard_ok(monkeypatch):
         },
     )
 
-    resp = client.get("/skap/?anio=2025&sector_id=7")
+    resp = client.get("/skap/clasico?anio=2025&sector_id=7")
 
     assert resp.status_code == 200
     assert b"Resumen de desarrollo" in resp.data

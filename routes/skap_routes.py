@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from flask import Blueprint, current_app, g, jsonify, request
+from repositories import skap_matriz_repository as matriz_repo
 
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.skap_pregunta_repository import get_all_active_for_sector
@@ -13,13 +14,8 @@ from repositories.skap_repository import (
     get_plan_by_empleado_anio,
 )
 from services.skap_service import (
-    can_evaluate_employee,
     create_evaluacion,
-    ensure_plan_for_evaluacion,
     get_mi_desarrollo,
-    get_personal_ranking,
-    get_preguntas_catalogo,
-    get_preguntas_por_sector,
     serialize_evaluacion,
     serialize_pregunta,
     serialize_plan,
@@ -96,6 +92,13 @@ def preguntas():
     if not empleado:
         return _err(INVALID_SESSION_MESSAGE, 401)
 
+    if _to_int(request.args.get('empleado_id'), int(empleado['id'])) != int(empleado['id']):
+        return _err('Solo puede consultar su propio catálogo.',403)
+    if _to_int(request.args.get('sector_id'), empleado.get('sector_id')) != empleado.get('sector_id'):
+        return _err('Solo puede consultar su propio catálogo.',403)
+    if _to_int(request.args.get('puesto_id'), empleado.get('puesto_id')) != empleado.get('puesto_id'):
+        return _err('Solo puede consultar su propio catálogo.',403)
+
     sector_id = _sector_from_request(request.args, empleado)
     if not sector_id:
         return _err("El sector es requerido para obtener las preguntas.", 400)
@@ -171,9 +174,8 @@ def detalle_evaluacion(evaluacion_id: int):
     if not evaluacion:
         return _err("Evaluacion no encontrada.", 404)
 
-    if int(empleado["id"]) not in {int(evaluacion.get("empleado_id") or 0), int(evaluacion.get("evaluador_empleado_id") or 0)}:
-        if not can_evaluate_employee(int(empleado["id"]), int(evaluacion.get("empleado_id") or 0)):
-            return _err("No tiene permisos para ver esta evaluacion.", 403)
+    if int(empleado["id"]) != int(evaluacion.get("empleado_id") or 0) or empleado.get("empresa_id") != evaluacion.get("empresa_id"):
+        return _err("No tiene permisos para ver esta evaluacion.", 403)
 
     detalles = get_evaluacion_detalles(evaluacion_id)
     plan = get_plan_by_evaluacion_id(evaluacion_id)
@@ -195,6 +197,7 @@ def mi_desarrollo():
 
     anio = _to_int(request.args.get("anio"))
     payload = get_mi_desarrollo(empleado_id=int(empleado["id"]), anio=anio)
+    payload.pop('ranking', None)
     return _ok(payload)
 
 
@@ -205,9 +208,7 @@ def ranking():
     if not empleado:
         return _err(INVALID_SESSION_MESSAGE, 401)
 
-    anio = _to_int(request.args.get("anio"))
-    payload = get_personal_ranking(empleado_id=int(empleado["id"]), anio=anio)
-    return _ok(payload)
+    return _err("Los rankings no están disponibles en la consulta personal.", 403)
 
 
 @skap_bp.get("/planes")
@@ -260,30 +261,35 @@ def crear_o_actualizar_plan():
     if not empleado:
         return _err(INVALID_SESSION_MESSAGE, 401)
 
-    body = request.get_json(silent=True) or {}
-    evaluacion_id = _to_int(body.get("evaluacion_id"))
-    if not evaluacion_id:
-        return _err("evaluacion_id es requerido.", 400)
+    return _err("El plan es de consulta. Su responsable gestiona el seguimiento desde el panel.", 403)
 
-    evaluacion = get_evaluacion_by_id(evaluacion_id)
-    if not evaluacion:
-        return _err("Evaluacion no encontrada.", 404)
 
-    if int(empleado["id"]) not in {int(evaluacion.get("empleado_id") or 0), int(evaluacion.get("evaluador_empleado_id") or 0)}:
-        if not can_evaluate_employee(int(empleado["id"]), int(evaluacion.get("empleado_id") or 0)):
-            return _err("No tiene permisos para administrar este PDP.", 403)
+def _matriz_actor(empleado):
+    return {"empresa_id": empleado["empresa_id"], "empleado_id": empleado["id"], "rol": "empleado"}
 
-    acciones = body.get("acciones")
-    if acciones is not None and not isinstance(acciones, list):
-        return _err("acciones debe ser una lista si se envian.", 400)
 
-    try:
-        plan = ensure_plan_for_evaluacion(evaluacion_id, acciones_extra=acciones)
-        return _ok({"plan": plan}, message="Plan actualizado correctamente.")
-    except ValueError as exc:
-        message = str(exc)
-        code = 400 if "encontrada" not in message.lower() else 404
-        return _err(message, code)
-    except Exception:
-        current_app.logger.exception("skap_plan_upsert_error", extra={"extra": {"evaluacion_id": evaluacion_id}})
-        return _err("No se pudo actualizar el plan de desarrollo.", 500)
+@skap_bp.get('/matrices')
+@mobile_auth_required
+def mis_matrices():
+    empleado = _current_employee()
+    if not empleado:
+        return _err(INVALID_SESSION_MESSAGE, 401)
+    rows = matriz_repo.list_evaluations(_matriz_actor(empleado), own=True, anio=_to_int(request.args.get('anio')))
+    return _ok({'items': [{k: row[k] for k in ('id','rol','anio','sucursal_nombre','escala','resumen')} for row in rows]})
+
+
+@skap_bp.get('/matrices/<int:evaluation_id>')
+@mobile_auth_required
+def mi_matriz_detalle(evaluation_id):
+    empleado = _current_employee()
+    if not empleado:
+        return _err(INVALID_SESSION_MESSAGE, 401)
+    ev = matriz_repo.get_evaluation(evaluation_id,_matriz_actor(empleado),own=True)
+    if not ev:
+        return _err('Evaluaci?n no encontrada.',404)
+    return _ok({'id': ev['id'], 'rol': ev['rol'], 'anio': ev['anio'], 'sucursal': ev['sucursal_nombre'],
+                'escala': ev['escala'], 'fecha_evaluacion': str(ev['fecha_evaluacion']) if ev['fecha_evaluacion'] else None,
+                'resumen': ev['payload']['resumen'], 'respuestas': ev['payload']['respuestas'],
+                'acciones': [{k: str(a[k]) if k in {'fecha_inicio','fecha_fin'} and a[k] else a[k]
+                             for k in ('id','accion','estado','progreso','responsable','fecha_inicio','fecha_fin','comentarios')}
+                            for a in ev['acciones']]})

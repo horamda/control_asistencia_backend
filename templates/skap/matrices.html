@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Mis evaluaciones' if own else 'Matrices SKAP' }}{% endblock %}
+{% block content %}
+<div class="content-stack">
+ <div class="section-head"><div><div class="section-kicker">Desarrollo profesional</div>
+ <h2>{{ 'Mis evaluaciones' if own else 'Matrices SKAP' }}</h2>
+ <p class="module-intro">Competencias por rol y año · escala 0 a 4. Los resultados se comparan con el estándar de cada competencia.</p></div>
+ {% if not own and actor.rol in ['admin','rrhh'] %}<a class="btn" href="{{ url_for('skap_matriz.upload') }}">Importar Excel</a>{% endif %}</div>
+ {% for category,message in get_flashed_messages(with_categories=true) %}<div class="alert">{{ message }}</div>{% endfor %}
+ {% if not own %}<form method="get" class="panel form-grid">
+ <label>Año<input type="number" name="anio" min="1900" max="2100" value="{{ filters.anio or '' }}"></label>
+ <label>Sucursal de la evaluación<select name="sucursal_id"><option value="">Todas</option>{% for s in branches %}<option value="{{ s.id }}" {% if filters.sucursal_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}</select></label>
+ <label>Rol evaluado<select name="rol"><option value="">Todos</option>{% for key,label in roles %}<option value="{{ key }}" {% if filters.rol == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+ {% if filters.empleado_id %}<input type="hidden" name="empleado_id" value="{{ filters.empleado_id }}">{% endif %}<button class="btn" type="submit">Filtrar</button></form>{% endif %}
+ <div class="panel table-responsive"><table class="table"><thead><tr>{% if not own %}<th>Legajo / empleado</th>{% endif %}<th>Rol</th><th>Sucursal</th><th>Año</th><th>Cumplimiento</th><th>Críticas</th><th>Brechas</th><th></th></tr></thead><tbody>
+ {% for r in rows %}<tr>{% if not own %}<td>{{ r.legajo }} · {{ r.apellido }} {{ r.nombre }}</td>{% endif %}
+ <td>{{ r.rol }}</td><td>{{ r.sucursal_nombre }}</td><td>{{ r.anio }}</td>
+ <td>{{ (r.resumen.cumplimiento_pct|string ~ '%') if r.resumen.cumplimiento_pct is not none else 'Sin completar' }}</td>
+ <td>{{ (r.resumen.criticas.cumplimiento_pct|string ~ '%') if r.resumen.criticas.cumplimiento_pct is not none else 'Sin datos suficientes' }}</td>
+ <td>{{ r.resumen.brechas }}</td><td><a class="btn btn-secondary" href="{{ url_for('skap_matriz.detail',evaluation_id=r.id) }}">Ver evaluación</a></td></tr>
+ {% else %}<tr><td colspan="8">Todavía no hay evaluaciones disponibles.</td></tr>{% endfor %}
+ </tbody></table></div>
+</div>{% endblock %}

@@ -28,7 +28,7 @@ def test_can_evaluate_employee_accepts_direct_boss(monkeypatch):
     assert skap_service.can_evaluate_employee(10, 20) is False
 
 
-def test_get_mi_desarrollo_uses_selected_year_and_ranking(monkeypatch):
+def test_get_mi_desarrollo_uses_selected_year_without_ranking(monkeypatch):
     empleado = {
         "id": 10,
         "activo": 1,
@@ -157,8 +157,7 @@ def test_get_mi_desarrollo_uses_selected_year_and_ranking(monkeypatch):
 
     assert payload["anio_evaluado"] == 2025
     assert payload["badge"] == "Plata"
-    assert payload["ranking"]["posicion"] == 2
-    assert payload["ranking"]["total"] == 2
+    assert payload["ranking"] is None
     assert payload["plan"]["acciones_total"] == 1
     assert len(payload["categoria_cards"]) == 4
 

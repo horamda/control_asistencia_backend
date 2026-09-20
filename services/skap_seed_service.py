@@ -374,6 +374,7 @@ def _parse_csv(text: str):
 def importar_preguntas_desde_csv(
     stream,
     *,
+    empresa_id: int | None = None,
     reactivate: bool = False,
     dry_run: bool = False,
 ) -> dict:
@@ -399,7 +400,11 @@ def importar_preguntas_desde_csv(
         result["total_filas"] += 1
         try:
             sector_id = _resolve_sector_id(row, by_id, by_name, by_company_name)
+            if empresa_id and by_id[sector_id].get("empresa_id") != empresa_id:
+                raise ValueError("El sector no pertenece a la empresa autorizada.")
             puesto_id = _resolve_puesto_id(row, puesto_by_id, puesto_by_name)
+            if empresa_id and puesto_id and puesto_by_id[puesto_id].get("empresa_id") != empresa_id:
+                raise ValueError("El puesto no pertenece a la empresa autorizada.")
             payload = {
                 "sector_id": sector_id,
                 "puesto_id": puesto_id,

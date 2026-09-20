@@ -194,8 +194,10 @@ def _get_roles(empleado_id: int) -> set[str]:
 
 
 def _can_evaluate(evaluator: dict, target_empleado: dict) -> bool:
+    if not evaluator.get("empresa_id") or evaluator.get("empresa_id") != target_empleado.get("empresa_id"):
+        return False
     roles = _get_roles(int(evaluator["id"]))
-    if roles & ALLOWED_EVALUATOR_ROLES:
+    if roles & {"admin", "rrhh"}:
         return True
     boss_id = int(target_empleado.get("reporta_a_empleado_id") or 0)
     return boss_id > 0 and boss_id == int(evaluator["id"])
@@ -429,7 +431,7 @@ def _build_gap_actions(
         gaps.append(
             {
                 "categoria": categoria,
-                "accion": f"Fortalecer {agg['label']}: {detalle_text}",
+                "accion": f"Fortalecer {agg['label']}: {detalle_text}"[:255],
                 "responsable_empleado_id": evaluator_empleado_id,
                 "fecha_compromiso": (fecha_base + _dt.timedelta(days=90)).isoformat(),
                 "estado": "pendiente",
@@ -599,11 +601,8 @@ def serialize_evaluacion(row: dict | None, *, detalles: list[dict] | None = None
 
 def can_evaluate_employee(evaluator_empleado_id: int, target_empleado_id: int | None = None) -> bool:
     evaluator = _require_empleado(int(evaluator_empleado_id))
-    roles = _get_roles(int(evaluator_empleado_id))
-    if roles & ALLOWED_EVALUATOR_ROLES:
-        return True
     if target_empleado_id is None:
-        return False
+        return bool(_get_roles(int(evaluator_empleado_id)) & ALLOWED_EVALUATOR_ROLES)
     target = _require_empleado(int(target_empleado_id))
     return _can_evaluate(evaluator, target)
 
@@ -915,22 +914,6 @@ def get_mi_desarrollo(
     plan = get_plan_by_empleado_anio(int(empleado["id"]), selected_year, empresa_id=empleado.get("empresa_id")) if evaluacion else None
     acciones = get_plan_actions(int(plan["id"])) if plan else []
 
-    ranking_rows = get_employee_ranking_rows(
-        anio=selected_year,
-        empresa_id=empleado.get("empresa_id"),
-        sector_id=empleado.get("sector_id") or None,
-    )
-    posicion = None
-    total_ranking = len(ranking_rows)
-    ranking_score = None
-    ranking_sector_nombre = None
-    for index, row in enumerate(ranking_rows, start=1):
-        if int(row.get("empleado_id") or 0) == int(empleado["id"]):
-            posicion = index
-            ranking_score = _to_float(row.get("promedio_general"), 0.0)
-            ranking_sector_nombre = row.get("sector_nombre")
-            break
-
     payload = {
         "empleado": {
             "id": empleado.get("id"),
@@ -954,12 +937,7 @@ def get_mi_desarrollo(
             for row in sorted(historial, key=lambda r: int(r.get("anio") or 0))
         ],
         "plan": serialize_plan(plan, acciones) if plan else None,
-        "ranking": {
-            "posicion": posicion,
-            "total": total_ranking,
-            "sector_nombre": ranking_sector_nombre or (empleado.get("sector_nombre") if empleado.get("sector_nombre") else None),
-            "puntaje": ranking_score,
-        },
+        "ranking": None,
         "badge": _badge_from_avg(_to_float(evaluacion.get("promedio_general"), 0.0) if evaluacion else 0.0),
     }
     return payload
@@ -1108,6 +1086,7 @@ def get_dashboard_data(
 
 def get_preguntas_catalogo(
     *,
+    empresa_id: int | None = None,
     page: int = 1,
     per_page: int = 20,
     search: str | None = None,
@@ -1119,6 +1098,7 @@ def get_preguntas_catalogo(
     rows, total = get_preguntas_page(
         page,
         per_page,
+        empresa_id=empresa_id,
         search=search,
         sector_id=sector_id,
         puesto_filter=puesto_filter,

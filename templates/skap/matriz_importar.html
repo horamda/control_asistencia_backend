@@ -1,0 +1,10 @@
+{% extends 'base.html' %}{% block title %}Importar matriz SKAP{% endblock %}{% block content %}
+<div class="content-stack"><h2>Importar matriz SKAP</h2><p>Subí el Excel de Almacén o Distribución. Primero se revisan las personas y sus legajos.</p>
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+{% for category,message in get_flashed_messages(with_categories=true) %}<div class="alert">{{ message }}</div>{% endfor %}
+<form method="post" enctype="multipart/form-data" class="panel"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label>Archivo Excel (.xlsx, hasta 12 MB)<input type="file" name="archivo" accept=".xlsx" required></label><button class="btn" type="submit">Revisar archivo</button></form>
+<div class="panel table-responsive"><h3>Importaciones</h3><table class="table"><thead><tr><th>Archivo</th><th>Fecha</th><th>Estado</th><th></th></tr></thead><tbody>
+{% for b in batches %}<tr><td><a href="{{ url_for('skap_matriz.preview',import_id=b.id) }}">{{ b.archivo }}</a></td><td>{{ b.created_at }}</td><td>{{ b.estado }}</td><td>
+{% if b.estado == 'aplicada' %}<form method="post" action="{{ url_for('skap_matriz.revert',import_id=b.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Revertir carga sin seguimiento</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div></div>{% endblock %}

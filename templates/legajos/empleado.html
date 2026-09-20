@@ -34,6 +34,7 @@
       </div>
     </div>
     <div class="chip-row legajo-nav">
+      <a class="chip" href="{{ url_for('skap_matriz.index', empleado_id=empleado.id) }}">Evaluaciones SKAP</a>
       <span class="chip">Eventos</span>
       <span class="chip">Adjuntos</span>
       <a class="chip" href="{{ url_for('legajos.listado_eventos', empleado_id=empleado.id) }}">Ver listado</a>

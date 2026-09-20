@@ -8,6 +8,7 @@ _PUESTO_GENERAL = 0
 
 def _build_where(
     *,
+    empresa_id: int | None = None,
     search: str | None = None,
     sector_id: int | None = None,
     puesto_filter: int | None = None,
@@ -17,6 +18,9 @@ def _build_where(
     where = []
     params: list = []
 
+    if empresa_id:
+        where.append("s.empresa_id = %s")
+        params.append(empresa_id)
     if search:
         like = f"%{search}%"
         where.append("(q.descripcion LIKE %s OR s.nombre LIKE %s)")
@@ -45,6 +49,7 @@ def get_page(
     page: int,
     per_page: int,
     *,
+    empresa_id: int | None = None,
     search: str | None = None,
     sector_id: int | None = None,
     puesto_filter: int | None = None,
@@ -55,6 +60,7 @@ def get_page(
     cursor = db.cursor(dictionary=True)
     try:
         where_sql, params = _build_where(
+            empresa_id=empresa_id,
             search=search,
             sector_id=sector_id,
             puesto_filter=puesto_filter,

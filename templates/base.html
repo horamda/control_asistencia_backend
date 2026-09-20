@@ -214,6 +214,9 @@
               </div>
             {% endif %}
 
+            {% if session.get('empleado_id') %}
+              <a class="nav-link" href="/skap/mis-evaluaciones">Mis evaluaciones SKAP</a>
+            {% endif %}
             {% if can_web("skap") %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-skap">
@@ -224,13 +227,17 @@
                   <span class="nav-caret" aria-hidden="true"></span>
                 </button>
                 <div class="nav-submenu" id="nav-submenu-skap">
-                  <a class="nav-link" href="/skap/">Resumen</a>
-                  <a class="nav-link" href="/skap/evaluar">Evaluar empleados</a>
-                  <a class="nav-link" href="/skap/evaluaciones">Evaluaciones</a>
-                  <a class="nav-link" href="/skap/planes">Planes</a>
+                  <a class="nav-link" href="/skap/matrices">Matrices por legajo</a>
+                  {% if (session.get('user_role') or session.get('role')) in ['admin', 'rrhh'] %}
+                  <a class="nav-link" href="/skap/matrices/importar">Importar matriz Excel</a>
+                  <a class="nav-link" href="/skap/clasico">Resumen histórico (1–5)</a>
+                  <a class="nav-link" href="/skap/evaluar">Evaluar en escala 1–5</a>
+                  <a class="nav-link" href="/skap/evaluaciones">Evaluaciones históricas (1–5)</a>
+                  <a class="nav-link" href="/skap/planes">Planes históricos (1–5)</a>
                   {% if can_web("skap", "editar") %}
                     <a class="nav-link" href="/skap/preguntas">Preguntas</a>
                     <a class="nav-link" href="/skap/preguntas/importar">Importar preguntas</a>
+                  {% endif %}
                   {% endif %}
                 </div>
               </div>

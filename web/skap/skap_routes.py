@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import datetime as _dt
 
-from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, g, redirect, render_template, request, session, url_for
+from web.skap.matriz_routes import current_actor
+from repositories.sector_repository import get_by_id as get_sector_by_id
+from repositories.puesto_repository import get_by_id as get_puesto_by_id
+from repositories.sucursal_repository import get_by_id as get_sucursal_by_id
 
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
@@ -58,6 +62,44 @@ _CATEGORIAS = [
 ]
 
 
+@skap_web_bp.before_request
+def _legacy_scope():
+    if not session.get('user_id'):
+        return redirect(url_for('web_auth.login'))
+    actor = current_actor()
+    g.skap_empresa_id = actor['empresa_id']
+    # The operational matrix provides scoped supervisor and employee views.
+    if actor['rol'] not in {'admin', 'rrhh'}:
+        if request.method == 'GET':
+            return redirect(url_for('skap_matriz.index'))
+        abort(403)
+    args = request.view_args or {}
+    for key, getter in [('evaluacion_id',get_evaluacion_by_id),('plan_id',get_plan_by_id),
+                        ('empleado_id',get_empleado_by_id)]:
+        if args.get(key):
+            row = getter(args[key])
+            if not row or row.get('empresa_id') != actor['empresa_id']:
+                abort(404)
+    for key, getter in [('sector_id',get_sector_by_id),('evaluador_empleado_id',get_empleado_by_id),
+                        ('responsable_empleado_id',get_empleado_by_id),('puesto_id',get_puesto_by_id),
+                        ('sucursal_id',get_sucursal_by_id)]:
+        value = request.values.get(key,type=int)
+        if value:
+            row = getter(value)
+            if not row or row.get('empresa_id') != actor['empresa_id']:
+                abort(403)
+    if args.get('pregunta_id'):
+        question = get_pregunta_by_id(args['pregunta_id'])
+        sector = get_sector_by_id(question['sector_id']) if question else None
+        if not sector or sector.get('empresa_id') != actor['empresa_id']:
+            abort(404)
+    action_id = args.get('action_id') or request.args.get('edit_action',type=int)
+    if action_id:
+        action = get_plan_action_by_id(action_id)
+        if not action or action.get('plan_id') != args.get('plan_id'):
+            abort(404)
+
+
 def _parse_int(value, default: int | None = None) -> int | None:
     try:
         if value is None:
@@ -89,20 +131,20 @@ def _current_role():
 
 
 def _sector_options(include_inactive: bool = True):
-    rows, _ = get_sectores_page(1, 500, activo=None if include_inactive else 1)
+    rows, _ = get_sectores_page(1, 500, empresa_id=g.skap_empresa_id, activo=None if include_inactive else 1)
     return rows
 
 
 def _employee_options(include_inactive: bool = False):
-    return get_empleados(include_inactive=include_inactive)
+    return [row for row in get_empleados(include_inactive=include_inactive) if row.get('empresa_id') == g.skap_empresa_id]
 
 
 def _puesto_options(include_inactive: bool = True):
-    return get_puestos(include_inactive=include_inactive)
+    return [row for row in get_puestos(include_inactive=include_inactive) if row.get('empresa_id') == g.skap_empresa_id]
 
 
 def _sucursal_options(include_inactive: bool = True):
-    return get_sucursales(include_inactive=include_inactive)
+    return [row for row in get_sucursales(include_inactive=include_inactive) if row.get('empresa_id') == g.skap_empresa_id]
 
 
 def _pregunta_form_from_request(form) -> dict:
@@ -156,11 +198,16 @@ def _action_form_from_request(form) -> dict:
 
 
 @skap_web_bp.route("/")
+def matriz_inicio():
+    return redirect(url_for('skap_matriz.index'))
+
+
+@skap_web_bp.route("/clasico")
 @role_required("admin", "rrhh", "supervisor")
 def dashboard():
     anio = _parse_int(request.args.get("anio"), _dt.date.today().year) or _dt.date.today().year
     sector_id = _parse_int(request.args.get("sector_id"))
-    data = get_dashboard_data(anio=anio, sector_id=sector_id)
+    data = get_dashboard_data(anio=anio, sector_id=sector_id, empresa_id=g.skap_empresa_id)
     return render_template(
         "skap/dashboard.html",
         data=data,
@@ -190,6 +237,7 @@ def preguntas_listado():
     elif activo_raw == "0":
         activo = 0
     preguntas, total = get_preguntas_catalogo(
+        empresa_id=g.skap_empresa_id,
         page=page,
         per_page=per_page,
         search=search,
@@ -307,7 +355,7 @@ def preguntas_importar():
             resultado = {"error": "Debe subir un archivo .csv valido."}
         else:
             try:
-                resultado = importar_preguntas_desde_csv(archivo.stream, reactivate=reactivate)
+                resultado = importar_preguntas_desde_csv(archivo.stream, reactivate=reactivate, empresa_id=g.skap_empresa_id)
                 log_audit(session, "importar_csv", "skap_preguntas", 0)
             except Exception as exc:
                 current_app.logger.exception("skap_preguntas_import_error")
@@ -421,6 +469,7 @@ def evaluaciones_listado():
     rows, total = get_evaluaciones_page(
         page,
         per_page,
+        empresa_id=g.skap_empresa_id,
         anio=anio,
         sector_id=sector_id,
         sucursal_id=sucursal_id,
@@ -474,6 +523,7 @@ def planes_listado():
     rows, total = get_planes_page(
         page,
         per_page,
+        empresa_id=g.skap_empresa_id,
         anio=anio,
         sector_id=sector_id,
         sucursal_id=sucursal_id,
