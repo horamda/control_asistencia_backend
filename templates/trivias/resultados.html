@@ -12,7 +12,7 @@
       <span class="badge {{ badge_cls }}">{{ trivia.estado|capitalize }}</span>
     </p>
   </div>
-  <div class="page-actions">
+  <div class="page-actions"><a class="btn btn-secondary" href="{{ url_for('trivia_admin.fuera_ranking',trivia_id=trivia.id) }}">Participación sin ranking</a>
     <a href="{{ url_for('trivia_admin.detalle', trivia_id=trivia.id) }}" class="btn btn-ghost">Volver</a>
     <a href="{{ url_for('trivia_admin.resultados_export_csv', trivia_id=trivia.id, sucursal_id=sucursal_id or None) }}" class="btn btn-secondary">Exportar CSV</a>
     <a href="{{ url_for('trivia_admin.resultados_export_xlsx', trivia_id=trivia.id, sucursal_id=sucursal_id or None) }}" class="btn btn-secondary">Exportar Excel</a>
@@ -63,7 +63,7 @@
 
 <div class="card" style="margin-bottom:1rem">
   <div class="card-header">
-    <h3 class="card-title" style="margin:0">Exclusiones</h3>
+    <h3 class="card-title" style="margin:0">Bloquear participación</h3>
   </div>
   <div class="card-body">
     <form method="post" action="{{ url_for('trivia_admin.agregar_exclusion', trivia_id=trivia.id) }}"
@@ -82,7 +82,7 @@
         <label class="form-label">Motivo</label>
         <input type="text" name="motivo" class="form-control" maxlength="300" placeholder="Opcional">
       </div>
-      <button type="submit" class="btn btn-danger">Excluir</button>
+      <button type="submit" class="btn btn-danger">Bloquear participación</button>
     </form>
 
     {% if exclusiones %}
@@ -149,7 +149,7 @@
         {% for r in resultados %}
           {% set is_ex = r.estado_admin == 'excluido' %}
           <tr {% if is_ex %}style="opacity:.72"{% elif r.es_ganador_calculado %}style="background:linear-gradient(90deg,rgba(245,158,11,.08),transparent)"{% endif %}>
-            <td data-label="Estado">
+            <td data-label="Estado">{% if r.fuera_ranking %}<span class="badge ghost">Sin ranking</span>{% endif %}
               {% if r.estado_admin == 'completado' %}
                 <span class="badge ok">Completado</span>
               {% elif r.estado_admin == 'en_progreso' %}

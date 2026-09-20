@@ -1,9 +1,9 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.27.0
+Version de contrato: 1.28.0
 Fecha de corte: 2026-09-20
 Base URL local: `http://localhost:5000`
-Base URL produccion: `https://control-asistencia-backend-8gle.onrender.com`
+Base URL produccion: `https://control-asistencia.up.railway.app`
 Prefijo principal: `/api/v1/mobile`
 Prefijos moviles complementarios: `/api/v1/feedback`, `/api/skap`
 
@@ -3190,3 +3190,23 @@ Si cambia una clave o status code, subir version (`v2`) o registrar change log e
 ## Change log
 
 Historial completo: [mobile_v1_changelog.md](mobile_v1_changelog.md)
+
+
+### Trivias: participacion sin ranking (1.28.0)
+
+La administracion puede configurar personas fuera de competencia **por trivia**.
+Pueden responder y conservar sus respuestas, puntaje e historial personal.
+Sus resultados de esa trivia no participan del ranking ni del ganador de la trivia,
+ni suman al ranking anual. Las demas trivias siguen contando normalmente.
+Esta opcion no reemplaza los bloqueos de participacion ni los requisitos de sector.
+
+Campo aditivo `fuera_ranking` (boolean, valor predeterminado `false` para clientes anteriores):
+- `GET /api/v1/trivia/estado`: dentro de `participacion`, cuando existe.
+- `POST /api/v1/trivia/finalizar`: dentro del resultado `data`.
+- `GET /api/v1/trivia/mi-historial`: en cada item.
+
+Flutter debe mostrar "Participacion sin ranking" y conservar el puntaje personal.
+Al excluir una participacion se limpia su posicion y condicion de ganador;
+al volver a incluirla se recalculan los rankings. La eliminacion completa de una
+trivia borra tambien sus respuestas y resultados personales y recalcula el anual.
+Los enlaces guardados hacia una trivia eliminada dejan de estar disponibles.

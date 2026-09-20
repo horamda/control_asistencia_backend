@@ -1,0 +1,25 @@
+﻿{% extends 'base.html' %}
+{% block title %}Eliminar trivia{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head"><div><h2>Eliminar trivia</h2><p>{{ trivia.titulo }} · {{ trivia.anio }} · {{ trivia.estado }}</p></div></div>
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+  <div class="panel">
+    <h3>Se eliminará la trivia completa</h3>
+    <p>Incluye preguntas, respuestas, participaciones, ganador, notificaciones y exclusiones de esta trivia. El ranking anual se recalculará sin sus resultados. Esta acción no se puede deshacer desde el panel.</p>
+    <ul>
+      <li>{{ impacto.trivia_preguntas }} preguntas</li>
+      <li>{{ impacto.trivia_resultados }} participaciones y {{ impacto.trivia_respuestas }} respuestas</li>
+      <li>{{ impacto.trivia_notificaciones }} notificaciones</li>
+    </ul>
+    {% if trivia.estado == 'activa' %}<p><strong>Está activa: las personas que estén respondiendo ya no podrán enviar esta trivia.</strong></p>{% endif %}
+    <form method="post" class="content-stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Para confirmar, escribí el número <strong>{{ trivia.id }}</strong>
+        <input name="confirmacion" required inputmode="numeric" autocomplete="off" aria-label="Número de la trivia para confirmar" style="max-width:240px">
+      </label>
+      <div class="actions"><a class="btn btn-secondary" href="{{ url_for('trivia_admin.detalle',trivia_id=trivia.id) }}">Cancelar</a><button type="submit" class="btn btn-danger">Eliminar definitivamente</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

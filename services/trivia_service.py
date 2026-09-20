@@ -213,6 +213,7 @@ def finalizar_participacion(empleado: dict, trivia_id: int, respuestas: list[dic
         "incorrectas": incorrectas,
         "tiempo_total_segundos": tiempo_total,
         "total_preguntas": len(preguntas_map),
+        "fuera_ranking": bool(resultado.get("fuera_ranking")),
         "siguiente_trivia_disponible": siguiente_trivia_disponible,
     }
 
@@ -245,62 +246,24 @@ def calcular_ranking(trivia_id: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def finalizar_trivia(trivia_id: int):
-    """
-    Cierra la trivia, calcula ranking, asigna posiciones,
-    guarda ganador y actualiza ranking anual.
-    Usa múltiples escrituras pero con commit en cada repo (atómico por operación).
-    """
+    """Close and rebuild winner/annual standings in a single transaction."""
     trivia = repo.get_trivia_by_id(trivia_id)
     if not trivia:
         raise TriviaNoEncontradaError(f"Trivia {trivia_id} no encontrada.")
     if trivia["estado"] == "finalizada":
-        return  # idempotente
+        return
+    try:
+        repo.rebuild_competition(trivia_id, finalizar=True)
+    except ValueError as exc:
+        raise TriviaNoEncontradaError(str(exc)) from exc
 
-    # 1) Marcar como finalizada
-    repo.set_trivia_estado(trivia_id, "finalizada")
-    recalcular_resultados_trivia(trivia_id, trivia={**trivia, "estado": "finalizada"})
-    return
-
-# ---------------------------------------------------------------------------
-# Recalculo de resultados
-# ---------------------------------------------------------------------------
 
 def recalcular_resultados_trivia(trivia_id: int, trivia: dict | None = None):
-    """
-    Recalcula posiciones y ganador de una trivia respetando exclusiones.
-    Si la trivia ya esta finalizada, tambien refresca el ranking anual.
-    """
-    trivia = trivia or repo.get_trivia_by_id(trivia_id)
-    if not trivia:
-        raise TriviaNoEncontradaError(f"Trivia {trivia_id} no encontrada.")
-
-    ranking = repo.get_ranking_trivia(trivia_id)
-    repo.reset_posiciones_ranking(trivia_id)
-
-    if trivia["estado"] != "finalizada":
-        repo.delete_ganador(trivia_id)
-        return
-
-    if not ranking:
-        repo.delete_ganador(trivia_id)
-        repo.recalcular_ranking_anual(trivia["anio"])
-        return
-
-    ordered_ids = [r["id"] for r in ranking]
-    repo.set_posiciones_ranking(trivia_id, ordered_ids)
-
-    ganador_row = ranking[0]
-    repo.save_ganador({
-        "trivia_id": trivia_id,
-        "empleado_id": ganador_row["empleado_id"],
-        "empleado_dni": ganador_row["empleado_dni"],
-        "empleado_nombre": ganador_row.get("empleado_nombre"),
-        "puntos_total": ganador_row["puntos_total"],
-        "tiempo_total_segundos": ganador_row["tiempo_total_segundos"],
-        "posicion": 1,
-    })
-
-    repo.recalcular_ranking_anual(trivia["anio"])
+    """Use current locked state so concurrent changes cannot restore stale winners."""
+    try:
+        repo.rebuild_competition(trivia_id)
+    except ValueError as exc:
+        raise TriviaNoEncontradaError(str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------

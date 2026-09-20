@@ -12,6 +12,8 @@
     </p>
   </div>
   <div class="page-actions">
+    <a href="{{ url_for('trivia_admin.fuera_ranking',trivia_id=trivia.id) }}" class="btn btn-secondary">Participación sin ranking</a>
+    <a href="{{ url_for('trivia_admin.eliminar',trivia_id=trivia.id) }}" class="btn btn-danger">Eliminar trivia</a>
     <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost">← Volver</a>
     <a href="{{ url_for('trivia_admin.resultados', trivia_id=trivia.id) }}" class="btn btn-secondary">Resultados</a>
     <a href="{{ url_for('trivia_admin.editar', trivia_id=trivia.id) }}" class="btn btn-secondary">Editar trivia</a>
@@ -39,7 +41,7 @@
   </div>
   <div class="kpi-card">
     <span class="kpi-value">{{ ranking|length }}</span>
-    <span class="kpi-label">Participantes</span>
+    <span class="kpi-label">Participantes en ranking</span>
   </div>
   <div class="kpi-card {% if not trivia_sectores %}tone-ok{% endif %}">
     <span class="kpi-value" style="font-size:1rem">

@@ -406,55 +406,12 @@ def test_finalizar_trivia_ya_finalizada_es_idempotente(monkeypatch):
     svc.finalizar_trivia(3)  # no exception
 
 
-def test_finalizar_trivia_sin_participantes(monkeypatch):
+def test_finalizar_trivia_usa_operacion_atomica(monkeypatch):
     monkeypatch.setattr(trivia_repo, "get_trivia_by_id", lambda tid: _TRIVIA_ACTIVA)
-    monkeypatch.setattr(trivia_repo, "set_trivia_estado", lambda tid, estado: None)
-    monkeypatch.setattr(trivia_repo, "get_ranking_trivia", lambda tid: [])
-
-    # No debe lanzar excepción cuando no hay participantes
+    calls = []
+    monkeypatch.setattr(trivia_repo, "rebuild_competition", lambda tid, **kw: calls.append((tid, kw)))
     svc.finalizar_trivia(3)
-
-
-def test_finalizar_trivia_completo(monkeypatch):
-    estados_seteados = []
-    ganador_guardado = []
-    posiciones_seteadas = []
-    anio_recalculado = []
-
-    fila_ganador = {
-        "id": 1, "trivia_id": 3, "empleado_id": 10, "empleado_dni": "30111222",
-        "empleado_nombre": "Lopez Ana", "puntos_total": 80,
-        "tiempo_total_segundos": 98,
-    }
-
-    monkeypatch.setattr(trivia_repo, "get_trivia_by_id", lambda tid: _TRIVIA_ACTIVA)
-    monkeypatch.setattr(
-        trivia_repo, "set_trivia_estado",
-        lambda tid, estado: estados_seteados.append(estado),
-    )
-    monkeypatch.setattr(
-        trivia_repo, "get_ranking_trivia", lambda tid: [fila_ganador]
-    )
-    monkeypatch.setattr(
-        trivia_repo, "set_posiciones_ranking",
-        lambda tid, ids: posiciones_seteadas.append(ids),
-    )
-    monkeypatch.setattr(
-        trivia_repo, "save_ganador",
-        lambda data: ganador_guardado.append(data),
-    )
-    monkeypatch.setattr(
-        trivia_repo, "recalcular_ranking_anual",
-        lambda anio: anio_recalculado.append(anio),
-    )
-
-    svc.finalizar_trivia(3)
-
-    assert "finalizada" in estados_seteados
-    assert len(ganador_guardado) == 1
-    assert ganador_guardado[0]["empleado_dni"] == "30111222"
-    assert posiciones_seteadas[0] == [1]  # id del único participante
-    assert 2026 in anio_recalculado
+    assert calls == [(3, {"finalizar": True})]
 
 
 # ===========================================================================

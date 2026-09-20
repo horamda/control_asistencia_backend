@@ -324,9 +324,12 @@
         }
       });
     });
-    window.addEventListener("resize", function () {
-      syncSidebarState();
-    });
+    var desktopQuery = window.matchMedia("(min-width: " + (SIDEBAR_BREAKPOINT + 1) + "px)");
+    if (desktopQuery.addEventListener) {
+      desktopQuery.addEventListener("change", syncSidebarState);
+    } else {
+      desktopQuery.addListener(syncSidebarState);
+    }
 
     // Swipe left to close sidebar on touch devices
     var touchStartX = 0;
@@ -399,7 +402,7 @@
 
   // Collapsible filter form on mobile
   function initFilterToggle() {
-    var MOBILE_BP = 760;
+    var mobileQuery = window.matchMedia("(max-width: 760px)");
     document.querySelectorAll("form[method='get']").forEach(function (form) {
       if (form.closest(".auth-layout")) return;
       if (form.getAttribute("data-filter-bound") === "1") return;
@@ -412,7 +415,7 @@
       btn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg> Filtros';
       form.parentNode.insertBefore(btn, form);
 
-      function isMobile() { return window.innerWidth <= MOBILE_BP; }
+      function isMobile() { return mobileQuery.matches; }
 
       function applyState(forceOpen) {
         if (!isMobile()) {
@@ -434,7 +437,11 @@
         applyState(nowOpen);
       });
 
-      window.addEventListener("resize", function () { applyState(); });
+      if (mobileQuery.addEventListener) {
+        mobileQuery.addEventListener("change", function () { applyState(); });
+      } else {
+        mobileQuery.addListener(function () { applyState(); });
+      }
       applyState(false);
     });
   }

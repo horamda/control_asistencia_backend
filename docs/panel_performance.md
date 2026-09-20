@@ -72,3 +72,15 @@ latencia de red ni tiempos completos del panel. Performance Schema no devolvio
 muestras de SELECT para este esquema durante la revision; no se habilito logging
 global ni se cambiaron parametros de produccion. Para el seguimiento del panel
 quedan las mediciones Server-Timing y logs preparadas en el backend.
+
+## Renderizado del panel
+
+Las fuentes de Google se cargan sin bloquear la hoja principal, con alternativa
+sin JavaScript y fuentes locales de respaldo. panel.js usa defer. Los controles
+de menu/filtros reaccionan al cruce de sus puntos de corte mediante matchMedia,
+en lugar de repetir escrituras del DOM en cada evento resize. Las fotos de
+listados de empleados y legajos usan decoding=async junto con loading=lazy.
+Se respetan preferencias de movimiento reducido para los controles del panel.
+
+Son ajustes de presentacion; no modifican datos ni contratos. No se ha medido
+una mejora de FCP/LCP/CLS en produccion: requiere desplegar y comparar en navegador.

@@ -150,7 +150,7 @@
                     class="employee-avatar sm"
                     src="{{ foto_url }}"
                     alt="Foto {{ e.apellido }} {{ e.nombre }}"
-                    loading="lazy"
+                    loading="lazy" decoding="async"
                     data-fallback="{{ default_foto_url }}"
                     onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
                   >
@@ -160,7 +160,7 @@
                   class="employee-avatar sm"
                   src="{{ default_foto_url }}"
                   alt="Foto general"
-                  loading="lazy"
+                  loading="lazy" decoding="async"
                 >
               {% endif %}
               <div class="employee-list-copy">

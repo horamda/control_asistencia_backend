@@ -880,7 +880,7 @@ def generar_trivia_resultados_excel(
                 r.get("empleado_nombre") or "",
                 r.get("sector_nombre") or "",
                 r.get("sucursal_nombre") or "",
-                r.get("estado_admin") or "",
+                (r.get("estado_admin") or "") + (" (sin ranking)" if r.get("fuera_ranking") else ""),
                 r.get("posicion_calculada") or "",
                 r.get("puntos_total") if r.get("resultado_id") else "",
                 r.get("correctas") if r.get("resultado_id") else "",

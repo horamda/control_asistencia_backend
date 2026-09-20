@@ -723,3 +723,18 @@ def test_trivia_marcar_todas_leidas(monkeypatch):
     assert resp.status_code == 200
     assert body["data"]["marcadas"] is True
     assert 10 in llamadas
+
+def test_personal_results_keep_score_when_outside_ranking(monkeypatch):
+    client = _build_client(monkeypatch)
+    _patch_auth(monkeypatch)
+    personal = {**_RESULTADO_COMPLETADO, 'fuera_ranking': 1, 'posicion': None, 'es_ganador': 0}
+    monkeypatch.setattr(trivia_repo, 'get_trivia_activa_para_empleado', lambda eid: _TRIVIA_ACTIVA)
+    monkeypatch.setattr(trivia_repo, 'get_resultado_by_trivia_empleado', lambda tid, eid: personal)
+    monkeypatch.setattr(trivia_repo, 'get_historial_empleado', lambda eid: [personal])
+    state = client.get('/api/v1/trivia/estado', headers=_auth_headers()).get_json()['data']['participacion']
+    history = client.get('/api/v1/trivia/mi-historial', headers=_auth_headers()).get_json()['data'][0]
+    for result in [state, history]:
+        assert result['fuera_ranking'] is True
+        assert result['puntos_total'] == 80
+        assert result['posicion'] is None
+        assert result['es_ganador'] is False

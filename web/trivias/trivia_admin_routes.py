@@ -291,7 +291,7 @@ def resultados_export_csv(trivia_id: int):
         "trivia_id", "trivia", "estado_trivia", "empleado_id", "legajo", "dni",
         "apellido", "nombre", "sector", "sucursal", "estado", "posicion", "puntos",
         "correctas", "incorrectas", "tiempo_segundos", "inicio_participacion",
-        "fin_participacion", "motivo_exclusion",
+        "fin_participacion", "motivo_exclusion", "fuera_ranking",
     ])
     for row in rows:
         writer.writerow([
@@ -314,6 +314,7 @@ def resultados_export_csv(trivia_id: int):
             _fmt_dt(row.get("fecha_inicio_participacion")),
             _fmt_dt(row.get("fecha_finalizacion")),
             row.get("exclusion_motivo") or "",
+            bool(row.get("fuera_ranking")),
         ])
 
     csv_content = "\ufeff" + out.getvalue()
@@ -634,3 +635,65 @@ def api_ranking(trivia_id: int):
 def api_ranking_anual(anio: int):
     rows = repo.get_ranking_anual(anio)
     return jsonify({"success": True, "data": rows, "anio": anio})
+
+# Explicit active-role check: module permissions alone cannot authorize deletion.
+def _require_trivia_manager():
+    from flask import abort
+    from web.auth.decorators import _cached_web_user
+    actor = _cached_web_user(session.get('user_id'))
+    if not actor or not actor.get('activo') or str(actor.get('rol') or '').lower() not in {'admin', 'rrhh'}:
+        abort(403)
+    return actor
+
+
+@trivia_admin_bp.route('/<int:trivia_id>/eliminar', methods=['GET', 'POST'])
+@role_required('admin', 'rrhh')
+def eliminar(trivia_id):
+    actor = _require_trivia_manager()
+    trivia = repo.get_trivia_by_id(trivia_id)
+    if not trivia:
+        from flask import abort
+        abort(404)
+    error = None
+    if request.method == 'POST':
+        if request.form.get('confirmacion', '').strip() != str(trivia_id):
+            error = 'Escribí el número de la trivia para confirmar el borrado.'
+        else:
+            try:
+                repo.delete_trivia_completa(trivia_id, usuario_id=actor['id'])
+            except ValueError as exc:
+                error = str(exc)
+            else:
+                flash('Trivia eliminada completamente. Ranking anual actualizado.', 'success')
+                return redirect(url_for('trivia_admin.listado'))
+    return render_template('trivias/eliminar.html', trivia=trivia, impacto=repo.get_impacto_eliminar_trivia(trivia_id), error=error), (400 if error else 200)
+
+
+@trivia_admin_bp.route('/<int:trivia_id>/fuera-ranking', methods=['GET', 'POST'])
+@role_required('admin', 'rrhh')
+def fuera_ranking(trivia_id):
+    actor = _require_trivia_manager()
+    trivia = repo.get_trivia_by_id(trivia_id)
+    if not trivia:
+        from flask import abort
+        abort(404)
+    error = None
+    if request.method == 'POST':
+        eid = request.form.get('empleado_id', type=int)
+        operation = request.form.get('operacion')
+        if not eid or operation not in {'excluir', 'incluir'}:
+            error = 'Seleccioná una persona y una operación válida.'
+        else:
+            try:
+                repo.set_exclusion_ranking_trivia(trivia_id, eid, excluir=operation == 'excluir',
+                    motivo=(request.form.get('motivo') or '').strip() or None, usuario_id=actor['id'])
+            except ValueError as exc:
+                error = str(exc)
+            else:
+                flash('Participación en rankings actualizada. Las respuestas y puntajes se conservaron.', 'success')
+                return redirect(url_for('trivia_admin.fuera_ranking', trivia_id=trivia_id))
+    excluded = repo.get_exclusiones_ranking_trivia(trivia_id)
+    excluded_ids = {int(e['empleado_id']) for e in excluded}
+    staff = [e for e in get_empleados(include_inactive=True) if int(e['id']) not in excluded_ids]
+    return render_template('trivias/fuera_ranking.html', trivia=trivia, exclusiones=excluded,
+                           empleados=staff, error=error), (400 if error else 200)

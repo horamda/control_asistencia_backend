@@ -1,7 +1,7 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - Mobile API v1
-  version: 1.27.0
+  version: 1.28.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -14,7 +14,7 @@ info:
 servers:
   - url: http://localhost:5000/api/v1/mobile
     description: Local
-  - url: https://control-asistencia-backend-8gle.onrender.com/api/v1/mobile
+  - url: https://control-asistencia.up.railway.app/api/v1/mobile
     description: Produccion
 
 # ---------------------------------------------------------------------------
@@ -28,6 +28,28 @@ components:
       bearerFormat: JWT
 
   schemas:
+    TriviaResultadoPersonal:
+      type: object
+      description: Puntaje personal conservado incluso cuando no participa en rankings.
+      properties:
+        fuera_ranking:
+          type: boolean
+          default: false
+          description: Excluye solo esta trivia del ranking, ganador y acumulado anual.
+        puntos_total:
+          type: integer
+          nullable: true
+        posicion:
+          type: integer
+          nullable: true
+          description: Sin posicion cuando fuera_ranking es true.
+        es_ganador:
+          type: boolean
+          default: false
+        trivia_id:
+          type: integer
+        estado_resultado:
+          type: string
     # --- Auth ---
     LoginRequest:
       type: object
@@ -4667,7 +4689,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     get:
       tags: [Feedback]
@@ -4692,7 +4714,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     get:
       tags: [Feedback]
@@ -4748,7 +4770,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     get:
       tags: [Feedback]
@@ -4797,7 +4819,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     get:
       tags: [Feedback]
@@ -4839,7 +4861,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     get:
       tags: [Feedback]
@@ -4858,7 +4880,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     post:
       tags: [Feedback]
@@ -4901,7 +4923,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     get:
       tags: [Feedback]
@@ -4938,7 +4960,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     post:
       tags: [Feedback]
@@ -4976,7 +4998,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     post:
       tags: [Feedback]
@@ -5020,7 +5042,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     get:
       tags: [SKAP]
@@ -5069,7 +5091,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     post:
       tags: [SKAP]
@@ -5112,7 +5134,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     get:
       tags: [SKAP]
@@ -5150,7 +5172,7 @@ paths:
     servers:
       - url: http://localhost:5000
         description: Local root
-      - url: https://control-asistencia-backend-8gle.onrender.com
+      - url: https://control-asistencia.up.railway.app
         description: Produccion root
     get:
       tags: [SKAP]
@@ -5176,7 +5198,7 @@ paths:
     servers:
     - url: http://localhost:5000
       description: Local root
-    - url: https://control-asistencia-backend-8gle.onrender.com
+    - url: https://control-asistencia.up.railway.app
       description: Produccion root
     get:
       tags:
@@ -5203,7 +5225,7 @@ paths:
     servers:
     - url: http://localhost:5000
       description: Local root
-    - url: https://control-asistencia-backend-8gle.onrender.com
+    - url: https://control-asistencia.up.railway.app
       description: Produccion root
     get:
       tags:
@@ -5298,7 +5320,7 @@ paths:
     servers: &matrixpath001
     - url: http://localhost:5000
       description: Local root
-    - url: https://control-asistencia-backend-8gle.onrender.com
+    - url: https://control-asistencia.up.railway.app
       description: Produccion root
     get:
       tags:
@@ -5354,3 +5376,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SkapErrorResponse'
+
+  /estado:
+    servers:
+      - url: https://control-asistencia.up.railway.app/api/v1/trivia
+      - url: http://localhost:5000/api/v1/trivia
+    get:
+      summary: Estado personal de trivia
+      responses:
+        '200':
+          description: La participacion conserva el puntaje e indica si compite.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      hay_trivia_activa:
+                        type: boolean
+                      participacion:
+                        nullable: true
+                        allOf:
+                          - $ref: '#/components/schemas/TriviaResultadoPersonal'
+  /mi-historial:
+    servers:
+      - url: https://control-asistencia.up.railway.app/api/v1/trivia
+      - url: http://localhost:5000/api/v1/trivia
+    get:
+      summary: Historial personal de trivias, incluidas participaciones sin ranking
+      responses:
+        '200':
+          description: Resultados del empleado autenticado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TriviaResultadoPersonal'
+  /finalizar:
+    servers:
+      - url: https://control-asistencia.up.railway.app/api/v1/trivia
+      - url: http://localhost:5000/api/v1/trivia
+    post:
+      summary: Finalizar participacion personal en una trivia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [trivia_id, respuestas]
+              properties:
+                trivia_id:
+                  type: integer
+                respuestas:
+                  type: array
+                  items:
+                    type: object
+                    required: [pregunta_id, respuesta]
+                    properties:
+                      pregunta_id:
+                        type: integer
+                      respuesta:
+                        type: string
+                        enum: [A, B, C, D]
+      responses:
+        '200':
+          description: Puntaje personal y condicion de participacion sin ranking.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TriviaResultadoPersonal'
+        '400':
+          description: Respuestas o estado de participacion invalidos.
+        '404':
+          description: Trivia o empleado no encontrado.

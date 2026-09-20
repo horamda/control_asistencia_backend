@@ -1,0 +1,23 @@
+﻿{% extends 'base.html' %}
+{% block title %}Participación sin ranking{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head"><div><h2>Participación sin ranking</h2><p>{{ trivia.titulo }} · {{ trivia.anio }}</p></div><a class="btn btn-secondary" href="{{ url_for('trivia_admin.resultados',trivia_id=trivia.id) }}">Volver a resultados</a></div>
+  {% for category,message in get_flashed_messages(with_categories=true) %}<div class="alert" role="status">{{ message }}</div>{% endfor %}
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+  <div class="panel">
+    <p>Estas personas podrán responder si están habilitadas por sector y no tienen bloqueada la participación. Conservarán sus puntos y su historial personal.</p>
+    <p>Su resultado en <strong>esta trivia</strong> no contará para posiciones, premios ni el acumulado anual. Sus otras trivias no cambian. Si ya había resultados, se recalculan al guardar.</p>
+    <form method="post" class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:16px;align-items:end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="operacion" value="excluir">
+      <label>Persona<select name="empleado_id" required style="width:100%"><option value="">Seleccionar…</option>{% for e in empleados %}<option value="{{ e.id }}">{{ e.legajo }} · {{ e.apellido }} {{ e.nombre }}{% if not e.activo %} (inactivo){% endif %}</option>{% endfor %}</select></label>
+      <label>Motivo (opcional)<input name="motivo" maxlength="300" style="width:100%"></label>
+      <button class="btn" type="submit">Permitir responder sin competir</button>
+    </form>
+  </div>
+  <div class="panel table-responsive table-cards"><table class="table"><thead><tr><th>Persona</th><th>Motivo</th><th>Acciones</th></tr></thead><tbody>
+    {% for e in exclusiones %}<tr><td data-label="Persona">{{ e.legajo }} · {{ e.nombre }}</td><td data-label="Motivo">{{ e.motivo or 'Sin especificar' }}</td><td data-label="Acciones"><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="operacion" value="incluir"><input type="hidden" name="empleado_id" value="{{ e.empleado_id }}"><button class="btn btn-secondary" type="submit">Volver a incluir en rankings</button></form></td></tr>
+    {% else %}<tr><td colspan="3">No hay personas fuera del ranking de esta trivia.</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+{% endblock %}

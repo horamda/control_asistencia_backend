@@ -30,7 +30,8 @@
     <meta name="theme-color" content="#0C2D5C">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
     {% block extra_head %}{% endblock %}
   </head>
@@ -387,7 +388,7 @@
       </div>
     {% endif %}
 
-    <script src="{{ url_for('static', filename='js/panel.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/panel.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/panel-notifications.js') }}" defer></script>
     {% block extra_scripts %}{% endblock %}
   </body>

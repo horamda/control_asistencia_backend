@@ -108,6 +108,7 @@ def estado():
             "tiempo_total_segundos": resultado["tiempo_total_segundos"],
             "posicion": resultado["posicion"],
             "es_ganador": bool(resultado["es_ganador"]),
+            "fuera_ranking": bool(resultado.get("fuera_ranking")),
         }
 
     return _ok({
@@ -283,6 +284,7 @@ def mi_historial():
             "tiempo_total_segundos": r["tiempo_total_segundos"],
             "posicion": r["posicion"],
             "es_ganador": bool(r["es_ganador"]),
+            "fuera_ranking": bool(r.get("fuera_ranking")),
             "estado_resultado": r["estado_resultado"],
             "fecha_inicio_participacion": _iso(r.get("fecha_inicio_participacion")),
             "fecha_finalizacion": _iso(r.get("fecha_finalizacion")),

@@ -6167,3 +6167,13 @@ input[type="submit"][data-loading="1"] {
   color: #93c5fd;
   border-color: #1e3a5f;
 }
+
+/* Respect motion preferences and avoid unnecessary continuous repaints. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .app-sidebar, .app-main, .nav-overlay, .notifications-toggle,
+  .notifications-badge, .btn, .nav-link {
+    animation: none !important;
+    transition: none !important;
+  }
+}
