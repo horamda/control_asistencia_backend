@@ -366,7 +366,7 @@ def create(data: dict):
                 codigo_postal,
                 reporta_a_empleado_id
             )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,1,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             data.get("empresa_id"),
             data.get("sucursal_id"),
@@ -393,6 +393,7 @@ def create(data: dict):
             data.get("estado", "activo"),
             data.get("foto"),
             data.get("password_hash"),
+            1 if (data.get("estado") or "activo") in ("activo", "eventual") else 0,
             1 if data.get("requiere_control_asistencia", 1) in (1, True, "1", "true", "on") else 0,
             data.get("sector_id"),
             data.get("puesto_id"),
@@ -417,7 +418,7 @@ def update(empleado_id: int, data: dict):
     cursor = db.cursor()
     try:
         estado = data.get("estado", "activo") or "activo"
-        activo = 1 if estado == "activo" else 0
+        activo = 1 if estado in ("activo", "eventual") else 0
         cursor.execute("""
             UPDATE empleados
             SET

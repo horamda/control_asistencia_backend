@@ -63,7 +63,7 @@ class EmpleadoValidator(Validator):
         self.in_set(
             (form.get("estado") or "").strip(),
             "Estado",
-            {"activo", "inactivo", "suspendido"}
+            {"activo", "inactivo", "suspendido", "eventual"}
         )
 
         self.in_set(

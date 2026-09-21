@@ -26,7 +26,7 @@ from repositories.empleado_repository import (
 
 # Columnas válidas para enum en DB
 _SEXOS = {"masculino", "femenino", "no_binario", "no_informa"}
-_ESTADOS = {"activo", "inactivo", "suspendido"}
+_ESTADOS = {"activo", "inactivo", "suspendido", "eventual"}
 _TIPO_CONTRATO = {"efectivo", "temporal", "pasantia", "otro"}
 _MODALIDAD = {"presencial", "remoto", "hibrido"}
 _EXPECTED_COLUMNS = {

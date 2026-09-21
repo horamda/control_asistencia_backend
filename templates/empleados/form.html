@@ -109,6 +109,7 @@
         <label>Estado</label>
         <select name="estado">
           <option value="activo" {% if (data.estado or 'activo') == 'activo' %}selected{% endif %}>Activo</option>
+          <option value="eventual" {% if data.estado == 'eventual' %}selected{% endif %}>Eventual</option>
           <option value="inactivo" {% if data.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
           <option value="suspendido" {% if data.estado == 'suspendido' %}selected{% endif %}>Suspendido</option>
         </select>

@@ -49,7 +49,7 @@
     <div class="kpi-card tone-warn">
       <div class="kpi-label">Fuera de KPIs</div>
       <div class="kpi-value">{{ ns.sin_control }}</div>
-      <div class="helper-text">No controlan asistencia</div>
+      <div class="helper-text">En esta página · no controlan asistencia</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Con foto</div>
@@ -180,7 +180,7 @@
           <td data-label="Identificacion">
             <div>Legajo: {{ e.legajo or "-" }}</div>
             <div class="helper-text">DNI: {{ e.dni or "-" }}</div>
-            <div class="helper-text">{{ e.localidad_nombre or e.codigo_postal }}</div>
+            <div class="helper-text">{{ e.localidad_nombre or e.codigo_postal or "Sin localidad" }}</div>
           </td>
           <td data-label="Vacaciones">
             {% if e.vacaciones_resumen %}
@@ -193,10 +193,9 @@
               <span class="helper-text">No disponible</span>
             {% endif %}
           </td>
-          <td data-label="Email">{{ e.email }}</td>
           <td data-label="Estado">
             {% if e.activo %}
-              <span class="badge activo">Activo</span>
+              <span class="badge activo">{{ "Eventual" if e.estado == "eventual" else "Activo" }}</span>
             {% else %}
               <span class="badge inactivo">Inactivo</span>
             {% endif %}

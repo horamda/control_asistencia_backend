@@ -2812,15 +2812,23 @@ tbody tr:hover {
   padding: 14px;
 }
 
+.employee-directory { container-type: inline-size; }
+
 .employee-directory-table {
-  min-width: 980px;
+  table-layout: fixed;
+  width: 100%;
 }
+
+.employee-directory-table th:first-child { width: 24%; }
+.employee-directory-table th:nth-child(2) { width: 20%; }
+.employee-directory-table th:nth-child(5) { width: 9%; }
+.employee-directory-table td { overflow-wrap: anywhere; }
 
 .employee-list-person {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 220px;
+  min-width: 0;
 }
 
 .employee-list-person .employee-avatar {
@@ -6176,4 +6184,95 @@ input[type="submit"][data-loading="1"] {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Let shared panels and controls shrink inside grid/flex layouts. */
+.content-stack, .panel, .card, .table-responsive,
+.form-grid > *, .section-head > *, .results-bar > * { min-width: 0; }
+.form-grid input, .form-grid select, .form-grid textarea { min-width: 0; }
+.pager, .results-bar { flex-wrap: wrap; gap: 10px; }
+.chip, .summary { overflow-wrap: anywhere; }
+.table-responsive { max-width: 100%; }
+
+/* Use the space available beside the sidebar, not just viewport width. */
+@container (max-width: 1100px) {
+  .employee-directory .table-responsive.table-cards {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+  .employee-directory .employee-directory-table,
+  .employee-directory .employee-directory-table tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  .employee-directory .employee-directory-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .employee-directory .employee-directory-table tbody {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .employee-directory .employee-directory-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    min-width: 0;
+  }
+  .employee-directory .employee-directory-table td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+  .employee-directory .employee-directory-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 5px;
+    font-size: .72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .employee-directory .employee-directory-table td:first-child,
+  .employee-directory .employee-directory-table td:nth-child(2),
+  .employee-directory .employee-directory-table td:last-child {
+    grid-column: 1 / -1;
+  }
+  .employee-directory .employee-directory-table td:first-child::before { display: none; }
+  .employee-directory .employee-directory-table td:last-child {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+  .employee-directory .inline-actions { display: flex; flex-wrap: wrap; }
+  .employee-directory .btn-sm { min-height: 40px; }
+  .employee-directory .attendance-pill { min-width: 0; width: 100%; }
+}
+@container (max-width: 640px) {
+  .employee-directory .employee-directory-table tbody { grid-template-columns: 1fr; }
+  .employee-directory .form-grid { grid-template-columns: 1fr; }
+  .employee-directory .form-grid .row { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .table-responsive.table-cards td, table.table-cards td {
+    grid-template-columns: minmax(80px, 32%) minmax(0, 1fr);
+    overflow-wrap: anywhere;
+  }
+  .table-responsive.table-cards td > *, table.table-cards td > * {
+    min-width: 0;
+    grid-column: 2;
+  }
+  .toolbar .btn, .actions .btn, .actions button { min-height: 44px; }
 }

@@ -276,7 +276,7 @@ def _build_valores_validos(wb):
     _set_header_row(ws, ["Campo CSV", "Valores aceptados", "Notas"], fill=_REF_FILL, font=_REF_FONT)
     rows = [
         ("sexo",           "masculino | femenino | no_binario | no_informa", "Default: no_informa"),
-        ("estado",         "activo | inactivo | suspendido",                  "Default: activo"),
+        ("estado",         "activo | inactivo | suspendido | eventual",                  "Default: activo"),
         ("tipo_contrato",  "efectivo | temporal | pasantia | otro",           "Opcional"),
         ("modalidad",      "presencial | remoto | hibrido",                   "Default: presencial"),
         ("password",       "(cualquier texto)",                                "Si se omite, se usa el DNI como contrasena inicial"),

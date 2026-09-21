@@ -139,3 +139,11 @@ def test_importar_desde_csv_mantiene_csv_simple_con_comas(monkeypatch):
     assert created[0]["legajo"] == "L002"
     assert created[0]["fecha_nacimiento"] == "1991-03-04"
     assert created[0]["fecha_ingreso"] == "2021-05-06"
+
+
+def test_importar_eventual(monkeypatch):
+    created, _, _ = _patch_import_dependencies(monkeypatch)
+    content = 'legajo,dni,apellido,nombre,estado\nL009,30123459,Perez,Ana,EVENTUAL\n'
+    result = import_service.importar_desde_csv(io.BytesIO(content.encode('utf-8')), empresa_id=1)
+    assert result == {'creados': 1, 'actualizados': 0, 'errores': []}
+    assert created[0]['estado'] == 'eventual'
