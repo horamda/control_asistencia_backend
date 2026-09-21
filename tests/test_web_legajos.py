@@ -96,6 +96,7 @@ def test_legajos_listado_eventos_aplica_fechas_y_severidad(monkeypatch):
 
 
 def test_legajos_listado_muestra_foto_y_fallback(monkeypatch):
+    monkeypatch.setattr(legajos_routes, "get_legajo_filter_catalogs", lambda: {"empresas": [], "sucursales": [], "sectores": []})
     client = _build_client(monkeypatch)
     _login_session(client)
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
@@ -142,6 +143,7 @@ def test_legajos_listado_muestra_foto_y_fallback(monkeypatch):
 
 
 def test_legajos_listado_empleados_aplica_filtros(monkeypatch):
+    monkeypatch.setattr(legajos_routes, "get_legajo_filter_catalogs", lambda: {"empresas": [], "sucursales": [], "sectores": []})
     client = _build_client(monkeypatch)
     _login_session(client)
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)

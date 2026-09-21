@@ -76,6 +76,15 @@ def create_adjunto(data: dict):
 
 
 def get_adjuntos_by_evento(evento_id: int, include_deleted: bool = False):
+    return get_adjuntos_by_eventos([evento_id], include_deleted).get(int(evento_id), [])
+
+
+def get_adjuntos_by_eventos(evento_ids, include_deleted: bool = False):
+    """Load attachment metadata together; binary files are fetched only on download."""
+    evento_ids = list(dict.fromkeys(int(value) for value in evento_ids))
+    if not evento_ids:
+        return {}
+    placeholders = ",".join(["%s"] * len(evento_ids))
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -102,13 +111,16 @@ def get_adjuntos_by_evento(evento_id: int, include_deleted: bool = False):
                 u.usuario AS created_by_usuario
             FROM legajo_evento_adjuntos a
             LEFT JOIN usuarios u ON u.id = a.created_by_usuario_id
-            WHERE a.evento_id = %s
+            WHERE a.evento_id IN ({placeholders})
               {where_sql}
             ORDER BY a.created_at DESC, a.id DESC
             """,
-            (evento_id,),
+            tuple(evento_ids),
         )
-        return cursor.fetchall()
+        grouped = {evento_id: [] for evento_id in evento_ids}
+        for row in cursor.fetchall():
+            grouped[int(row["evento_id"])].append(row)
+        return grouped
     finally:
         cursor.close()
         db.close()

@@ -7,6 +7,7 @@ from collections import defaultdict
 from flask import Blueprint, Response, abort, current_app, redirect, render_template, request, session, url_for
 
 from utils.forms import parse_date as _parse_date, parse_int as _parse_int, safe_next_url as _safe_next_url
+from repositories.legajo_filter_repository import get_legajo_filter_catalogs
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.empleado_repository import get_page as _get_empleados_page
@@ -20,7 +21,7 @@ from repositories.sucursal_repository import get_all as get_sucursales
 from repositories.legajo_adjunto_repository import (
     create_adjunto,
     get_adjunto_by_id,
-    get_adjuntos_by_evento,
+    get_adjuntos_by_eventos,
     mark_deleted,
 )
 from repositories.legajo_evento_repository import (
@@ -178,10 +179,9 @@ def _load_empleado_context(emp_id: int):
         abort(404)
     eventos = get_eventos_by_empleado(emp_id, include_anulados=True)
     tipos = get_tipos_evento(include_inactive=False)
-    adjuntos_by_evento = {}
-    for evento in eventos:
-        evento_id = int(evento["id"])
-        adjuntos_by_evento[evento_id] = get_adjuntos_by_evento(evento_id, include_deleted=False)
+    adjuntos_by_evento = get_adjuntos_by_eventos(
+        [evento["id"] for evento in eventos], include_deleted=False
+    )
     return empleado, eventos, tipos, adjuntos_by_evento
 
 
@@ -249,9 +249,8 @@ def listado_empleados():
         requiere_control_asistencia=requiere_control_asistencia,
         legajo_eventos=None if legajo_eventos == "all" else legajo_eventos,
     )
-    sucursales = get_sucursales(include_inactive=True)
-    sectores = get_sectores(include_inactive=True)
-    empresas = get_empresas(include_inactive=True)
+    catalogs = get_legajo_filter_catalogs()
+    sucursales, sectores, empresas = (catalogs[key] for key in ("sucursales", "sectores", "empresas"))
     from_idx = ((page - 1) * per_page) + 1 if total > 0 else 0
     to_idx = min(page * per_page, total)
     return render_template(
@@ -940,7 +939,21 @@ def _rows_to_daily_map(rows: list) -> dict:
 
 
 def _compute_asistencia_stats(empleado_id, desde, hasta):
-    rows, _ = _get_asistencias_page(1, 50000, empleado_id=empleado_id, fecha_desde=desde, fecha_hasta=hasta)
+    # The calendar already loads this interval. Reuse it for contained KPI periods.
+    today = datetime.date.today()
+    cal_end = today
+    cal_start = (today.replace(day=1) - datetime.timedelta(days=365)).replace(day=1)
+    cal_rows, cal_total = _get_asistencias_page(
+        1, 50000, empleado_id=empleado_id,
+        fecha_desde=cal_start.isoformat(), fecha_hasta=cal_end.isoformat(),
+    )
+    period_start, period_end = _to_date(desde), _to_date(hasta)
+    if (period_start and period_end and cal_start <= period_start <= period_end <= cal_end
+            and len(cal_rows) < 50000 and cal_total <= len(cal_rows)):
+        rows = [row for row in cal_rows
+                if (date := _to_date(row.get("fecha"))) and period_start <= date <= period_end]
+    else:
+        rows, _ = _get_asistencias_page(1, 50000, empleado_id=empleado_id, fecha_desde=desde, fecha_hasta=hasta)
 
     totales = {"registros": 0, "ok": 0, "tarde": 0, "ausente": 0, "salida_anticipada": 0}
     jornadas = {"completas": 0, "incompletas": 0}
@@ -1077,16 +1090,6 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
 
     calendar_weeks, semanas_rows = _build_calendar_grid(daily_map, desde, hasta)
 
-    # Calendario libre: últimos 13 meses hasta hoy, independiente del filtro de KPIs
-    today = datetime.date.today()
-    cal_end = today
-    cal_start = (today.replace(day=1) - datetime.timedelta(days=365)).replace(day=1)
-    cal_rows, _ = _get_asistencias_page(
-        1, 50000,
-        empleado_id=empleado_id,
-        fecha_desde=cal_start.isoformat(),
-        fecha_hasta=cal_end.isoformat(),
-    )
     cal_daily_map = _rows_to_daily_map(cal_rows)
     calendar_months = _build_calendar_months(cal_daily_map, cal_start.isoformat(), cal_end.isoformat())
 
