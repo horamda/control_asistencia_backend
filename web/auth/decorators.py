@@ -94,6 +94,7 @@ def can_access_module(user_id, module, action="ver"):
 
 
 _PATH_MODULES = [
+    ("/validacion-carga/", "validacion_carga"),
     ("/organigrama/", "organizacion"),
     ("/empresas/", "empresas"),
     ("/sucursales/", "sucursales"),

@@ -369,3 +369,10 @@
 - Se marcan `deprecated`: `/fichadas/entrada` y `/fichadas/salida`.
 - Se agrega base URL de produccion.
 
+# 1.30.0 — 2026-09-29
+
+- Validación de carga: API `/api/v1/mobile/cargas` con config, alta idempotente, historial propio, detalle y fotos privadas.
+- Panel `/validacion-carga/` con permisos, consultas, CSV y CRUD de camiones y horarios; puestos habilitados y auditoría.
+- Una inicial por camión/día y recargas desde horario configurable, snapshots de empleado/sucursales/vehículo/regla y evidencias transaccionales.
+- Ver `docs/validacion_carga.md` para migración y puesta en marcha.
+

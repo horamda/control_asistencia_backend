@@ -1,7 +1,7 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - Mobile API v1
-  version: 1.29.0
+  version: 1.30.0
   description: |
     API REST para la aplicacion Flutter de control de asistencia.
     Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
@@ -28,6 +28,53 @@ components:
       bearerFormat: JWT
 
   schemas:
+    CargaInput:
+      type: object
+      required: [camion_id, tipo, consolidado, valida, envio_id]
+      properties:
+        camion_id: {type: integer, minimum: 1}
+        tipo: {type: string, enum: [inicial, recarga]}
+        consolidado: {type: string, minLength: 1, maxLength: 64}
+        valida: {type: boolean}
+        observaciones: {type: string, maxLength: 2000, description: Obligatorio si valida es false.}
+        envio_id: {type: string, format: uuid, description: Conservar en reintentos con el mismo contenido.}
+        origen: {type: string, enum: [web, app], default: app}
+    CargaRegistro:
+      type: object
+      properties:
+        id: {type: integer}
+        empresa_id: {type: integer}
+        empleado_id: {type: integer}
+        legajo: {type: string}
+        empleado_nombre: {type: string}
+        sucursal_empleado_id: {type: integer}
+        sucursal_empleado_nombre: {type: string}
+        puesto_nombre: {type: string}
+        camion_id: {type: integer}
+        camion_numero: {type: string}
+        camion_patente: {type: string}
+        sucursal_camion_id: {type: integer}
+        sucursal_camion_nombre: {type: string}
+        fecha: {type: string, format: date}
+        registrado_at: {type: string, format: date-time}
+        tipo: {type: string, enum: [inicial, recarga]}
+        consolidado: {type: string}
+        valida: {type: integer, enum: [0, 1]}
+        en_horario: {type: integer, enum: [0, 1]}
+        observaciones: {type: string}
+        horario_id: {type: integer}
+        horario_nombre: {type: string}
+        desde_minuto: {type: integer}
+        hasta_minuto: {type: integer}
+        origen: {type: string, enum: [web, app]}
+        fotos_cantidad: {type: integer, description: Presente en listado.}
+        fotos:
+          type: array
+          description: Presente en detalle y alta.
+          items:
+            type: object
+            properties:
+              id: {type: integer}
     TriviaResultadoPersonal:
       type: object
       description: Puntaje personal conservado incluso cuando no participa en rankings.
@@ -2805,6 +2852,134 @@ security:
 # Paths
 # ---------------------------------------------------------------------------
 paths:
+  /cargas/config:
+    get:
+      summary: Habilitación de reparto, camiones y horarios vigentes
+      responses:
+        '200':
+          description: Configuración; flags booleanos y horarios en minutos desde medianoche.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  habilitado: {type: boolean}
+                  tiene_historial: {type: boolean}
+                  fecha_servidor: {type: string}
+                  zona_horaria: {type: string}
+                  max_fotos: {type: integer, example: 5}
+                  max_foto_bytes: {type: integer, example: 5242880}
+                  camiones:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: integer}
+                        numero: {type: string}
+                        patente: {type: string}
+                        sucursal_id: {type: integer}
+                        sucursal_nombre: {type: string}
+                        tiene_inicial: {type: integer, enum: [0, 1]}
+                  horarios:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: integer}
+                        nombre: {type: string}
+                        tipo: {type: string, enum: [inicial, recarga]}
+                        sucursal_id: {type: integer, nullable: true}
+                        desde_minuto: {type: integer}
+                        hasta_minuto: {type: integer}
+        '401': {description: Sesión inválida}
+  /cargas:
+    get:
+      summary: Historial propio de validaciones
+      parameters:
+        - in: query
+          name: page
+          schema: {type: integer, minimum: 1, default: 1}
+      responses:
+        '200':
+          description: Página de hasta 30 registros
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/CargaRegistro'}
+                  total: {type: integer}
+                  page: {type: integer}
+                  per_page: {type: integer}
+        '401': {description: Sesión inválida}
+    post:
+      summary: Registrar carga inicial o recarga por un chofer o ayudante habilitado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CargaInput'}
+          multipart/form-data:
+            schema:
+              allOf:
+                - {$ref: '#/components/schemas/CargaInput'}
+                - type: object
+                  properties:
+                    fotos:
+                      type: array
+                      maxItems: 5
+                      items: {type: string, format: binary}
+      responses:
+        '201':
+          description: Registro creado, con fotos atómicas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  registro: {$ref: '#/components/schemas/CargaRegistro'}
+                  repetido: {type: boolean}
+        '200': {description: Reintento idéntico; mismo cuerpo que 201 y repetido true}
+        '400': {description: Datos o imágenes inválidos}
+        '401': {description: Sesión inválida}
+        '403': {description: Puesto no habilitado}
+        '404': {description: Camión inexistente o de otra empresa}
+        '409': {description: Duplicado o configuración/estado incompatible}
+        '413': {description: Supera 27 MB totales}
+  /cargas/{id}:
+    get:
+      summary: Detalle propio y fotos
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: Datos históricos
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaRegistro'}
+        '401': {description: Sesión inválida}
+        '404': {description: Inexistente o ajeno}
+  /cargas/fotos/{id}:
+    get:
+      summary: Foto privada con autorización del empleado
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer}
+      responses:
+        '200':
+          description: Foto JPEG, Cache-Control private no-store
+          content:
+            image/jpeg:
+              schema: {type: string, format: binary}
+        '401': {description: Sesión inválida}
+        '404': {description: Inexistente o ajena}
 
   # ---- Auth ----
   /auth/login:

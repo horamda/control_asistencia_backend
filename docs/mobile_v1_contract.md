@@ -1,7 +1,7 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.29.0
-Fecha de corte: 2026-09-20
+Version de contrato: 1.30.0
+Fecha de corte: 2026-09-29
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`
 Prefijo principal: `/api/v1/mobile`
@@ -27,6 +27,10 @@ Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `rout
 ---
 
 ## Endpoints
+
+### Validación de carga (v1.30)
+
+Módulo `/api/v1/mobile/cargas`: config, alta multipart/JSON, historial propio paginado, detalle y fotos privadas. Contrato y reglas completas en [validacion_carga.md](validacion_carga.md). Requiere JWT. La habilitación por puestos la decide el servidor. Los límites iniciales son antes de 08:05 para inicial y desde 11:00 inclusive para recarga, configurables por empresa/sucursal del camión.
 
 ### VersiÃ³n de la app
 

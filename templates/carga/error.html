@@ -1,0 +1,3 @@
+{% extends 'base.html' %}
+{% block title %}Validación de carga{% endblock %}
+{% block content %}<div class="content-stack"><h2>No se pudo completar la operación</h2><p class="errors">{{ message }}</p><a class="btn" href="{{ url_for('carga_web.index') }}">Volver a validaciones</a></div>{% endblock %}

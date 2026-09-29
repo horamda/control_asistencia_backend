@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Validación #{{ row.id }}{% endblock %}
+{% block content %}<div class="content-stack">
+<div class="section-head"><div><div class="section-kicker">{{ 'Carga inicial' if row.tipo == 'inicial' else 'Recarga' }}</div><h2>Validación #{{ row.id }}</h2><p>{{ row.registrado_at.strftime('%d/%m/%Y %H:%M:%S') }} · Hora argentina</p></div><a class="btn btn-secondary" href="{{ url_for('carga_web.index', empresa_id=empresa_id) }}">Volver</a></div>
+<div class="form-grid">
+{% for label, value in [('Empleado', row.empleado_nombre), ('Legajo', row.legajo), ('Sucursal del empleado', row.sucursal_empleado_nombre), ('Puesto al registrar', row.puesto_nombre), ('Camión', row.camion_numero), ('Patente', row.camion_patente), ('Sucursal del camión', row.sucursal_camion_nombre), ('Consolidado', row.consolidado), ('Valida la carga', 'Sí' if row.valida else 'No'), ('Cumplimiento horario', 'En término' if row.en_horario else 'Fuera de horario'), ('Origen', row.origen)] %}<div class="row"><strong>{{ label }}</strong><span>{{ value }}</span></div>{% endfor %}
+</div>
+<p><strong>Regla aplicada:</strong> {{ row.horario_nombre }} · Desde {{ clock(row.desde_minuto) }} inclusive hasta {{ clock(row.hasta_minuto) }} exclusivo.</p>
+<div><h3>Observaciones</h3><p style="white-space:pre-wrap">{{ row.observaciones or 'Sin observaciones.' }}</p></div>
+<div><h3>Fotos</h3><div style="display:flex;flex-wrap:wrap;gap:16px">{% for photo in row.fotos %}<a href="{{ url_for('carga_web.photo', photo_id=photo.id, empresa_id=empresa_id) }}" target="_blank" rel="noopener"><img src="{{ url_for('carga_web.photo', photo_id=photo.id, empresa_id=empresa_id) }}" alt="Evidencia {{ loop.index }} de la validación {{ row.id }}" loading="lazy" style="width:240px;height:180px;object-fit:cover;border-radius:12px"></a>{% else %}<p>Sin fotos adjuntas.</p>{% endfor %}</div></div>
+</div>{% endblock %}

@@ -69,6 +69,8 @@
               </a>
             </div>
 
+
+
             {% if can_web("organizacion") or can_web("empresas") or can_web("sucursales") or can_web("sectores") or can_web("puestos") or can_web("localidades") %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-organizacion">
@@ -311,6 +313,23 @@
                   {% if can_web("app_version") %}<a class="nav-link" href="/app-version/">Versiones App</a>{% endif %}
                   {% if can_web("mobile_stats") %}<a class="nav-link" href="/mobile-stats/">Uso de la app</a>{% endif %}
                   {% if can_web("calificaciones_app") %}<a class="nav-link" href="/calificaciones-app/">Calificaciones app</a>{% endif %}
+                </div>
+              </div>
+            {% endif %}
+            {% if can_web('validacion_carga') %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-validacion-carga">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 3h14v12H1zM15 7h4l3 4v4h-7"/><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="18.5" cy="17.5" r="2.5"/></svg>
+                    <span class="nav-label">Validación de carga</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-validacion-carga">
+                  <a class="nav-link" href="{{ url_for('carga_web.index') }}">Consultar validaciones</a>
+                  <a class="nav-link" href="{{ url_for('carga_web.catalogs') }}#camiones">Camiones y vehículos</a>
+                  <a class="nav-link" href="{{ url_for('carga_web.catalogs') }}#horarios">Horarios de validación</a>
+                  <a class="nav-link" href="{{ url_for('carga_web.catalogs') }}#puestos">Puestos habilitados</a>
                 </div>
               </div>
             {% endif %}

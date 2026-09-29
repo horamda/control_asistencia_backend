@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block title %}Historial de configuración{% endblock %}
+{% block content %}<div class="content-stack"><h2>Historial de configuración de cargas</h2><a href="{{ url_for('carga_web.catalogs', empresa_id=empresa_id) }}">Volver a configuración</a>
+{% for r in rows %}<details><summary>{{ r.creado_at }} · {{ r.entidad }} #{{ r.registro_id or '—' }} · Usuario #{{ r.usuario_id }}</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ r.detalle }}</pre></details>{% else %}<p>No hay cambios registrados.</p>{% endfor %}
+<div class="actions">{% if page > 1 %}<a href="{{ url_for('carga_web.audit', empresa_id=empresa_id, page=page-1) }}">Anterior</a>{% endif %}{% if rows|length == 50 %}<a href="{{ url_for('carga_web.audit', empresa_id=empresa_id, page=page+1) }}">Siguiente</a>{% endif %}</div></div>{% endblock %}

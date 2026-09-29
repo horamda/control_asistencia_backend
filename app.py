@@ -58,6 +58,8 @@ from web.calificaciones_app.calificaciones_app_routes import calificaciones_app_
 from web.mobile_stats.mobile_stats_routes import mobile_stats_bp
 from routes.feedback_routes import feedback_bp
 from routes.skap_routes import skap_bp
+from routes.carga_routes import carga_mobile_bp
+from web.carga.carga_routes import carga_web_bp
 
 load_dotenv("/etc/secrets/.env", override=False)
 load_dotenv(override=False)
@@ -321,6 +323,7 @@ def create_app():
     csrf.exempt(mobile_v1_bp)
     csrf.exempt(feedback_bp)
     csrf.exempt(skap_bp)
+    csrf.exempt(carga_mobile_bp)
 
     # API
     app.register_blueprint(auth_bp)
@@ -328,6 +331,8 @@ def create_app():
     app.register_blueprint(mobile_v1_bp)
     app.register_blueprint(feedback_bp)
     app.register_blueprint(skap_bp)
+    app.register_blueprint(carga_mobile_bp)
+    app.register_blueprint(carga_web_bp)
     app.register_blueprint(media_bp)
     app.register_blueprint(public_media_bp)
 

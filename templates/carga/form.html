@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Editar' if record_id else 'Crear' }} {{ 'vehículo' if kind == 'camiones' else 'horario' }}{% endblock %}
+{% block content %}<div class="content-stack"><h2>{{ 'Editar' if record_id else 'Crear' }} {{ 'vehículo' if kind == 'camiones' else 'horario' }}</h2>
+{% if error %}<p class="errors" role="alert">{{ error }}</p>{% endif %}
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="empresa_id" value="{{ empresa_id }}">
+<div class="form-grid"><div class="row"><label for="sucursal">Sucursal {{ 'del vehículo' if kind == 'camiones' else '' }}</label><select id="sucursal" name="sucursal_id" {% if kind == 'camiones' %}required{% endif %}><option value="">{{ 'Seleccione' if kind == 'camiones' else 'General de la empresa' }}</option>{% for s in sucursales %}<option value="{{ s.id }}" {% if data.sucursal_id|string == s.id|string %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}</select></div>
+{% if kind == 'camiones' %}
+{% for field, label, limit in [('numero','Número interno',40),('patente','Patente',20),('descripcion','Descripción',200)] %}<div class="row"><label for="{{ field }}">{{ label }}</label><input id="{{ field }}" name="{{ field }}" maxlength="{{ limit }}" value="{{ data.get(field,'') }}" {% if field != 'descripcion' %}required{% endif %}></div>{% endfor %}
+{% else %}
+<div class="row"><label for="nombre">Nombre</label><input id="nombre" name="nombre" maxlength="100" required value="{{ data.nombre or '' }}"></div>
+<div class="row"><label for="tipo">Tipo</label><select id="tipo" name="tipo"><option value="inicial" {% if data.tipo == 'inicial' %}selected{% endif %}>Carga inicial</option><option value="recarga" {% if data.tipo == 'recarga' %}selected{% endif %}>Recarga</option></select></div>
+<div class="row"><label for="desde">Desde (inclusive)</label><input id="desde" name="desde" type="time" required value="{{ data.desde }}"></div>
+<div class="row"><label for="hasta">Hasta (exclusivo; 24:00 = fin del día)</label><input id="hasta" name="hasta" pattern="[0-2][0-9]:[0-5][0-9]" placeholder="08:05" required value="{{ data.hasta }}"></div>
+<div class="row"><label for="vigente_desde">Vigente desde</label><input id="vigente_desde" type="date" name="vigente_desde" required value="{{ data.vigente_desde }}"></div>
+<div class="row"><label for="vigente_hasta">Vigente hasta (opcional)</label><input id="vigente_hasta" type="date" name="vigente_hasta" value="{{ data.vigente_hasta or '' }}"></div>
+{% endif %}
+<label class="check-inline"><input name="activo" type="checkbox" value="1" {% if data.activo|string == '1' %}checked{% endif %}>Activo</label></div>
+<p>Los registros históricos conservan los datos originales. Para retirar este registro del uso, desmarque Activo.</p>
+<div class="actions"><button>Guardar</button><a class="btn btn-secondary" href="{{ url_for('carga_web.catalogs', empresa_id=empresa_id) }}">Cancelar</a></div></form></div>{% endblock %}

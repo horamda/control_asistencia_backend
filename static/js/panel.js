@@ -194,7 +194,7 @@
     var bestMatch = null;
     var bestLength = 0;
     links.forEach(function (link) {
-      var href = (link.getAttribute("href") || "").split("?")[0].replace(/\/$/, "");
+      var href = (link.getAttribute("href") || "").split(/[?#]/)[0].replace(/\/$/, "");
       link.classList.remove("active");
       if (!href || href === "/") return;
       if (path === href || (href !== "/dashboard" && path.indexOf(href + "/") === 0)) {
