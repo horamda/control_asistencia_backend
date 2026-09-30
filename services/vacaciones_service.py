@@ -692,7 +692,7 @@ def crear_compensatorios_bulk(
 
     ok = 0
     errors: list[dict] = []
-    for eid in empleado_ids:
+    for eid in dict.fromkeys(int(value) for value in empleado_ids):
         try:
             empleado = _get_empleado_activo(int(eid))
             create_movimiento({

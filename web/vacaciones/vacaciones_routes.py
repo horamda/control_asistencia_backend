@@ -660,16 +660,19 @@ def compensatorios_masivos():
         "dias": "",
         "sector_id": None,
         "observacion": "",
+        "empleado_ids": [],
     }
 
     if request.method == "POST":
         empleado_ids_raw = request.form.getlist("empleado_ids")
-        empleado_ids = [int(x) for x in empleado_ids_raw if str(x).isdigit()]
+        empleado_ids = list(dict.fromkeys(int(x) for x in empleado_ids_raw if str(x).isdigit()))
+        empleados_permitidos = {int(e["id"]) for e in empleados}
         dias_raw = (request.form.get("dias") or "").strip()
         anio = int(request.form.get("anio") or datetime.date.today().year)
         observacion = (request.form.get("observacion") or "").strip() or None
         sector_id_raw = request.form.get("sector_id") or ""
         form_data.update({
+            "empleado_ids": empleado_ids,
             "anio": anio,
             "dias": dias_raw,
             "sector_id": int(sector_id_raw) if sector_id_raw.isdigit() else None,
@@ -678,6 +681,8 @@ def compensatorios_masivos():
 
         if not empleado_ids:
             errors.append("Seleccione al menos un empleado.")
+        elif any(eid not in empleados_permitidos for eid in empleado_ids):
+            errors.append("Seleccione empleados activos disponibles en el listado.")
         elif not dias_raw:
             errors.append("Ingrese la cantidad de días.")
         else:
@@ -692,6 +697,10 @@ def compensatorios_masivos():
                     log_audit(session, "create", "vacaciones_movimientos", None)
                     msg = f"{ok} compensatorio(s) registrado(s) correctamente."
                 errors.extend(e["error"] for e in errs)
+                # En un reintento solo quedan seleccionados los que fallaron.
+                form_data["empleado_ids"] = [e["empleado_id"] for e in errs]
+                if ok and not errs:
+                    return redirect(url_for("vacaciones.listado", anio=anio, msg=msg))
             except VacacionesError as exc:
                 errors.append(str(exc))
 

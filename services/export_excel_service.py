@@ -561,7 +561,8 @@ def generar_vacaciones_reporte_excel(*, rows: list[dict], totals: dict, filters:
     resumen_rows = [
         ["Empleados", totals.get("empleados", 0)],
         ["Con error", totals.get("con_error", 0)],
-        ["Dias corresponden", totals.get("dias_corresponden", 0)],
+        ["Vacaciones base", totals.get("dias_base", 0)],
+        ["Total de dias (base + compensatorios + ajustes)", totals.get("dias_corresponden", 0)],
         ["Dias compensatorios", totals.get("dias_compensatorios", 0)],
         ["Dias ajustes", totals.get("dias_ajustes", 0)],
         ["Dias tomados", totals.get("dias_tomados", 0)],
@@ -615,7 +616,7 @@ def generar_vacaciones_reporte_excel(*, rows: list[dict], totals: dict, filters:
             "Antiguedad al 31/12",
             "Dias base",
             "Dias ajustes",
-            "Dias corresponden",
+            "Total de dias (base + compensatorios + ajustes)",
             "Dias compensatorios",
             "Dias tomados",
             "Pendientes por tomar",

@@ -1,10 +1,12 @@
 ﻿openapi: 3.0.3
 info:
-  title: FichaYa - Mobile API v1
-  version: 1.30.0
+  title: FichaYa - API empleados Web y Flutter v1
+  version: 1.30.2
   description: |
-    API REST para la aplicacion Flutter de control de asistencia.
-    Todos los endpoints (excepto auth) requieren header `Authorization: Bearer <token>`.
+    API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Revision 1.30.2 documental, compatible con 1.30.0. Guia de cargas en docs/validacion_carga_frontend.md.
+    Los endpoints de API (excepto POST /auth/login y GET /version) requieren header `Authorization: Bearer <token>`.
+    Las rutas de foto de perfil por DNI son publicas.
     Los modulos complementarios Feedback (`/api/v1/feedback`) y SKAP (`/api/skap`)
     usan el mismo Bearer JWT mobile, aunque no cuelgan del prefijo `/api/v1/mobile`.
     La campana de Alertas del home agrupa adelantos, pedidos de mercaderia y feedback
@@ -28,19 +30,535 @@ components:
       bearerFormat: JWT
 
   schemas:
+    AppVersionResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        platform:
+          type: string
+          enum:
+          - android
+          - ios
+        version_minima:
+          type: string
+        version_recomendada:
+          type: string
+        url_descarga:
+          type: string
+          nullable: true
+        mensaje:
+          type: string
+          nullable: true
+    LegajoHistorialPorTipoResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        total_tipos:
+          type: integer
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              tipo_id:
+                type: integer
+              codigo:
+                type: string
+              nombre:
+                type: string
+              total:
+                type: integer
+              vigentes:
+                type: integer
+              ultima_fecha:
+                type: string
+                format: date
+                nullable: true
+    KpisSectorDiaResponse:
+      type: object
+      properties:
+        fecha:
+          type: string
+        sector:
+          type: object
+          properties:
+            id:
+              type: integer
+              nullable: true
+            nombre:
+              type: string
+              nullable: true
+        kpis:
+          type: array
+          items:
+            type: object
+            properties:
+              kpi_id:
+                type: integer
+              codigo:
+                type: string
+              nombre:
+                type: string
+              unidad:
+                type: string
+              tipo_acumulacion:
+                type: string
+                enum:
+                - suma
+                - promedio
+                - ultimo
+              mayor_es_mejor:
+                type: boolean
+              condicion:
+                type: string
+              condicion_simbolo:
+                type: string
+              objetivo_anual:
+                type: number
+              valor_min:
+                type: number
+                nullable: true
+              valor_max:
+                type: number
+                nullable: true
+              tiene_resultado:
+                type: boolean
+              resultado_dia:
+                type: number
+                nullable: true
+              objetivo_dia:
+                type: number
+                nullable: true
+              resultado_acumulado_a_fecha:
+                type: number
+                nullable: true
+              objetivo_acumulado_a_fecha:
+                type: number
+                nullable: true
+              progreso_dia_pct:
+                type: number
+              progreso_acumulado_pct:
+                type: number
+              semaforo_dia:
+                type: string
+                enum:
+                - gris
+                - rojo
+                - amarillo
+                - verde
+              semaforo_acumulado:
+                type: string
+                enum:
+                - gris
+                - rojo
+                - amarillo
+                - verde
+    PremiosResponse:
+      type: object
+      properties:
+        anio:
+          type: integer
+        sector:
+          type: object
+          properties:
+            id:
+              type: integer
+              nullable: true
+            nombre:
+              type: string
+              nullable: true
+        resumen:
+          type: object
+          properties:
+            total_premios:
+              type: integer
+            mejor_ranking:
+              type: integer
+              nullable: true
+            primeros_puestos:
+              type: integer
+            podios:
+              type: integer
+        meses:
+          type: array
+          items:
+            type: object
+            properties:
+              mes:
+                type: integer
+              nombre:
+                type: string
+              premios:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    periodo:
+                      type: string
+                    periodo_year:
+                      type: integer
+                    periodo_month:
+                      type: integer
+                    mes_nombre:
+                      type: string
+                    ranking:
+                      type: integer
+                    observaciones:
+                      type: string
+                      nullable: true
+                    concurso:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        codigo:
+                          type: string
+                        nombre:
+                          type: string
+                        descripcion:
+                          type: string
+                          nullable: true
+                        alcance:
+                          type: string
+                        sector:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            nombre:
+                              type: string
+                          nullable: true
+                    sector_empleado:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        nombre:
+                          type: string
+          minItems: 12
+          maxItems: 12
+    TriviaInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        titulo:
+          type: string
+        descripcion:
+          type: string
+          nullable: true
+        fecha_inicio:
+          type: string
+          nullable: true
+        fecha_fin:
+          type: string
+          nullable: true
+        estado:
+          type: string
+        premio:
+          type: string
+          nullable: true
+        mensaje_ganador:
+          type: string
+          nullable: true
+        anio:
+          type: integer
+          nullable: true
+    TriviaPregunta:
+      type: object
+      properties:
+        id:
+          type: integer
+        trivia_id:
+          type: integer
+        texto:
+          type: string
+        opcion_a:
+          type: string
+        opcion_b:
+          type: string
+        opcion_c:
+          type: string
+        opcion_d:
+          type: string
+        puntos:
+          type: integer
+        orden:
+          type: integer
+      description: Pregunta para jugar; nunca incluye respuesta_correcta.
+    TriviaIniciarData:
+      type: object
+      properties:
+        trivia_id:
+          type: integer
+          nullable: true
+        titulo:
+          type: string
+          nullable: true
+        descripcion:
+          type: string
+          nullable: true
+        fecha_fin:
+          type: string
+          nullable: true
+        preguntas:
+          type: array
+          items:
+            $ref: '#/components/schemas/TriviaPregunta'
+    TriviaRankingItem:
+      type: object
+      properties:
+        posicion:
+          type: integer
+        empleado_id:
+          type: integer
+        empleado_dni:
+          type: string
+        empleado_nombre:
+          type: string
+        puntos_total:
+          type: integer
+        correctas:
+          type: integer
+        incorrectas:
+          type: integer
+        tiempo_total_segundos:
+          type: integer
+        es_ganador:
+          type: boolean
+    TriviaHistorialItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        fecha_inicio:
+          type: string
+        fecha_fin:
+          type: string
+        estado:
+          type: string
+        premio:
+          type: string
+        mensaje_ganador:
+          type: string
+        anio:
+          type: integer
+        ganador_nombre:
+          type: string
+          nullable: true
+        ganador_dni:
+          type: string
+          nullable: true
+        ganador_puntos:
+          type: integer
+          nullable: true
+    TriviaHistorialPersonalItem:
+      type: object
+      properties:
+        trivia_id:
+          type: integer
+        titulo:
+          type: string
+        estado_trivia:
+          type: string
+        fecha_inicio:
+          type: string
+        fecha_fin:
+          type: string
+        premio:
+          type: string
+        puntos_total:
+          type: integer
+        correctas:
+          type: integer
+        incorrectas:
+          type: integer
+        tiempo_total_segundos:
+          type: integer
+        posicion:
+          type: integer
+          nullable: true
+        es_ganador:
+          type: boolean
+        estado_resultado:
+          type: string
+        fecha_inicio_participacion:
+          type: string
+        fecha_finalizacion:
+          type: string
+        fuera_ranking:
+          type: boolean
+          default: false
+    TriviaGanador:
+      type: object
+      properties:
+        trivia_id:
+          type: integer
+        titulo:
+          type: string
+        premio:
+          type: string
+        mensaje_ganador:
+          type: string
+        empleado_id:
+          type: integer
+        empleado_dni:
+          type: string
+        empleado_nombre:
+          type: string
+        puntos_total:
+          type: integer
+        tiempo_total_segundos:
+          type: integer
+        fecha_registro:
+          type: string
+    TriviaRankingAnualItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        anio:
+          type: integer
+        empleado_id:
+          type: integer
+        empleado_dni:
+          type: string
+        empleado_nombre:
+          type: string
+        puntos_anuales:
+          type: integer
+        trivias_participadas:
+          type: integer
+        trivias_ganadas:
+          type: integer
+        correctas_totales:
+          type: integer
+        incorrectas_totales:
+          type: integer
+        tiempo_total_anual:
+          type: integer
+        posicion:
+          type: integer
+        es_ganador_anual:
+          type: boolean
+    TriviaNotificacion:
+      type: object
+      properties:
+        id:
+          type: integer
+        trivia_id:
+          type: integer
+        trivia_titulo:
+          type: string
+        tipo:
+          type: string
+          enum:
+          - recordatorio_24h
+          - recordatorio_2h
+        mensaje:
+          type: string
+        enviada_en:
+          type: string
+        fecha_fin_trivia:
+          type: string
+    CalificarAppRequest:
+      type: object
+      properties:
+        puntuacion:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comentario:
+          type: string
+          nullable: true
+        pantalla:
+          type: string
+          nullable: true
+        version_app:
+          type: string
+          nullable: true
+      required:
+      - puntuacion
+    CargaError:
+      type: object
+      required: [error]
+      properties:
+        error: {type: string, description: Mensaje legible; no hay un codigo de conflicto estable.}
+      example:
+        error: Este camión ya tiene una carga inicial hoy. Registre una recarga.
+    CargaAltaResponse:
+      type: object
+      required: [registro, repetido]
+      properties:
+        registro: {$ref: '#/components/schemas/CargaRegistro'}
+        repetido: {type: boolean, description: false con 201; true con 200 por reintento identico.}
+    CargaConfig:
+      type: object
+      required: [habilitado, tiene_historial, fecha_servidor, zona_horaria, max_fotos, max_foto_bytes, camiones, horarios]
+      properties:
+        habilitado: {type: boolean, description: Permite crear; definido por puestos activos configurados en el servidor.}
+        tiene_historial: {type: boolean, description: Permite mostrar el acceso al historial aunque no pueda crear.}
+        fecha_servidor: {type: string, format: date-time, example: '2026-09-29T07:55:12-03:00'}
+        zona_horaria: {type: string, example: America/Argentina/Buenos_Aires}
+        max_fotos: {type: integer, example: 5}
+        max_foto_bytes: {type: integer, example: 5242880}
+        camiones:
+          type: array
+          description: Activos de la empresa del empleado; vacío si no está habilitado.
+          items:
+            type: object
+            required: [id, numero, patente, sucursal_id, sucursal_nombre, tiene_inicial]
+            properties:
+              id: {type: integer}
+              numero: {type: string}
+              patente: {type: string}
+              sucursal_id: {type: integer}
+              sucursal_nombre: {type: string}
+              tiene_inicial: {type: integer, enum: [0, 1], description: Inicial del camión hoy por cualquier empleado.}
+        horarios:
+          type: array
+          description: Reglas vigentes; priorizar sucursal del camión sobre regla general.
+          items:
+            type: object
+            required: [id, nombre, tipo, sucursal_id, desde_minuto, hasta_minuto]
+            properties:
+              id: {type: integer}
+              nombre: {type: string}
+              tipo: {type: string, enum: [inicial, recarga]}
+              sucursal_id: {type: integer, nullable: true, description: null significa regla general de empresa.}
+              desde_minuto: {type: integer, minimum: 0, maximum: 1439, description: Inicio inclusive.}
+              hasta_minuto: {type: integer, minimum: 1, maximum: 1440, description: Fin exclusivo; 1440 es fin del día.}
     CargaInput:
       type: object
       required: [camion_id, tipo, consolidado, valida, envio_id]
       properties:
         camion_id: {type: integer, minimum: 1}
         tipo: {type: string, enum: [inicial, recarga]}
-        consolidado: {type: string, minLength: 1, maxLength: 64}
-        valida: {type: boolean}
+        consolidado: {type: string, minLength: 1, maxLength: 64, example: '000123', description: Preservar ceros iniciales; se recorta y normaliza a mayúsculas.}
+        valida: {type: boolean, description: Selección explícita; no omitir ni preseleccionar.}
         observaciones: {type: string, maxLength: 2000, description: Obligatorio si valida es false.}
         envio_id: {type: string, format: uuid, description: Conservar en reintentos con el mismo contenido.}
         origen: {type: string, enum: [web, app], default: app}
+      example:
+        camion_id: 7
+        tipo: inicial
+        consolidado: '000123'
+        valida: true
+        observaciones: ''
+        envio_id: 08271a75-ff73-479e-9304-5e9f949330f7
+        origen: web
     CargaRegistro:
       type: object
+      description: Valores históricos. Alta/detalle incluyen fotos; listado incluye fotos_cantidad. Campos adicionales deben tolerarse.
+      required: [id, empresa_id, empleado_id, legajo, empleado_nombre, sucursal_empleado_id, sucursal_empleado_nombre, puesto_nombre, camion_id, camion_numero, camion_patente, sucursal_camion_id, sucursal_camion_nombre, fecha, registrado_at, tipo, consolidado, valida, observaciones, en_horario, horario_id, horario_nombre, desde_minuto, hasta_minuto, origen]
       properties:
         id: {type: integer}
         empresa_id: {type: integer}
@@ -56,11 +574,12 @@ components:
         sucursal_camion_id: {type: integer}
         sucursal_camion_nombre: {type: string}
         fecha: {type: string, format: date}
-        registrado_at: {type: string, format: date-time}
+        inicial_fecha: {type: string, format: date, nullable: true, readOnly: true, description: Propiedad calculada; fecha para inicial y null para recarga. Usar fecha y tipo en el cliente.}
+        registrado_at: {type: string, format: date-time, example: '2026-09-29T07:58:21-03:00'}
         tipo: {type: string, enum: [inicial, recarga]}
         consolidado: {type: string}
         valida: {type: integer, enum: [0, 1]}
-        en_horario: {type: integer, enum: [0, 1]}
+        en_horario: {type: integer, enum: [0, 1], description: Independiente de valida. Un alta fuera de horario también devuelve 201.}
         observaciones: {type: string}
         horario_id: {type: integer}
         horario_nombre: {type: string}
@@ -73,6 +592,7 @@ components:
           description: Presente en detalle y alta.
           items:
             type: object
+            required: [id]
             properties:
               id: {type: integer}
     TriviaResultadoPersonal:
@@ -97,17 +617,38 @@ components:
           type: integer
         estado_resultado:
           type: string
+        correctas:
+          type: integer
+        incorrectas:
+          type: integer
+        tiempo_total_segundos:
+          type: integer
+          nullable: true
+        total_preguntas:
+          type: integer
+        siguiente_trivia_disponible:
+          type: boolean
+
     # --- Auth ---
     LoginRequest:
       type: object
-      required: [dni, password]
+      required:
+      - dni
+      - password
       properties:
         dni:
           type: string
-          example: "30111222"
+          example: '30111222'
         password:
           type: string
-          example: "secreta123"
+          example: secreta123
+        platform:
+          type: string
+          description: Plataforma del cliente; android o ios. Opcional.
+        device_model:
+          type: string
+        app_version:
+          type: string
 
     EmpleadoBasico:
       type: object
@@ -2854,47 +3395,24 @@ security:
 paths:
   /cargas/config:
     get:
+      tags: [ValidacionCarga]
       summary: Habilitación de reparto, camiones y horarios vigentes
       responses:
         '200':
           description: Configuración; flags booleanos y horarios en minutos desde medianoche.
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  habilitado: {type: boolean}
-                  tiene_historial: {type: boolean}
-                  fecha_servidor: {type: string}
-                  zona_horaria: {type: string}
-                  max_fotos: {type: integer, example: 5}
-                  max_foto_bytes: {type: integer, example: 5242880}
-                  camiones:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id: {type: integer}
-                        numero: {type: string}
-                        patente: {type: string}
-                        sucursal_id: {type: integer}
-                        sucursal_nombre: {type: string}
-                        tiene_inicial: {type: integer, enum: [0, 1]}
-                  horarios:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id: {type: integer}
-                        nombre: {type: string}
-                        tipo: {type: string, enum: [inicial, recarga]}
-                        sucursal_id: {type: integer, nullable: true}
-                        desde_minuto: {type: integer}
-                        hasta_minuto: {type: integer}
-        '401': {description: Sesión inválida}
+              schema: {$ref: '#/components/schemas/CargaConfig'}
+        '401':
+          description: Sesión inválida
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
   /cargas:
     get:
+      tags: [ValidacionCarga]
       summary: Historial propio de validaciones
+      description: Solo page; 30 registros por pagina, sin filtros adicionales. Orden fecha/hora e ID descendente.
       parameters:
         - in: query
           name: page
@@ -2913,9 +3431,15 @@ paths:
                   total: {type: integer}
                   page: {type: integer}
                   per_page: {type: integer}
-        '401': {description: Sesión inválida}
+        '401':
+          description: Sesión inválida
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
     post:
+      tags: [ValidacionCarga]
       summary: Registrar carga inicial o recarga por un chofer o ayudante habilitado
+      description: Una inicial por camion/dia y un consolidado por camion/dia. Recarga requiere inicial previa. Conservar envio_id y payload en reintentos; fechas e identidad las asigna el servidor.
       requestBody:
         required: true
         content:
@@ -2930,26 +3454,52 @@ paths:
                     fotos:
                       type: array
                       maxItems: 5
+                      description: Campo fotos repetido; JPG/PNG/WEBP, hasta 5242880 bytes por archivo y 20 megapixeles; maximo total 28311552 bytes.
                       items: {type: string, format: binary}
       responses:
         '201':
           description: Registro creado, con fotos atómicas
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  registro: {$ref: '#/components/schemas/CargaRegistro'}
-                  repetido: {type: boolean}
-        '200': {description: Reintento idéntico; mismo cuerpo que 201 y repetido true}
-        '400': {description: Datos o imágenes inválidos}
-        '401': {description: Sesión inválida}
-        '403': {description: Puesto no habilitado}
-        '404': {description: Camión inexistente o de otra empresa}
-        '409': {description: Duplicado o configuración/estado incompatible}
-        '413': {description: Supera 27 MB totales}
+              schema: {$ref: '#/components/schemas/CargaAltaResponse'}
+        '200':
+          description: Reintento idéntico; registro original y repetido true
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaAltaResponse'}
+        '400':
+          description: Datos o imágenes inválidos
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
+        '401':
+          description: Sesión inválida
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
+        '403':
+          description: Puesto no habilitado
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
+        '404':
+          description: Camión inexistente o de otra empresa
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
+        '409':
+          description: Duplicado o configuración/estado incompatible
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
+        '413':
+          description: Supera 27 MB totales
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
   /cargas/{id}:
     get:
+      tags: [ValidacionCarga]
       summary: Detalle propio y fotos
       parameters:
         - in: path
@@ -2962,10 +3512,19 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/CargaRegistro'}
-        '401': {description: Sesión inválida}
-        '404': {description: Inexistente o ajeno}
+        '401':
+          description: Sesión inválida
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
+        '404':
+          description: Inexistente o ajeno
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
   /cargas/fotos/{id}:
     get:
+      tags: [ValidacionCarga]
       summary: Foto privada con autorización del empleado
       parameters:
         - in: path
@@ -2978,8 +3537,16 @@ paths:
           content:
             image/jpeg:
               schema: {type: string, format: binary}
-        '401': {description: Sesión inválida}
-        '404': {description: Inexistente o ajena}
+        '401':
+          description: Sesión inválida
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
+        '404':
+          description: Inexistente o ajena
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CargaError'}
 
   # ---- Auth ----
   /auth/login:
@@ -5580,15 +6147,174 @@ paths:
               schema:
                 $ref: '#/components/schemas/SkapErrorResponse'
 
+  /version:
+    get:
+      summary: Version minima y recomendada por plataforma
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppVersionResponse'
+      parameters:
+      - name: platform
+        in: query
+        required: false
+        schema:
+          type: string
+          default: android
+        description: android o ios; ausente o invalido usa android.
+      security: []
+  /calificar-app:
+    post:
+      summary: Calificar la app una vez por empleado y version
+      responses:
+        '201':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  id:
+                    type: integer
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Puntuacion ausente o fuera de 1 a 5.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Ya califico esta version de la app.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalificarAppRequest'
+      description: 'version_app omitida o nula permite una sola calificacion con version nula. comentario:
+        maximo recomendado de 500 caracteres, no impuesto por este endpoint.'
+  /me/legajo/historial-por-tipo:
+    get:
+      summary: Resumen de eventos propios por tipo
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegajoHistorialPorTipoResponse'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: No se pudo obtener el historial por tipo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      description: 'Incluye tipos activos sin eventos. Orden: total descendente y nombre. total incluye
+        vigentes y anulados.'
+  /me/kpis-sector/dia:
+    get:
+      summary: KPIs del sector para una fecha
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpisSectorDiaResponse'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Fecha requerida, invalida o futura.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: No se pudieron obtener los KPIs del dia.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: fecha
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      description: 'Una fila por KPI activo. Acumulado desde el 1 de enero; valores sin resultado son null,
+        no cero. Sin sector: sector.id null y kpis vacio. Objetivos between son null.'
+  /me/premios:
+    get:
+      summary: Premios mensuales propios
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PremiosResponse'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Ano invalido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: No se pudieron obtener los premios.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: anio
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 2020
+          maximum: 2100
+        description: 'Por defecto: ano actual del servidor.'
+      description: Siempre devuelve los doce meses, con premios vacios cuando no existen resultados.
   /estado:
-    servers:
-      - url: https://control-asistencia.up.railway.app/api/v1/trivia
-      - url: http://localhost:5000/api/v1/trivia
+    servers: &trivia_servers
+    - url: http://localhost:5000/api/v1/trivia
+    - url: https://control-asistencia.up.railway.app/api/v1/trivia
     get:
       summary: Estado personal de trivia
       responses:
         '200':
-          description: La participacion conserva el puntaje e indica si compite.
+          description: Respuesta exitosa.
           content:
             application/json:
               schema:
@@ -5601,19 +6327,241 @@ paths:
                     properties:
                       hay_trivia_activa:
                         type: boolean
+                      trivia:
+                        nullable: true
+                        allOf:
+                        - $ref: '#/components/schemas/TriviaInfo'
+                      ya_participo:
+                        type: boolean
+                      en_progreso:
+                        type: boolean
                       participacion:
                         nullable: true
                         allOf:
-                          - $ref: '#/components/schemas/TriviaResultadoPersonal'
-  /mi-historial:
-    servers:
-      - url: https://control-asistencia.up.railway.app/api/v1/trivia
-      - url: http://localhost:5000/api/v1/trivia
+                        - $ref: '#/components/schemas/TriviaResultadoPersonal'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Trivia
+  /activa:
+    servers: *trivia_servers
     get:
-      summary: Historial personal de trivias, incluidas participaciones sin ranking
+      summary: Trivia activa sin preguntas
       responses:
         '200':
-          description: Resultados del empleado autenticado.
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TriviaInfo'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Trivia
+  /iniciar:
+    servers: *trivia_servers
+    post:
+      summary: Iniciar o reanudar participacion
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TriviaIniciarData'
+                  en_progreso:
+                    type: boolean
+                  message:
+                    type: string
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Participacion no permitida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Participacion ya completada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      description: Sin body. Una participacion en progreso devuelve 200, en_progreso y message en la raiz;
+        data puede omitir descripcion y fecha_fin.
+      tags:
+      - Trivia
+  /finalizar:
+    servers: *trivia_servers
+    post:
+      summary: Finalizar participacion
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TriviaResultadoPersonal'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Respuestas o participacion invalidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Respuestas ya enviadas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: Trivia ya finalizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trivia_id:
+                  type: integer
+                respuestas:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      pregunta_id:
+                        type: integer
+                      respuesta:
+                        type: string
+                        enum:
+                        - A
+                        - B
+                        - C
+                        - D
+                      tiempo_respuesta_segundos:
+                        type: integer
+                    required:
+                    - pregunta_id
+                    - respuesta
+              required:
+              - trivia_id
+              - respuestas
+      description: Preguntas omitidas cuentan como incorrectas. fuera_ranking conserva puntaje personal
+        y excluye esta trivia de rankings y ganadores.
+      tags:
+      - Trivia
+  /ranking/{trivia_id}:
+    servers: *trivia_servers
+    get:
+      summary: Ranking de una trivia
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      trivia:
+                        $ref: '#/components/schemas/TriviaInfo'
+                      ranking:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TriviaRankingItem'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: trivia_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      tags:
+      - Trivia
+  /historial:
+    servers: *trivia_servers
+    get:
+      summary: Trivias finalizadas con ganador
+      responses:
+        '200':
+          description: Respuesta exitosa.
           content:
             application/json:
               schema:
@@ -5624,37 +6572,44 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/TriviaResultadoPersonal'
-  /finalizar:
-    servers:
-      - url: https://control-asistencia.up.railway.app/api/v1/trivia
-      - url: http://localhost:5000/api/v1/trivia
-    post:
-      summary: Finalizar participacion personal en una trivia
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [trivia_id, respuestas]
-              properties:
-                trivia_id:
-                  type: integer
-                respuestas:
-                  type: array
-                  items:
-                    type: object
-                    required: [pregunta_id, respuesta]
-                    properties:
-                      pregunta_id:
-                        type: integer
-                      respuesta:
-                        type: string
-                        enum: [A, B, C, D]
+                      $ref: '#/components/schemas/TriviaHistorialItem'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+          minimum: 1
+          maximum: 50
+      tags:
+      - Trivia
+  /mi-historial:
+    servers: *trivia_servers
+    get:
+      summary: Historial personal, incluidas participaciones sin ranking
       responses:
         '200':
-          description: Puntaje personal y condicion de participacion sin ranking.
+          description: Respuesta exitosa.
           content:
             application/json:
               schema:
@@ -5663,8 +6618,320 @@ paths:
                   success:
                     type: boolean
                   data:
-                    $ref: '#/components/schemas/TriviaResultadoPersonal'
-        '400':
-          description: Respuestas o estado de participacion invalidos.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TriviaHistorialPersonalItem'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Trivia o empleado no encontrado.
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Trivia
+  /ganador/{trivia_id}:
+    servers: *trivia_servers
+    get:
+      summary: Ganador oficial de una trivia
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TriviaGanador'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: trivia_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      tags:
+      - Trivia
+  /ranking-anual/{anio}:
+    servers: *trivia_servers
+    get:
+      summary: Ranking anual acumulado
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TriviaRankingAnualItem'
+                  anio:
+                    type: integer
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: anio
+        in: path
+        required: true
+        schema:
+          type: integer
+      tags:
+      - Trivia
+  /ganador-anual/{anio}:
+    servers: *trivia_servers
+    get:
+      summary: Ganador anual definitivo
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/TriviaRankingAnualItem'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: anio
+        in: path
+        required: true
+        schema:
+          type: integer
+      tags:
+      - Trivia
+  /notificaciones:
+    servers: *trivia_servers
+    get:
+      summary: Notificaciones propias no leidas
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TriviaNotificacion'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      description: Consulta periodica desde el cliente; no es push.
+      tags:
+      - Trivia
+  /notificaciones/{notif_id}/leer:
+    servers: *trivia_servers
+    post:
+      summary: Marcar una notificacion propia como leida
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      marcada:
+                        type: boolean
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      parameters:
+      - name: notif_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      description: Sin body. Solo afecta notificaciones del empleado autenticado.
+      tags:
+      - Trivia
+  /notificaciones/leer-todas:
+    servers: *trivia_servers
+    post:
+      summary: Marcar todas las notificaciones propias como leidas
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      marcadas:
+                        type: boolean
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Empleado, trivia o recurso no encontrado/no disponible.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      description: Sin body.
+      tags:
+      - Trivia
+
+  /empleados/imagen/{dni}:
+    servers:
+    - url: http://localhost:5000
+    - url: https://control-asistencia.up.railway.app
+    get:
+      summary: Foto publica de perfil por DNI
+      security: []
+      description: Alias compatibles. v permite cache busting; ETag depende de la foto
+        real.
+      parameters:
+      - name: dni
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: v
+        in: query
+        schema:
+          type: string
+      - name: If-None-Match
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Imagen de perfil.
+          headers:
+            ETag:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+              description: public, max-age=86400
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '304':
+          description: Foto sin cambios; sin body.
+        '404':
+          description: Foto no encontrada.
+  /media/empleados/foto/{dni}:
+    servers:
+    - url: http://localhost:5000
+    - url: https://control-asistencia.up.railway.app
+    get:
+      summary: Foto publica de perfil por DNI
+      security: []
+      description: Alias compatibles. v permite cache busting; ETag depende de la foto
+        real.
+      parameters:
+      - name: dni
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: v
+        in: query
+        schema:
+          type: string
+      - name: If-None-Match
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Imagen de perfil.
+          headers:
+            ETag:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+              description: public, max-age=86400
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '304':
+          description: Foto sin cambios; sin body.
+        '404':
+          description: Foto no encontrada.

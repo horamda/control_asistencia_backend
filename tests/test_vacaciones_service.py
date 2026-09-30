@@ -4,6 +4,17 @@ from decimal import Decimal
 import services.vacaciones_service as vacaciones_service
 
 
+def test_compensatorios_solo_destinatarios_seleccionados_sin_duplicados(monkeypatch):
+    creados = []
+    monkeypatch.setattr(vacaciones_service, "_get_empleado_activo", lambda eid: {"id": eid, "empresa_id": 3})
+    monkeypatch.setattr(vacaciones_service, "create_movimiento", lambda data: creados.append(data))
+    ok, errors = vacaciones_service.crear_compensatorios_bulk(
+        empleado_ids=[10, 12, 10], dias=3, anio=2026)
+    assert ok == 2 and errors == []
+    assert [r["empleado_id"] for r in creados] == [10, 12]
+    assert all(r["dias"] == 3 and r["tipo"] == "compensatorio" for r in creados)
+
+
 def _empleado(fecha_ingreso="2020-08-10"):
     return {
         "id": 10,

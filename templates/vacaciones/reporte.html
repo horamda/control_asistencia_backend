@@ -8,7 +8,7 @@
       <div class="section-kicker">RRHH</div>
       <h2>Reporte de vacaciones</h2>
       <p class="module-intro">
-        Consulte dias que corresponden, compensatorios, tomados y pendientes de tomarse por empleado.
+        Consulte vacaciones base, compensatorios y ajustes por separado, junto con el total y el saldo de cada empleado.
       </p>
     </div>
     <div class="chip-row">
@@ -19,6 +19,7 @@
   </div>
 
   <div class="toolbar">
+    <a class="btn btn-secondary" href="{{ url_for('vacaciones.compensatorios_masivos') }}">Asignar compensatorios</a>
     <a class="btn btn-secondary" href="{{ url_for('vacaciones.listado') }}">Volver a gestion</a>
     <a
       class="btn"
@@ -90,10 +91,12 @@
       <div class="kpi-desc">{{ totals.con_error }} con datos incompletos</div>
     </article>
     <article class="kpi-card">
-      <div class="kpi-label">Corresponden</div>
+      <div class="kpi-label">Total de días</div>
       <div class="kpi-value">{{ "%.2f"|format(totals.dias_corresponden) }}</div>
-      <div class="kpi-desc">dias totales del filtro</div>
+      <div class="kpi-desc">base + compensatorios + ajustes</div>
     </article>
+    <article class="kpi-card"><div class="kpi-label">Vacaciones base</div><div class="kpi-value">{{ "%.2f"|format(totals.dias_base) }}</div></article>
+    <article class="kpi-card"><div class="kpi-label">Ajustes</div><div class="kpi-value">{{ "%.2f"|format(totals.dias_ajustes) }}</div></article>
     <article class="kpi-card">
       <div class="kpi-label">Compensatorios</div>
       <div class="kpi-value">{{ "%.2f"|format(totals.dias_compensatorios) }}</div>
@@ -128,8 +131,10 @@
             <th>Area</th>
             <th>Sucursal</th>
             <th>Puesto</th>
-            <th>Corresponden</th>
+            <th>Vacaciones base</th>
             <th>Compensatorios</th>
+            <th>Ajustes</th>
+            <th>Total de días</th>
             <th>Tomados</th>
             <th>Pendientes por tomar</th>
             <th>Solicitudes pendientes</th>
@@ -150,18 +155,18 @@
               <td data-label="Area">{{ row.sector_nombre or "-" }}</td>
               <td data-label="Sucursal">{{ row.sucursal_nombre or "-" }}</td>
               <td data-label="Puesto">{{ row.puesto_nombre or "-" }}</td>
-              <td data-label="Corresponden">
-                {{ "%.2f"|format(row.dias_corresponden or 0) }}
+              <td data-label="Vacaciones base">
+                {{ "%.2f"|format(row.dias_base or 0) }}
                 {% if row.antiguedad_al_31_12 is not none %}
-                  <div class="helper-text">Base {{ "%.2f"|format(row.dias_base or 0) }} | {{ row.antiguedad_al_31_12 }} anio(s)</div>
+                  <div class="helper-text">{{ row.antiguedad_al_31_12 }} anio(s)</div>
                 {% endif %}
               </td>
               <td data-label="Compensatorios">
                 {{ "%.2f"|format(row.dias_compensatorios or 0) }}
-                {% if row.dias_ajustes %}
-                  <div class="helper-text">Ajustes {{ "%.2f"|format(row.dias_ajustes) }}</div>
-                {% endif %}
+
               </td>
+              <td data-label="Ajustes">{{ "%.2f"|format(row.dias_ajustes or 0) }}</td>
+              <td data-label="Total de días">{{ "%.2f"|format(row.dias_corresponden or 0) }}</td>
               <td data-label="Tomados">{{ "%.2f"|format(row.dias_tomados or 0) }}</td>
               <td data-label="Pendientes por tomar">{{ "%.2f"|format(row.dias_pendientes_por_tomar or 0) }}</td>
               <td data-label="Solicitudes pendientes">{{ "%.2f"|format(row.dias_pendientes or 0) }}</td>

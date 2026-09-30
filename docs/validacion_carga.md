@@ -30,7 +30,23 @@ Máximo 5 imágenes de 5 MB cada una, JPG/PNG/WEBP, hasta 20 megapíxeles. Se de
 
 Incluir estas tablas en el backup de MySQL y dimensionar su almacenamiento para el volumen de fotos. El límite total de request del módulo es 27 MB; el proxy de despliegue debe admitir ese tamaño. No hay borrado automático de evidencias.
 
+## Importación de camiones
+
+Desde **Validación de carga → Camiones y horarios → Importar camiones CSV** se descarga una plantilla y se carga un CSV exportado desde Excel. Requiere permisos `ver` y `crear` del módulo.
+
+- Columnas: `numero`, `patente`, `sucursal_id`, `descripcion`, `activo`. Número y patente son obligatorios; la sucursal puede indicarse por fila o seleccionarse como predeterminada en el formulario. Conservar los identificadores como texto en Excel para mantener ceros iniciales.
+- Hasta 500 vehículos y 1 MiB por archivo, con separador coma, punto y coma o tabulación. `activo` admite 1/0 o Sí/No y, vacío, toma 1.
+- Primero se presenta una vista previa con errores por fila; la confirmación vence en 15 minutos y vuelve a verificar los datos. Solo admite sucursales activas de la empresa seleccionada.
+- Crea vehículos nuevos y omite los existentes con datos idénticos. Un número o patente existente con otros datos produce un conflicto: no modifica vehículos existentes.
+- Si alguna fila falla, no se importa el lote. Las altas y su auditoría se guardan en una misma transacción.
+
+Rutas administrativas: `/validacion-carga/camiones/importar` y `/validacion-carga/camiones/plantilla.csv`. No requiere una migración adicional ni cambios del contrato mobile: los camiones activos importados quedan disponibles mediante `/api/v1/mobile/cargas/config`.
+
+Pruebas del importador: `python -m pytest tests/test_carga_import.py tests/test_carga_service.py -q`.
+
 ## API
+
+Contrato detallado para desarrollo de frontend web y Flutter: [validacion_carga_frontend.md](validacion_carga_frontend.md). Incluye ejemplos completos de configuración, alta JSON/multipart, respuesta, galería privada y reintentos.
 
 Prefijo `/api/v1/mobile/cargas`, JWT Bearer existente.
 
@@ -48,7 +64,7 @@ Ejemplo JSON de alta:
 {"camion_id":1,"tipo":"inicial","consolidado":"000123","valida":true,"observaciones":"","envio_id":"08271a75-ff73-479e-9304-5e9f949330f7","origen":"web"}
 ```
 
-`tipo`: `inicial` o `recarga`. Multipart acepta `valida` como `true`/`false` o `1`/`0`. No se aceptan omisiones del resultado. Identidad, empresa, sucursal y fecha se calculan en el servidor; no se toman del body. Respuesta nueva 201; repetición idéntica 200: `{"registro": {...}, "repetido": false}`. Fechas ISO 8601, fecha/hora con `-03:00`. Booleanos persistidos del registro (`valida`, `en_horario`, `tiene_inicial`) como 0/1; flags de configuración `habilitado` y `tiene_historial` como booleanos JSON.
+`tipo`: `inicial` o `recarga`. Multipart acepta `valida` como `true`/`false` o `1`/`0`. No se aceptan omisiones del resultado. Identidad, empresa, sucursal y fecha se calculan en el servidor; no se toman del body. Respuesta nueva 201: `{"registro": {...}, "repetido": false}`; repetición idéntica 200: `{"registro": {...}, "repetido": true}`. Fechas ISO 8601, fecha/hora con `-03:00`. Campos `valida`, `en_horario` y `tiene_inicial` como 0/1; flags de configuración `habilitado` y `tiene_historial` como booleanos JSON.
 
 Errores: 400 datos/fotos inválidos; 401 sesión; 403 puesto no habilitado; 404 recurso ajeno/inexistente; 409 duplicados, vehículo inactivo, falta inicial o configuración horaria; 413 request demasiado grande. Formato `{"error":"mensaje"}`.
 

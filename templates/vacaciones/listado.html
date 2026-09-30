@@ -163,13 +163,16 @@
         <div class="kpi-value">{{ "%.2f"|format(vac.dias_disponibles_con_pendientes) }}</div>
         <div class="kpi-desc">descontando tomados y pendientes</div>
       </article>
+      <article class="kpi-card"><div class="kpi-label">Vacaciones base</div><div class="kpi-value">{{ "%.2f"|format(vac.dias_base) }}</div></article>
+      <article class="kpi-card"><div class="kpi-label">Compensatorios</div><div class="kpi-value">{{ "%.2f"|format(vac.dias_compensatorios) }}</div></article>
+      <article class="kpi-card"><div class="kpi-label">Ajustes</div><div class="kpi-value">{{ "%.2f"|format(vac.dias_ajustes) }}</div></article>
       <article class="kpi-card">
-        <div class="kpi-label">Total corresponde</div>
+        <div class="kpi-label">Total de días</div>
         <div class="kpi-value">{{ "%.2f"|format(vac.dias_corresponden) }}</div>
         <div class="kpi-desc">
-          {{ "%.0f"|format(vac.dias_base) }} base
-          {% if vac.dias_compensatorios != 0 %}+ {{ "%.0f"|format(vac.dias_compensatorios) }} comp.{% endif %}
-          {% if vac.dias_ajustes != 0 %}{{ "+" if vac.dias_ajustes > 0 else "" }}{{ "%.0f"|format(vac.dias_ajustes) }} ajuste{% endif %}
+          {{ "%.2f"|format(vac.dias_base) }} base
+          {% if vac.dias_compensatorios != 0 %}+ {{ "%.2f"|format(vac.dias_compensatorios) }} comp.{% endif %}
+          {% if vac.dias_ajustes != 0 %}{{ "+" if vac.dias_ajustes > 0 else "" }}{{ "%.2f"|format(vac.dias_ajustes) }} ajuste{% endif %}
         </div>
       </article>
       <article class="kpi-card">

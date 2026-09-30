@@ -1,18 +1,19 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.30.0
+Version de contrato: 1.30.2
 Fecha de corte: 2026-09-29
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`
 Prefijo principal: `/api/v1/mobile`
 Prefijos moviles complementarios: `/api/v1/feedback`, `/api/skap`
 
-Este documento fija el contrato para Flutter.
-Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `routes/skap_routes.py`.
+Este documento fija el contrato compartido para frontend web de empleados, Flutter web y Flutter nativo.
+Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `routes/skap_routes.py`, `routes/carga_routes.py`.
 
 ## Resumen rapido
 
-- Autenticacion: `Bearer JWT` en todos los endpoints salvo `POST /auth/login`, `POST /auth/refresh` y `GET /api/v1/mobile/version`.
+- Autenticacion: `Bearer JWT` en todos los endpoints salvo `POST /auth/login` y `GET /api/v1/mobile/version`.
+- Las rutas de foto por DNI (`/empleados/imagen/<dni>` y `/media/empleados/foto/<dni>`) son publicas.
 - Prefijo core: `/api/v1/mobile`.
 - Prefijos complementarios: `/api/v1/feedback` y `/api/skap`.
 - La campana de **Alertas** en el home agrupa adelantos, pedidos de mercaderia y feedback para mostrar novedades o aprobaciones pendientes.
@@ -30,7 +31,17 @@ Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `rout
 
 ### Validación de carga (v1.30)
 
-Módulo `/api/v1/mobile/cargas`: config, alta multipart/JSON, historial propio paginado, detalle y fotos privadas. Contrato y reglas completas en [validacion_carga.md](validacion_carga.md). Requiere JWT. La habilitación por puestos la decide el servidor. Los límites iniciales son antes de 08:05 para inicial y desde 11:00 inclusive para recarga, configurables por empresa/sucursal del camión.
+Módulo `/api/v1/mobile/cargas`: configuración, alta multipart/JSON, historial propio paginado, detalle y fotos privadas. **Contrato completo de integración:** [Validación de carga para web y Flutter](validacion_carga_frontend.md), con campos, tipos, respuestas completas, ejemplos JavaScript/Dart, horarios, idempotencia y errores. Para migración y administración consultar [validacion_carga.md](validacion_carga.md).
+
+| Método | Endpoint | Uso |
+|---|---|---|
+| GET | `/api/v1/mobile/cargas/config` | Habilitación, camiones y horarios vigentes |
+| POST | `/api/v1/mobile/cargas` | Alta con JSON o multipart; 201 nuevo, 200 reintento idéntico |
+| GET | `/api/v1/mobile/cargas?page=1` | Historial propio, 30 registros por página |
+| GET | `/api/v1/mobile/cargas/{id}` | Detalle histórico propio con IDs de fotos |
+| GET | `/api/v1/mobile/cargas/fotos/{id}` | JPEG privado con JWT |
+
+Mostrar el módulo cuando `habilitado` o `tiene_historial` sean true; permitir crear solo con `habilitado`. Los campos `valida`, `en_horario` y `tiene_inicial` de las respuestas son enteros `0/1`; las banderas de configuración y `repetido` son booleanos. Legajo, sucursales y fecha/hora los guarda el servidor. Los horarios se consultan en config (prioridad de sucursal del camión sobre empresa), no se fijan en el frontend. La revisión 1.30.1 es documental y compatible con 1.30.0.
 
 ### VersiÃ³n de la app
 
@@ -96,6 +107,7 @@ Módulo `/api/v1/mobile/cargas`: config, alta multipart/JSON, historial propio p
 - El JWT incluye internamente `sesion_id` para tracking de Ãºltimo request. Flutter no necesita leerlo.
 
 #### 2. `POST /api/v1/mobile/auth/refresh`
+- Requiere el Bearer JWT mobile de la sesion a renovar; no es un endpoint publico.
 - Actualiza `fecha_ultimo_request` de la sesiÃ³n en curso (si el token tiene `sesion_id`).
 - No requiere body.
 - Response 200:

@@ -1,5 +1,25 @@
 ﻿# Change log
 
+### 1.30.2 (2026-09-29)
+- Sincronizacion documental del OpenAPI con rutas existentes; no cambia la API ni requiere actualizar Flutter.
+- Agrega version, calificacion de app, premios, KPIs diarios, historial de legajo por tipo y fotos publicas por DNI con ETag/304.
+- Completa las 13 rutas de trivia, parametros, payloads, respuestas y errores, incluidos 409/410 de finalizar.
+- Documenta telemetria opcional del login y corrige la autenticacion de refresh: requiere Bearer JWT.
+
+### 1.30.1 (2026-09-29)
+- Revision documental compatible con 1.30.0; no modifica la API ni requiere incrementar la version de Flutter.
+- Contrato completo de cargas para web de empleados, Flutter web y Flutter nativo en `validacion_carga_frontend.md`.
+- OpenAPI con schemas reutilizables de configuracion, alta y errores; respuestas 200/201 tipadas e `inicial_fecha` documentado.
+- Ejemplos JSON/multipart, JavaScript y Dart; fotos privadas, reintentos con UUID, paginacion, tipos 0/1, horarios y permisos.
+- Distingue API Bearer de empleados de rutas HTML/CSRF del panel administrativo.
+
+### 1.30.0 — 2026-09-29
+
+- Validación de carga: API `/api/v1/mobile/cargas` con config, alta idempotente, historial propio, detalle y fotos privadas.
+- Panel `/validacion-carga/` con permisos, consultas, CSV y CRUD de camiones y horarios; puestos habilitados y auditoría.
+- Una inicial por camión/día y recargas desde horario configurable, snapshots de empleado/sucursales/vehículo/regla y evidencias transaccionales.
+- Ver `docs/validacion_carga.md` para migración y puesta en marcha.
+
 ### 1.26.0 (2026-07-29)
 - Feedback: la bandeja de respuesta pasa a usar el jefe directo/responsable asignado del feedback, no el responsable del sector del motivo. Se agrega migracion historica `20260729_02_feedback_jefe_directo_historico.sql`.
 - Nuevo flujo mobile **Eventos de legajo administrados**:
@@ -368,11 +388,3 @@
 - Se mantiene `POST /api/v1/mobile/me/fichadas/scan` como endpoint recomendado.
 - Se marcan `deprecated`: `/fichadas/entrada` y `/fichadas/salida`.
 - Se agrega base URL de produccion.
-
-# 1.30.0 — 2026-09-29
-
-- Validación de carga: API `/api/v1/mobile/cargas` con config, alta idempotente, historial propio, detalle y fotos privadas.
-- Panel `/validacion-carga/` con permisos, consultas, CSV y CRUD de camiones y horarios; puestos habilitados y auditoría.
-- Una inicial por camión/día y recargas desde horario configurable, snapshots de empleado/sucursales/vehículo/regla y evidencias transaccionales.
-- Ver `docs/validacion_carga.md` para migración y puesta en marcha.
-

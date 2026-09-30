@@ -8,7 +8,7 @@
       <h2>Carga masiva de días compensatorios</h2>
       <p class="module-intro">
         Acredite días compensatorios a uno o más empleados. Se suman a los días base de vacaciones del año seleccionado.
-        Ejemplo: 28 días base + 2 compensatorios = 30 días totales disponibles.
+        Solo reciben días los empleados marcados. Los no seleccionados conservan su saldo. Cada envío acredita días adicionales.
       </p>
     </div>
   </div>
@@ -50,6 +50,8 @@
 
     <div class="form-grid" style="margin-top:1.5rem">
       <div class="row">
+        <label for="buscar-empleado">Buscar por nombre o legajo</label>
+        <input id="buscar-empleado" type="search" placeholder="Ej: 2055">
         <label>Filtrar por sector</label>
         <select id="filtro-sector" name="sector_id">
           <option value="">Todos los sectores</option>
@@ -90,13 +92,13 @@
         </thead>
         <tbody id="tabla-empleados">
           {% for e in empleados %}
-            <tr class="fila-empleado" data-sector-id="{{ e.sector_id or '' }}">
+            <tr class="fila-empleado" data-sector-id="{{ e.sector_id or '' }}" data-busqueda="{{ e.apellido }} {{ e.nombre }} {{ e.legajo or '' }}">
               <td>
-                <input type="checkbox" class="chk-emp" name="empleado_ids" value="{{ e.id }}">
+                <input type="checkbox" class="chk-emp" name="empleado_ids" value="{{ e.id }}" aria-label="Asignar a {{ e.apellido }} {{ e.nombre }}, legajo {{ e.legajo or 'sin legajo' }}" {% if e.id in (form_data.empleado_ids or []) %}checked{% endif %}>
               </td>
               <td data-label="Empleado">
                 <strong>{{ e.apellido }} {{ e.nombre }}</strong>
-                {% if e.dni %}<div class="helper-text">DNI {{ e.dni }}</div>{% endif %}
+                <div class="helper-text">Legajo {{ e.legajo or "-" }}</div>
               </td>
               <td data-label="Sector">{{ e.sector_nombre or "-" }}</td>
               <td data-label="Puesto">{{ e.puesto_nombre or "-" }}</td>
@@ -107,7 +109,7 @@
     </div>
 
     <div class="actions">
-      <button type="submit">Acreditar compensatorios</button>
+      <button type="submit" id="btn-acreditar">Acreditar a los seleccionados</button>
       <a class="btn btn-secondary" href="{{ url_for('vacaciones.listado') }}">Volver</a>
     </div>
   </form>
@@ -117,6 +119,8 @@
 <script>
 (function () {
   const filtro   = document.getElementById('filtro-sector');
+  const buscar = document.getElementById('buscar-empleado');
+  const normalizar = texto => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const chkAll   = document.getElementById('chk-all');
   const filas    = Array.from(document.querySelectorAll('.fila-empleado'));
   const lblCount = document.getElementById('lbl-conteo');
@@ -127,21 +131,28 @@
 
   function actualizarConteo() {
     const n = filas.filter(f => f.querySelector('.chk-emp').checked).length;
-    lblCount.textContent = n + ' seleccionado' + (n !== 1 ? 's' : '');
+    const ocultos = filas.filter(f => f.style.display === 'none' && f.querySelector('.chk-emp').checked).length;
+    lblCount.textContent = n + ' destinatario(s)' + (ocultos ? ' (' + ocultos + ' fuera del filtro)' : '') + '. Los demás no recibirán días.';
+    const visiblesActuales = visibles();
+    const marcados = visiblesActuales.filter(f => f.querySelector('.chk-emp').checked).length;
+    chkAll.checked = marcados > 0 && marcados === visiblesActuales.length;
+    chkAll.indeterminate = marcados > 0 && marcados < visiblesActuales.length;
+    document.getElementById('btn-acreditar').disabled = n === 0;
   }
 
   function filtrar() {
     const sector = filtro.value;
     filas.forEach(f => {
-      const mostrar = !sector || f.dataset.sectorId === sector;
+      const mostrar = (!sector || f.dataset.sectorId === sector) && normalizar(f.dataset.busqueda).includes(normalizar(buscar.value.trim()));
       f.style.display = mostrar ? '' : 'none';
-      if (!mostrar) f.querySelector('.chk-emp').checked = false;
+
     });
     chkAll.checked = false;
     actualizarConteo();
   }
 
   filtro.addEventListener('change', filtrar);
+  buscar.addEventListener('input', filtrar);
 
   document.getElementById('btn-sel-todos').addEventListener('click', () => {
     visibles().forEach(f => f.querySelector('.chk-emp').checked = true);

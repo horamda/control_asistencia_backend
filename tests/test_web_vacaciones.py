@@ -7,6 +7,33 @@ import web.auth.decorators as auth_decorators
 import web.vacaciones.vacaciones_routes as vacaciones_routes
 
 
+def test_compensatorios_seleccion_explicita(monkeypatch):
+    client = _build_authed_client(monkeypatch)
+    monkeypatch.setattr(vacaciones_routes, "get_empleados", lambda **kw: [{"id": 10}, {"id": 11}])
+    monkeypatch.setattr(vacaciones_routes, "get_sectores", lambda **kw: [])
+    monkeypatch.setattr(vacaciones_routes, "log_audit", lambda *args: None)
+    llamados = []
+    def acreditar(**kw):
+        llamados.append(kw)
+        return 1, []
+    monkeypatch.setattr(vacaciones_routes, "crear_compensatorios_bulk", acreditar)
+    response = client.post('/vacaciones/compensatorios/carga-masiva', data={
+        'empleado_ids': ['10', '10'], 'dias': '3', 'anio': '2026'})
+    assert response.status_code == 302
+    assert llamados[0]['empleado_ids'] == [10]
+
+
+def test_compensatorios_rechaza_empleado_fuera_del_listado(monkeypatch):
+    client = _build_authed_client(monkeypatch)
+    monkeypatch.setattr(vacaciones_routes, "get_empleados", lambda **kw: [{"id": 10}])
+    monkeypatch.setattr(vacaciones_routes, "get_sectores", lambda **kw: [])
+    monkeypatch.setattr(vacaciones_routes, "crear_compensatorios_bulk", lambda **kw: (_ for _ in ()).throw(AssertionError('No debe acreditar')))
+    response = client.post('/vacaciones/compensatorios/carga-masiva', data={
+        'empleado_ids': ['99'], 'dias': '3', 'anio': '2026'})
+    assert response.status_code == 200
+    assert b'Seleccione empleados activos disponibles' in response.data
+
+
 def _build_client(monkeypatch):
     monkeypatch.setattr(app_module, "init_db", lambda: None)
     app = app_module.create_app()
@@ -181,7 +208,9 @@ def test_vacaciones_reporte_export_xlsx_ok(monkeypatch):
     assert ws["B6"].value == "Ventas"
     assert ws["A13"].value == "Empleados"
     assert ws["B13"].value == 1
-    assert ws["E25"].value == "Lopez Ana"
+    assert ws["A15"].value == "Vacaciones base"
+    assert ws["B15"].value == 21
+    assert ws["E26"].value == "Lopez Ana"
 
 
 def test_vacaciones_movimiento_nuevo_post(monkeypatch):

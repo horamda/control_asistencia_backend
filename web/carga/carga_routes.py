@@ -7,8 +7,64 @@ from repositories.usuarios_app_repository import get_by_id as get_user
 from services import carga_service as service
 from routes.carga_routes import private_photo
 from web.auth.decorators import permission_required, can_access_module
+from flask import current_app
+from itsdangerous import URLSafeTimedSerializer, BadData
+from services import carga_import_service as camion_import
 
 carga_web_bp = Blueprint('carga_web', __name__, url_prefix='/validacion-carga')
+
+
+@carga_web_bp.before_request
+def import_limits():
+    if request.endpoint == 'carga_web.import_camiones':
+        request.max_content_length = 3 * 1024 * 1024
+        request.max_form_memory_size = 2 * 1024 * 1024
+
+
+@carga_web_bp.route('/camiones/importar', methods=['GET', 'POST'])
+@permission_required('validacion_carga', 'ver')
+@permission_required('validacion_carga', 'crear')
+def import_camiones():
+    empresa_id, empresas = scope()
+    catalog = repo.catalogs(empresa_id)
+    signer = URLSafeTimedSerializer(current_app.secret_key, salt='carga-import-camiones-v1')
+    plan, errors, token = [], [], None
+    default_branch = request.form.get('sucursal_id', '')
+    try:
+        if request.method == 'POST':
+            if request.form.get('accion') == 'confirmar':
+                try:
+                    pending = signer.loads(request.form.get('import_token', ''), max_age=900)
+                except BadData:
+                    raise service.CargaError('La vista previa venció o no es válida. Vuelva a seleccionar y validar el CSV.')
+                if pending['empresa_id'] != empresa_id or pending['usuario_id'] != session['user_id']:
+                    abort(403)
+                result = camion_import.import_rows(pending['rows'], empresa_id, session['user_id'])
+                errors = result['errores']
+                if not errors:
+                    flash(f"Importación completada: {result['creados']} camiones creados, {result['omitidos']} ya existentes omitidos.", 'success')
+                    return redirect(url_for('carga_web.catalogs', empresa_id=empresa_id, _anchor='camiones'))
+            else:
+                rows, errors = camion_import.parse_file(request.files.get('archivo'), default_branch)
+                plan, db_errors = camion_import.preview(rows, empresa_id)
+                errors.extend(db_errors)
+                if not errors:
+                    token = signer.dumps({'rows': rows, 'empresa_id': empresa_id, 'usuario_id': session['user_id']})
+    except (service.CargaError, UnicodeError) as exc:
+        errors = [{'fila': 'Archivo', 'mensaje': str(exc) if isinstance(exc, service.CargaError) else 'Codificación inválida. Guarde como CSV UTF-8.'}]
+    return render_template('carga/importar_camiones.html', empresa_id=empresa_id, empresas=empresas,
+        sucursales=catalog['sucursales'], default_branch=default_branch, plan=plan, errors=errors, import_token=token)
+
+
+@carga_web_bp.get('/camiones/plantilla.csv')
+@permission_required('validacion_carga', 'ver')
+@permission_required('validacion_carga', 'crear')
+def camion_template():
+    scope()
+    # Sin filas de ejemplo: evita importar accidentalmente un vehículo ficticio.
+    return Response('\ufeff' + ';'.join(camion_import.COLUMNS) + '\r\n',
+        content_type='text/csv; charset=utf-8',
+        headers={'Content-Disposition': 'attachment; filename=plantilla_camiones.csv'})
 
 
 def scope():
