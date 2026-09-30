@@ -7,6 +7,8 @@ from flask import Blueprint, Response, jsonify, redirect, render_template, reque
 from repositories.empleado_repository import get_all as get_empleados
 from repositories.sector_repository import get_all as get_sectores
 from repositories.sucursal_repository import get_all as get_sucursales
+from repositories.puesto_repository import get_all as get_puestos
+from repositories import compensatorios_repository as compensatorios_config
 from repositories.vacacion_repository import get_all
 from repositories.vacaciones_repository import (
     get_movimiento_by_id,
@@ -648,10 +650,38 @@ def movimiento_cancelar(movimiento_id):
     return redirect(url_for("vacaciones.listado", msg="Movimiento revertido con ajuste."))
 
 
+@vacaciones_bp.route('/compensatorios/habilitacion', methods=['GET', 'POST'])
+@role_required('admin', 'rrhh')
+def compensatorios_habilitacion():
+    empleados = get_empleados(include_inactive=False)
+    puestos = get_puestos(include_inactive=True)
+    error = None
+    if request.method == 'POST':
+        kind = request.form.get('tipo')
+        action = request.form.get('accion')
+        raw_ids = request.form.getlist('ids')
+        ids = {int(x) for x in raw_ids if x.isdigit()}
+        allowed = {int(r['id']) for r in (empleados if kind == 'empleados' else puestos)}
+        if kind not in ('empleados', 'puestos') or action not in ('activar', 'desactivar') or not ids or not ids <= allowed:
+            error = 'Seleccione registros válidos y una acción.'
+        else:
+            compensatorios_config.save_selection(kind, ids, action == 'activar')
+            for record_id in ids:
+                log_audit(session, action, 'vacaciones_compensatorios_' + kind, record_id)
+            return redirect(url_for('vacaciones.compensatorios_habilitacion', guardado=1))
+    habilitados, excluidos, bloqueados = compensatorios_config.get_config()
+    return render_template('vacaciones/habilitacion_compensatorios.html', empleados=empleados,
+        puestos=puestos, sectores=get_sectores(include_inactive=True), habilitados=habilitados,
+        excluidos=excluidos, bloqueados=bloqueados, error=error, guardado=request.args.get('guardado'))
+
+
 @vacaciones_bp.route("/compensatorios/carga-masiva", methods=["GET", "POST"])
 @role_required("admin", "rrhh")
 def compensatorios_masivos():
     empleados = get_empleados(include_inactive=False)
+    habilitados, _, bloqueados = compensatorios_config.get_config()
+    empleados = [e for e in empleados if e['id'] in habilitados and e['id'] not in bloqueados]
+    puestos = {e.get('puesto_id'): e.get('puesto_nombre') or 'Sin puesto' for e in empleados}
     sectores = get_sectores(include_inactive=False)
     errors = []
     msg = None
@@ -707,6 +737,7 @@ def compensatorios_masivos():
     return render_template(
         "vacaciones/compensatorios_masivo.html",
         empleados=empleados,
+        puestos=puestos,
         sectores=sectores,
         years=_current_year_options(),
         form_data=form_data,

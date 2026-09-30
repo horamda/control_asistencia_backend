@@ -5,6 +5,7 @@ import services.vacaciones_service as vacaciones_service
 
 
 def test_compensatorios_solo_destinatarios_seleccionados_sin_duplicados(monkeypatch):
+    monkeypatch.setattr(vacaciones_service, 'compensatorios_habilitados', lambda eid: True)
     creados = []
     monkeypatch.setattr(vacaciones_service, "_get_empleado_activo", lambda eid: {"id": eid, "empresa_id": 3})
     monkeypatch.setattr(vacaciones_service, "create_movimiento", lambda data: creados.append(data))

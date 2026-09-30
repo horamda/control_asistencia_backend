@@ -29,6 +29,7 @@
     <a class="btn" href="{{ url_for('vacaciones.movimiento_nuevo') }}">Nuevo movimiento</a>
     <a class="btn btn-secondary" href="{{ url_for('vacaciones.movimiento_nuevo', tipo='tomado', estado='aprobado', empleado_id=empleado_id or None) }}">Registrar vacaciones tomadas</a>
     <a class="btn btn-secondary" href="{{ url_for('vacaciones.compensatorios_masivos') }}">Cargar compensatorios</a>
+    <a class="btn btn-secondary" href="{{ url_for('vacaciones.compensatorios_habilitacion') }}">Quiénes reciben compensatorios</a>
     <a class="btn btn-secondary" href="{{ url_for('vacaciones.reporte', anio=anio or None, sector_id=sector_id or None, sucursal_id=sucursal_id or None) }}">Reporte del personal</a>
     <a
       class="btn btn-secondary"

@@ -2,6 +2,7 @@ import datetime
 from bisect import bisect_left, bisect_right
 from collections import defaultdict
 from decimal import Decimal
+from repositories.compensatorios_repository import habilitado as compensatorios_habilitados
 
 from repositories.vacaciones_repository import (
     count_dias_efectivamente_trabajados,
@@ -27,6 +28,11 @@ class VacacionesError(ValueError):
 
 class VacacionesSaldoInsuficienteError(VacacionesError):
     pass
+
+
+def _validar_compensatorios(empleado_id):
+    if not compensatorios_habilitados(int(empleado_id)):
+        raise VacacionesError('Empleado no habilitado para compensatorios o con un puesto excluido. Revise la configuración de compensatorios.')
 
 
 def _parse_date(value, field_name: str = "fecha") -> datetime.date:
@@ -459,6 +465,8 @@ def crear_movimiento_vacaciones_admin(data: dict) -> int:
         raise VacacionesError("Anio invalido.")
 
     tipo = _normalize_movimiento_tipo(data.get("tipo"))
+    if tipo == 'compensatorio':
+        _validar_compensatorios(empleado_id)
     estado = _normalize_movimiento_estado(data.get("estado"))
     observacion = str(data.get("observacion") or "").strip() or None
     fecha_desde = None
@@ -533,6 +541,8 @@ def editar_movimiento_vacaciones_pendiente(movimiento_id: int, data: dict) -> No
         raise VacacionesError("Anio invalido.")
 
     tipo = _normalize_movimiento_tipo(data.get("tipo"))
+    if tipo == 'compensatorio':
+        _validar_compensatorios(empleado_id)
     observacion = str(data.get("observacion") or "").strip() or None
     fecha_desde = None
     fecha_hasta = None
@@ -595,6 +605,9 @@ def aprobar_movimiento_vacaciones(movimiento_id: int, *, actor_id: int | None = 
     estado_actual = str(row.get("estado") or "aprobado").lower()
     if estado_actual != "pendiente":
         raise VacacionesError(f"No se puede aprobar un movimiento en estado '{estado_actual}'.")
+
+    if str(row.get('tipo') or '').lower() == 'compensatorio':
+        _validar_compensatorios(row['empleado_id'])
 
     if str(row.get("tipo") or "").lower() == "tomado":
         _validar_rango_tomado_sin_solape(
@@ -695,6 +708,7 @@ def crear_compensatorios_bulk(
     for eid in dict.fromkeys(int(value) for value in empleado_ids):
         try:
             empleado = _get_empleado_activo(int(eid))
+            _validar_compensatorios(eid)
             create_movimiento({
                 "empleado_id": int(eid),
                 "empresa_id": int(empleado["empresa_id"]),

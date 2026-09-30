@@ -23,6 +23,7 @@
   {% endif %}
 
   <form method="post" id="form-compensatorios">
+    <p>Se muestran únicamente empleados habilitados y sin puestos excluidos. <a href="{{ url_for('vacaciones.compensatorios_habilitacion') }}">Configurar quiénes pueden recibir compensatorios</a>.</p>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div class="form-grid">
@@ -52,6 +53,8 @@
       <div class="row">
         <label for="buscar-empleado">Buscar por nombre o legajo</label>
         <input id="buscar-empleado" type="search" placeholder="Ej: 2055">
+        <label for="filtro-puesto">Filtrar por puesto principal</label>
+        <select id="filtro-puesto"><option value="">Todos los puestos</option>{% for id, nombre in puestos.items() %}<option value="{{ id or 'sin-puesto' }}">{{ nombre }}</option>{% endfor %}</select>
         <label>Filtrar por sector</label>
         <select id="filtro-sector" name="sector_id">
           <option value="">Todos los sectores</option>
@@ -92,7 +95,7 @@
         </thead>
         <tbody id="tabla-empleados">
           {% for e in empleados %}
-            <tr class="fila-empleado" data-sector-id="{{ e.sector_id or '' }}" data-busqueda="{{ e.apellido }} {{ e.nombre }} {{ e.legajo or '' }}">
+            <tr class="fila-empleado" data-sector-id="{{ e.sector_id or '' }}" data-puesto-id="{{ e.puesto_id or 'sin-puesto' }}" data-busqueda="{{ e.apellido }} {{ e.nombre }} {{ e.legajo or '' }}">
               <td>
                 <input type="checkbox" class="chk-emp" name="empleado_ids" value="{{ e.id }}" aria-label="Asignar a {{ e.apellido }} {{ e.nombre }}, legajo {{ e.legajo or 'sin legajo' }}" {% if e.id in (form_data.empleado_ids or []) %}checked{% endif %}>
               </td>
@@ -120,6 +123,7 @@
 (function () {
   const filtro   = document.getElementById('filtro-sector');
   const buscar = document.getElementById('buscar-empleado');
+  const puesto = document.getElementById('filtro-puesto');
   const normalizar = texto => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const chkAll   = document.getElementById('chk-all');
   const filas    = Array.from(document.querySelectorAll('.fila-empleado'));
@@ -143,7 +147,7 @@
   function filtrar() {
     const sector = filtro.value;
     filas.forEach(f => {
-      const mostrar = (!sector || f.dataset.sectorId === sector) && normalizar(f.dataset.busqueda).includes(normalizar(buscar.value.trim()));
+      const mostrar = (!sector || f.dataset.sectorId === sector) && (!puesto.value || puesto.value === f.dataset.puestoId) && normalizar(f.dataset.busqueda).includes(normalizar(buscar.value.trim()));
       f.style.display = mostrar ? '' : 'none';
 
     });
@@ -153,6 +157,7 @@
 
   filtro.addEventListener('change', filtrar);
   buscar.addEventListener('input', filtrar);
+  puesto.addEventListener('change', filtrar);
 
   document.getElementById('btn-sel-todos').addEventListener('click', () => {
     visibles().forEach(f => f.querySelector('.chk-emp').checked = true);

@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Quiénes reciben compensatorios{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <h2>Quiénes pueden recibir compensatorios</h2>
+  <p>Todos conservan sus días de vacaciones base. Esta configuración determina quién puede recibir nuevas acreditaciones de compensatorios; habilitar no agrega días.</p>
+  <p>Primero excluya los puestos que nunca deben recibirlos, por ejemplo Chofer. Luego habilite a los empleados que corresponda. Un puesto excluido prevalece sobre la habilitación individual, incluso si es un puesto adicional activo.</p>
+  {% if error %}<div class="errors" role="alert">{{ error }}</div>{% endif %}
+  {% if guardado %}<p class="alert-ok" role="status">Configuración guardada.</p>{% endif %}
+  <div class="actions"><a class="btn" href="{{ url_for('vacaciones.compensatorios_masivos') }}">Acreditar días a habilitados</a><a class="btn btn-secondary" href="{{ url_for('vacaciones.listado') }}">Volver a vacaciones</a></div>
+  <h3>1. Puestos excluidos</h3>
+  <p>Marque los puestos a modificar. «Excluir» impide nuevas acreditaciones a cualquier empleado que tenga ese puesto. «Quitar exclusión» permite habilitarlos individualmente.</p>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="tipo" value="puestos">
+    <div class="table-responsive"><table><thead><tr><th>Seleccionar</th><th>Empresa</th><th>Puesto</th><th>Estado actual</th></tr></thead><tbody>
+      {% for p in puestos %}<tr><td><input type="checkbox" name="ids" value="{{ p.id }}" aria-label="Seleccionar puesto {{ p.nombre }}"></td><td>{{ p.empresa_nombre }}</td><td>{{ p.nombre }}</td><td>{{ 'Excluido' if p.id in excluidos else 'Sin exclusión' }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="actions"><button name="accion" value="activar">Excluir puestos seleccionados</button><button name="accion" value="desactivar">Quitar exclusión a seleccionados</button></div>
+  </form>
+  <h3>2. Habilitación por empleado</h3>
+  <p>Los empleados nuevos empiezan sin habilitación. Filtre por sector o puesto principal, seleccione el grupo y quite las personas que no correspondan. Solo cambian los empleados seleccionados. Los movimientos históricos se conservan.</p>
+  <form method="post" id="form-habilitacion">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="tipo" value="empleados">
+    <div class="form-grid">
+      <label>Nombre o legajo<input type="search" id="buscar"></label>
+      <label>Sector<select id="sector"><option value="">Todos</option>{% for s in sectores %}<option value="{{ s.id }}">{{ s.empresa_nombre }} — {{ s.nombre }}</option>{% endfor %}</select></label>
+      <label>Puesto principal<select id="puesto"><option value="">Todos</option>{% for p in puestos %}<option value="{{ p.id }}">{{ p.empresa_nombre }} — {{ p.nombre }}</option>{% endfor %}</select></label>
+    </div>
+    <div class="actions"><button type="button" id="seleccionar">Seleccionar visibles</button><button type="button" id="limpiar">Deseleccionar todos</button></div>
+    <p id="seleccion" aria-live="polite"></p>
+    <div class="table-responsive"><table><thead><tr><th>Seleccionar</th><th>Legajo</th><th>Empleado</th><th>Empresa</th><th>Sector</th><th>Puesto principal</th><th>Puede recibir</th></tr></thead><tbody>
+      {% for e in empleados %}<tr class="empleado" data-sector="{{ e.sector_id or '' }}" data-puesto="{{ e.puesto_id or '' }}" data-busqueda="{{ e.apellido }} {{ e.nombre }} {{ e.legajo or '' }}">
+        <td><input type="checkbox" name="ids" value="{{ e.id }}" aria-label="Seleccionar legajo {{ e.legajo }}"></td><td>{{ e.legajo or '-' }}</td><td>{{ e.apellido }} {{ e.nombre }}</td><td>{{ e.empresa_nombre }}</td><td>{{ e.sector_nombre or '-' }}</td><td>{{ e.puesto_nombre or '-' }}</td>
+        <td>{% if e.id in bloqueados %}No: puesto excluido{% elif e.id in habilitados %}Sí{% else %}No: sin habilitación{% endif %}</td>
+      </tr>{% endfor %}
+    </tbody></table></div>
+    <div class="actions"><button name="accion" value="activar">Habilitar seleccionados</button><button name="accion" value="desactivar">Deshabilitar seleccionados</button></div>
+  </form>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+(() => {
+  const form = document.getElementById('form-habilitacion');
+  const rows = [...form.querySelectorAll('.empleado')];
+  const search = document.getElementById('buscar'), sector = document.getElementById('sector'), puesto = document.getElementById('puesto');
+  const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  function count() {
+    const selected = rows.filter(r => r.querySelector('input').checked);
+    const hidden = selected.filter(r => r.hidden).length;
+    document.getElementById('seleccion').textContent = selected.length + ' seleccionados; ' + hidden + ' fuera del filtro.';
+    form.querySelectorAll('button[name="accion"]').forEach(b => b.disabled = selected.length === 0);
+  }
+  function filter() {
+    rows.forEach(r => r.hidden = !((!sector.value || sector.value === r.dataset.sector) && (!puesto.value || puesto.value === r.dataset.puesto) && normalize(r.dataset.busqueda).includes(normalize(search.value.trim()))));
+    count();
+  }
+  search.addEventListener('input', filter); sector.addEventListener('change', filter); puesto.addEventListener('change', filter);
+  form.addEventListener('change', count);
+  document.getElementById('seleccionar').onclick = () => { rows.filter(r => !r.hidden).forEach(r => r.querySelector('input').checked = true); count(); };
+  document.getElementById('limpiar').onclick = () => { rows.forEach(r => r.querySelector('input').checked = false); count(); };
+  count();
+})();
+</script>
+{% endblock %}

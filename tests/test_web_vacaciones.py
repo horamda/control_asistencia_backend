@@ -8,6 +8,7 @@ import web.vacaciones.vacaciones_routes as vacaciones_routes
 
 
 def test_compensatorios_seleccion_explicita(monkeypatch):
+    monkeypatch.setattr(vacaciones_routes.compensatorios_config, 'get_config', lambda: ({10, 11}, set(), set()))
     client = _build_authed_client(monkeypatch)
     monkeypatch.setattr(vacaciones_routes, "get_empleados", lambda **kw: [{"id": 10}, {"id": 11}])
     monkeypatch.setattr(vacaciones_routes, "get_sectores", lambda **kw: [])
@@ -24,6 +25,7 @@ def test_compensatorios_seleccion_explicita(monkeypatch):
 
 
 def test_compensatorios_rechaza_empleado_fuera_del_listado(monkeypatch):
+    monkeypatch.setattr(vacaciones_routes.compensatorios_config, 'get_config', lambda: ({10}, set(), set()))
     client = _build_authed_client(monkeypatch)
     monkeypatch.setattr(vacaciones_routes, "get_empleados", lambda **kw: [{"id": 10}])
     monkeypatch.setattr(vacaciones_routes, "get_sectores", lambda **kw: [])
@@ -32,6 +34,31 @@ def test_compensatorios_rechaza_empleado_fuera_del_listado(monkeypatch):
         'empleado_ids': ['99'], 'dias': '3', 'anio': '2026'})
     assert response.status_code == 200
     assert b'Seleccione empleados activos disponibles' in response.data
+
+
+def test_habilitacion_por_grupo_solo_modifica_seleccionados(monkeypatch):
+    client = _build_authed_client(monkeypatch)
+    monkeypatch.setattr(vacaciones_routes, 'get_empleados', lambda **kw: [{'id': 10}, {'id': 11}])
+    monkeypatch.setattr(vacaciones_routes, 'get_puestos', lambda **kw: [])
+    monkeypatch.setattr(vacaciones_routes, 'log_audit', lambda *args: None)
+    calls = []
+    monkeypatch.setattr(vacaciones_routes.compensatorios_config, 'save_selection', lambda *args: calls.append(args))
+    response = client.post('/vacaciones/compensatorios/habilitacion', data={'tipo': 'empleados', 'ids': ['10'], 'accion': 'activar'})
+    assert response.status_code == 302
+    assert calls == [('empleados', {10}, True)]
+
+
+def test_habilitacion_muestra_estado_y_filtros(monkeypatch):
+    client = _build_authed_client(monkeypatch)
+    monkeypatch.setattr(vacaciones_routes, 'get_empleados', lambda **kw: [{'id': 10, 'legajo': '2055', 'puesto_id': 2}])
+    monkeypatch.setattr(vacaciones_routes, 'get_puestos', lambda **kw: [{'id': 2, 'nombre': 'Chofer'}])
+    monkeypatch.setattr(vacaciones_routes, 'get_sectores', lambda **kw: [])
+    monkeypatch.setattr(vacaciones_routes.compensatorios_config, 'get_config', lambda: ({10}, {2}, {10}))
+    response = client.get('/vacaciones/compensatorios/habilitacion')
+    assert response.status_code == 200
+    assert b'No: puesto excluido' in response.data
+    assert b'2055' in response.data
+    assert b'id="sector"' in response.data and b'id="puesto"' in response.data
 
 
 def _build_client(monkeypatch):
