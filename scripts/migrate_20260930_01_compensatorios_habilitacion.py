@@ -6,11 +6,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from extensions import get_db, init_db
+from extensions import get_db
+from db import init_orm
 
 
 def migrate():
-    init_db()
+    init_orm()
     db = get_db()
     c = db.cursor()
     try:

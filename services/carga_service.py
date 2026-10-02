@@ -85,7 +85,7 @@ def config(employee):
     with repo.transaction() as c:
         allowed = eligible(c, employee)
         has_history = bool(repo.one(c, 'SELECT id FROM carga_validaciones WHERE empleado_id=%s AND empresa_id=%s LIMIT 1', (employee['id'], employee['empresa_id'])))
-        trucks = repo.all_rows(c, '''SELECT t.id, t.numero, t.patente, t.sucursal_id, s.nombre sucursal_nombre,
+        trucks = repo.all_rows(c, '''SELECT t.id, t.numero, t.patente, t.descripcion, t.sucursal_id, s.nombre sucursal_nombre,
             EXISTS(SELECT 1 FROM carga_validaciones v WHERE v.camion_id=t.id AND v.fecha=%s AND v.tipo='inicial') tiene_inicial
             FROM carga_camiones t JOIN sucursales s ON s.id=t.sucursal_id
             WHERE t.empresa_id=%s AND t.activo=1 ORDER BY t.numero''',
