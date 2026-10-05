@@ -1,10 +1,10 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.30.2
+  version: 1.31.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
-    Revision 1.30.2 documental, compatible con 1.30.0. Guia de cargas en docs/validacion_carga_frontend.md.
+    Version 1.31.0: Seguridad e Higiene; guia en docs/seguridad_higiene.md. Rutas anteriores compatibles.
     Los endpoints de API (excepto POST /auth/login y GET /version) requieren header `Authorization: Bearer <token>`.
     Las rutas de foto de perfil por DNI son publicas.
     Los modulos complementarios Feedback (`/api/v1/feedback`) y SKAP (`/api/skap`)
@@ -3393,6 +3393,128 @@ security:
 # Paths
 # ---------------------------------------------------------------------------
 paths:
+  /seguridad/config:
+    get:
+      tags: [SeguridadHigiene]
+      summary: Catálogos activos y personas elegibles de la sucursal
+      responses:
+        '200':
+          description: Tipos, empleados, catalogos, fecha_actual, max_fotos y max_foto_bytes; ver seguridad_higiene.md.
+        '401':
+          description: Sesión inválida
+  /seguridad/eventos:
+    get:
+      tags: [SeguridadHigiene]
+      summary: Historial propio aprobado o reportes enviados
+      parameters:
+        - {in: query, name: vista, schema: {type: string, enum: [propio, enviados], default: propio}}
+        - {in: query, name: page, schema: {type: integer, minimum: 1, default: 1}}
+        - {in: query, name: tipo, schema: {type: string, enum: [seguro, inseguro, incidente, accidente]}}
+        - {in: query, name: estado, schema: {type: string, enum: [pendiente, aprobado, rechazado, anulado]}}
+        - {in: query, name: desde, schema: {type: string, format: date}}
+        - {in: query, name: hasta, schema: {type: string, format: date}}
+      responses:
+        '200':
+          description: items, total, page y per_page (30); filtros nunca amplían alcance autorizado.
+        '400':
+          description: Filtro inválido
+        '401':
+          description: Sesión inválida
+    post:
+      tags: [SeguridadHigiene]
+      summary: Reportar un evento pendiente con varias personas y fotos opcionales
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: &SeguridadAlta
+              type: object
+              required: [envio_id, tipo, fecha_evento, involucrados, descripcion]
+              properties:
+                envio_id: {type: string, format: uuid}
+                tipo: {type: string, enum: [seguro, inseguro, incidente, accidente]}
+                fecha_evento: {type: string, format: date}
+                involucrados: {type: array, minItems: 1, maxItems: 100, items: {type: integer}}
+                categoria_id: {type: integer, description: Obligatorio en seguro e inseguro}
+                descripcion: {type: string, maxLength: 8000}
+                advertido: {type: string, enum: ['si', 'no'], description: Obligatorio en inseguro}
+                hora_evento: {type: string, description: 'HH:MM; obligatorio en accidente/incidente'}
+                lugar: {type: string, maxLength: 180, description: Obligatorio en accidente/incidente}
+                clasificacion: {type: string, maxLength: 180}
+                atencion: {type: string, maxLength: 180}
+                lesion: {type: string, maxLength: 180}
+                parte_cuerpo: {type: string, maxLength: 180}
+          multipart/form-data:
+            schema:
+              type: object
+              required: [envio_id, tipo, fecha_evento, involucrados, descripcion]
+              properties:
+                envio_id: {type: string, format: uuid}
+                tipo: {type: string, enum: [seguro, inseguro, incidente, accidente]}
+                fecha_evento: {type: string, format: date}
+                involucrados: {type: string, description: 'Array JSON serializado, ej. [10,11]'}
+                categoria_id: {type: integer}
+                descripcion: {type: string, maxLength: 8000}
+                advertido: {type: string, enum: ['si', 'no']}
+                hora_evento: {type: string}
+                lugar: {type: string, maxLength: 180}
+                fotos: {type: array, maxItems: 5, items: {type: string, format: binary}, description: JPG/PNG/WEBP hasta 5 MiB cada una}
+      responses:
+        '201':
+          description: Creado pendiente
+          content:
+            application/json:
+              schema: &SeguridadCreado
+                type: object
+                properties:
+                  id: {type: integer}
+                  estado: {type: string}
+                  repetido: {type: boolean}
+        '200':
+          description: Reintento idéntico, mismo ID; consultar detalle para estado actual
+          content:
+            application/json:
+              schema: *SeguridadCreado
+        '400': {description: Datos inválidos}
+        '401': {description: Sesión inválida}
+        '403': {description: Personas fuera de alcance}
+        '409': {description: Clave de envío usada con otro contenido}
+        '413': {description: Tamaño excedido}
+  /seguridad/eventos/{id}:
+    get:
+      tags: [SeguridadHigiene]
+      summary: Detalle propio o enviado; oculta identidad del reportante y notas administrativas
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: integer}}
+      responses:
+        '200': {description: Evento con detalles, involucrados visibles y fotos (IDs)}
+        '401': {description: Sesión inválida}
+        '404': {description: Inexistente o no autorizado}
+  /seguridad/fotos/{id}:
+    get:
+      tags: [SeguridadHigiene]
+      summary: Foto privada del evento autorizado
+      parameters:
+        - {in: path, name: id, required: true, schema: {type: integer}}
+      responses:
+        '200':
+          description: JPEG sin EXIF; Cache-Control private, no-store
+          content:
+            image/jpeg:
+              schema: {type: string, format: binary}
+        '401': {description: Sesión inválida}
+        '404': {description: Inexistente o no autorizado}
+  /seguridad/ranking:
+    get:
+      tags: [SeguridadHigiene]
+      summary: Rankings seguro e inseguro separados de la empresa; fecha del evento
+      parameters:
+        - {in: query, name: anio, schema: {type: integer, minimum: 2000, maximum: 2100}}
+        - {in: query, name: mes, schema: {type: integer, minimum: 1, maximum: 12}, description: Omitir para año completo}
+      responses:
+        '200': {description: 'anio, mes, rankings (seguro/inseguro con empleado_id, nombre, legajo, cantidad, posicion) y eventos distintos por tipo'}
+        '400': {description: Período inválido}
+        '401': {description: Sesión inválida}
   /cargas/config:
     get:
       tags: [ValidacionCarga]

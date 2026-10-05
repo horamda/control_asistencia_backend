@@ -1,5 +1,10 @@
 ﻿# Change log
 
+### 1.31.0 (2026-10-02)
+- Seguridad e Higiene: configuración, reportes con varios involucrados y fotos privadas, historial propio/enviados y rankings mensuales/anuales separados.
+- Panel con permisos de aprobación, catálogos, acciones correctivas, exportación e importador XLSX con conservación de originales y resolución de filas.
+- Nuevo acceso Flutter. Requiere migración `20261002_01_seguridad_higiene` y backend publicado antes del cliente. Ver `seguridad_higiene.md`.
+
 ### 1.30.2 (2026-09-29)
 - Sincronizacion documental del OpenAPI con rutas existentes; no cambia la API ni requiere actualizar Flutter.
 - Agrega version, calificacion de app, premios, KPIs diarios, historial de legajo por tipo y fotos publicas por DNI con ETag/304.

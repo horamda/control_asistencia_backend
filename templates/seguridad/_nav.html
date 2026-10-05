@@ -1,0 +1,6 @@
+<div class="actions">
+<a class="btn btn-secondary" href="{{ url_for('seguridad_web.index',empresa_id=empresa_id) }}">Reportes</a>
+{% if can_web('seguridad_higiene','crear') %}<a class="btn" href="{{ url_for('seguridad_web.create',empresa_id=empresa_id) }}">Nuevo reporte</a><a class="btn btn-secondary" href="{{ url_for('seguridad_web.imports',empresa_id=empresa_id) }}">Importar histórico</a>{% endif %}
+<a class="btn btn-secondary" href="{{ url_for('seguridad_web.catalogs',empresa_id=empresa_id) }}">Catálogos</a>
+<a class="btn btn-secondary" href="{{ url_for('seguridad_web.ranking',empresa_id=empresa_id) }}">Estadísticas y rankings</a>
+</div>

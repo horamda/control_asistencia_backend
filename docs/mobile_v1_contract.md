@@ -1,7 +1,7 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.30.2
-Fecha de corte: 2026-09-29
+Version de contrato: 1.31.0
+Fecha de corte: 2026-10-02
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`
 Prefijo principal: `/api/v1/mobile`
@@ -11,6 +11,8 @@ Este documento fija el contrato compartido para frontend web de empleados, Flutt
 Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `routes/skap_routes.py`, `routes/carga_routes.py`.
 
 ## Resumen rapido
+
+- Nuevo módulo **Seguridad e Higiene**: `/api/v1/mobile/seguridad`. Contrato, permisos, importación y Flutter en [seguridad_higiene.md](seguridad_higiene.md). Extensión aditiva sin cambios a rutas anteriores.
 
 - Autenticacion: `Bearer JWT` en todos los endpoints salvo `POST /auth/login` y `GET /api/v1/mobile/version`.
 - Las rutas de foto por DNI (`/empleados/imagen/<dni>` y `/media/empleados/foto/<dni>`) son publicas.

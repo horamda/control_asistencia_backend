@@ -1,4 +1,5 @@
 WEB_MODULES = [
+    {"code": "seguridad_higiene", "label": "Seguridad e Higiene", "group": "Operaciones", "roles": {"admin"}},
     {"code": "validacion_carga", "label": "Validacion de carga", "group": "Operaciones", "roles": {"admin"}},
     {"code": "organizacion", "label": "Organizacion", "group": "General", "roles": {"admin", "rrhh", "supervisor"}},
     {"code": "empresas", "label": "Empresas", "group": "Organizacion", "roles": {"admin"}},

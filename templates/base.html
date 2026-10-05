@@ -316,6 +316,9 @@
                 </div>
               </div>
             {% endif %}
+            {% if can_web('seguridad_higiene') %}
+              <a class="nav-link" href="{{ url_for('seguridad_web.index') }}"><span class="nav-label">Seguridad e Higiene</span></a>
+            {% endif %}
             {% if can_web('validacion_carga') %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-validacion-carga">

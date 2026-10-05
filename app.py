@@ -59,6 +59,8 @@ from web.mobile_stats.mobile_stats_routes import mobile_stats_bp
 from routes.feedback_routes import feedback_bp
 from routes.skap_routes import skap_bp
 from routes.carga_routes import carga_mobile_bp
+from routes.seguridad_routes import seguridad_mobile_bp
+from web.seguridad.seguridad_routes import seguridad_web_bp
 from web.carga.carga_routes import carga_web_bp
 
 load_dotenv("/etc/secrets/.env", override=False)
@@ -317,6 +319,13 @@ def create_app():
     _check_jwt_secret_integrity(app)
 
     # Security
+    @app.before_request
+    def seguridad_upload_limits():
+        # Antes de CSRF: el formulario multipart no debe analizarse sin límite.
+        if request.blueprint in ('seguridad_web', 'seguridad_mobile'):
+            request.max_content_length = 27 * 1024 * 1024
+            request.max_form_parts = 150
+
     csrf = CSRFProtect(app)
     csrf.exempt(auth_bp)
     csrf.exempt(external_api_bp)
@@ -324,6 +333,7 @@ def create_app():
     csrf.exempt(feedback_bp)
     csrf.exempt(skap_bp)
     csrf.exempt(carga_mobile_bp)
+    csrf.exempt(seguridad_mobile_bp)
 
     # API
     app.register_blueprint(auth_bp)
@@ -332,6 +342,8 @@ def create_app():
     app.register_blueprint(feedback_bp)
     app.register_blueprint(skap_bp)
     app.register_blueprint(carga_mobile_bp)
+    app.register_blueprint(seguridad_mobile_bp)
+    app.register_blueprint(seguridad_web_bp)
     app.register_blueprint(carga_web_bp)
     app.register_blueprint(media_bp)
     app.register_blueprint(public_media_bp)

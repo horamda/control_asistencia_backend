@@ -1,0 +1,14 @@
+{% extends 'base.html' %}{% block title %}Seguridad e Higiene{% endblock %}
+{% block content %}<div class="content-stack"><h2>Seguridad e Higiene</h2><p>Reportes, revisión y seguimiento. Solo los aprobados forman parte del historial personal y las estadísticas.</p>
+{% include 'seguridad/_nav.html' %}
+<form method="get" class="form-grid">
+{% if empresas %}<label>Empresa<select name="empresa_id">{% for e in empresas %}<option value="{{ e.id }}" {% if e.id==empresa_id %}selected{% endif %}>{{ e.razon_social }}</option>{% endfor %}</select></label>{% else %}<input type="hidden" name="empresa_id" value="{{ empresa_id }}">{% endif %}
+<label>Desde<input type="date" name="desde" value="{{ filters.get('desde','') }}"></label><label>Hasta<input type="date" name="hasta" value="{{ filters.get('hasta','') }}"></label>
+<label>Tipo<select name="tipo"><option value="">Todos</option>{% for k,v in tipos.items() %}<option value="{{ k }}" {% if filters.get('tipo')==k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+<label>Estado<select name="estado"><option value="">Todos</option>{% for state in ['pendiente','aprobado','rechazado','anulado'] %}<option {% if filters.get('estado')==state %}selected{% endif %}>{{ state }}</option>{% endfor %}</select></label>
+<label>Persona<select name="empleado_id"><option value="">Todas</option>{% for e in empleados %}<option value="{{ e.id }}" {% if filters.get('empleado_id')==e.id|string %}selected{% endif %}>{{ e.legajo }} — {{ e.apellido }} {{ e.nombre }}</option>{% endfor %}</select></label>
+{% for key,label in [('sucursal_id','Sucursal'),('sector_id','Sector'),('puesto_id','Puesto')] %}<label>{{ label }}<select name="{{ key }}"><option value="">Todos</option>{% for e in empleados|unique(attribute=key) if e[key] %}<option value="{{ e[key] }}" {% if filters.get(key)==e[key]|string %}selected{% endif %}>{{ e[key.replace('_id','_nombre')] }}</option>{% endfor %}</select></label>{% endfor %}
+<button>Filtrar</button>
+{% if can_web('seguridad_higiene','exportar') %}<button formaction="{{ url_for('seguridad_web.export') }}">Exportar CSV</button>{% endif %}</form>
+<p>{{ total }} eventos</p><div class="table-responsive"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Estado</th><th>Detalle</th></tr></thead><tbody>{% for r in items %}<tr><td>{{ r.fecha_evento }}</td><td>{{ tipos[r.tipo] }}</td><td>{{ r.categoria_nombre }}</td><td>{{ r.estado }}</td><td><a href="{{ url_for('seguridad_web.detail',event_id=r.id,empresa_id=empresa_id) }}">Ver #{{ r.id }}</a></td></tr>{% else %}<tr><td colspan="5">No hay reportes para estos filtros.</td></tr>{% endfor %}</tbody></table></div>
+<div class="actions">{% if page>1 %}<a href="{{ url_for('seguridad_web.index',**dict(filters,page=page-1)) }}">Anterior</a>{% endif %}{% if page*30<total %}<a href="{{ url_for('seguridad_web.index',**dict(filters,page=page+1)) }}">Siguiente</a>{% endif %}</div></div>{% endblock %}
