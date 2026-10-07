@@ -51,6 +51,15 @@ def _attendance_period_counts(cursor, start, end, *, empresa_id=None, sucursal_i
 def _justification_period_counts(cursor, start, end):
     """Keep the timestamp index usable and include the entire final day."""
     try:
+        # Dashboard periods arrive as ISO strings; normalize before date arithmetic.
+        start = _to_date(start)
+        end = _to_date(end)
+        if isinstance(start, datetime.datetime):
+            start = start.date()
+        if isinstance(end, datetime.datetime):
+            end = end.date()
+        if start is None or end is None:
+            raise ValueError("Invalid justification period dates")
         cursor.execute(
             """
             SELECT COUNT(*),

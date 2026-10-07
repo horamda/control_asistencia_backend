@@ -24,12 +24,15 @@ def test_media_legajo_adjunto_ok(monkeypatch, tmp_path):
     payload_file = tmp_path / "certificado.pdf"
     payload_file.write_bytes(b"%PDF-1.4 fake")
 
-    monkeypatch.setattr(media_routes, "has_any_role", lambda user_id, roles: True)
+    monkeypatch.setattr(media_routes, "can_access_module", lambda *args: True)
+    monkeypatch.setattr(media_routes, "_cached_web_user", lambda uid: dict(id=uid,activo=1,rol='rrhh',empresa_id=1))
     monkeypatch.setattr(
         media_routes,
         "get_adjunto_by_id",
         lambda adjunto_id: {
             "id": adjunto_id,
+            "empresa_id": 1,
+            "evento_empresa_id": 1,
             "estado": "activo",
             "evento_estado": "vigente",
             "storage_backend": "local",
@@ -51,12 +54,15 @@ def test_media_legajo_adjunto_ok_db(monkeypatch):
     with client.session_transaction() as sess:
         sess["user_id"] = 5
 
-    monkeypatch.setattr(media_routes, "has_any_role", lambda user_id, roles: True)
+    monkeypatch.setattr(media_routes, "can_access_module", lambda *args: True)
+    monkeypatch.setattr(media_routes, "_cached_web_user", lambda uid: dict(id=uid,activo=1,rol='rrhh',empresa_id=1))
     monkeypatch.setattr(
         media_routes,
         "get_adjunto_by_id",
         lambda adjunto_id: {
             "id": adjunto_id,
+            "empresa_id": 1,
+            "evento_empresa_id": 1,
             "estado": "activo",
             "evento_estado": "vigente",
             "storage_backend": "db",
@@ -70,4 +76,5 @@ def test_media_legajo_adjunto_ok_db(monkeypatch):
     resp = client.get("/media/legajos/adjunto/10")
     assert resp.status_code == 200
     assert b"%PDF-1.7 db" in resp.data
+    assert resp.headers['Cache-Control'] == 'private, no-store'
     assert "application/pdf" in resp.headers.get("Content-Type", "")

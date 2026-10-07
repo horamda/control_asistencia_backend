@@ -8,7 +8,12 @@ from web.dashboard_metrics import _justification_period_counts
 from scripts.migrate_20260915_02_panel_indexes import covering_index
 
 
-def test_justification_counts_include_whole_last_day_and_null_status():
+@pytest.mark.parametrize('start,end', [
+    (datetime.date(2026, 9, 1), datetime.date(2026, 9, 15)),
+    ('2026-09-01', '2026-09-15'),
+    (datetime.datetime(2026, 9, 1, 12), datetime.datetime(2026, 9, 15, 12)),
+])
+def test_justification_counts_include_whole_last_day_and_null_status(start, end):
     connection = sqlite3.connect(":memory:")
     try:
         connection.executescript("""
@@ -33,7 +38,7 @@ def test_justification_counts_include_whole_last_day_and_null_status():
                 return self.result.fetchone()
 
         cursor = Cursor()
-        assert _justification_period_counts(cursor, datetime.date(2026, 9, 1), datetime.date(2026, 9, 15)) == (4, 1, 1, 1)
+        assert _justification_period_counts(cursor, start, end) == (4, 1, 1, 1)
         assert cursor.calls == 1
     finally:
         connection.close()

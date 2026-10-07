@@ -258,7 +258,6 @@ def get_adjunto_data_by_id(adjunto_id: int):
     db = get_db()
     cursor = db.cursor()
     try:
-        _ensure_adjuntos_db_table(cursor)
         cursor.execute(
             """
             SELECT data

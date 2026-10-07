@@ -238,6 +238,7 @@ def _build_security_config() -> dict:
     )
 
     return {
+        "MAX_CONTENT_LENGTH": _parse_int_env('MAX_REQUEST_BYTES', default=128*1024*1024, minimum=1024),
         "SECRET_KEY": _require_secret_key(),
         "SESSION_COOKIE_NAME": session_cookie_name,
         "SESSION_COOKIE_HTTPONLY": True,
@@ -443,7 +444,7 @@ def create_app():
         if code == 403:
             message = "Usuario no permitido."
 
-        if request.blueprint in {"auth", "external_api", "mobile_v1", "feedback", "skap", "trivia"}:
+        if request.blueprint in {"auth", "external_api", "mobile_v1", "feedback", "skap", "trivia", "carga_mobile", "seguridad_mobile"}:
             return jsonify({
                 "success": False,
                 "error": message
@@ -460,6 +461,16 @@ def create_app():
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Content-Security-Policy", "base-uri 'self'; object-src 'none'; frame-ancestors 'self'"
+        )
+        # Never let shared caches retain authenticated pages or API responses.
+        # Static resources keep their conditional caching behaviour.
+        if request.endpoint != 'static' and (
+            session.get('user_id') or request.headers.get('Authorization')
+            or request.headers.get('X-API-Key') or request.path in ('/login', '/auth/login')
+        ):
+            response.headers['Cache-Control'] = 'private, no-store'
         response.headers.setdefault(
             "Permissions-Policy", "geolocation=(), camera=(), microphone=()"
         )
@@ -561,4 +572,5 @@ if __name__ == "__main__":
         app = create_app()
     except (AppConfigError, DatabaseConfigError) as exc:
         raise SystemExit(str(exc))
-    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=True)
+    debug = _app_env() == 'development' and _parse_bool_env('FLASK_DEBUG', default=False)
+    app.run(host="0.0.0.0", port=5000, debug=debug, use_reloader=debug)

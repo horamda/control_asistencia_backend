@@ -3,7 +3,7 @@ import io
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for, Response, stream_with_context
 from repositories import carga_repository as repo
 from repositories.empresa_repository import get_all as get_empresas
-from repositories.usuarios_app_repository import get_by_id as get_user
+from web.auth.decorators import _cached_web_user as get_user
 from services import carga_service as service
 from routes.carga_routes import private_photo
 from web.auth.decorators import permission_required, can_access_module

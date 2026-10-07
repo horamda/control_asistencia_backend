@@ -34,6 +34,7 @@
     <noscript><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
     {% block extra_head %}{% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/panel-responsive.css') }}">
   </head>
   <body class="{% if request.path == '/login' %}auth-page{% else %}app-page{% endif %}">
     {% set rendered_content %}
@@ -317,7 +318,26 @@
               </div>
             {% endif %}
             {% if can_web('seguridad_higiene') %}
-              <a class="nav-link" href="{{ url_for('seguridad_web.index') }}"><span class="nav-label">Seguridad e Higiene</span></a>
+              <div class="nav-group nav-group-safety" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-seguridad-higiene">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+                    <span class="nav-label">Seguridad e Higiene</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-seguridad-higiene">
+                  <a class="nav-link" href="{{ url_for('seguridad_web.dashboard') }}">Dashboard de seguridad</a>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.index') }}">Consultar reportes</a>
+                  {% if can_web('seguridad_higiene', 'crear') %}
+                    <a class="nav-link" href="{{ url_for('seguridad_web.create') }}">Nuevo reporte</a>
+                    <a class="nav-link" href="{{ url_for('seguridad_web.imports') }}">Importar histórico</a>
+                  {% endif %}
+                  <a class="nav-link" href="{{ url_for('seguridad_web.catalogs') }}">Catálogos</a>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.external_people') }}">Personas externas</a>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.ranking') }}">Estadísticas y rankings</a>
+                </div>
+              </div>
             {% endif %}
             {% if can_web('validacion_carga') %}
               <div class="nav-group" data-collapsible="1">

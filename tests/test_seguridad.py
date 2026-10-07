@@ -48,12 +48,16 @@ def database(monkeypatch):
         for _ in range(2):
             for statement in sql.split(';'):
                 if statement.strip(): c.execute(statement)
+            for statement in (Path(__file__).resolve().parents[1]/'migrations/20261005_01_seguridad_externos.sql').read_text(encoding='utf-8').split(';'):
+                if statement.strip(): c.execute(statement)
         c.execute("INSERT INTO sh_catalogos(id,empresa_id,clase,tipo,nombre) VALUES(1,1,'categoria','seguro','EPP correcto'),(2,1,'categoria','inseguro','Falta EPP'),(3,2,'categoria','seguro','Otra empresa')")
         db.commit()
         @contextmanager
-        def transaction():
+        def transaction(*,read_only=False):
             conn=connect(); cursor=conn.cursor(dictionary=True)
-            try: yield cursor; conn.commit()
+            try:
+                yield cursor
+                if not read_only: conn.commit()
             except Exception: conn.rollback(); raise
             finally: cursor.close(); conn.close()
         monkeypatch.setattr(s.db,'transaction',transaction)
@@ -76,6 +80,25 @@ def payload(**kwargs):
 def photo():
     buffer=io.BytesIO();Image.new('RGB',(4,4),'blue').save(buffer,format='PNG');buffer.seek(0)
     return FileStorage(stream=buffer,filename='test.png')
+
+
+def test_photo_access_is_single_query_and_preserves_privacy(database,monkeypatch):
+    eid,_=s.create(1,payload(),[photo()],reporter=employee())
+    pid=s.detail(1,eid)['fotos'][0]['id']
+    calls=[]
+    original=s.db.one
+    def capture(c,sql,args=()):
+        calls.append(sql)
+        return original(c,sql,args)
+    monkeypatch.setattr(s.db,'one',capture)
+    assert s.photo(1,pid,10)['id']==pid
+    assert len(calls)==1
+    for company,person in [(1,11),(1,13),(2,20)]:
+        with pytest.raises(s.Error):s.photo(company,pid,person)
+    s.review(1,eid,99,'aprobado',1,'')
+    assert s.photo(1,pid,11)['id']==pid
+    with s.db.transaction() as c:c.execute('UPDATE sh_fotos SET activo=0 WHERE id=%s',(pid,))
+    with pytest.raises(s.Error):s.photo(1,pid,10)
 
 
 def test_approval_history_privacy_ranking_and_edit(database):

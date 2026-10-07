@@ -507,7 +507,12 @@ def upload_profile_photo(file_storage, dni: str | None):
     if not file_storage:
         raise ValueError("foto_file requerido.")
 
-    data = file_storage.read() or b""
+    max_bytes = _parse_int_env("FOTO_MAX_BYTES", 220000, minimum=65536, maximum=52428800)
+    input_max_default = max(10485760, max_bytes * 2)
+    input_max_bytes = _parse_int_env(
+        "FOTO_INPUT_MAX_BYTES", input_max_default, minimum=max_bytes, maximum=104857600,
+    )
+    data = file_storage.read(input_max_bytes + 1) or b""
     try:
         file_storage.stream.seek(0)
     except Exception:
@@ -516,14 +521,6 @@ def upload_profile_photo(file_storage, dni: str | None):
     if not data:
         raise ValueError("La imagen esta vacia.")
 
-    max_bytes = _parse_int_env("FOTO_MAX_BYTES", 220000, minimum=65536, maximum=52428800)
-    input_max_default = max(10485760, max_bytes * 2)
-    input_max_bytes = _parse_int_env(
-        "FOTO_INPUT_MAX_BYTES",
-        input_max_default,
-        minimum=max_bytes,
-        maximum=104857600,
-    )
     if len(data) > input_max_bytes:
         raise ValueError(f"La imagen supera el maximo permitido de entrada de {input_max_bytes} bytes.")
 

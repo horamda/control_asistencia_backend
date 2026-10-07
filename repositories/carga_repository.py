@@ -4,12 +4,15 @@ from extensions import get_db
 
 
 @contextmanager
-def transaction():
+def transaction(*, read_only=False):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
         yield cursor
-        db.commit()
+        # Pooled connection close resets the read transaction. SELECT does not
+        # need an additional COMMIT round trip before returning it to the pool.
+        if not read_only:
+            db.commit()
     except Exception:
         db.rollback()
         raise
@@ -36,7 +39,7 @@ def insert(cursor, table, data):
 
 
 def catalogs(empresa_id):
-    with transaction() as c:
+    with transaction(read_only=True) as c:
         return {
             'camiones': all_rows(c, 'SELECT t.*, s.nombre sucursal_nombre FROM carga_camiones t JOIN sucursales s ON s.id=t.sucursal_id WHERE t.empresa_id=%s ORDER BY t.numero', (empresa_id,)),
             'horarios': all_rows(c, 'SELECT h.*, s.nombre sucursal_nombre FROM carga_horarios h LEFT JOIN sucursales s ON s.id=h.sucursal_id WHERE h.empresa_id=%s ORDER BY h.tipo, h.vigente_desde DESC', (empresa_id,)),
@@ -65,7 +68,7 @@ def history(empresa_id, filters, *, empleado_id=None, page=1, per_page=30, max_i
         where.append('(v.legajo LIKE %s OR v.empleado_nombre LIKE %s OR v.consolidado LIKE %s)')
         args.extend([f"%{filters['q']}%"] * 3)
     clause = ' AND '.join(where)
-    with transaction() as c:
+    with transaction(read_only=True) as c:
         total = one(c, f'SELECT COUNT(*) total FROM carga_validaciones v WHERE {clause}', tuple(args))['total']
         rows = all_rows(c, f'''SELECT v.*, (SELECT COUNT(*) FROM carga_fotos f WHERE f.validacion_id=v.id) fotos_cantidad
             FROM carga_validaciones v WHERE {clause} ORDER BY v.registrado_at DESC, v.id DESC LIMIT %s OFFSET %s''', (*args, per_page, (page - 1) * per_page))

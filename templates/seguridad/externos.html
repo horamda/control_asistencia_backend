@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Personas externas{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static',filename='css/seguridad.css') }}">{% endblock %}
+{% block content %}<div class="content-stack sh-page">
+<div class="sh-heading"><div><h2>Personas externas</h2><p class="sh-muted">Administrá sus datos y consultá todos sus reportes desde un mismo lugar.</p></div><span class="sh-badge">{{ summary.total }} personas · {{ summary.activos }} activas</span></div>
+{% include 'seguridad/_nav.html' %}
+{% if error %}<div class="errors" role="alert">{{ error }}</div>{% endif %}
+{% macro fields(p) %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="empresa_id" value="{{ empresa_id }}">
+{% if p and p.id %}<input type="hidden" name="id" value="{{ p.id }}">{% endif %}
+<label>Nombre completo <input name="nombre" maxlength="180" value="{{ p.nombre if p else '' }}" required autocomplete="off"></label>
+<label>Empresa / procedencia <input name="empresa" maxlength="180" value="{{ p.empresa if p else '' }}" placeholder="Opcional"></label>
+{% if p and p.id %}<label>Disponibilidad<select name="activo"><option value="1" {% if p.activo|string=='1' %}selected{% endif %}>Activa para nuevas cargas</option><option value="0" {% if p.activo|string!='1' %}selected{% endif %}>Inactiva · conserva su historial</option></select></label>{% endif %}
+{% endmacro %}
+{% if can_web('seguridad_higiene','crear') %}<details class="sh-panel" {% if draft and not draft.get('id') %}open{% endif %}><summary>+ Nueva persona externa</summary><form method="post" class="sh-grid">{{ fields(draft if draft and not draft.get('id') else none) }}<div><p class="sh-muted">Solo el nombre es obligatorio. Verificá primero si la persona ya existe.</p><button>Crear persona</button></div></form></details>{% endif %}
+<form method="get" class="sh-panel sh-toolbar"><input type="hidden" name="empresa_id" value="{{ empresa_id }}"><label>Buscar persona<input type="search" name="q" value="{{ query }}" placeholder="Nombre o empresa" maxlength="180"></label><label>Disponibilidad<select name="estado"><option value="">Todas</option><option value="1" {% if state=='1' %}selected{% endif %}>Activas</option><option value="0" {% if state=='0' %}selected{% endif %}>Inactivas</option></select></label><button>Buscar</button><a class="btn btn-secondary" href="{{ url_for('seguridad_web.external_people',empresa_id=empresa_id) }}">Limpiar</a></form>
+<div class="sh-heading"><strong>{{ total }} resultados</strong><span class="sh-muted">Desactivar conserva todos los reportes anteriores.</span></div>
+<div class="table-responsive"><table class="sh-table"><thead><tr><th>Persona</th><th>Empresa / procedencia</th><th>Estado</th><th>Reportes</th><th>Acciones</th></tr></thead><tbody>
+{% for p in people %}<tr><td><strong>{{ p.nombre }}</strong><div class="sh-muted">#{{ p.id }}</div></td><td>{{ p.empresa or 'Sin informar' }}</td><td><span class="sh-badge {{ 'sh-badge-activo' if p.activo else '' }}">{{ 'Activa' if p.activo else 'Inactiva' }}</span></td><td>{{ p.total }}<div class="sh-muted">{{ p.ultima_fecha or 'Sin reportes' }}</div></td><td><a href="{{ url_for('seguridad_web.index',empresa_id=empresa_id,externo_id=p.id) }}">Ver historial</a>
+{% if can_web('seguridad_higiene','editar') %}<details class="sh-editor" {% if draft and draft.get('id')==p.id|string %}open{% endif %}><summary>Editar datos</summary><form method="post">{{ fields(draft if draft and draft.get('id')==p.id|string else p) }}<button>Guardar cambios</button></form></details>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="sh-empty">No se encontraron personas con esos filtros.</td></tr>{% endfor %}</tbody></table></div>
+<nav class="sh-pagination" aria-label="Páginas de personas externas"><span>Página {{ page }} de {{ [1,((total+29)//30)]|max }}</span><div class="actions">{% if page>1 %}<a class="btn btn-secondary" href="{{ url_for('seguridad_web.external_people',empresa_id=empresa_id,q=query,estado=state,page=page-1) }}">Anterior</a>{% endif %}{% if page*30<total %}<a class="btn btn-secondary" href="{{ url_for('seguridad_web.external_people',empresa_id=empresa_id,q=query,estado=state,page=page+1) }}">Siguiente</a>{% endif %}</div></nav>
+</div>{% endblock %}

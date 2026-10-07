@@ -1,4 +1,22 @@
+## 1.33.1 — 2026-10-06
+
+- Indicadores de días sin accidentes: último accidente pendiente o aprobado por alcance/sucursal histórica, sin exigir inicio configurado si existe un accidente. Excluye rechazados y anulados; el récord requiere cobertura confiable. No cambia los totales ni rankings de aprobados.
+
 ﻿# Change log
+
+### 1.33.0 (2026-10-05)
+- Nuevos GET `/seguridad/resumen` y `/seguridad/indicadores`: historial propio aprobado, series por tipo y año e indicadores de empresa, sucursal actual y empleado autenticado.
+- Ranking agrega alcance empresa/sucursal y `mi_posicion`; mantiene los campos existentes y separa seguros e inseguros.
+- Config agrega capacidades del dashboard. El historial mobile restringe filtros a los documentados; no permite consultar identidades u organizaciones ajenas.
+- Indicadores no disponibles se devuelven como null con motivo; requiere migración `20261005_02_seguridad_dashboard` y configurar cobertura en el panel.
+- Contrato completo para web y Flutter: `seguridad_mobile_dashboard.md`. La UI Flutter nueva no forma parte de este cambio de API.
+
+
+### 1.32.0 (2026-10-05)
+- Seguridad e Higiene: empleados y externos en un mismo evento; nombre obligatorio y empresa/procedencia opcional para externos nuevos, o selección de un externo existente por ID.
+- Configuración y detalle agregan externos; ranking separado de empleados. El reportante sigue siendo el empleado autenticado, sin ampliar el acceso a reportes ajenos.
+- Panel con administración e historial de externos, Flutter con selección/alta y ranking. Excel v2 distingue empleado/externo/mixto/pendiente y conserva compatibilidad con v1.
+- Requiere migración `20261005_01_seguridad_externos` antes de publicar backend y app. No clasifica automáticamente el histórico ni cambia los identificadores ya importados.
 
 ### 1.31.0 (2026-10-02)
 - Seguridad e Higiene: configuración, reportes con varios involucrados y fotos privadas, historial propio/enviados y rankings mensuales/anuales separados.

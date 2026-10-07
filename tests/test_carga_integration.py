@@ -28,7 +28,7 @@ def database(monkeypatch):
     port = os.getenv('CARGA_TEST_DB_PORT')
     if not port:
         pytest.skip('Requiere CARGA_TEST_DB_PORT de un MySQL local aislado.')
-    settings = dict(host='127.0.0.1', port=int(port), user='root', password='', collation='utf8mb4_general_ci')
+    settings = dict(host='127.0.0.1', port=int(port), user='root', password=os.getenv('CARGA_TEST_DB_PASSWORD',''), collation='utf8mb4_general_ci')
     name = 'carga_test_' + uuid4().hex
     admin = mysql.connector.connect(**settings)
     c = admin.cursor()

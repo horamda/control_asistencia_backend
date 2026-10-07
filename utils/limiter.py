@@ -1,3 +1,4 @@
+import os
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -6,7 +7,7 @@ from flask_limiter.util import get_remote_address
 # Para producción con múltiples workers usar storage_uri="redis://localhost:6379/0".
 limiter = Limiter(
     key_func=get_remote_address,
-    storage_uri="memory://",
+    storage_uri=os.getenv('RATELIMIT_STORAGE_URI') or 'memory://',
     strategy="fixed-window",
     default_limits=[],
 )

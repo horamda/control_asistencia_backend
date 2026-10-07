@@ -1,0 +1,70 @@
+/* Shared layout boundaries: wide content scrolls inside its own panel. */
+.app-main,.page-content,.embedded-layout,.content-stack,.sh-page,
+.form-grid,.sh-grid,.sh-chart-grid,.sh-kpis,.sh-panel{min-width:0;max-width:100%;box-sizing:border-box}
+.content-stack>*,.form-grid>*,.sh-grid>*,.sh-chart-grid>*,.sh-kpis>*{min-width:0}
+.table-responsive{overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.page-content pre,.embedded-layout pre{max-width:100%;overflow:auto;overflow-wrap:anywhere}
+.page-content img,.embedded-layout img{max-width:100%;height:auto}
+.section-head,.results-bar,.sh-heading,.sh-pagination{flex-wrap:wrap}
+.page-content h1,.page-content h2,.page-content h3,.sh-heading{overflow-wrap:anywhere}
+.sh-page .sh-editor{min-width:0}
+.sh-page .sh-description{overflow-wrap:anywhere}
+.sh-page .sh-tabs,.sh-page .sh-module-nav{gap:8px}
+.sh-page .sh-tabs>a,.sh-page .sh-module-nav>a{white-space:normal;text-align:center}
+
+@media(max-width:1120px){
+  .app-sidebar{height:100vh;height:100dvh;padding-bottom:max(16px,env(safe-area-inset-bottom));overscroll-behavior:contain}
+  body.nav-open{overflow:hidden}
+  .sh-chart-grid{grid-template-columns:minmax(0,1fr)}
+  .form-grid>label,.sh-grid>label{min-width:0}
+}
+@media(min-width:761px) and (max-width:1120px){
+  .sh-page .sh-grid,.sh-page .sh-dashboard-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sh-page .sh-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .filter-toggle-btn{display:inline-flex}
+  .app-main{padding:10px max(8px,env(safe-area-inset-right)) 18px max(8px,env(safe-area-inset-left))}
+  .page-content{padding:12px;min-width:0}
+  .embedded-layout{padding:12px}
+  .app-topbar,.topbar-actions{gap:10px;min-width:0}
+  .topbar-actions>*{min-width:0;max-width:100%}
+  .user-chip-name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .notifications-panel{position:fixed;left:12px;right:12px;top:88px;width:auto;max-width:none;max-height:calc(100dvh - 108px);overflow-y:auto}
+  .form-grid,.sh-page .sh-grid,.sh-page .sh-dashboard-filters{grid-template-columns:minmax(0,1fr)}
+  .form-grid>.span-2,.form-grid>.span-3,.form-grid>.row.span-2,.form-grid>.row.span-3{grid-column:1/-1}
+  form input:not([type=checkbox]):not([type=radio]),form select,form textarea{min-width:0;max-width:100%!important;box-sizing:border-box;font-size:16px}
+  input[type=file]{overflow:hidden}
+  select[multiple]{max-height:240px}
+  .actions,.toolbar,.sh-toolbar{flex-wrap:wrap;gap:10px;min-width:0}
+  .actions>*,.toolbar>*,.sh-toolbar>*{min-width:0;max-width:100%;box-sizing:border-box}
+  .sh-page .sh-toolbar label{min-width:0;width:100%}
+  .sh-page .sh-panel{padding:14px}
+  .sh-page .sh-table{font-size:.9rem}
+  .sh-page .sh-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sh-page .sh-tabs>a{display:flex;justify-content:center;align-items:center;min-height:44px}
+  .sh-module-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sh-module-nav>a{min-height:44px;display:flex;align-items:center;justify-content:center}
+  .sh-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sh-kpi{overflow-wrap:anywhere}
+  .sh-donut-layout{justify-content:center}
+  .sh-donut-layout svg{width:180px}
+  .sh-legend{min-width:0;width:100%;flex-basis:100%}
+  .sh-legend li{flex-wrap:wrap}
+  .sh-legend strong{white-space:normal}
+  .sh-bar-row{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 30px;gap:8px}
+  .sh-trend{max-width:100%;overscroll-behavior-x:contain}
+  .sh-process-status{top:4px;overflow-wrap:anywhere}
+  .sh-page .sh-heading>.actions{width:100%}
+  .sh-page .sh-heading>.actions>*{flex:1 1 130px}
+}
+@media(max-width:360px){
+  .sh-kpis{grid-template-columns:minmax(0,1fr)}
+  .sh-page .sh-panel{padding:10px}
+  .page-content{padding:10px}
+  .sh-heading h2{font-size:1.25rem}
+}
+@media(max-width:760px) and (max-height:500px){
+  form:not([method=get])>.actions:last-child{position:static}
+}
+@media print{.app-sidebar,.nav-overlay,.app-topbar{display:none!important}.app-main{margin:0;padding:0}.page-content{padding:0}.table-responsive{overflow:visible}}

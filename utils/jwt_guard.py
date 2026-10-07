@@ -30,11 +30,18 @@ def mobile_auth_required(view):
             return _unauthorized(INVALID_SESSION_MESSAGE)
 
         empleado_id = payload.get("empleado_id") or payload.get("user_id")
-        if not empleado_id:
+        if payload.get('type') == 'asistencia_qr' or isinstance(empleado_id, bool):
+            return _unauthorized(INVALID_SESSION_MESSAGE)
+        try:
+            if not str(empleado_id).isascii() or not str(empleado_id).isdigit():
+                raise ValueError()
+            empleado_id = int(empleado_id)
+            if empleado_id <= 0: raise ValueError()
+        except (ValueError, TypeError):
             return _unauthorized(INVALID_SESSION_MESSAGE)
 
         g.mobile_payload = payload
-        g.mobile_empleado_id = int(empleado_id)
+        g.mobile_empleado_id = empleado_id
         return view(*args, **kwargs)
 
     return wrapped

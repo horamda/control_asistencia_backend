@@ -1,8 +1,9 @@
-# Seguridad e Higiene — API 1.31.0
+# Seguridad e Higiene — API 1.32.0
 
 ## Activación
 
 1. Ejecutar `python scripts/migrate_20261002_01_seguridad_higiene.py` antes de publicar backend. Migración aditiva, repetible, con catálogos iniciales para empresas existentes. Repetir no borra ni reactiva categorías.
+   Ejecutar también `python scripts/migrate_20261005_01_seguridad_externos.py` para registrar personas externas y su participación. No clasifica respuestas del histórico.
 2. Asignar el módulo **Seguridad e Higiene** (`seguridad_higiene`) a usuarios elegidos. Admin lo incluye por defecto. Permisos independientes: `ver`, `crear`, `editar`, `aprobar`, `eliminar` (anular), `exportar`. Revisores necesitan `ver` + `aprobar`; no hay un rol fijo obligatorio.
 3. Revisar catálogos en `/seguridad-higiene/catalogos`. Las empresas creadas posteriormente cargan sus catálogos desde el panel.
 4. Publicar backend antes de Flutter. La app muestra **Seguridad e Higiene** junto a los demás accesos.
@@ -13,8 +14,8 @@ Fotografías, Excel original y filas se almacenan en MySQL; incluir tablas `sh_*
 ## Reglas y privacidad
 
 - Tipos separados: `seguro`, `inseguro`, `incidente` (sin lesión), `accidente`.
-- El empleado reporta sobre sí mismo o compañeros activos de su sucursal. Administración selecciona dentro de su empresa; importación admite empleados históricos inactivos.
-- Entre 1 y 100 involucrados únicos. Se conservan nombre, legajo, sucursal, sector y puesto al registrarlos.
+- El empleado reporta sobre sí mismo, compañeros activos de su sucursal o personas externas. Administración selecciona dentro de su empresa; importación admite empleados históricos inactivos.
+- Entre 1 y 100 involucrados únicos sumando empleados y externos. Para empleados se conservan nombre, legajo, sucursal, sector y puesto. Para externos, nombre y empresa/procedencia; no se crea un legajo ficticio.
 - Fecha del evento independiente de la recepción del servidor en Argentina. Fechas entre 2000 y hoy, nunca futuras.
 - Seguro/inseguro requieren categoría activa del tipo y descripción. Inseguro requiere `advertido=si|no`. Accidente/incidente requieren lugar y hora. Administración completa los datos técnicos que correspondan.
 - Todo nuevo evento queda `pendiente`, incluido el importado o creado por admin. Rechazar/anular requiere motivo; no hay borrado físico de eventos. Editar vuelve a pendiente y retira del ranking hasta nueva aprobación.
@@ -33,6 +34,45 @@ Sugiere personas solo por coincidencia única normalizada de nombre/apellido den
 El mismo archivo no crea otro lote (SHA-256). Una respuesta idéntica en otra exportación usa una clave determinista y puede vincularse al evento existente si la resolución coincide. Si difiere, exige revisión, sin sobrescribir. Las filas pendientes se conservan hasta resolverlas.
 
 Los enlaces privados de Drive se preservan; no se descargan sin acceso. El administrador puede adjuntar fotos al resolver o editar. El nombre histórico de quien notificó se conserva en el original; no se atribuye al usuario que importa.
+
+### Plantilla editable y corrección del histórico
+
+En **Importar histórico**, `Descargar plantilla Excel` crea un XLSX con 100 filas disponibles, IDs estables, legajos (incluidos inactivos), categorías activas, listas desplegables y revisión mediante fórmulas. Cada lote ofrece `Descargar Excel para corregir`, con todas sus respuestas y una hoja Original de consulta. La descarga de un lote requiere `ver` + `crear` + `exportar`; la plantilla requiere `ver` + `crear`. Ambas descargas respetan la empresa del usuario y no se almacenan en caché.
+
+- Hoja de entrada: **Carga**. No cambiar sus encabezados. Una fila por evento; múltiples legajos separados con `;`. Los legajos se comparan como texto exacto dentro de la empresa, conservando ceros iniciales. El nombre es solo una referencia.
+- Fechas: fecha nativa de Excel o `AAAA-MM-DD`; horas `HH:MM` o hora nativa de Excel. Los mismos campos obligatorios del servicio se exigen al importar.
+- La columna Revisión ayuda en Excel y se recalcula al editar. La validación definitiva es del servidor: también detecta legajos ambiguos, IDs reutilizados y cambios en los catálogos posteriores a la descarga.
+- Una plantilla con errores se rechaza **antes de guardar el lote**, con hoja, fila y campos a corregir. No se aceptan fórmulas en los campos de entrada. Las hojas auxiliares no son respuestas.
+- Se puede subir solo el subconjunto completo, retirando temporalmente de Carga las otras filas. Las respuestas incompletas siguen conservadas en el lote original.
+- ID registro evita duplicados entre cargas. Fila origen vincula la corrección con su respuesta previa; ambos se verifican por empresa. Al crear o vincular el evento se resuelven las dos filas, sin modificar el original y en la misma transacción. Cambiar los datos de un ID ya importado requiere editar el evento en el panel.
+- Preparar la plantilla no aprueba ni publica eventos. Después de subir, se procesan desde el lote y quedan pendientes de aprobación.
+- El formato original de Google Forms sigue funcionando con conservación de filas incompletas. La revalidación carga empleados y catálogos una vez por lote; el servicio vuelve a comprobar los datos al crear cada evento.
+
+Rutas administrativas: `GET /seguridad-higiene/importar/plantilla` y `GET /seguridad-higiene/importar/<id>/corregir`. La generación de plantillas no agrega endpoints mobile; el soporte de externos requiere la migración indicada arriba.
+
+### Personas externas (API 1.32.0)
+
+El reportante sigue siendo el empleado autenticado. `involucrados` contiene IDs de empleados; `externos` contiene personas externas. Se admite un evento solo con externos (`involucrados: []`) o mixto. Para un externo nuevo, **solo el nombre es obligatorio**, máximo 180 caracteres; `empresa` (empresa/procedencia) es opcional, máximo 180. Para reutilizar una persona, enviar su `id`; se verifica empresa y disponibilidad. No se unifican personas automáticamente por nombre, para evitar confundir homónimos.
+
+```json
+{
+  "envio_id": "8562f710-bf2b-46d0-90bb-dd621278ab54",
+  "tipo": "seguro",
+  "fecha_evento": "2026-10-05",
+  "categoria_id": 7,
+  "descripcion": "La persona utiliza correctamente su protección.",
+  "involucrados": [],
+  "externos": [{"nombre": "Visitante", "empresa": ""}]
+}
+```
+
+- JSON acepta la lista directamente. Multipart usa `externos` como JSON serializado, igual que `involucrados`. Para un externo existente: `[{"id":7}]`. Reintentos con el mismo UUID y contenido no crean otra persona.
+- Config agrega `externos: [{id,nombre,empresa,activo}]` activos de la empresa. Detalle agrega `externos: [{id,nombre,empresa}]`, visible al reportante y al administrador; otros empleados involucrados mantienen su vista personal restringida.
+- Los externos no tienen acceso propio a la app. El reportante ve estos eventos en Mis reportes; no se agregan a su historial como involucrado por haberlos informado.
+- Ranking agrega `rankings_externos` con la misma separación seguro/inseguro: `{externo_id,nombre,empresa,cantidad,posicion}`. Los rankings de empleados no cambian. Los totales incluyen eventos que solo tienen externos.
+- Panel: Personas externas permite crear, editar y desactivar con auditoría; cada persona tiene enlace a su historial (`externo_id`). Desactivar conserva el historial; editar la ficha no reescribe nombres guardados en eventos anteriores.
+- Excel v2 agrega Tipo persona (`empleado`, `externo`, `mixto`, `pendiente`), IDs externos existentes, Nombre externo y Empresa externa. Para varios externos existentes se separan sus IDs con `;`; un externo nuevo necesita nombre y ningún legajo.
+- Los nombres históricos sin coincidencia quedan **pendientes de identificar**. No se convierten automáticamente en externos. La plantilla v1 sigue admitida como formato de empleados.
 
 ## Contrato Flutter / frontend web
 
@@ -71,6 +111,57 @@ Ranking: `{anio:2026,mes:9,rankings:{seguro:[{empleado_id:10,nombre:"Apellido No
 
 ## Pruebas
 
+### Dashboard administrativo
+
+Acceso: **Seguridad e Higiene → Dashboard de seguridad**, ruta `/seguridad-higiene/dashboard`.
+Vistas: Inseguros, Seguros, Indicadores y Resumen. Fechas por evento, filtros de sucursal,
+sector y puesto históricos. Los totales y gráficos usan eventos aprobados de la empresa
+autorizada; los indicadores de días sin accidentes consideran pendientes y aprobados.
+Los totales y categorías cuentan eventos únicos; los puestos cuentan
+participaciones de empleados. Un mismo evento puede incluir varias personas.
+Los rankings de empleados y externos permanecen separados. Los externos no tienen
+alcance organizativo propio. El CSV respeta el período, estado, tipo y filtros de la vista.
+Las cuatro vistas incluyen detalle paginado y acceso a reportes/fotos, impresión y PDF
+mediante el navegador. El resumen completa con cero los meses sin reportes aprobados.
+
+Ejecutar `scripts/migrate_20261005_02_seguridad_dashboard.py` antes de desplegar el código
+en una base nueva. La migración es aditiva e idempotente; no establece fechas por defecto.
+En Indicadores, usuarios con permiso de edición pueden guardar el inicio del registro
+completo de accidentes para su empresa. Queda auditado. Sin esa fecha se calcula la racha
+actual si existe un accidente pendiente o aprobado; el récord requiere inicio confiable.
+Se calculan hasta «Hasta», independientemente de «Desde», y con el alcance organizativo
+seleccionado. Los accidentes pendientes o aprobados reinician la racha; rechazados y anulados
+quedan excluidos. El récord excluye los días
+con accidentes; el primer tramo sin accidentes y la racha actual cuentan días transcurridos.
+Los años eliminados o datos faltantes no se interpretan como ausencia de accidentes.
+
+Pruebas: `tests/test_seguridad_dashboard.py` cubre conteos sin duplicación, participaciones,
+alcance por empresa/sucursal, meses vacíos, estados, fechas, rachas y permisos de configuración.
+
+### Historial con legajos y equivalencias
+
+El importador admite respuestas de Google Forms enriquecidas con `Legajo (informado)`,
+`Legajo (infractor)` y `Legajo (observado)`, junto con la hoja `Equivalencias`
+(`Nombre como fue escrito`, `Legajo`, `Empleado según lista`, `Estado`, `Nota`).
+Se prioriza la persona informada; los campos de rama se usan cuando esa persona está vacía.
+El legajo de quien notifica nunca se utiliza como persona involucrada.
+`OK` permite vincular un legajo existente de la empresa; `REVISAR` y `SIN IDENTIFICAR`
+quedan pendientes incluso si tienen un legajo sugerido. Las contradicciones también
+requieren corrección. No se crean empleados desde este archivo.
+`EXTERNO` crea una persona con nombre y empresa opcional. Las equivalencias con el
+mismo nombre de destino comparten una identidad externa dentro del lote; no se
+fusionan automáticamente con homónimos del registro existente. El original Excel
+y sus filas se conservan; los eventos completos ingresan pendientes de aprobación.
+
 `SH_TEST_DB_PORT` y `SH_TEST_DB_PASSWORD` habilitan MariaDB local aislado, sin credenciales `.env`. `python -m pytest tests/test_seguridad.py -q` crea una base temporal por prueba: migración repetible, concurrencia, rollback, empresa/sucursal, privacidad, revisión, ranking, importación y panel.
 
 Flutter: pruebas específicas de API, formulario y acceso; análisis estático y compilación web.
+
+## Dashboard mobile — API 1.33.0
+
+Resumen propio, comparativos anuales, indicadores de empresa/sucursal/empleado y rankings: [contrato completo para web y Flutter](seguridad_mobile_dashboard.md).
+
+
+## Días sin accidentes por sucursal — 1.33.1
+
+Desde el 06/10/2026 el indicador toma la fecha del último accidente pendiente o aprobado de cada sucursal histórica. Excluye rechazados y anulados. No necesita inicio configurado si existe accidente. Sin accidentes usa el inicio confiable, y sin ambos muestra sin datos. El récord histórico sigue requiriendo inicio confiable. El dashboard agrega una tabla por sucursal y la API móvil mantiene el alcance de la sucursal del empleado autenticado.

@@ -1,10 +1,10 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.31.0
+  version: 1.33.1
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
-    Version 1.31.0: Seguridad e Higiene; guia en docs/seguridad_higiene.md. Rutas anteriores compatibles.
+    Version 1.33.1: resumen propio, indicadores y rankings de Seguridad e Higiene; guia en docs/seguridad_mobile_dashboard.md. Rutas anteriores compatibles.
     Los endpoints de API (excepto POST /auth/login y GET /version) requieren header `Authorization: Bearer <token>`.
     Las rutas de foto de perfil por DNI son publicas.
     Los modulos complementarios Feedback (`/api/v1/feedback`) y SKAP (`/api/skap`)
@@ -30,6 +30,136 @@ components:
       bearerFormat: JWT
 
   schemas:
+    SeguridadRankingPersona:
+      type: object
+      required: [empleado_id, nombre, legajo, cantidad, posicion]
+      properties:
+        empleado_id: {type: integer}
+        nombre: {type: string}
+        legajo: {type: string}
+        cantidad: {type: integer, minimum: 1}
+        posicion: {type: integer, minimum: 1}
+    SeguridadRankingPropio:
+      type: object
+      nullable: true
+      required: [empleado_id, nombre, legajo, cantidad, posicion]
+      properties:
+        empleado_id: {type: integer}
+        nombre: {type: string}
+        legajo: {type: string}
+        cantidad: {type: integer, minimum: 1}
+        posicion: {type: integer, minimum: 1}
+    SeguridadRankingExterno:
+      type: object
+      required: [externo_id, nombre, empresa, cantidad, posicion]
+      properties:
+        externo_id: {type: integer}
+        nombre: {type: string}
+        empresa: {type: string}
+        cantidad: {type: integer, minimum: 1}
+        posicion: {type: integer, minimum: 1}
+    SeguridadRanking:
+      type: object
+      required: [anio, mes, alcance, sucursal_id, rankings, rankings_externos, eventos, mi_posicion]
+      properties:
+        anio: {type: integer}
+        mes: {type: integer, nullable: true}
+        alcance: {type: string, enum: [empresa, sucursal]}
+        sucursal_id: {type: integer, nullable: true}
+        rankings:
+          type: object
+          required: [seguro, inseguro]
+          properties:
+            seguro: {type: array, items: {$ref: '#/components/schemas/SeguridadRankingPersona'}}
+            inseguro: {type: array, items: {$ref: '#/components/schemas/SeguridadRankingPersona'}}
+        rankings_externos:
+          type: object
+          required: [seguro, inseguro]
+          properties:
+            seguro: {type: array, items: {$ref: '#/components/schemas/SeguridadRankingExterno'}}
+            inseguro: {type: array, items: {$ref: '#/components/schemas/SeguridadRankingExterno'}}
+        eventos:
+          type: array
+          items:
+            type: object
+            required: [tipo, cantidad]
+            properties:
+              tipo: {type: string, enum: [seguro, inseguro]}
+              cantidad: {type: integer, minimum: 0}
+        mi_posicion:
+          type: object
+          required: [seguro, inseguro]
+          properties:
+            seguro: {$ref: '#/components/schemas/SeguridadRankingPropio'}
+            inseguro: {$ref: '#/components/schemas/SeguridadRankingPropio'}
+    SeguridadConteos:
+      type: object
+      required: [seguro, inseguro, accidente, incidente]
+      properties:
+        seguro: {type: integer, minimum: 0}
+        inseguro: {type: integer, minimum: 0}
+        accidente: {type: integer, minimum: 0}
+        incidente: {type: integer, minimum: 0}
+    SeguridadMeses:
+      type: array
+      minItems: 12
+      maxItems: 12
+      description: Enero a diciembre; cero sin reportes aprobados, null mes futuro. Mes actual parcial.
+      items: {type: integer, minimum: 0, nullable: true}
+    SeguridadSerieAnual:
+      type: object
+      required: [anio, valores]
+      properties:
+        anio: {type: integer}
+        valores: {$ref: '#/components/schemas/SeguridadMeses'}
+    SeguridadIndicador:
+      type: object
+      required: [disponible, motivo, inicio, dias_sin_accidentes, record_dias_sin_accidentes, ultimo_accidente, accidentes_registrados]
+      properties:
+        disponible: {type: boolean}
+        motivo: {type: string, nullable: true, enum: [sin_inicio_configurado, sin_sucursal, corte_anterior_al_inicio, null]}
+        inicio: {type: string, format: date, nullable: true}
+        dias_sin_accidentes: {type: integer, minimum: 0, nullable: true}
+        record_dias_sin_accidentes: {type: integer, minimum: 0, nullable: true}
+        ultimo_accidente: {type: string, format: date, nullable: true}
+        accidentes_registrados: {type: integer, minimum: 0, nullable: true}
+    SeguridadIndicadores:
+      type: object
+      required: [hasta, sucursal_id, alcances, criterio]
+      properties:
+        hasta: {type: string, format: date}
+        sucursal_id: {type: integer, nullable: true}
+        criterio: {type: string}
+        alcances:
+          type: object
+          required: [empresa, sucursal, propio]
+          properties:
+            empresa: {$ref: '#/components/schemas/SeguridadIndicador'}
+            sucursal: {$ref: '#/components/schemas/SeguridadIndicador'}
+            propio: {$ref: '#/components/schemas/SeguridadIndicador'}
+    SeguridadResumen:
+      type: object
+      required: [anio, mes, fecha_corte, estado, total, por_tipo, meses, comparativo_anual, series_mensuales, indicadores, actualizado_at]
+      properties:
+        anio: {type: integer}
+        mes: {type: integer, nullable: true, minimum: 1, maximum: 12}
+        fecha_corte: {type: string, format: date}
+        estado: {type: string, enum: [aprobado]}
+        total: {type: integer, minimum: 0}
+        por_tipo: {$ref: '#/components/schemas/SeguridadConteos'}
+        meses: {type: array, minItems: 12, maxItems: 12, items: {type: integer, minimum: 1, maximum: 12}}
+        comparativo_anual:
+          type: object
+          required: [seguro, inseguro, accidente, incidente]
+          additionalProperties:
+            type: array
+            items: {$ref: '#/components/schemas/SeguridadSerieAnual'}
+        series_mensuales:
+          type: object
+          required: [seguro, inseguro, accidente, incidente]
+          additionalProperties: {$ref: '#/components/schemas/SeguridadMeses'}
+        indicadores: {$ref: '#/components/schemas/SeguridadIndicadores'}
+        actualizado_at: {type: string, format: date-time}
     AppVersionResponse:
       type: object
       properties:
@@ -3399,7 +3529,7 @@ paths:
       summary: Catálogos activos y personas elegibles de la sucursal
       responses:
         '200':
-          description: Tipos, empleados, catalogos, fecha_actual, max_fotos y max_foto_bytes; ver seguridad_higiene.md.
+          description: 'Tipos, empleados, externos [{id, nombre, empresa, activo}], catalogos, fecha_actual, max_fotos y max_foto_bytes; agrega dashboard {version_contrato, historial_propio, indicadores, ranking_alcances, sucursal_id}. Ver seguridad_mobile_dashboard.md.'
         '401':
           description: Sesión inválida
   /seguridad/eventos:
@@ -3429,12 +3559,34 @@ paths:
           application/json:
             schema: &SeguridadAlta
               type: object
-              required: [envio_id, tipo, fecha_evento, involucrados, descripcion]
+              required: [envio_id, tipo, fecha_evento, descripcion]
+              description: Entre 1 y 100 personas sumando involucrados y externos. Empleados de la sucursal del reportante; externos de la misma empresa.
+              anyOf:
+                - required: [involucrados]
+                  properties:
+                    involucrados: {minItems: 1}
+                - required: [externos]
+                  properties:
+                    externos: {minItems: 1}
               properties:
                 envio_id: {type: string, format: uuid}
                 tipo: {type: string, enum: [seguro, inseguro, incidente, accidente]}
                 fecha_evento: {type: string, format: date}
-                involucrados: {type: array, minItems: 1, maxItems: 100, items: {type: integer}}
+                involucrados: {type: array, minItems: 0, maxItems: 100, items: {type: integer}}
+                externos:
+                  type: array
+                  maxItems: 100
+                  items:
+                    oneOf:
+                      - type: object
+                        required: [id]
+                        properties:
+                          id: {type: integer, minimum: 1, description: ID de un externo activo de config.externos}
+                      - type: object
+                        required: [nombre]
+                        properties:
+                          nombre: {type: string, minLength: 1, maxLength: 180}
+                          empresa: {type: string, maxLength: 180, description: Empresa o procedencia opcional}
                 categoria_id: {type: integer, description: Obligatorio en seguro e inseguro}
                 descripcion: {type: string, maxLength: 8000}
                 advertido: {type: string, enum: ['si', 'no'], description: Obligatorio en inseguro}
@@ -3447,12 +3599,13 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [envio_id, tipo, fecha_evento, involucrados, descripcion]
+              required: [envio_id, tipo, fecha_evento, descripcion]
               properties:
                 envio_id: {type: string, format: uuid}
                 tipo: {type: string, enum: [seguro, inseguro, incidente, accidente]}
                 fecha_evento: {type: string, format: date}
                 involucrados: {type: string, description: 'Array JSON serializado, ej. [10,11]'}
+                externos: {type: string, description: 'Array JSON serializado: [{"nombre":"Visitante","empresa":""}] o [{"id":7}]. Nombre obligatorio para nuevos; empresa opcional. Entre 1 y 100 personas sumando empleados y externos.'}
                 categoria_id: {type: integer}
                 descripcion: {type: string, maxLength: 8000}
                 advertido: {type: string, enum: ['si', 'no']}
@@ -3504,15 +3657,51 @@ paths:
               schema: {type: string, format: binary}
         '401': {description: Sesión inválida}
         '404': {description: Inexistente o no autorizado}
+  /seguridad/resumen:
+    get:
+      tags: [SeguridadHigiene]
+      summary: Resumen del empleado autenticado por tipo, series e indicadores
+      description: Solo eventos propios aprobados. Comparativo anual de todo su historial hasta hoy; mes filtra tarjetas, no series. Sin IDs seleccionables de otros empleados.
+      parameters:
+        - {in: query, name: anio, schema: {type: integer, minimum: 2000}, description: Año actual por defecto; no puede ser futuro}
+        - {in: query, name: mes, schema: {type: integer, minimum: 1, maximum: 12}, description: Omitir para año completo}
+      responses:
+        '200':
+          description: Resumen propio; indicadores con corte a hoy
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SeguridadResumen'}
+        '400': {description: Año o mes inválido}
+        '401': {description: Sesión inválida o empleado inactivo}
+  /seguridad/indicadores:
+    get:
+      tags: [SeguridadHigiene]
+      summary: Días sin accidentes de empresa, sucursal actual y propio empleado
+      description: Agregados sin nombres ni detalles de compañeros. Días desde el último accidente pendiente o aprobado, por fecha del evento y alcance. No requiere inicio configurado si hay accidente. Sin accidente usa inicio confiable; sin ambos devuelve null. El récord requiere inicio confiable. La sucursal proviene del empleado autenticado.
+      parameters:
+        - {in: query, name: hasta, schema: {type: string, format: date}, description: Hoy por defecto; desde 2000 y no futura}
+      responses:
+        '200':
+          description: Indicadores y disponibilidad por alcance
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SeguridadIndicadores'}
+        '400': {description: Corte inválido}
+        '401': {description: Sesión inválida o empleado inactivo}
   /seguridad/ranking:
     get:
       tags: [SeguridadHigiene]
       summary: Rankings seguro e inseguro separados de la empresa; fecha del evento
       parameters:
+        - {in: query, name: alcance, schema: {type: string, enum: [empresa, sucursal], default: empresa}, description: Sucursal actual del empleado; 400 si no tiene asignada}
         - {in: query, name: anio, schema: {type: integer, minimum: 2000, maximum: 2100}}
         - {in: query, name: mes, schema: {type: integer, minimum: 1, maximum: 12}, description: Omitir para año completo}
       responses:
-        '200': {description: 'anio, mes, rankings (seguro/inseguro con empleado_id, nombre, legajo, cantidad, posicion) y eventos distintos por tipo'}
+        '200':
+          description: Rankings separados y posicion propia; externos vacios en alcance sucursal
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SeguridadRanking'}
         '400': {description: Período inválido}
         '401': {description: Sesión inválida}
   /cargas/config:

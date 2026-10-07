@@ -1,7 +1,6 @@
 from functools import wraps
 from flask import request, session, redirect, url_for, abort, g, has_request_context
 
-from repositories.roles_repository import has_any_role
 from repositories.usuarios_app_repository import get_by_id as get_web_user_by_id
 from repositories.web_permission_repository import get_user_permissions
 from services.web_permissions_service import PERMISSION_ACTIONS, role_default_module_codes
@@ -37,7 +36,9 @@ def has_role(user_id, role):
         user_role = str(user.get("rol") or "").strip().lower()
         expected = str(role or "").strip().lower()
         return user_role == "admin" or (bool(expected) and user_role == expected)
-    return has_any_role(user_id, [role])
+    # Panel users and employees have independent IDs. Never resolve a missing
+    # panel account against employee roles with the same numeric ID.
+    return False
 
 
 def _cached_web_user(user_id):
@@ -45,11 +46,14 @@ def _cached_web_user(user_id):
         return None
     user_id = int(user_id)
     if has_request_context():
-        cached = getattr(g, "_current_web_user", None)
-        if cached and int(cached.get("id") or 0) == user_id:
-            return cached
+        cache = getattr(g, '_web_users_by_id', None)
+        if cache is None:
+            cache = g._web_users_by_id = {}
+        if user_id in cache:
+            return cache[user_id]
     user = get_web_user_by_id(user_id)
     if has_request_context():
+        cache[user_id] = user
         g._current_web_user = user
     return user
 

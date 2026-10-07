@@ -1,7 +1,9 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.31.0
-Fecha de corte: 2026-10-02
+Version de contrato: 1.33.1
+
+- Dashboard mobile de Seguridad e Higiene: resumen propio por tipo, comparativos anuales, días sin accidentes por empresa/sucursal/empleado y rankings con posición propia. Ver [contrato 1.33.1](seguridad_mobile_dashboard.md).
+Fecha de corte: 2026-10-06
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`
 Prefijo principal: `/api/v1/mobile`
@@ -11,6 +13,8 @@ Este documento fija el contrato compartido para frontend web de empleados, Flutt
 Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `routes/skap_routes.py`, `routes/carga_routes.py`.
 
 ## Resumen rapido
+
+- Seguridad e Higiene admite personas externas: solo `nombre` obligatorio para una persona nueva; `empresa` opcional. Enviar `externos: [{"nombre":"Visitante"}]` o `externos: [{"id":7}]`, junto a `involucrados: []` si no hay empleados. Configuración, detalle y rankings agregan externos. Ver [contrato y ejemplos](seguridad_higiene.md#personas-externas-api-1320).
 
 - Nuevo módulo **Seguridad e Higiene**: `/api/v1/mobile/seguridad`. Contrato, permisos, importación y Flutter en [seguridad_higiene.md](seguridad_higiene.md). Extensión aditiva sin cambios a rutas anteriores.
 

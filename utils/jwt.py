@@ -67,7 +67,7 @@ def verificar_token(token: str):
     secret = _get_secret()
 
     try:
-        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        payload = jwt.decode(token, secret, algorithms=["HS256"], options={"require": ["exp"]})
         return payload
     except jwt.ExpiredSignatureError as exc:
         raise TokenValidationError("Token expirado", "token_expired") from exc

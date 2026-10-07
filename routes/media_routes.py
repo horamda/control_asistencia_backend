@@ -4,13 +4,37 @@ from flask import Blueprint, Response, abort, request, send_file, session
 
 from repositories.feedback_repository import get_by_id as get_feedback_by_id
 from repositories.legajo_adjunto_repository import get_adjunto_by_id, get_adjunto_data_by_id
-from repositories.roles_repository import has_any_role
+from web.auth.decorators import _cached_web_user, can_access_module
 from services.feedback_service import resolve_feedback_evidencia_path
 from services.legajo_attachment_service import resolve_legajo_storage_path
 from services.profile_photo_service import get_profile_photo_bytes_by_dni
 
 media_bp = Blueprint("media", __name__, url_prefix="/media")
 public_media_bp = Blueprint("public_media", __name__)
+
+
+def _media_user(module):
+    user_id = session.get('user_id')
+    if not user_id or not can_access_module(user_id, module, 'ver'):
+        abort(403)
+    user = _cached_web_user(user_id)
+    if not user or not user.get('activo'):
+        abort(403)
+    return user
+
+
+def _check_company(user, company):
+    if not company:
+        abort(404)
+    if str(user.get('rol') or '').strip().lower() != 'admin' and str(company) != str(user.get('empresa_id')):
+        abort(404)
+
+
+@media_bp.after_request
+def private_documents(response):
+    if request.endpoint in ('media.legajo_adjunto', 'media.feedback_evidencia'):
+        response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 def _sanitize_dni(raw: str):
@@ -63,14 +87,14 @@ def empleado_imagen(dni):
 
 @media_bp.route("/legajos/adjunto/<int:adjunto_id>", methods=["GET"])
 def legajo_adjunto(adjunto_id):
-    user_id = session.get("user_id")
-    if not user_id:
-        abort(403)
-    if not has_any_role(user_id, ["admin", "rrhh", "supervisor"]):
-        abort(403)
+    user = _media_user('legajos')
 
     row = get_adjunto_by_id(adjunto_id)
     if not row:
+        abort(404)
+    _check_company(user, row.get('empresa_id'))
+    _check_company(user, row.get('evento_empresa_id'))
+    if row.get('empresa_id') != row.get('evento_empresa_id'):
         abort(404)
     if str(row.get("estado") or "").lower() != "activo":
         abort(404)
@@ -109,15 +133,12 @@ def legajo_adjunto(adjunto_id):
 
 @media_bp.route("/feedback/evidencias/<int:feedback_id>", methods=["GET"])
 def feedback_evidencia(feedback_id):
-    user_id = session.get("user_id")
-    if not user_id:
-        abort(403)
-    if not has_any_role(user_id, ["admin", "rrhh", "supervisor"]):
-        abort(403)
+    user = _media_user('feedback')
 
     row = get_feedback_by_id(feedback_id)
     if not row or not row.get("evidencia_path"):
         abort(404)
+    _check_company(user, row.get('empresa_id'))
     try:
         path = resolve_feedback_evidencia_path(row.get("evidencia_path"))
     except RuntimeError:

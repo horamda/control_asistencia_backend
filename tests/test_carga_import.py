@@ -55,7 +55,7 @@ def database(monkeypatch):
             return self.cursor.lastrowid
 
     @contextmanager
-    def transaction():
+    def transaction(*,read_only=False):
         c = Cursor()
         try:
             yield c

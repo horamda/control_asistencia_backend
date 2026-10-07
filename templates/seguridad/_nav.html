@@ -1,6 +1,10 @@
-<div class="actions">
+<nav class="actions sh-module-nav" aria-label="Seguridad e Higiene">
+<a class="btn btn-secondary" href="{{ url_for('seguridad_web.dashboard',empresa_id=empresa_id) }}">Dashboard</a>
 <a class="btn btn-secondary" href="{{ url_for('seguridad_web.index',empresa_id=empresa_id) }}">Reportes</a>
 {% if can_web('seguridad_higiene','crear') %}<a class="btn" href="{{ url_for('seguridad_web.create',empresa_id=empresa_id) }}">Nuevo reporte</a><a class="btn btn-secondary" href="{{ url_for('seguridad_web.imports',empresa_id=empresa_id) }}">Importar histórico</a>{% endif %}
 <a class="btn btn-secondary" href="{{ url_for('seguridad_web.catalogs',empresa_id=empresa_id) }}">Catálogos</a>
+<a class="btn btn-secondary" href="{{ url_for('seguridad_web.external_people',empresa_id=empresa_id) }}">Personas externas</a>
 <a class="btn btn-secondary" href="{{ url_for('seguridad_web.ranking',empresa_id=empresa_id) }}">Estadísticas y rankings</a>
-</div>
+</nav>
+
+<script defer src="{{ url_for('static',filename='js/seguridad-ui.js') }}"></script>

@@ -1,6 +1,22 @@
 {% extends 'base.html' %}{% block title %}Importar histórico de seguridad{% endblock %}{% block content %}<div class="content-stack"><h2>Importar histórico de Seguridad e Higiene</h2>{% include 'seguridad/_nav.html' %}<p>Se conserva el archivo original y cada respuesta. Las filas incompletas quedan pendientes; los eventos creados requieren aprobación. No se descargan automáticamente las fotos privadas de Google Drive: se conservan sus enlaces originales y puede adjuntarlas al resolver cada fila.</p>
-{% if not batch %}<form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="empresa_id" value="{{ empresa_id }}"><label>Excel original de respuestas (máximo 10 MB)<input type="file" name="archivo" accept=".xlsx" required></label><button>Preparar importación y revisar</button></form>{% for r in rows %}<p><a href="{{ url_for('seguridad_web.batch',batch_id=r.id,empresa_id=empresa_id) }}">{{ r.nombre }} — {{ r.creado_at }}</a></p>{% endfor %}
-{% else %}<h3>{{ batch.nombre }}</h3><p>{{ batch.totales.total }} filas conservadas · {{ batch.totales.resueltas or 0 }} convertidas en eventos.</p>{% if can_web('seguridad_higiene','exportar') %}<a href="{{ url_for('seguridad_web.original',batch_id=batch.id,empresa_id=empresa_id) }}">Descargar original intacto</a>{% endif %}
+{% if not batch %}
+<section class="card">
+<h3>1. Preparar el Excel</h3>
+<p>Descargue la plantilla con los legajos y categorías de la empresa. Complete la hoja <strong>Carga</strong>: use una fila por evento, conserve el ID y separe varios legajos con punto y coma.</p>
+<a class="btn btn-secondary" href="{{ url_for('seguridad_web.import_template',empresa_id=empresa_id) }}">Descargar plantilla Excel</a>
+<p>Para corregir un histórico existente, abra su lote y elija <strong>Descargar Excel para corregir</strong>.</p>
+</section>
+{% if validation_errors %}
+<div class="errors" role="alert"><strong>No se guardó la plantilla.</strong> Corrija las filas indicadas y vuelva a subir el archivo. Los eventos existentes no se modificaron.</div>
+<div class="table-responsive"><table><thead><tr><th>Hoja</th><th>Fila Excel</th><th>Campos a corregir</th></tr></thead><tbody>
+{% for issue in validation_errors %}<tr><td>{{ issue.hoja }}</td><td>{{ issue.fila }}</td><td>{{ issue.errores|join(' · ') }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+<h3>2. Subir y validar</h3>
+<p>La plantilla se valida completa antes de guardar. El Excel original de Google Forms sigue admitido y conserva las filas incompletas para revisión.</p>
+<form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="empresa_id" value="{{ empresa_id }}"><label>Plantilla completada o Excel original de respuestas (máximo 10 MB)<input type="file" name="archivo" accept=".xlsx" required></label><button>Preparar importación y revisar</button></form>{% for r in rows %}<p><a href="{{ url_for('seguridad_web.batch',batch_id=r.id,empresa_id=empresa_id) }}">{{ r.nombre }} — {{ r.creado_at }}</a></p>{% endfor %}
+{% else %}<h3>{{ batch.nombre }}</h3><p>{{ batch.totales.total }} filas conservadas · {{ batch.totales.resueltas or 0 }} convertidas en eventos.</p>{% if can_web('seguridad_higiene','exportar') %}<a href="{{ url_for('seguridad_web.original',batch_id=batch.id,empresa_id=empresa_id) }}">Descargar original intacto</a>
+<a class="btn btn-secondary" href="{{ url_for('seguridad_web.import_correctable',batch_id=batch.id,empresa_id=empresa_id) }}">Descargar Excel para corregir</a>{% endif %}
 <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="empresa_id" value="{{ empresa_id }}"><button>Revalidar y crear las filas completas como pendientes</button></form>
 <div class="table-responsive"><table><thead><tr><th>Hoja / fila</th><th>Persona original</th><th>Tipo propuesto</th><th>Revisión inicial</th><th>Acción</th></tr></thead><tbody>{% for r in batch.filas %}<tr><td>{{ r.hoja }} / {{ r.fila }}</td><td>{{ r.propuesta.persona_original or 'Sin identificar' }}</td><td>{{ r.propuesta.tipo or 'A definir' }}</td><td>{{ r.errores|join(' · ') or 'Lista para revalidar' }}</td><td>{% if r.evento_id %}<a href="{{ url_for('seguridad_web.detail',event_id=r.evento_id,empresa_id=empresa_id) }}">Evento #{{ r.evento_id }}</a>{% else %}<a href="{{ url_for('seguridad_web.create',import_row=r.id,empresa_id=empresa_id) }}">Resolver y vincular legajos</a>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
 {% if page>1 %}<a href="{{ url_for('seguridad_web.batch',batch_id=batch.id,empresa_id=empresa_id,page=page-1) }}">Anterior</a>{% endif %}{% if page*30<batch.totales.total %}<a href="{{ url_for('seguridad_web.batch',batch_id=batch.id,empresa_id=empresa_id,page=page+1) }}">Siguiente</a>{% endif %}{% endif %}</div>{% endblock %}

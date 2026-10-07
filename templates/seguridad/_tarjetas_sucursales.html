@@ -1,0 +1,24 @@
+<section aria-labelledby="sh-branch-title">
+  <div class="sh-heading">
+    <h3 id="sh-branch-title">Días sin accidentes por sucursal</h3>
+    <span class="sh-muted">Al {{ hasta.strftime('%d/%m/%Y') }}</span>
+  </div>
+  <div class="sh-kpis sh-branch-cards">
+    {% for branch in branch_streaks %}
+    <article class="sh-kpi sh-branch-card" aria-labelledby="sh-branch-{{ branch.id }}">
+      <h4 id="sh-branch-{{ branch.id }}">{{ branch.nombre or 'Sin nombre' }}</h4>
+      {% if branch.actual is not none %}
+      <strong>{{ branch.actual }}</strong>
+      <span>{{ 'día sin accidentes' if branch.actual == 1 else 'días sin accidentes' }}</span>
+      {% else %}
+      <strong aria-label="Sin datos">—</strong>
+      <span>Sin datos para calcular</span>
+      {% endif %}
+      <small>{% if branch.ultimo %}Último accidente: {{ branch.ultimo.strftime('%d/%m/%Y') }}{% elif branch.actual is not none %}Desde el inicio del registro confiable{% else %}Sin accidente ni inicio de registro informado{% endif %}</small>
+    </article>
+    {% else %}
+    <p class="sh-empty">Sin sucursales registradas en este alcance.</p>
+    {% endfor %}
+  </div>
+  <p class="sh-muted">Considera accidentes pendientes o aprobados. Respeta los filtros de sucursal, sector y puesto; el filtro «Desde» no reinicia el contador.</p>
+</section>

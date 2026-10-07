@@ -247,6 +247,40 @@ a:hover {
   transform: rotate(-135deg);
 }
 
+.nav-group-safety > .nav-group-toggle {
+  min-height: 44px;
+  padding: 10px 8px;
+  background: rgba(29, 131, 173, 0.2);
+  border: 1px solid rgba(113, 205, 239, 0.35);
+  text-align: left;
+}
+
+.nav-group-safety > .nav-group-toggle .nav-label,
+.nav-group-safety > .nav-group-toggle .nav-icon {
+  color: #e5f5ff;
+}
+
+.nav-group-safety > .nav-group-toggle .nav-label {
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.nav-group-safety > .nav-group-toggle .nav-caret {
+  flex-shrink: 0;
+  border-color: #b8e4f5;
+}
+
+.nav-group-safety > .nav-group-toggle:hover,
+.nav-group-safety.open > .nav-group-toggle {
+  background: rgba(29, 131, 173, 0.38);
+  border-color: #71cdef;
+}
+
+.nav-group-safety > .nav-group-toggle:focus-visible {
+  outline: 2px solid #71cdef;
+  outline-offset: 3px;
+}
+
 .nav-link {
   display: block;
   color: #dce6f4;
