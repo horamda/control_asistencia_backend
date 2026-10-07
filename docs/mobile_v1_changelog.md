@@ -1,3 +1,7 @@
+## 1.33.2 — 2026-10-06
+
+- Informes, rankings, filtros y exportaciones de Seguridad e Higiene usan nombre, legajo, puesto, sector y sucursal actuales de empleados de FichaYa, vinculados por ID y empresa. Los indicadores de accidentes por sucursal usan también la asignación actual. El detalle original del evento conserva su snapshot. No se excluyen empleados inactivos con participaciones. Externos separados.
+
 ## 1.33.1 — 2026-10-06
 
 - Indicadores de días sin accidentes: último accidente pendiente o aprobado por alcance/sucursal histórica, sin exigir inicio configurado si existe un accidente. Excluye rechazados y anulados; el récord requiere cobertura confiable. No cambia los totales ni rankings de aprobados.

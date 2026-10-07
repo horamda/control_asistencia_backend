@@ -11,6 +11,16 @@ Error = CargaError
 TIPOS = {'seguro': 'Comportamiento seguro', 'inseguro': 'Comportamiento inseguro',
          'incidente': 'Incidente sin lesión', 'accidente': 'Accidente'}
 CLASES = ('categoria', 'lugar', 'clasificacion', 'atencion', 'lesion', 'parte_cuerpo')
+CURRENT_PARTICIPANTS = """(SELECT p.evento_id,p.empleado_id,
+    TRIM(CONCAT_WS(' ',m.apellido,m.nombre)) nombre,COALESCE(m.legajo,'') legajo,
+    m.sucursal_id,b.nombre sucursal_nombre,m.sector_id,sec.nombre sector_nombre,
+    m.puesto_id,j.nombre puesto_nombre
+    FROM sh_involucrados p
+    JOIN sh_eventos source_event ON source_event.id=p.evento_id
+    JOIN empleados m ON m.id=p.empleado_id AND m.empresa_id=source_event.empresa_id
+    LEFT JOIN sucursales b ON b.id=m.sucursal_id
+    LEFT JOIN sectores sec ON sec.id=m.sector_id
+    LEFT JOIN puestos j ON j.id=m.puesto_id)"""
 DETALLES = ('advertido', 'lugar', 'clasificacion', 'atencion', 'lesion', 'parte_cuerpo')
 
 
@@ -212,8 +222,8 @@ def filters_clause(filters):
     query=str(filters.get('q') or '').strip()[:180]
     if query:
         pattern='%'+query+'%'
-        where.append('''(e.descripcion LIKE %s OR e.categoria_nombre LIKE %s
-            OR EXISTS(SELECT 1 FROM sh_involucrados i WHERE i.evento_id=e.id AND (i.nombre LIKE %s OR i.legajo LIKE %s))
+        where.append(f'''(e.descripcion LIKE %s OR e.categoria_nombre LIKE %s
+            OR EXISTS(SELECT 1 FROM {CURRENT_PARTICIPANTS} i WHERE i.evento_id=e.id AND (i.nombre LIKE %s OR i.legajo LIKE %s))
             OR EXISTS(SELECT 1 FROM sh_evento_externos x WHERE x.evento_id=e.id AND (x.nombre LIKE %s OR x.empresa LIKE %s)))''')
         args.extend([pattern]*6)
     for key in ('desde', 'hasta'):
@@ -230,7 +240,7 @@ def filters_clause(filters):
             participant_filters.append(f'i.{key}=%s')
             args.append(positive_int(filters[key], key))
     if participant_filters:
-        where.append('EXISTS(SELECT 1 FROM sh_involucrados i WHERE i.evento_id=e.id AND '+' AND '.join(participant_filters)+')')
+        where.append(f'EXISTS(SELECT 1 FROM {CURRENT_PARTICIPANTS} i WHERE i.evento_id=e.id AND '+' AND '.join(participant_filters)+')')
     if filters.get('externo_id'):
         where.append('EXISTS(SELECT 1 FROM sh_evento_externos x WHERE x.evento_id=e.id AND x.externo_id=%s)')
         args.append(positive_int(filters['externo_id'],'Persona externa'))
@@ -356,8 +366,8 @@ def rankings(empresa, anio, mes=None, filters=None):
         external_conditions.append('x.externo_id=%s'); external_args.append(positive_int(filters['externo_id'],'Persona externa'))
         conditions.append('1=0')
     with db.transaction(read_only=True) as c:
-        rows=db.all_rows(c,'''SELECT i.empleado_id,MAX(i.nombre) nombre,MAX(i.legajo) legajo,e.tipo,COUNT(*) cantidad
-            FROM sh_eventos e JOIN sh_involucrados i ON i.evento_id=e.id WHERE '''+' AND '.join(conditions)+
+        rows=db.all_rows(c,f'''SELECT i.empleado_id,MAX(i.nombre) nombre,MAX(i.legajo) legajo,e.tipo,COUNT(*) cantidad
+            FROM sh_eventos e JOIN {CURRENT_PARTICIPANTS} i ON i.evento_id=e.id WHERE '''+' AND '.join(conditions)+
             ' GROUP BY i.empleado_id,e.tipo ORDER BY cantidad DESC,nombre,i.empleado_id',tuple(args))
         external_rows=db.all_rows(c,'''SELECT x.externo_id,MAX(x.nombre) nombre,MAX(x.empresa) empresa,e.tipo,COUNT(*) cantidad
             FROM sh_eventos e JOIN sh_evento_externos x ON x.evento_id=e.id WHERE '''+' AND '.join(external_conditions)+

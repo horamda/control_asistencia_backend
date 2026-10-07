@@ -49,7 +49,7 @@ def build(empresa,filters):
     where="e.empresa_id=%s AND e.estado='aprobado'"
     args=[empresa]
     if org:
-        where+=' AND EXISTS(SELECT 1 FROM sh_involucrados p WHERE p.evento_id=e.id AND '+ ' AND '.join('p.'+k+'=%s' for k in org)+')'
+        where+=f' AND EXISTS(SELECT 1 FROM {s.CURRENT_PARTICIPANTS} p WHERE p.evento_id=e.id AND '+ ' AND '.join('p.'+k+'=%s' for k in org)+')'
         args+=list(org.values())
     period=where+' AND e.fecha_evento BETWEEN %s AND %s'
     params=tuple(args+[start,end])
@@ -72,17 +72,17 @@ def build(empresa,filters):
                 (empresa,*(e['id'] for e in items)))
             detail_by_id={e['id']:e for e in details}
             for event in items: event.update(detail_by_id.get(event['id'],{}))
-        people=s.db.all_rows(c,'''SELECT p.* FROM sh_involucrados p JOIN sh_eventos e ON e.id=p.evento_id WHERE '''+period,params)
+        people=s.db.all_rows(c,f'''SELECT p.* FROM {s.CURRENT_PARTICIPANTS} p JOIN sh_eventos e ON e.id=p.evento_id WHERE '''+period,params)
         externals=s.db.all_rows(c,'''SELECT p.* FROM sh_evento_externos p JOIN sh_eventos e ON e.id=p.evento_id WHERE '''+period,params)
-        options=s.db.all_rows(c,'''SELECT DISTINCT p.sucursal_id,p.sucursal_nombre,p.sector_id,p.sector_nombre,p.puesto_id,p.puesto_nombre
-            FROM sh_involucrados p JOIN sh_eventos e ON e.id=p.evento_id WHERE e.empresa_id=%s''',(empresa,))
+        options=s.db.all_rows(c,f'''SELECT DISTINCT p.sucursal_id,p.sucursal_nombre,p.sector_id,p.sector_nombre,p.puesto_id,p.puesto_nombre
+            FROM {s.CURRENT_PARTICIPANTS} p JOIN sh_eventos e ON e.id=p.evento_id WHERE e.empresa_id=%s''',(empresa,))
         cfg=s.db.one(c,'''SELECT
             (SELECT inicio FROM sh_dashboard_config WHERE empresa_id=%s) inicio,
             (SELECT COUNT(*) FROM sh_import_filas f JOIN sh_importaciones i ON i.id=f.importacion_id
                 WHERE i.empresa_id=%s AND f.evento_id IS NULL) unresolved''',(empresa,empresa))
         accident_where=where.replace("e.estado='aprobado'", "e.estado IN ('pendiente','aprobado')")
         participant_scope=(' AND '+' AND '.join('p.'+k+'=%s' for k in org)) if org else ''
-        accident_dates=s.db.all_rows(c,"SELECT DISTINCT e.fecha_evento,p.sucursal_id,p.sucursal_nombre FROM sh_eventos e LEFT JOIN sh_involucrados p ON p.evento_id=e.id WHERE "+accident_where+" AND e.tipo='accidente' AND e.fecha_evento<=%s"+participant_scope,
+        accident_dates=s.db.all_rows(c,f"SELECT DISTINCT e.fecha_evento,p.sucursal_id,p.sucursal_nombre FROM sh_eventos e LEFT JOIN {s.CURRENT_PARTICIPANTS} p ON p.evento_id=e.id WHERE "+accident_where+" AND e.tipo='accidente' AND e.fecha_evento<=%s"+participant_scope,
             tuple(args+[end]+list(org.values())))
         unresolved=cfg['unresolved']
     by_id={e['id']:e for e in events}

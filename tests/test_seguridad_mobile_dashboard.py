@@ -60,7 +60,7 @@ def test_auth_parameters_and_capabilities(client):
     for path in ('resumen?anio=2099','resumen?mes=13','indicadores?hasta=2099-01-01','ranking?alcance=otra'):
         assert client.get('/api/v1/mobile/seguridad/'+path,headers=HEADERS).status_code==400
     config=client.get('/api/v1/mobile/seguridad/config',headers=HEADERS).json
-    assert config['dashboard']['version_contrato']=='1.33.1'
+    assert config['dashboard']['version_contrato']=='1.33.2'
     assert config['dashboard']['ranking_alcances']==['empresa','sucursal']
 
 
@@ -85,3 +85,12 @@ def test_latest_pending_accident_by_branch_without_configuration(client):
     scoped=d.build(1,dict(hasta='2026-10-02',vista='indicadores',sucursal_id=1))
     assert scoped['streak']['actual']==57
     assert scoped['total']==0
+    with s.db.transaction() as c:
+        c.execute('UPDATE empleados SET sucursal_id=2 WHERE id IN (10,11)')
+    # Both web and mobile use current assignments, without changing old reports.
+    moved=mobile.indicators(employee(),'2026-10-02')
+    assert moved['sucursal_id']==2
+    assert moved['alcances']['sucursal']['dias_sin_accidentes']==31
+    empty=mobile.indicators(employee(13),'2026-10-02')
+    assert empty['alcances']['sucursal']['dias_sin_accidentes'] is None
+    assert d.build(1,dict(hasta='2026-10-02',vista='indicadores',sucursal_id=2))['streak']['actual']==31

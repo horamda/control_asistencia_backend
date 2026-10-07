@@ -471,17 +471,17 @@
       <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.daily_7d %}
         <div class="rrhh-legend">
-          <span><i class="legend-dot total"></i>Asistencias</span>
+          <span><i class="legend-dot total"></i>Registros totales</span>
           <span><i class="legend-dot warning"></i>Tardes</span>
           <span><i class="legend-dot danger"></i>Ausentes</span>
         </div>
-        <div class="trend-chart">
+        <p class="helper-text">Escala común: 0 a {{ charts.max_daily }} registros por día. Tardes y ausentes están incluidos en los registros totales; las series no se suman.</p><div class="trend-chart">
           {% for d in charts.daily_7d %}
             <div class="trend-day">
               <div class="trend-bars">
-                <span class="trend-bar total" style="height: {{ ((d.asistencias * 100) / charts.max_daily) | round(1) }}%"></span>
-                <span class="trend-bar warning" style="height: {{ ((d.tardes * 100) / charts.max_daily) | round(1) }}%"></span>
-                <span class="trend-bar danger" style="height: {{ ((d.ausentes * 100) / charts.max_daily) | round(1) }}%"></span>
+                <span class="trend-bar total" title="Registros totales: {{ d.asistencias }}" aria-label="Registros totales: {{ d.asistencias }}" style="height: {{ ((d.asistencias * 100) / (charts.max_daily or 1)) | round(1) }}%;min-height:0"></span>
+                <span class="trend-bar warning" title="Tardes: {{ d.tardes }}" aria-label="Tardes: {{ d.tardes }}" style="height: {{ ((d.tardes * 100) / (charts.max_daily or 1)) | round(1) }}%;min-height:0"></span>
+                <span class="trend-bar danger" title="Ausentes: {{ d.ausentes }}" aria-label="Ausentes: {{ d.ausentes }}" style="height: {{ ((d.ausentes * 100) / (charts.max_daily or 1)) | round(1) }}%;min-height:0"></span>
               </div>
               <div class="trend-label">{{ d.dia }}</div>
             </div>

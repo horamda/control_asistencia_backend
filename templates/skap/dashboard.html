@@ -110,7 +110,7 @@
 
     <div class="panel-grid" style="margin-top:1rem;">
       <article class="panel">
-        <h4 class="section-title">Destacados</h4>
+        <h4 class="section-title">Destacados</h4><p class="helper-text">Escala fija de las barras: 0 a 5 puntos.</p>
         {% if data.destacados %}
           {% set max_dest = data.destacados | map(attribute='promedio_general') | max %}
           <div class="mini-bars">
@@ -118,7 +118,7 @@
               <div class="mini-row">
                 <div class="mini-label">{{ row.apellido }}, {{ row.nombre }}</div>
                 <div class="mini-track">
-                  <span class="mini-fill ok" style="width: {{ ((row.promedio_general * 100) / (max_dest if max_dest > 0 else 1)) | round(1) }}%"></span>
+                  <span class="mini-fill ok" style="width: {{ ((row.promedio_general * 100) / 5) | round(1) }}%"></span>
                 </div>
                 <strong>{{ "%.2f"|format(row.promedio_general) }}</strong>
               </div>
@@ -150,12 +150,13 @@
         <h4 class="section-title">Criticos</h4>
         {% if data.criticos %}
           {% set max_crit = data.criticos | map(attribute='promedio_general') | max %}
+          <p class="helper-text">Escala fija de las barras: 0 a 5 puntos.</p>
           <div class="mini-bars">
             {% for row in data.criticos[:6] %}
               <div class="mini-row">
                 <div class="mini-label">{{ row.apellido }}, {{ row.nombre }}</div>
                 <div class="mini-track">
-                  <span class="mini-fill danger" style="width: {{ ((row.promedio_general * 100) / (max_crit if max_crit > 0 else 1)) | round(1) }}%"></span>
+                  <span class="mini-fill danger" style="width: {{ ((row.promedio_general * 100) / 5) | round(1) }}%"></span>
                 </div>
                 <strong>{{ "%.2f"|format(row.promedio_general) }}</strong>
               </div>
@@ -231,12 +232,13 @@
           <h4 class="section-title">Evolucion historica</h4>
           {% if data.historical_evolution %}
             {% set max_hist = data.historical_evolution | map(attribute='promedio_general') | max %}
+          <p class="helper-text">Escala fija de las barras: 0 a 5 puntos.</p>
             <div class="mini-bars">
               {% for row in data.historical_evolution %}
                 <div class="mini-row">
                   <div class="mini-label">{{ row.anio }}</div>
                   <div class="mini-track">
-                    <span class="mini-fill total" style="width: {{ ((row.promedio_general * 100) / (max_hist if max_hist > 0 else 1)) | round(1) }}%"></span>
+                    <span class="mini-fill total" style="width: {{ ((row.promedio_general * 100) / 5) | round(1) }}%"></span>
                   </div>
                   <strong>{{ "%.2f"|format(row.promedio_general) }}</strong>
                 </div>

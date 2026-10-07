@@ -23,9 +23,9 @@ def indicators(employee,hasta=None):
     with s.db.transaction(read_only=True) as c:
         config=s.db.one(c,'SELECT inicio FROM sh_dashboard_config WHERE empresa_id=%s',(company,))
         start=config['inicio'] if config else None
-        rows=s.db.all_rows(c,'''SELECT e.fecha_evento,
+        rows=s.db.all_rows(c,f'''SELECT e.fecha_evento,
             EXISTS(SELECT 1 FROM sh_involucrados i WHERE i.evento_id=e.id AND i.empleado_id=%s) propio,
-            EXISTS(SELECT 1 FROM sh_involucrados i WHERE i.evento_id=e.id AND i.sucursal_id=%s) sucursal
+            EXISTS(SELECT 1 FROM {s.CURRENT_PARTICIPANTS} i WHERE i.evento_id=e.id AND i.sucursal_id=%s) sucursal
             FROM sh_eventos e WHERE e.empresa_id=%s AND e.estado IN ('pendiente','aprobado') AND e.tipo='accidente'
             AND e.fecha_evento<=%s''',(eid,branch,company,cutoff))
     entry=employee.get('fecha_ingreso')
@@ -41,7 +41,7 @@ def indicators(employee,hasta=None):
         values=streaks(dates,baseline,cutoff) if not reason else dict(actual=None,record=None,ultimo=None)
         result[scope]=dict(disponible=reason is None,motivo=reason,inicio=baseline,dias_sin_accidentes=values['actual'],
             record_dias_sin_accidentes=values['record'],ultimo_accidente=values['ultimo'],accidentes_registrados=len(dates) if not reason else None)
-    return dict(hasta=cutoff,sucursal_id=branch,alcances=result,criterio='Último accidente por fecha del evento, pendiente o aprobado, de cada alcance; sucursal histórica de los involucrados. Rechazados y anulados excluidos. Sin accidentes se usa el inicio confiable, si existe; el récord requiere ese inicio.')
+    return dict(hasta=cutoff,sucursal_id=branch,alcances=result,criterio='Último accidente por fecha del evento, pendiente o aprobado, de cada alcance; sucursal actual de los involucrados en FichaYa. Rechazados y anulados excluidos. Sin accidentes se usa el inicio confiable, si existe; el récord requiere ese inicio.')
 
 
 def summary(employee,anio=None,mes=None):

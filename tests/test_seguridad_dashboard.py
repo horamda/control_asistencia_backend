@@ -108,3 +108,22 @@ def test_page_details_are_bounded_and_totals_keep_all_events(database,monkeypatc
     assert [r['id'] for r in result['items']]==list(reversed(ids[:2]))
     assert all('descripcion' in r and r['fotos']==0 and len(r['personas'])==2 for r in result['items'])
     assert reads==[2]
+
+
+def test_reports_follow_current_employee_master_without_rewriting_history(client):
+    eid=approved(involucrados=[10])
+    with s.db.transaction() as c:
+        c.execute("INSERT INTO puestos VALUES(2,'Operario')")
+        c.execute("UPDATE empleados SET puesto_id=2,sucursal_id=2,apellido='Actual',legajo='2300',activo=0 WHERE id=10")
+    filters=dict(desde='2026-09-01',hasta='2026-09-30',vista='seguro',puesto_id='2',sucursal_id='2')
+    result=dashboard.build(1,filters)
+    assert result['jobs']==[('Operario',1)] and result['total']==1
+    assert result['ranking'][0]['legajo']=='2300'
+    assert result['ranking'][0]['nombre']=='Actual Ana'
+    assert dashboard.build(1,{**filters,'puesto_id':'1'})['total']==0
+    assert s.history(1,filters)['total']==1
+    assert s.rankings(1,2026,filters=filters)['rankings']['seguro'][0]['legajo']=='2300'
+    csv=client.get('/seguridad-higiene/exportar',query_string=filters).get_data(as_text=True)
+    assert '2300' in csv and 'Operario' in csv and 'Actual Ana' in csv
+    original=s.detail(1,eid)['involucrados'][0]
+    assert original['puesto_nombre']=='Chofer' and original['legajo']=='0010'

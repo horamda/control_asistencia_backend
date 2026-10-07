@@ -1,4 +1,6 @@
-> Actualización 1.33.1: días sin accidentes toma el último accidente pendiente o aprobado del alcance (empresa, sucursal histórica o propio), por fecha del evento hasta el corte. Excluye rechazados y anulados. No requiere inicio configurado cuando existe accidente. Sin accidente se usa el inicio confiable; si tampoco existe, se devuelve null. El récord requiere inicio configurado. Los totales, historial propio y rankings conservan el criterio de aprobados. `inicio` puede ser null aunque `disponible` sea true. `accidentes_registrados` cuenta todos los accidentes considerados hasta el corte. La sucursal de la API sigue siendo la del empleado autenticado.
+> Actualización 1.33.2: rankings y agrupación de accidentes por sucursal consultan la ficha actual de empleados de FichaYa. Nombres, legajos y organización no se toman del snapshot del reporte. El detalle individual mantiene los datos originales para auditoría. No cambia el JSON.
+
+> Actualización 1.33.1: días sin accidentes toma el último accidente pendiente o aprobado del alcance (empresa, sucursal actual o propio), por fecha del evento hasta el corte. Excluye rechazados y anulados. No requiere inicio configurado cuando existe accidente. Sin accidente se usa el inicio confiable; si tampoco existe, se devuelve null. El récord requiere inicio configurado. Los totales, historial propio y rankings conservan el criterio de aprobados. `inicio` puede ser null aunque `disponible` sea true. `accidentes_registrados` cuenta todos los accidentes considerados hasta el corte. La sucursal de la API sigue siendo la del empleado autenticado.
 
 # Seguridad e Higiene: contrato mobile 1.33.1
 
@@ -96,7 +98,7 @@ pasada se refleja el estado de aprobación actual de los reportes, no una recons
 del estado que tenían en aquella fecha.
 
 La sucursal es la actual del empleado autenticado; sus accidentes colectivos se identifican
-por la sucursal histórica guardada en las participaciones. Un evento con varios empleados
+por la sucursal actual de la ficha de empleados. Un evento con varios empleados
 de esa sucursal cuenta una vez. Sin sucursal asignada se devuelve `sin_sucursal`;
 nunca se sustituye silenciosamente por toda la empresa. Los externos no tienen sucursal
 propia y no generan indicadores personales en mobile.

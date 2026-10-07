@@ -165,3 +165,10 @@ Resumen propio, comparativos anuales, indicadores de empresa/sucursal/empleado y
 ## Días sin accidentes por sucursal — 1.33.1
 
 Desde el 06/10/2026 el indicador toma la fecha del último accidente pendiente o aprobado de cada sucursal histórica. Excluye rechazados y anulados. No necesita inicio configurado si existe accidente. Sin accidentes usa el inicio confiable, y sin ambos muestra sin datos. El récord histórico sigue requiriendo inicio confiable. El dashboard agrega una tabla por sucursal y la API móvil mantiene el alcance de la sucursal del empleado autenticado.
+
+
+## Fuente actual de empleados — 1.33.2
+
+El dashboard, rankings, filtros y CSV consultan empleados por `empleado_id`, validando la misma empresa del evento. Usan nombre, legajo, puesto, sector y sucursal actuales, incluidos empleados inactivos con reportes; un puesto no asignado queda sin puesto informado. Las tarjetas de días sin accidentes usan también la sucursal actual. El detalle/auditoría conserva los datos originales y no se modifican registros históricos ni se vinculan personas por similitud de nombres. Externos permanecen separados.
+
+Revisión del 06/10/2026: 247 participaciones vinculadas a empleados de empresa 1; ninguna discrepancia de puesto, sector o sucursal respecto de sus fichas actuales. Legajo 2300: Gerente Operaciones, seis eventos inseguros aprobados en todo el historial. Los filtros de fecha pueden mostrar un subconjunto.

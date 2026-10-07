@@ -1,10 +1,10 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.33.1
+  version: 1.33.2
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
-    Version 1.33.1: resumen propio, indicadores y rankings de Seguridad e Higiene; guia en docs/seguridad_mobile_dashboard.md. Rutas anteriores compatibles.
+    Version 1.33.2: resumen propio, indicadores y rankings de Seguridad e Higiene; guia en docs/seguridad_mobile_dashboard.md. Rutas anteriores compatibles.
     Los endpoints de API (excepto POST /auth/login y GET /version) requieren header `Authorization: Bearer <token>`.
     Las rutas de foto de perfil por DNI son publicas.
     Los modulos complementarios Feedback (`/api/v1/feedback`) y SKAP (`/api/skap`)

@@ -1,8 +1,8 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.33.1
+Version de contrato: 1.33.2
 
-- Dashboard mobile de Seguridad e Higiene: resumen propio por tipo, comparativos anuales, días sin accidentes por empresa/sucursal/empleado y rankings con posición propia. Ver [contrato 1.33.1](seguridad_mobile_dashboard.md).
+- Dashboard mobile de Seguridad e Higiene: resumen propio por tipo, comparativos anuales, días sin accidentes por empresa/sucursal/empleado y rankings con posición propia. Ver [contrato 1.33.2](seguridad_mobile_dashboard.md).
 Fecha de corte: 2026-10-06
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`

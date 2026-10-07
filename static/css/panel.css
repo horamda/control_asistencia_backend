@@ -249,9 +249,10 @@ a:hover {
 
 .nav-group-safety > .nav-group-toggle {
   min-height: 44px;
-  padding: 10px 8px;
+  padding: 4px 2px;
   background: rgba(29, 131, 173, 0.2);
-  border: 1px solid rgba(113, 205, 239, 0.35);
+  border: none;
+  box-shadow: inset 0 0 0 1px rgba(113, 205, 239, 0.35);
   text-align: left;
 }
 
@@ -273,7 +274,7 @@ a:hover {
 .nav-group-safety > .nav-group-toggle:hover,
 .nav-group-safety.open > .nav-group-toggle {
   background: rgba(29, 131, 173, 0.38);
-  border-color: #71cdef;
+  box-shadow: inset 0 0 0 1px #71cdef;
 }
 
 .nav-group-safety > .nav-group-toggle:focus-visible {

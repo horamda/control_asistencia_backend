@@ -33,7 +33,7 @@ def config():
     emp=employee()
     result=s.config(emp['empresa_id'],emp)
     result['catalogos']=[c for c in result['catalogos'] if c['activo']]
-    result['dashboard']=dict(version_contrato='1.33.1',historial_propio=True,indicadores=True,
+    result['dashboard']=dict(version_contrato='1.33.2',historial_propio=True,indicadores=True,
         ranking_alcances=['empresa','sucursal'] if emp.get('sucursal_id') else ['empresa'],sucursal_id=emp.get('sucursal_id'))
     return jsonify(serialize(result))
 

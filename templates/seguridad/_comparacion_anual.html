@@ -2,13 +2,13 @@
 {% for kind in ([vista] if vista in ['seguro','inseguro'] else ['seguro','inseguro','accidente','incidente']) %}
 <section class="sh-panel sh-annual-chart">
 <h3>{{ tipos[kind] }} · Comparación mensual por año</h3>
-<p class="sh-muted">Historial aprobado hasta {{ hasta.strftime('%d/%m/%Y') }}, con los filtros organizativos seleccionados. Este gráfico no aplica el filtro «Desde». Cada color representa un año.</p>
+<p class="sh-muted">Historial aprobado hasta {{ hasta.strftime('%d/%m/%Y') }}, con los filtros organizativos seleccionados. Este gráfico no aplica el filtro «Desde». Cada color representa un año. Al ocultar series, la escala se mantiene para facilitar la comparación.</p>
 <div class="sh-trend-legend">{% for year in years %}<label class="sh-year-toggle"><input type="checkbox" data-toggle-year="{{ year }}" checked><i style="background:{{ colors[year%8] }}"></i>{{ year }}</label>{% endfor %}</div>
 {% set scale=namespace(maximum=1) %}{% for values in annual[kind].values() %}{% for n in values %}{% if n is not none and n>scale.maximum %}{% set scale.maximum=n %}{% endif %}{% endfor %}{% endfor %}
 <p class="sh-muted">Escala: 0 a {{ scale.maximum }} eventos. «—» indica un mes posterior al corte; el mes del corte puede estar incompleto.</p>
 <p class="sh-year-status sh-muted" role="status" aria-live="polite"></p><div class="sh-trend" role="group" aria-label="{{ tipos[kind] }} por mes y año">
 {% for month in range(12) %}<div class="sh-month"><div class="sh-month-bars">
-{% for year in years %}{% set n=annual[kind][year][month] %}<div class="sh-month-column" data-series-year="{{ year }}"><span>{{ n if n is not none else '—' }}</span><i style="background:{{ colors[year%8] }};height:{{ n/scale.maximum*160 if n is not none else 0 }}px" title="{{ month_names[month] }} {{ year }}: {{ (n|string)+' eventos' if n is not none else 'Posterior al corte' }}"></i></div>{% endfor %}
+{% for year in years %}{% set n=annual[kind][year][month] %}<div class="sh-month-column" data-series-year="{{ year }}"><span>{{ n if n is not none else '—' }}</span><i style="background:{{ colors[year%8] }};height:{{ n/scale.maximum*160 if n is not none else 0 }}px;min-height:0" title="{{ month_names[month] }} {{ year }}: {{ (n|string)+' eventos' if n is not none else 'Posterior al corte' }}"></i></div>{% endfor %}
 </div><strong>{{ month_names[month] }}</strong></div>{% endfor %}</div>
 <details><summary>Ver valores por mes y año</summary><div class="table-responsive"><table class="sh-table"><thead><tr><th>Mes</th>{% for year in years %}<th data-series-year="{{ year }}">{{ year }}</th>{% endfor %}</tr></thead><tbody>{% for month in range(12) %}<tr><th>{{ month_names[month] }}</th>{% for year in years %}<td data-series-year="{{ year }}">{{ annual[kind][year][month] if annual[kind][year][month] is not none else '—' }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div></details>
 <p class="sh-muted">Cero significa que no hay reportes aprobados cargados para ese mes; no certifica que el registro histórico esté completo.</p>

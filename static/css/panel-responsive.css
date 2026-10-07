@@ -68,3 +68,17 @@
   form:not([method=get])>.actions:last-child{position:static}
 }
 @media print{.app-sidebar,.nav-overlay,.app-topbar{display:none!important}.app-main{margin:0;padding:0}.page-content{padding:0}.table-responsive{overflow:visible}}
+
+/* Consistent alignment of dashboard indicator labels and values. */
+.kpi-card,.kpi-card .kpi-label,.kpi-card .kpi-value,.kpi-card .kpi-desc,
+.sh-dashboard .sh-kpi,.sh-dashboard .sh-panel>h3,.sh-dashboard .sh-bar-label,
+.sh-dashboard .sh-bar-row>strong,.sh-dashboard .sh-chart-scale{text-align:center}
+.kpi-card .kpi-label{justify-content:center}
+.sh-dashboard .sh-kpi{align-items:center}
+.sh-dashboard .sh-chart-scale{font-size:.85rem;line-height:1.7;margin:16px 0 0}
+.sh-dashboard .sh-legend li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;text-align:center}
+.sh-dashboard .sh-legend strong{margin-left:0;text-align:center}
+
+.mini-label,.mini-row>strong,.status-label,.status-row>strong,.trend-label,.pie-legend li,.feedback-month-label{text-align:center}
+.sh-dashboard .sh-donut-layout{justify-content:center}
+.sh-dashboard .sh-legend{max-height:none;overflow:visible}

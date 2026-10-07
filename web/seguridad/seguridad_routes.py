@@ -48,7 +48,7 @@ def index():
         participants={i:[] for i in ids}
         if ids:
             marks=','.join(['%s']*len(ids))
-            for p in s.db.all_rows(c,f'SELECT evento_id,nombre,legajo FROM sh_involucrados WHERE evento_id IN ({marks})',tuple(ids)):
+            for p in s.db.all_rows(c,f'SELECT evento_id,nombre,legajo FROM {s.CURRENT_PARTICIPANTS} current_people WHERE evento_id IN ({marks})',tuple(ids)):
                 participants[p['evento_id']].append(dict(nombre=p['nombre'],referencia='Legajo '+p['legajo']))
             for p in s.db.all_rows(c,f'SELECT evento_id,nombre,empresa FROM sh_evento_externos WHERE evento_id IN ({marks})',tuple(ids)):
                 participants[p['evento_id']].append(dict(nombre=p['nombre'],referencia=p['empresa'] or 'Externo'))
@@ -204,7 +204,7 @@ def export():
         if ids:
             marks=','.join(['%s']*len(ids))
             with s.db.transaction() as c:
-                for person in s.db.all_rows(c,f'SELECT * FROM sh_involucrados WHERE evento_id IN ({marks}) ORDER BY nombre',tuple(ids)):
+                for person in s.db.all_rows(c,f'SELECT * FROM {s.CURRENT_PARTICIPANTS} current_people WHERE evento_id IN ({marks}) ORDER BY nombre',tuple(ids)):
                     people_by_event[person['evento_id']].append(person)
                 for person in s.db.all_rows(c,f'SELECT evento_id,externo_id,nombre,empresa FROM sh_evento_externos WHERE evento_id IN ({marks}) ORDER BY nombre,externo_id',tuple(ids)):
                     externals_by_event[person['evento_id']].append(person)
