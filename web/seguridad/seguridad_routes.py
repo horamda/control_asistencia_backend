@@ -6,11 +6,40 @@ from services import seguridad_service as s
 from services import seguridad_import_service as importer
 from services import seguridad_excel_service as excel
 from services import seguridad_dashboard_service as dashboard_service
+from services import seguridad_campeon_service as champion
 from web.carga.carga_routes import scope, csv_safe
 from routes.carga_routes import private_photo
 from web.auth.decorators import permission_required
 
 seguridad_web_bp=Blueprint('seguridad_web',__name__,url_prefix='/seguridad-higiene')
+
+
+@seguridad_web_bp.get('/campeon')
+@permission_required('seguridad_higiene','ver')
+def safety_champion():
+    empresa,empresas=scope()
+    result=champion.build(empresa,request.args.get('anio',s.now_local().year),request.args.get('mes'))
+    return render_template('seguridad/campeon.html',empresa_id=empresa,empresas=empresas,agrupaciones=champion.GROUPS,**result)
+
+
+@seguridad_web_bp.post('/campeon/reglas')
+@permission_required('seguridad_higiene','ver')
+@permission_required('seguridad_higiene','editar')
+def champion_rules():
+    empresa,_=scope()
+    champion.save_rules(empresa,session['user_id'],request.form)
+    flash('Reglas actualizadas. Los reconocimientos confirmados conservan sus reglas originales.','success')
+    return redirect(url_for('seguridad_web.safety_champion',empresa_id=empresa))
+
+
+@seguridad_web_bp.post('/campeon/confirmar')
+@permission_required('seguridad_higiene','ver')
+@permission_required('seguridad_higiene','aprobar')
+def champion_confirm():
+    empresa,_=scope()
+    champion.confirm(empresa,session['user_id'],request.form)
+    flash('Reconocimiento confirmado y guardado con sus reglas y ganadores.','success')
+    return redirect(url_for('seguridad_web.safety_champion',empresa_id=empresa,anio=request.form['anio'],mes=request.form.get('mes',0)))
 
 
 @seguridad_web_bp.before_request
