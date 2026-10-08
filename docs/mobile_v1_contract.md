@@ -1,16 +1,20 @@
 ﻿# Contrato API Mobile v1
 
-Version de contrato: 1.33.2
+Version de contrato: 1.35.0
+
+- Seguridad e Higiene: selección múltiple de externos registrados y nuevos, combinable con empleados. Ver [guía para web y Flutter](seguridad_higiene.md#seleccion-multiple-de-externos).
+
+- **Viáticos y reintegros mensuales (1.35.0):** un período por empleado/mes, habilitación por sector, kilómetros informativos, odómetro opcional, conceptos del panel, comprobantes, cierre del día 15, reaperturas y recordatorios del día 5. Conserva aprobación y pago. Integración web/Flutter: [contrato completo y ejemplos](reintegros_mobile.md). OpenAPI específico: [reintegros_mobile_openapi.yaml](reintegros_mobile_openapi.yaml).
 
 - Dashboard mobile de Seguridad e Higiene: resumen propio por tipo, comparativos anuales, días sin accidentes por empresa/sucursal/empleado y rankings con posición propia. Ver [contrato 1.33.2](seguridad_mobile_dashboard.md).
-Fecha de corte: 2026-10-06
+Fecha de corte: 2026-10-08
 Base URL local: `http://localhost:5000`
 Base URL produccion: `https://control-asistencia.up.railway.app`
 Prefijo principal: `/api/v1/mobile`
 Prefijos moviles complementarios: `/api/v1/feedback`, `/api/skap`
 
 Este documento fija el contrato compartido para frontend web de empleados, Flutter web y Flutter nativo.
-Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `routes/skap_routes.py`, `routes/carga_routes.py`.
+Fuente tecnica: `routes/mobile_v1_routes.py`, `routes/feedback_routes.py`, `routes/skap_routes.py`, `routes/carga_routes.py`, `routes/seguridad_routes.py`, `routes/reintegro_routes.py`.
 
 ## Resumen rapido
 
@@ -3247,3 +3251,29 @@ que modifican marcas. Los IDs de marcas reales siguen siendo positivos.
 Las correcciones recalculan los horarios y estado del resumen, por lo que
 `me/asistencias` y `me/estadisticas` reflejan el cambio al volver a consultar.
 Las paginas abiertas y archivos ya descargados deben refrescarse o regenerarse.
+
+
+## Viáticos y reintegros mensuales — API 1.35.0
+
+Una rendición por empleado y mes. Kilómetros informativos y odómetro opcional; el total monetario solo suma gastos. Conceptos administrables y habilitación por sector. Cierre el día 15 del mes siguiente, reapertura administrativa con motivo/plazo y recordatorio dentro de la app el día 5. Se conservan aprobación, devolución, rechazo y pago.
+
+Nuevas altas requieren `periodo: "AAAA-MM"`. Hasta 50 gastos; permite borrador incompleto o envío sin gastos. Los importes iguales no son duplicados. Cada gasto admite número de comprobante, emisor y `fotos_existentes` para conservar fotos al editar. El empleado ve su historial aunque se deshabilite su sector.
+
+| Método | Ruta bajo `/api/v1/mobile/reintegros` | Uso |
+|---|---|---|
+| GET | `/config` | Habilitación, conceptos, períodos, límites y avisos |
+| GET / POST | `/solicitudes` | Historial propio / crear período |
+| GET / PUT | `/solicitudes/{id}` | Detalle / reemplazar borrador o devuelta |
+| POST | `/solicitudes/{id}/acciones` | Cancelar con revisión vigente |
+| GET | `/fotos/{id}` | Comprobante privado |
+| GET | `/odometro/{id}` | Odómetro privado |
+| GET | `/recordatorios` | Avisos propios no leídos |
+| POST | `/recordatorios/{id}/leido` | Marcar aviso como leído |
+
+Todas requieren Bearer. El listado admite filtro `periodo=AAAA-MM`. Detalle agrega plazo, permisos de edición, kilómetros y advertencias. El frontend debe implementar las pantallas y mostrar los avisos; no se entrega push.
+
+Panel: CRUD de rendiciones/conceptos, sectores habilitados, reaperturas y reporte mensual CSV con una fila por empleado, incluyendo Sin cargar y Borrador. La migración no habilita sectores automáticamente.
+
+- [Contrato detallado y reglas de integración](reintegros_mobile.md).
+- [OpenAPI del módulo](reintegros_mobile_openapi.yaml), referenciado desde el principal.
+- Nueva migración: `scripts/migrate_20261008_01_reintegros_mensuales.py`; conservar la migración inicial. Reiniciar backend tras instalar. Históricos sin mes no se fusionan ni se reasignan.

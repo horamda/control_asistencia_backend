@@ -172,3 +172,43 @@ Desde el 06/10/2026 el indicador toma la fecha del último accidente pendiente o
 El dashboard, rankings, filtros y CSV consultan empleados por `empleado_id`, validando la misma empresa del evento. Usan nombre, legajo, puesto, sector y sucursal actuales, incluidos empleados inactivos con reportes; un puesto no asignado queda sin puesto informado. Las tarjetas de días sin accidentes usan también la sucursal actual. El detalle/auditoría conserva los datos originales y no se modifican registros históricos ni se vinculan personas por similitud de nombres. Externos permanecen separados.
 
 Revisión del 06/10/2026: 247 participaciones vinculadas a empleados de empresa 1; ninguna discrepancia de puesto, sector o sucursal respecto de sus fichas actuales. Legajo 2300: Gerente Operaciones, seis eventos inseguros aprobados en todo el historial. Los filtros de fecha pueden mostrar un subconjunto.
+
+
+<a id="seleccion-multiple-de-externos"></a>
+## Selección múltiple de externos — contrato 1.34.1
+
+El backend ya permite varios externos por evento. Aplica a comportamientos seguros/inseguros y también a accidentes/incidentes. No requiere una nueva migración para selección múltiple si el módulo de externos ya está instalado.
+
+1. Consultar `GET /api/v1/mobile/seguridad/config` con Bearer. `externos` contiene los externos activos de la empresa: `id`, `nombre`, `empresa`, `activo`.
+2. Mostrar un buscador con selección múltiple, casillas y etiquetas para quitar personas. Conservar los seleccionados al cambiar la búsqueda; usar el ID como identidad, no el nombre.
+3. Permitir agregar varias personas nuevas: nombre obligatorio (180 caracteres), empresa/procedencia opcional (180). Priorizar seleccionar una persona existente para evitar altas repetidas.
+4. Enviar la lista completa en `POST /api/v1/mobile/seguridad/eventos`. Se pueden mezclar registrados, nuevos y empleados; entre 1 y 100 personas en total.
+
+Ejemplo de comportamiento seguro con varios externos y un empleado:
+
+```json
+{
+  "envio_id": "5d5d5d36-9829-4357-8eb5-084e3ac927ee",
+  "tipo": "seguro",
+  "fecha_evento": "2026-10-08",
+  "categoria_id": 1,
+  "descripcion": "Las personas utilizan los elementos de protección correspondientes.",
+  "involucrados": [10],
+  "externos": [
+    {"id": 7},
+    {"id": 12},
+    {"nombre": "Visitante nuevo", "empresa": "Proveedor"},
+    {"nombre": "Otra persona nueva"}
+  ]
+}
+```
+
+Los IDs son ilustrativos: obtener empleados, externos y categorías válidos desde config. Para informar solo externos, usar `involucrados: []`. Para un comportamiento inseguro, cambiar `tipo`, seleccionar una categoría de ese tipo y agregar `advertido: "si"` o `"no"`.
+
+Sin fotos, enviar JSON. Con fotos, usar multipart: `externos` e `involucrados` son cada uno **un campo de texto con su array JSON serializado**; fotos bajo `fotos`. No usar `externos_id`, índices de campos ni IDs separados por coma: esos no son el contrato móvil.
+
+El servidor rechaza externos de otra empresa, IDs inactivos en altas y repetidos dentro de la lista. También rechaza nuevos con igual nombre y empresa dentro del envío, sin distinguir mayúsculas. No vincula automáticamente un nombre nuevo con un registro existente: enviar su ID para reutilizarlo. Conservar el UUID y el contenido ante un reintento; no generar un UUID nuevo por cada intento.
+
+La respuesta de alta incluye `id`, `estado` y `repetido`. Consultar `GET /api/v1/mobile/seguridad/eventos/{id}` para recuperar `externos: [{id,nombre,empresa}]`, incluidos los IDs asignados a los nuevos. Esta lista es visible al reportante; otros empleados involucrados tienen una vista restringida. El reportante consulta sus cargas en `GET /api/v1/mobile/seguridad/eventos?vista=enviados`.
+
+Es un único evento con varias personas: no crear un evento por cada seleccionado. Los rankings de externos y empleados permanecen separados. La interfaz móvil debe implementar este selector; actualizar el contrato no modifica las pantallas Flutter.

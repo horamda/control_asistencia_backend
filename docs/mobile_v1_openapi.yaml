@@ -1,9 +1,12 @@
 ﻿openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.33.2
+  version: 1.35.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.35.0: viáticos mensuales por sector, kilómetros informativos, odómetro opcional, cierre y reaperturas, comprobantes y avisos del día 5. Nuevas altas requieren período. Ver reintegros_mobile.md.
+    Version 1.34.1: selección múltiple de externos en Seguridad e Higiene y contrato de Viáticos y reintegros. Actualización documental.
+    Version 1.34.0: reintegros ARS con gastos y fotos; guia docs/reintegros_mobile.md.
     Version 1.33.2: resumen propio, indicadores y rankings de Seguridad e Higiene; guia en docs/seguridad_mobile_dashboard.md. Rutas anteriores compatibles.
     Los endpoints de API (excepto POST /auth/login y GET /version) requieren header `Authorization: Bearer <token>`.
     Las rutas de foto de perfil por DNI son publicas.
@@ -3523,6 +3526,22 @@ security:
 # Paths
 # ---------------------------------------------------------------------------
 paths:
+  /reintegros/odometro/{fid}:
+    $ref: './reintegros_mobile_openapi.yaml#/paths/~1reintegros~1odometro~1{fid}'
+  /reintegros/recordatorios:
+    $ref: './reintegros_mobile_openapi.yaml#/paths/~1reintegros~1recordatorios'
+  /reintegros/recordatorios/{rid}/leido:
+    $ref: './reintegros_mobile_openapi.yaml#/paths/~1reintegros~1recordatorios~1{rid}~1leido'
+  /reintegros/config:
+    $ref: './reintegros_mobile_openapi.yaml#/paths/~1reintegros~1config'
+  /reintegros/solicitudes:
+    $ref: './reintegros_mobile_openapi.yaml#/paths/~1reintegros~1solicitudes'
+  /reintegros/solicitudes/{rid}:
+    $ref: './reintegros_mobile_openapi.yaml#/paths/~1reintegros~1solicitudes~1{rid}'
+  /reintegros/solicitudes/{rid}/acciones:
+    $ref: './reintegros_mobile_openapi.yaml#/paths/~1reintegros~1solicitudes~1{rid}~1acciones'
+  /reintegros/fotos/{fid}:
+    $ref: './reintegros_mobile_openapi.yaml#/paths/~1reintegros~1fotos~1{fid}'
   /seguridad/config:
     get:
       tags: [SeguridadHigiene]
@@ -3576,6 +3595,8 @@ paths:
                 externos:
                   type: array
                   maxItems: 100
+                  description: 'Admite varios externos registrados y nuevos juntos. Máximo 100 personas sumando involucrados y externos. No repetir IDs ni nuevos con el mismo nombre y empresa. Los homónimos no se fusionan automáticamente.'
+                  example: [{id: 7}, {id: 12}, {nombre: 'Visitante nuevo', empresa: 'Proveedor'}]
                   items:
                     oneOf:
                       - type: object
@@ -3605,7 +3626,7 @@ paths:
                 tipo: {type: string, enum: [seguro, inseguro, incidente, accidente]}
                 fecha_evento: {type: string, format: date}
                 involucrados: {type: string, description: 'Array JSON serializado, ej. [10,11]'}
-                externos: {type: string, description: 'Array JSON serializado: [{"nombre":"Visitante","empresa":""}] o [{"id":7}]. Nombre obligatorio para nuevos; empresa opcional. Entre 1 y 100 personas sumando empleados y externos.'}
+                externos: {type: string, example: '[{"id":7},{"id":12},{"nombre":"Visitante nuevo","empresa":"Proveedor"}]', description: 'Lista completa en un único campo JSON serializado. Admite varios registrados y nuevos juntos. Nombre obligatorio para nuevos; empresa opcional. Máximo 100 personas sumando empleados y externos. No enviar externos_id ni IDs separados por comas.'}
                 categoria_id: {type: integer}
                 descripcion: {type: string, maxLength: 8000}
                 advertido: {type: string, enum: ['si', 'no']}

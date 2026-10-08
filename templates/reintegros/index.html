@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block title %}Viáticos y reintegros{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static',filename='css/reintegros.css') }}">{% endblock %}
+{% block content %}<div class="content-stack reintegros">
+<header><h2>Viáticos y reintegros</h2><p>Gastos realizados por empleados. Una aprobación del jefe directo o de RR. HH. es suficiente.</p></header>
+<nav class="reintegros-actions" aria-label="Acciones de reintegros">
+<a href="{{ url_for('reintegros_web.monthly_report') }}">Rendiciones mensuales</a>
+{% if who.review_global and can_web('reintegros','editar') %}<a href="{{ url_for('reintegros_web.settings') }}">Sectores habilitados</a>{% endif %}
+{% if who.manage_create %}<a class="btn" href="{{ url_for('reintegros_web.create') }}">Nuevo reintegro</a>{% endif %}
+{% if who.review_global and can_web('reintegros','editar') %}<a href="{{ url_for('reintegros_web.categories') }}">Administrar conceptos</a>{% endif %}
+{% if can_web('reintegros','exportar') %}<a href="{{ url_for('reintegros_web.export',estado=request.args.get('estado',''),desde=request.args.get('desde',''),hasta=request.args.get('hasta','')) }}">Descargar CSV</a>{% endif %}</nav>
+<form method="get" class="form-grid">
+<label>Estado<select name="estado"><option value="">Todos los enviados</option>{% for s in states if s!='borrador' %}<option value="{{ s }}" {{ 'selected' if request.args.get('estado')==s }}>{{ s|capitalize }}</option>{% endfor %}</select></label>
+<label>Creados desde<input type="date" name="desde" value="{{ request.args.get('desde','') }}"></label>
+<label>Hasta<input type="date" name="hasta" value="{{ request.args.get('hasta','') }}"></label>
+<button>Filtrar</button><a href="{{ url_for('reintegros_web.index') }}">Limpiar filtros</a></form>
+<div class="reintegros-summary">
+<section><span>Solicitudes</span><strong>{{ result.total }}</strong></section>
+<section><span>Total solicitado</span><strong>ARS {{ '%.2f'|format(result.total_solicitado) }}</strong></section>
+<section><span>Total aprobado (incluye pagados)</span><strong>ARS {{ '%.2f'|format(result.total_aprobado) }}</strong></section>
+</div><p>Totales de todas las páginas según los filtros seleccionados.</p>
+<div class="table-responsive"><table><thead><tr><th>Solicitud</th><th>Empleado</th><th>Creada</th><th>Estado</th><th>Solicitado</th><th>Aprobado</th><th>Detalle</th></tr></thead><tbody>
+{% for r in result['items'] %}<tr><td>#{{ r.id }}</td><td>{{ r.empleado_nombre }}<br><small>Legajo {{ r.legajo }}</small></td><td>{{ r.creado_at }}</td><td>{{ r.estado|capitalize }}</td><td>ARS {{ '%.2f'|format(r.total_solicitado) }}</td><td>ARS {{ '%.2f'|format(r.total_aprobado) }}</td><td><a href="{{ url_for('reintegros_web.detail',rid=r.id) }}">Revisar #{{ r.id }}</a></td></tr>
+{% else %}<tr><td colspan="7">No hay solicitudes para estos filtros. Puede cargar una desde «Nuevo reintegro» si tiene permiso.</td></tr>{% endfor %}</tbody></table></div>
+<nav class="reintegros-actions" aria-label="Paginación"><span>Página {{ result.page }}</span>
+{% if result.page>1 %}<a href="{{ url_for('reintegros_web.index',page=result.page-1,estado=request.args.get('estado',''),desde=request.args.get('desde',''),hasta=request.args.get('hasta','')) }}">Anterior</a>{% endif %}
+{% if result.page*result.per_page<result.total %}<a href="{{ url_for('reintegros_web.index',page=result.page+1,estado=request.args.get('estado',''),desde=request.args.get('desde',''),hasta=request.args.get('hasta','')) }}">Siguiente</a>{% endif %}</nav>
+</div>{% endblock %}

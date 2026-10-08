@@ -59,6 +59,8 @@ from web.mobile_stats.mobile_stats_routes import mobile_stats_bp
 from routes.feedback_routes import feedback_bp
 from routes.skap_routes import skap_bp
 from routes.carga_routes import carga_mobile_bp
+from routes.reintegro_routes import reintegros_mobile_bp
+from web.reintegros.reintegro_routes import reintegros_web_bp
 from routes.seguridad_routes import seguridad_mobile_bp
 from web.seguridad.seguridad_routes import seguridad_web_bp
 from web.carga.carga_routes import carga_web_bp
@@ -323,9 +325,9 @@ def create_app():
     @app.before_request
     def seguridad_upload_limits():
         # Antes de CSRF: el formulario multipart no debe analizarse sin límite.
-        if request.blueprint in ('seguridad_web', 'seguridad_mobile'):
+        if request.blueprint in ('seguridad_web', 'seguridad_mobile', 'reintegros_web', 'reintegros_mobile'):
             request.max_content_length = 27 * 1024 * 1024
-            request.max_form_parts = 150
+            request.max_form_parts = 700 if request.blueprint == 'reintegros_web' else 200 if request.blueprint == 'reintegros_mobile' else 150
 
     csrf = CSRFProtect(app)
     csrf.exempt(auth_bp)
@@ -334,6 +336,7 @@ def create_app():
     csrf.exempt(feedback_bp)
     csrf.exempt(skap_bp)
     csrf.exempt(carga_mobile_bp)
+    csrf.exempt(reintegros_mobile_bp)
     csrf.exempt(seguridad_mobile_bp)
 
     # API
@@ -343,6 +346,8 @@ def create_app():
     app.register_blueprint(feedback_bp)
     app.register_blueprint(skap_bp)
     app.register_blueprint(carga_mobile_bp)
+    app.register_blueprint(reintegros_mobile_bp)
+    app.register_blueprint(reintegros_web_bp)
     app.register_blueprint(seguridad_mobile_bp)
     app.register_blueprint(seguridad_web_bp)
     app.register_blueprint(carga_web_bp)
@@ -401,6 +406,8 @@ def create_app():
     if _app_env() not in {"test", "testing"}:
         from utils.trivia_scheduler import init_trivia_scheduler
         init_trivia_scheduler(app)
+        from utils.reintegro_scheduler import init_reintegro_scheduler
+        init_reintegro_scheduler(app)
 
     @app.route("/")
     def index():
@@ -444,7 +451,7 @@ def create_app():
         if code == 403:
             message = "Usuario no permitido."
 
-        if request.blueprint in {"auth", "external_api", "mobile_v1", "feedback", "skap", "trivia", "carga_mobile", "seguridad_mobile"}:
+        if request.blueprint in {"auth", "external_api", "mobile_v1", "feedback", "skap", "trivia", "carga_mobile", "seguridad_mobile", "reintegros_mobile"}:
             return jsonify({
                 "success": False,
                 "error": message

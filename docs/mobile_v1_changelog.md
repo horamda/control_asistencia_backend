@@ -1,3 +1,25 @@
+## 1.35.0 — 2026-10-08
+
+- Entrega a frontend: resumen principal sincronizado, ejemplos completos de borrador y PUT conservando comprobantes, y tabla de controles según habilitación/estado/plazo. Mantiene la versión publicada por `/reintegros/config`.
+
+- Viáticos mensuales: período obligatorio para nuevas altas, único por empleado/empresa/mes. Mantiene estados de aprobación/pago y preserva históricos sin período.
+- Habilitación por sector, cierre inclusivo del día 15, reapertura administrativa con motivo y plazo, historial consultable para sectores deshabilitados.
+- Kilómetros informativos, odómetro opcional privado, hasta 50 gastos, borradores incompletos y envío sin gastos. Conceptos seleccionables, número/emisor del comprobante y advertencias de duplicados.
+- PUT permite conservar fotos existentes; config agrega reglas mensuales y recordatorios. Nuevas rutas de odómetro y avisos/lectura; generación automática el día 5 dentro de la app.
+- Panel: configuración de sectores, reporte mensual y CSV con Sin cargar/Borrador. Requiere migración 20261008_01_reintegros_mensuales, reiniciar backend y configurar sectores/conceptos. Frontend móvil debe adaptar el alta y los avisos.
+
+## 1.34.1 — 2026-10-08
+
+- Seguridad e Higiene: documentada la selección de varios externos registrados por ID y nuevos junto con empleados, hasta 100 personas por evento; ejemplos JSON/multipart e indicaciones para frontend.
+- Viáticos y reintegros: índice de rutas de API en el contrato principal y guía de integración enlazada. Se mantienen las rutas y reglas de 1.34.0.
+- Seguridad e Higiene: actualización documental, sin cambios de backend. Viáticos incorpora CRUD administrativo con permisos crear/editar/eliminar, conservación de comprobantes e historial crear_admin/editar_admin. Mantiene las rutas móviles y el esquema de base de datos.
+
+## 1.34.0 — 2026-10-07
+
+- Reintegros en ARS: configuración, solicitudes propias, alta multipart con UUID idempotente, edición completa de borradores/devueltas, cancelación y comprobantes privados. Importes como strings decimales; total calculado en backend.
+- Panel `/reintegros/`: revisión única por jefe directo actual o RR. HH., aprobación por gasto, devolución, rechazo y registro del pago por RR. HH./Administración con permisos. Categorías editables, filtros, totales, CSV e historial.
+- Guía y ejemplos en `reintegros_mobile.md`; definición en `reintegros_mobile_openapi.yaml`, referenciada desde OpenAPI principal. Requiere migración `20261007_02_reintegros`. Frontend móvil pendiente de integración.
+
 ## 1.33.2 — 2026-10-06
 
 - Informes, rankings, filtros y exportaciones de Seguridad e Higiene usan nombre, legajo, puesto, sector y sucursal actuales de empleados de FichaYa, vinculados por ID y empresa. Los indicadores de accidentes por sucursal usan también la asignación actual. El detalle original del evento conserva su snapshot. No se excluyen empleados inactivos con participaciones. Externos separados.

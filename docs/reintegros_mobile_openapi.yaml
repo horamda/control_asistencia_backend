@@ -1,0 +1,762 @@
+openapi: 3.0.3
+info:
+  title: FichaYa - Reintegros
+  version: 1.35.0
+  description: Contrato complementario; ver reintegros_mobile.md para flujo y permisos.
+servers:
+- url: /api/v1/mobile
+security:
+- BearerAuth: []
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Money:
+      type: string
+      pattern: ^\d+\.\d{2}$
+      example: '1250.50'
+    State:
+      type: string
+      enum:
+      - borrador
+      - pendiente
+      - devuelta
+      - aprobada
+      - rechazada
+      - pagada
+      - cancelada
+    ExpenseInput:
+      type: object
+      properties:
+        fecha:
+          type: string
+          format: date
+          nullable: true
+        concepto:
+          type: string
+          maxLength: 500
+        importe:
+          type: string
+          pattern: ^\d{1,9}(\.\d{1,2})?$
+          description: Positivo en ARS; sin coma ni miles.
+          nullable: true
+        categoria_id:
+          type: integer
+          minimum: 1
+          nullable: true
+        numero_comprobante:
+          type: string
+          maxLength: 100
+        emisor:
+          type: string
+          maxLength: 180
+        fotos_existentes:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 1
+          description: Solo IDs de fotos activas de esta misma solicitud, al editar.
+      description: 'Borrador admite datos incompletos. Al enviar: fecha del período,
+        descripción, concepto activo, importe positivo y 1..3 fotos obligatorios.'
+    Submission:
+      type: object
+      required:
+      - envio_id
+      - periodo
+      - gastos
+      properties:
+        envio_id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          minimum: 1
+          description: Obligatorio al editar.
+        accion:
+          type: string
+          enum:
+          - borrador
+          - enviar
+          default: enviar
+        observaciones:
+          type: string
+          maxLength: 2000
+          nullable: true
+        gastos:
+          type: array
+          minItems: 0
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/ExpenseInput'
+        periodo:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+          nullable: true
+          description: Obligatorio en nuevas rendiciones; null solo para editar un
+            histórico sin período.
+        kilometros:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+          nullable: true
+          description: Informativo. No suma dinero.
+        quitar_odometro:
+          type: string
+          enum:
+          - '0'
+          - '1'
+          default: '0'
+    Multipart:
+      allOf:
+      - $ref: '#/components/schemas/Submission'
+      - type: object
+        properties:
+          fotos_0:
+            $ref: '#/components/schemas/Photos'
+          fotos_1:
+            $ref: '#/components/schemas/Photos'
+          fotos_2:
+            $ref: '#/components/schemas/Photos'
+          fotos_3:
+            $ref: '#/components/schemas/Photos'
+          fotos_4:
+            $ref: '#/components/schemas/Photos'
+          fotos_5:
+            $ref: '#/components/schemas/Photos'
+          fotos_6:
+            $ref: '#/components/schemas/Photos'
+          fotos_7:
+            $ref: '#/components/schemas/Photos'
+          fotos_8:
+            $ref: '#/components/schemas/Photos'
+          fotos_9:
+            $ref: '#/components/schemas/Photos'
+          fotos_10:
+            $ref: '#/components/schemas/Photos'
+          fotos_11:
+            $ref: '#/components/schemas/Photos'
+          fotos_12:
+            $ref: '#/components/schemas/Photos'
+          fotos_13:
+            $ref: '#/components/schemas/Photos'
+          fotos_14:
+            $ref: '#/components/schemas/Photos'
+          fotos_15:
+            $ref: '#/components/schemas/Photos'
+          fotos_16:
+            $ref: '#/components/schemas/Photos'
+          fotos_17:
+            $ref: '#/components/schemas/Photos'
+          fotos_18:
+            $ref: '#/components/schemas/Photos'
+          fotos_19:
+            $ref: '#/components/schemas/Photos'
+          fotos_20:
+            $ref: '#/components/schemas/Photos'
+          fotos_21:
+            $ref: '#/components/schemas/Photos'
+          fotos_22:
+            $ref: '#/components/schemas/Photos'
+          fotos_23:
+            $ref: '#/components/schemas/Photos'
+          fotos_24:
+            $ref: '#/components/schemas/Photos'
+          fotos_25:
+            $ref: '#/components/schemas/Photos'
+          fotos_26:
+            $ref: '#/components/schemas/Photos'
+          fotos_27:
+            $ref: '#/components/schemas/Photos'
+          fotos_28:
+            $ref: '#/components/schemas/Photos'
+          fotos_29:
+            $ref: '#/components/schemas/Photos'
+          fotos_30:
+            $ref: '#/components/schemas/Photos'
+          fotos_31:
+            $ref: '#/components/schemas/Photos'
+          fotos_32:
+            $ref: '#/components/schemas/Photos'
+          fotos_33:
+            $ref: '#/components/schemas/Photos'
+          fotos_34:
+            $ref: '#/components/schemas/Photos'
+          fotos_35:
+            $ref: '#/components/schemas/Photos'
+          fotos_36:
+            $ref: '#/components/schemas/Photos'
+          fotos_37:
+            $ref: '#/components/schemas/Photos'
+          fotos_38:
+            $ref: '#/components/schemas/Photos'
+          fotos_39:
+            $ref: '#/components/schemas/Photos'
+          fotos_40:
+            $ref: '#/components/schemas/Photos'
+          fotos_41:
+            $ref: '#/components/schemas/Photos'
+          fotos_42:
+            $ref: '#/components/schemas/Photos'
+          fotos_43:
+            $ref: '#/components/schemas/Photos'
+          fotos_44:
+            $ref: '#/components/schemas/Photos'
+          fotos_45:
+            $ref: '#/components/schemas/Photos'
+          fotos_46:
+            $ref: '#/components/schemas/Photos'
+          fotos_47:
+            $ref: '#/components/schemas/Photos'
+          fotos_48:
+            $ref: '#/components/schemas/Photos'
+          fotos_49:
+            $ref: '#/components/schemas/Photos'
+          odometro:
+            type: string
+            format: binary
+            description: Una foto opcional. Reemplaza la anterior; omitir conserva.
+    Photos:
+      type: array
+      maxItems: 3
+      items:
+        type: string
+        format: binary
+      description: Partes repetidas. JPEG/PNG/WEBP, 5 MiB cada una. Máximo 27 MiB
+        por request.
+    Expense:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        fecha:
+          type: string
+          format: date
+          nullable: true
+        concepto:
+          type: string
+        categoria_nombre:
+          type: string
+          nullable: true
+        categoria_id:
+          type: integer
+          nullable: true
+        importe:
+          type: string
+          nullable: true
+          pattern: ^\d+\.\d{2}$
+        decision:
+          type: string
+          enum:
+          - pendiente
+          - aprobado
+          - rechazado
+        motivo:
+          type: string
+          nullable: true
+        fotos:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                format: int64
+        numero_comprobante:
+          type: string
+          nullable: true
+        emisor:
+          type: string
+          nullable: true
+    Summary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        estado:
+          $ref: '#/components/schemas/State'
+        revision:
+          type: integer
+        moneda:
+          type: string
+          enum:
+          - ARS
+        total_solicitado:
+          $ref: '#/components/schemas/Money'
+        total_aprobado:
+          $ref: '#/components/schemas/Money'
+        creado_at:
+          type: string
+          format: date-time
+        actualizado_at:
+          type: string
+          format: date-time
+        periodo:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+          nullable: true
+        kilometros:
+          type: integer
+          nullable: true
+    Detail:
+      allOf:
+      - $ref: '#/components/schemas/Summary'
+      - type: object
+        properties:
+          empresa_id:
+            type: integer
+          empleado_id:
+            type: integer
+          sucursal_id:
+            type: integer
+            nullable: true
+          empleado:
+            type: object
+            properties:
+              legajo:
+                type: string
+              nombre:
+                type: string
+              apellido:
+                type: string
+          observaciones:
+            type: string
+            nullable: true
+          motivo:
+            type: string
+            nullable: true
+          revisado_at:
+            type: string
+            format: date-time
+            nullable: true
+          fecha_pago:
+            type: string
+            format: date
+            nullable: true
+          pagado_at:
+            type: string
+            format: date-time
+            nullable: true
+          referencia_pago:
+            type: string
+            nullable: true
+          gastos:
+            type: array
+            items:
+              $ref: '#/components/schemas/Expense'
+          historial:
+            type: array
+            items:
+              type: object
+              properties:
+                accion:
+                  type: string
+                creado_at:
+                  type: string
+                  format: date-time
+          foto_odometro_id:
+            type: integer
+            nullable: true
+          fecha_cierre:
+            type: string
+            format: date
+            nullable: true
+          reabierto_hasta:
+            type: string
+            format: date
+            nullable: true
+          puede_editar_empleado:
+            type: boolean
+          advertencias:
+            type: array
+            items:
+              type: object
+              properties:
+                gasto_id:
+                  type: integer
+                mensaje:
+                  type: string
+    Reminder:
+      type: object
+      properties:
+        id:
+          type: integer
+        periodo:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+        mensaje:
+          type: string
+        creado_at:
+          type: string
+          format: date-time
+  requestBodies:
+    Submission:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Submission'
+        multipart/form-data:
+          schema:
+            $ref: '#/components/schemas/Multipart'
+          encoding:
+            gastos:
+              contentType: application/json
+  responses:
+    Error:
+      description: 400 validación, 401 sesión, 403 permiso, 404 inexistente/ajeno,
+        409 conflicto, 413 tamaño.
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - error
+            properties:
+              error:
+                type: string
+    Detail:
+      description: Detalle propio actualizado; importes string decimal.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Detail'
+    Created:
+      description: Solicitud creada o recuperada por envío idempotente.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              repetido:
+                type: boolean
+              solicitud:
+                $ref: '#/components/schemas/Detail'
+paths:
+  /reintegros/config:
+    get:
+      operationId: reintegrosConfig
+      responses:
+        '200':
+          description: Categorías activas y límites.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  moneda:
+                    type: string
+                    enum:
+                    - ARS
+                  estados:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/State'
+                  categorias:
+                    type: array
+                    items: &id001
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        nombre:
+                          type: string
+                        activo:
+                          type: integer
+                          enum:
+                          - 1
+                  limites:
+                    type: object
+                    properties:
+                      gastos:
+                        type: integer
+                        example: 50
+                      fotos_por_gasto:
+                        type: integer
+                        example: 3
+                      bytes_foto:
+                        type: integer
+                        example: 5242880
+                      bytes_envio:
+                        type: integer
+                        example: 28311552
+                  formatos_foto:
+                    type: array
+                    items:
+                      type: string
+                  conceptos:
+                    type: array
+                    items: *id001
+                  version_contrato:
+                    type: string
+                    example: 1.35.0
+                  recordatorios:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reminder'
+                  mensual:
+                    type: object
+                    properties:
+                      habilitado:
+                        type: boolean
+                      fecha_actual:
+                        type: string
+                        format: date
+                      periodos_habilitados:
+                        type: array
+                        items:
+                          type: string
+                          example: 2026-09
+                      fecha_cierre_dia:
+                        type: integer
+                        enum:
+                        - 15
+                      kilometros_informativos:
+                        type: boolean
+                        enum:
+                        - true
+                      foto_odometro_obligatoria:
+                        type: boolean
+                        enum:
+                        - false
+                      reaperturas:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            periodo:
+                              type: string
+                            reabierto_hasta:
+                              type: string
+                              format: date
+        default:
+          $ref: '#/components/responses/Error'
+  /reintegros/solicitudes:
+    get:
+      operationId: reintegrosList
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100000
+          default: 1
+      - in: query
+        name: estado
+        schema:
+          $ref: '#/components/schemas/State'
+      - in: query
+        name: desde
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: hasta
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: periodo
+        schema:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+      responses:
+        '200':
+          description: Historial propio. Totales sobre todo el filtro, incluye pagados
+            en aprobado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                      - $ref: '#/components/schemas/Summary'
+                      - type: object
+                        properties:
+                          legajo:
+                            type: string
+                          empleado_nombre:
+                            type: string
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+                    enum:
+                    - 30
+                  total:
+                    type: integer
+                  total_solicitado:
+                    $ref: '#/components/schemas/Money'
+                  total_aprobado:
+                    $ref: '#/components/schemas/Money'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: reintegrosCreate
+      description: Crear un único período mensual. Requiere sector habilitado y ventana
+        vigente. UUID idempotente. Borrador permite datos parciales; enviar exige
+        gastos completos o lista vacía. Multipart para fotos nuevas.
+      requestBody:
+        $ref: '#/components/requestBodies/Submission'
+      responses:
+        '201':
+          $ref: '#/components/responses/Created'
+        '200':
+          $ref: '#/components/responses/Created'
+        default:
+          $ref: '#/components/responses/Error'
+  /reintegros/solicitudes/{rid}:
+    parameters:
+    - in: path
+      name: rid
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    get:
+      operationId: reintegrosDetail
+      responses:
+        '200':
+          $ref: '#/components/responses/Detail'
+        default:
+          $ref: '#/components/responses/Error'
+    put:
+      operationId: reintegrosReplace
+      description: Reemplazo de borrador/devuelta propio dentro del plazo, con revision
+        y período inmutable. fotos_existentes conserva comprobantes activos. Omitir
+        odómetro conserva su foto; kilometros debe reenviarse. Históricos sin mes
+        aceptan periodo null.
+      requestBody:
+        $ref: '#/components/requestBodies/Submission'
+      responses:
+        '200':
+          $ref: '#/components/responses/Detail'
+        default:
+          $ref: '#/components/responses/Error'
+  /reintegros/solicitudes/{rid}/acciones:
+    parameters:
+    - in: path
+      name: rid
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    post:
+      operationId: reintegrosCancel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - accion
+              - revision
+              properties:
+                accion:
+                  type: string
+                  enum:
+                  - cancelar
+                revision:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          $ref: '#/components/responses/Detail'
+        default:
+          $ref: '#/components/responses/Error'
+  /reintegros/fotos/{fid}:
+    parameters:
+    - in: path
+      name: fid
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    get:
+      operationId: reintegrosPhoto
+      responses:
+        '200':
+          description: Comprobante privado. Descargar con Bearer; no almacenar en
+            caché compartida.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: '#/components/responses/Error'
+  /reintegros/odometro/{fid}:
+    parameters:
+    - in: path
+      name: fid
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    get:
+      operationId: reintegrosOdometer
+      responses:
+        '200':
+          description: Foto privada del odómetro, Bearer obligatorio.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: '#/components/responses/Error'
+  /reintegros/recordatorios:
+    get:
+      operationId: reintegrosReminders
+      responses:
+        '200':
+          description: Hasta 30 avisos propios no leídos, más recientes primero.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reminder'
+        default:
+          $ref: '#/components/responses/Error'
+  /reintegros/recordatorios/{rid}/leido:
+    parameters:
+    - in: path
+      name: rid
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    post:
+      operationId: reintegrosReadReminder
+      responses:
+        '200':
+          description: Marcado como leído de forma idempotente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        default:
+          $ref: '#/components/responses/Error'

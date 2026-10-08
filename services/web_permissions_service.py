@@ -1,4 +1,6 @@
 WEB_MODULES = [
+    {"code": "reintegros", "label": "Viáticos y reintegros", "group": "Operaciones", "roles": {"admin", "rrhh", "supervisor", "jefe"}},
+    {"code": "reintegros_pagos", "label": "Reintegros: registrar pagos", "group": "Operaciones", "roles": {"admin", "rrhh"}},
     {"code": "seguridad_higiene", "label": "Seguridad e Higiene", "group": "Operaciones", "roles": {"admin"}},
     {"code": "validacion_carga", "label": "Validacion de carga", "group": "Operaciones", "roles": {"admin"}},
     {"code": "organizacion", "label": "Organizacion", "group": "General", "roles": {"admin", "rrhh", "supervisor"}},

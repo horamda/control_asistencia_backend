@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block title %}Sectores habilitados para viáticos{% endblock %}
+{% block content %}<div class="content-stack"><a href="{{ url_for('reintegros_web.index') }}">Volver a viáticos</a><h2>Habilitación por sector</h2>
+<p>Seleccione los sectores que pueden generar rendiciones. Quienes dejen de estar habilitados conservan la consulta de su historial. Si no marca ningún sector, no se permiten nuevas cargas.</p>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="revision" value="{{ config.revision }}">
+{% for s in config.sectores %}<p><label><input type="checkbox" name="sectores" value="{{ s.id }}" {{ 'checked' if s.habilitado and s.activo }} {{ 'disabled' if not s.activo }}> {{ s.nombre }}{{ ' (inactivo)' if not s.activo }}</label></p>{% else %}<p>No hay sectores registrados para esta empresa.</p>{% endfor %}<button>Guardar sectores habilitados</button></form>
+<p>Períodos mensuales. Cierre el día 15 del mes siguiente inclusive, según hora argentina. El día 5 se genera un recordatorio dentro de la app para quienes aún no enviaron.</p></div>{% endblock %}

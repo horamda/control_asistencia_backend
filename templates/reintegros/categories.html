@@ -1,0 +1,56 @@
+﻿{% extends 'base.html' %}
+{% block title %}Conceptos de viáticos{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/reintegros_concepts.css') }}">{% endblock %}
+{% block content %}
+<div class="content-stack concept-page">
+  <a href="{{ url_for('reintegros_web.index') }}">← Volver a solicitudes</a>
+  <header class="concept-heading">
+    <div><h2>Conceptos de viáticos</h2><p>Administrá los conceptos que los empleados pueden seleccionar al cargar sus gastos.</p></div>
+    <button type="button" id="concept-create">+ Nuevo concepto</button>
+  </header>
+  <section class="concept-catalog" aria-label="Catálogo de conceptos">
+    <div class="concept-toolbar">
+      <label class="concept-search">Buscar concepto<input type="search" id="concept-search" placeholder="Ej. combustible, peajes…"></label>
+      <label>Estado<select id="concept-filter"><option value="">Todos</option><option value="1">Activos</option><option value="0">Inactivos</option></select></label>
+      <span id="concept-count" aria-live="polite"></span>
+    </div>
+    <table class="concept-table">
+      <thead><tr><th scope="col">Concepto</th><th scope="col">Estado</th><th scope="col"><span class="concept-sr">Acciones</span></th></tr></thead>
+      <tbody>
+      {% for item in items %}
+        <tr data-concept-row data-name="{{ item.nombre }}" data-active="{{ 1 if item.activo else 0 }}">
+          <td><strong>{{ item.nombre }}</strong></td>
+          <td><span class="concept-badge {{ 'is-active' if item.activo else 'is-inactive' }}">● {{ 'Activo' if item.activo else 'Inactivo' }}</span></td>
+          <td class="concept-actions"><button type="button" class="concept-secondary" data-edit-concept data-id="{{ item.id }}" data-name="{{ item.nombre }}" data-active="{{ 1 if item.activo else 0 }}" aria-label="Editar {{ item.nombre }}">Editar</button></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div id="concept-empty" class="concept-empty" {% if items %}hidden{% endif %}>
+      <h3>{{ 'No encontramos conceptos' if items else 'Creá el primer concepto' }}</h3>
+      <p>{{ 'Probá con otro nombre o cambiá el filtro de estado.' if items else 'Agregá combustible, peajes, estacionamiento o los conceptos que necesites.' }}</p>
+      <button type="button" id="concept-empty-action" class="concept-secondary">{{ 'Limpiar filtros' if items else 'Crear concepto' }}</button>
+    </div>
+    <p class="concept-note">Los conceptos inactivos dejan de estar disponibles para nuevos gastos. Su historial se conserva.</p>
+  </section>
+  <noscript>Activá JavaScript para buscar, crear y editar conceptos.</noscript>
+</div>
+{% set values = values or {} %}
+<dialog id="concept-dialog" class="concept-dialog" aria-labelledby="concept-dialog-title" data-reopen="{{ 1 if error else 0 }}">
+  <form method="post" action="{{ url_for('reintegros_web.categories') }}" id="concept-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="id" id="concept-id" value="{{ values.get('id', '') }}">
+    <header><h3 id="concept-dialog-title">{{ 'Editar concepto' if values.get('id') else 'Nuevo concepto' }}</h3><button type="button" class="concept-secondary" data-close-concept aria-label="Cerrar">×</button></header>
+    <div class="concept-dialog-body">
+      <p id="concept-error" role="alert" {% if not error %}hidden{% endif %}>{{ error or '' }}</p>
+      <label for="concept-name">Nombre del concepto</label>
+      <input id="concept-name" name="nombre" maxlength="120" required placeholder="Ej. Estacionamiento" value="{{ values.get('nombre', '') }}">
+      <label for="concept-active">Estado</label>
+      <select id="concept-active" name="activo"><option value="1" {{ 'selected' if values.get('activo', '1') == '1' }}>Activo</option><option value="0" {{ 'selected' if values.get('activo') == '0' }}>Inactivo</option></select>
+      <p class="concept-help">Los empleados pueden seleccionar los conceptos activos.</p>
+    </div>
+    <footer><button type="button" class="concept-secondary" data-close-concept>Cancelar</button><button type="submit" id="concept-save">{{ 'Guardar cambios' if values.get('id') else 'Crear concepto' }}</button></footer>
+  </form>
+</dialog>
+<script src="{{ url_for('static', filename='js/reintegros_concepts.js') }}" defer></script>
+{% endblock %}

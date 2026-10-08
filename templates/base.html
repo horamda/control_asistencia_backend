@@ -197,6 +197,23 @@
               </div>
             {% endif %}
 
+            {% if can_web("reintegros") %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-reintegros">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+                    <span class="nav-label">Viáticos y reintegros</span>
+                  </span><span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-reintegros">
+                  <a class="nav-link" href="/reintegros/mensual">Rendiciones mensuales</a>
+                  <a class="nav-link" href="/reintegros/">Solicitudes y pagos</a>
+                  {% if current_role in ['admin', 'rrhh'] and can_web('reintegros', 'editar') %}
+                  <a class="nav-link" href="/reintegros/categorias">Conceptos de viáticos</a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
             {% if can_web("feedback") %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-feedback">
