@@ -1,9 +1,9 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% block title %}Participación sin ranking{% endblock %}
 {% block content %}
 <div class="content-stack">
   <div class="section-head"><div><h2>Participación sin ranking</h2><p>{{ trivia.titulo }} · {{ trivia.anio }}</p></div><a class="btn btn-secondary" href="{{ url_for('trivia_admin.resultados',trivia_id=trivia.id) }}">Volver a resultados</a></div>
-  {% for category,message in get_flashed_messages(with_categories=true) %}<div class="alert" role="status">{{ message }}</div>{% endfor %}
+
   {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
   <div class="panel">
     <p>Estas personas podrán responder si están habilitadas por sector y no tienen bloqueada la participación. Conservarán sus puntos y su historial personal.</p>

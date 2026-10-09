@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Camiones y horarios{% endblock %}
 {% block content %}<div class="content-stack">
-{% for message in get_flashed_messages() %}<p role="status">{{ message }}</p>{% endfor %}
+
 <div class="section-head"><div><div class="section-kicker">Validación de carga</div><h2>Camiones y horarios</h2><p class="module-intro">Configure vehículos, ventanas horarias y puestos de reparto habilitados.</p></div><a class="btn btn-secondary" href="{{ url_for('carga_web.index', empresa_id=empresa_id) }}">Ver validaciones</a></div>
 {% if empresas %}<form method="get" class="actions"><label for="empresa">Empresa</label><select id="empresa" name="empresa_id">{% for e in empresas %}<option value="{{ e.id }}" {% if e.id == empresa_id %}selected{% endif %}>{{ e.razon_social }}</option>{% endfor %}</select><button class="btn">Consultar</button></form>{% endif %}
 {% for category, title in [('camiones','Camiones / vehículos'), ('horarios','Horarios de validación')] %}

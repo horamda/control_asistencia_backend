@@ -1,4 +1,6 @@
 WEB_MODULES = [
+    {"code": "epp", "label": "EPP: pedidos y talles", "group": "Operaciones", "roles": {"admin", "jefe", "supervisor"}},
+    {"code": "epp_responsables", "label": "EPP: Seguridad e Higiene y entregas", "group": "Operaciones", "roles": {"admin"}},
     {"code": "reintegros", "label": "Viáticos y reintegros", "group": "Operaciones", "roles": {"admin", "rrhh", "supervisor", "jefe"}},
     {"code": "reintegros_pagos", "label": "Reintegros: registrar pagos", "group": "Operaciones", "roles": {"admin", "rrhh"}},
     {"code": "seguridad_higiene", "label": "Seguridad e Higiene", "group": "Operaciones", "roles": {"admin"}},

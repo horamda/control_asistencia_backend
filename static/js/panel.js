@@ -237,40 +237,6 @@
     });
   }
 
-  function addDeleteConfirm() {
-    document.querySelectorAll("form[action*='/eliminar/']").forEach(function (form) {
-      if (form.getAttribute("data-confirm-bound") === "1") return;
-      form.setAttribute("data-confirm-bound", "1");
-      form.addEventListener("submit", function (event) {
-        if (!window.confirm("Confirma eliminar este registro?")) {
-          event.preventDefault();
-        }
-      });
-    });
-  }
-
-  function addDataConfirm() {
-    document.querySelectorAll("[data-confirm]").forEach(function (node) {
-      if (node.getAttribute("data-confirm-bound") === "1") return;
-      node.setAttribute("data-confirm-bound", "1");
-      var message = node.getAttribute("data-confirm") || "Confirma esta accion?";
-      var tag = (node.tagName || "").toLowerCase();
-      if (tag === "form") {
-        node.addEventListener("submit", function (event) {
-          if (!window.confirm(message)) {
-            event.preventDefault();
-          }
-        });
-        return;
-      }
-      node.addEventListener("click", function (event) {
-        if (!window.confirm(message)) {
-          event.preventDefault();
-        }
-      });
-    });
-  }
-
   function initNavToggle() {
     var body = document.body;
     var toggle = document.getElementById("nav-toggle");
@@ -344,36 +310,6 @@
     }, { passive: true });
 
     syncSidebarState();
-  }
-
-  // Auto-dismiss flash messages
-  function initFlashMessages() {
-    var ok = document.querySelectorAll(".alert-ok");
-    ok.forEach(function (el) {
-      setTimeout(function () {
-        el.style.transition = "opacity 0.5s ease";
-        el.style.opacity = "0";
-        setTimeout(function () { el.style.display = "none"; }, 520);
-      }, 4000);
-    });
-  }
-
-  // Submit button loading state — prevents double submit
-  function initSubmitLoading() {
-    document.querySelectorAll("form:not([method='get'])").forEach(function (form) {
-      form.addEventListener("submit", function () {
-        var btn = form.querySelector("button[type='submit'], input[type='submit']");
-        if (!btn || btn.getAttribute("data-loading") === "1") return;
-        btn.setAttribute("data-loading", "1");
-        btn.setAttribute("disabled", "disabled");
-        btn.setAttribute("data-original-text", btn.textContent || btn.value);
-        if (btn.tagName.toLowerCase() === "button") {
-          btn.textContent = "Guardando\u2026";
-        } else {
-          btn.value = "Guardando\u2026";
-        }
-      });
-    });
   }
 
   // Escape key closes sidebar
@@ -462,10 +398,10 @@
     normalizeHeading();
     markActiveNav();
     initNavGroups();
-    addDeleteConfirm();
-    addDataConfirm();
-    initFlashMessages();
-    initSubmitLoading();
+
+
+
+
     initEscapeKey();
     initFilterToggle();
     initPagerScroll();

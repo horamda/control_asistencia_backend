@@ -1,0 +1,1 @@
+<form method="get" class="actions"><label>Empleado<select name="empleado_id" required><option value="">Seleccione un empleado</option>{% for e in options.empleados %}<option value="{{ e.id }}" {{ 'selected' if eid==e.id }}>{{ e.legajo }} · {{ e.apellido }} {{ e.nombre }}</option>{% endfor %}</select></label><button class="btn" type="submit">Consultar</button></form>

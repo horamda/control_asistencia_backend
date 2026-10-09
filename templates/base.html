@@ -353,6 +353,17 @@
                 </div>
               </div>
             {% endif %}
+            {% if can_web('epp') %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-epp"><span class="nav-toggle-label"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4c0 4-8 4-8 0Z"/></svg><span class="nav-label">EPP y vestimenta</span></span><span class="nav-caret" aria-hidden="true"></span></button>
+                <div class="nav-submenu" id="nav-submenu-epp">
+                  <a class="nav-link" href="/epp/">Pedidos y entregas</a>
+                  <a class="nav-link" href="/epp/talles">Talles del personal</a>
+                  {% if can_web('epp_responsables','editar') %}<a class="nav-link" href="/epp/catalogo">Artículos y talles</a>{% endif %}
+                  <a class="nav-link" href="/epp/reporte">Entregas anuales</a>
+                </div>
+              </div>
+            {% endif %}
             {% if can_web('seguridad_higiene') %}
               <div class="nav-group nav-group-safety" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-seguridad-higiene">
@@ -450,6 +461,13 @@
       </div>
     {% endif %}
 
+    <section id="panel-messages" aria-label="Mensajes de la operación">
+      {% for category, message in get_flashed_messages(with_categories=true) %}
+      <div class="panel-message" data-tone="{{ category }}" role="{{ 'alert' if category in ['error','danger'] else 'status' }}"><strong>{{ 'Error' if category in ['error','danger'] else 'Confirmación' if category in ['success','ok'] else 'Aviso' }}</strong><div>{{ message }}</div><button type="button" data-dismiss-message aria-label="Cerrar mensaje">×</button></div>
+      {% endfor %}
+    </section>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/panel-messages.css') }}">
+    <script src="{{ url_for('static', filename='js/panel-messages.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/panel.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/panel-notifications.js') }}" defer></script>
     {% block extra_scripts %}{% endblock %}

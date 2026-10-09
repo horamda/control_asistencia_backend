@@ -1,3 +1,7 @@
+## 1.36.0 — 2026-10-08
+
+- EPP: catálogo con imágenes, talles, pedidos, edición/cancelación y resumen anual. Panel con aprobación por jefe directo o Seguridad e Higiene, entregas parciales, PDF y firma adjunta. Requiere migración 20261008_02_epp y configuración de permisos/artículos.
+
 ## 1.35.0 — 2026-10-08
 
 - Catálogo de viáticos: documentado selector desde `conceptos`, alias `categorias`, refresco, catálogo vacío, desactivación durante edición y nombre histórico `categoria_nombre`. CRUD reservado al panel administrativo; no cambia la API Bearer ni su versión.

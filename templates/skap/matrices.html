@@ -7,7 +7,7 @@
  <h2>{{ 'Mis evaluaciones' if own else 'Matrices SKAP' }}</h2>
  <p class="module-intro">Competencias por rol y año · escala 0 a 4. Los resultados se comparan con el estándar de cada competencia.</p></div>
  {% if not own and actor.rol in ['admin','rrhh'] %}<a class="btn" href="{{ url_for('skap_matriz.upload') }}">Importar Excel</a>{% endif %}</div>
- {% for category,message in get_flashed_messages(with_categories=true) %}<div role="status" class="alert">{{ message }}</div>{% endfor %}
+
  {% if not own %}<form method="get" class="panel form-grid skap-filters">
  <label>Año<input type="number" name="anio" min="1900" max="2100" value="{{ filters.anio or '' }}"></label>
  <label>Sucursal de la evaluación<select name="sucursal_id"><option value="">Todas</option>{% for s in branches %}<option value="{{ s.id }}" {% if filters.sucursal_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>{% endfor %}</select></label>

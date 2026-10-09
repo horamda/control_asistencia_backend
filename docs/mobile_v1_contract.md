@@ -1,8 +1,10 @@
-﻿# Contrato API Mobile v1
+# Contrato API Mobile v1
 
-Version de contrato: 1.35.0
+Version de contrato: 1.36.0
 
 Actualización documental del 08/10/2026: [selector de conceptos de viáticos](reintegros_mobile.md#catálogo-de-conceptos-integración-del-selector), manejo de conceptos desactivados e históricos. El CRUD es administrativo; mobile consume `/reintegros/config`. Sin cambios incompatibles ni nuevas rutas.
+
+- **EPP y vestimenta:** catálogo con imágenes, talles propios, pedidos, entregas y resumen anual. [Contrato Flutter](epp_mobile.md), [OpenAPI](epp_mobile_openapi.yaml).
 
 - Seguridad e Higiene: selección múltiple de externos registrados y nuevos, combinable con empleados. Ver [guía para web y Flutter](seguridad_higiene.md#seleccion-multiple-de-externos).
 

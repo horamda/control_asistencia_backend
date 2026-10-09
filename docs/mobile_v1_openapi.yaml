@@ -1,7 +1,7 @@
-﻿openapi: 3.0.3
+openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.35.0
+  version: 1.36.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
     Version 1.35.0: viáticos mensuales por sector, kilómetros informativos, odómetro opcional, cierre y reaperturas, comprobantes y avisos del día 5. Nuevas altas requieren período. Ver reintegros_mobile.md.
@@ -3526,6 +3526,24 @@ security:
 # Paths
 # ---------------------------------------------------------------------------
 paths:
+  /epp/config:
+    $ref: "./epp_mobile_openapi.yaml#/paths/~1epp~1config"
+  /epp/talles:
+    $ref: "./epp_mobile_openapi.yaml#/paths/~1epp~1talles"
+  /epp/pedidos:
+    $ref: "./epp_mobile_openapi.yaml#/paths/~1epp~1pedidos"
+  /epp/pedidos/{id}:
+    $ref: "./epp_mobile_openapi.yaml#/paths/~1epp~1pedidos~1{id}"
+  /epp/pedidos/{id}/acciones:
+    $ref: "./epp_mobile_openapi.yaml#/paths/~1epp~1pedidos~1{id}~1acciones"
+  /epp/resumen:
+    $ref: "./epp_mobile_openapi.yaml#/paths/~1epp~1resumen"
+  /epp/imagenes/articulos/{id}:
+    $ref: "./epp_mobile_openapi.yaml#/paths/~1epp~1imagenes~1articulos~1{id}"
+  /epp/imagenes/firmas/{id}:
+    $ref: "./epp_mobile_openapi.yaml#/paths/~1epp~1imagenes~1firmas~1{id}"
+  /epp/entregas/{id}/pdf:
+    $ref: "./epp_mobile_openapi.yaml#/paths/~1epp~1entregas~1{id}~1pdf"
   /reintegros/odometro/{fid}:
     $ref: './reintegros_mobile_openapi.yaml#/paths/~1reintegros~1odometro~1{fid}'
   /reintegros/recordatorios:
