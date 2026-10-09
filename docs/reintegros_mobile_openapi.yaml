@@ -460,6 +460,7 @@ paths:
                       $ref: '#/components/schemas/State'
                   categorias:
                     type: array
+                    description: Alias compatible de conceptos. No combinar ambos listados.
                     items: &id001
                       type: object
                       properties:
@@ -492,6 +493,7 @@ paths:
                       type: string
                   conceptos:
                     type: array
+                    description: Conceptos activos de la empresa, ordenados por nombre. Administrados en el panel web; actualizar al abrir la carga y enviar el ID como categoria_id. Puede estar vacío.
                     items: *id001
                   version_contrato:
                     type: string

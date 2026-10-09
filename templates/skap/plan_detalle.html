@@ -223,7 +223,7 @@
                 </form>
                 <form method="post" action="{{ url_for('skap_web.plan_accion_eliminar', plan_id=plan.id, action_id=accion.id) }}" onsubmit="return confirm('Eliminar accion?')">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button class="btn btn-secondary" type="submit">Eliminar</button>
+                  <button class="btn btn-danger" type="submit">Eliminar</button>
                 </form>
               </div>
             </td>

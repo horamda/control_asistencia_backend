@@ -7,7 +7,7 @@
   <div class="section-head">
     <div class="employee-head">
       {% if empleado.foto %}
-        <a href="{{ empleado.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
+        <a href="{{ empleado.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto" class="ui-image-link">
           <img
             class="employee-avatar md"
             src="{{ foto_empleado_url }}"
@@ -95,7 +95,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Guardar cambios</button>
+      <button type="submit" class="btn">Guardar cambios</button>
       <a class="btn btn-secondary" href="{{ next_url or url_for('legajos.empleado', emp_id=empleado.id) }}">Volver</a>
     </div>
   </form>

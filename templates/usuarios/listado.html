@@ -48,7 +48,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Filtrar</button>
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="/usuarios/">Limpiar</a>
     </div>
   </form>
@@ -96,7 +96,7 @@
               {% else %}
                 <a class="btn btn-secondary" href="/usuarios/activar/{{ u.id }}">Activar</a>
               {% endif %}
-              <a href="/usuarios/editar/{{ u.id }}">Editar</a>
+              <a href="/usuarios/editar/{{ u.id }}" class="btn btn-secondary">Editar</a>
             </div>
           </td>
         </tr>

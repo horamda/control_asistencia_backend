@@ -39,6 +39,26 @@ Base: `/api/v1/mobile/reintegros`. Todas las rutas requieren `Authorization: Bea
 
 ## Rutas
 
+### Catálogo de conceptos: integración del selector
+
+El CRUD se administra en **Viáticos → Conceptos de viáticos**, ruta web `/reintegros/categorias`, con sesión administrativa y CSRF. Requiere rol admin/RR. HH. y permiso `reintegros.editar`. No es una ruta Bearer para Flutter. El rediseño del panel no cambia los campos ni las rutas de la API; se conserva la versión 1.35.0.
+
+- Al abrir o volver a la carga, consultar `GET /config` y construir el selector con `conceptos`: objetos `id`, `nombre`, `activo: 1`, ordenados por nombre. `categorias` es un alias compatible del mismo catálogo, no otro listado para combinar.
+- Mostrar **Concepto** para el selector y **Descripción del gasto** para el texto libre. Enviar el ID elegido como `categoria_id` y la descripción como `concepto`. Nunca enviar el nombre como ID ni crear conceptos desde la app del empleado.
+- Un catálogo vacío debe mostrar “No hay conceptos disponibles. Contactá a Administración”. Se pueden guardar borradores incompletos; no enviar gastos sin un concepto activo. La carga de kilómetros sin gastos mantiene sus reglas habituales.
+- Si un concepto se desactiva con el formulario abierto, el backend rechaza su uso al guardar. Conservar los datos locales, actualizar config y pedir otra selección; no reemplazarla automáticamente por el primer concepto. También se valida un ID provisto al guardar borrador.
+- En detalle e historial mostrar `gastos[].categoria_nombre`, guardado con el gasto, aunque el concepto se haya renombrado o desactivado. Al editar y guardar se valida el catálogo vigente y se toma su nombre actual para la nueva versión.
+- Búsqueda local por nombre y selección única por gasto. Un mismo concepto puede usarse en varios comprobantes, incluso del mismo importe.
+- Desactivar conserva los gastos e historial; no existe eliminación del catálogo en la API mobile.
+
+Ejemplo del fragmento de config (IDs ilustrativos):
+
+```json
+{"conceptos":[{"id":1,"nombre":"Combustible","activo":1},{"id":2,"nombre":"Peajes","activo":1}]}
+```
+
+Para la interfaz mobile, mantener el botón principal de guardar/enviar claramente separado de cancelar o volver; usar áreas táctiles de al menos 44 px y mostrar progreso durante el envío. El rediseño del panel administrativo no implementa por sí mismo estas pantallas en Flutter.
+
 | Método | Ruta relativa | Uso |
 |---|---|---|
 | GET | `/config` | Acceso mensual, conceptos, límites y avisos |

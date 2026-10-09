@@ -2,6 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Resumen empleado {{ empleado.apellido }} {{ empleado.nombre }}</title>
     <style>
       body { font-family: Arial, sans-serif; color: #111; margin: 16px; }
@@ -9,6 +10,11 @@
       .meta { margin: 0 0 10px; font-size: 13px; }
       .toolbar { margin: 12px 0; display: flex; gap: 8px; }
       .btn { border: 1px solid #444; background: #f8f8f8; padding: 6px 10px; text-decoration: none; color: #111; }
+      @media screen {
+        .toolbar { flex-wrap: wrap; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; box-sizing: border-box; border-radius: 8px; padding: 9px 14px; }
+        .btn:focus-visible { outline: 3px solid #0f4c81; outline-offset: 3px; }
+      }
       .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
       .box { border: 1px solid #666; padding: 8px; }
       .box h3 { font-size: 14px; margin-bottom: 6px; }

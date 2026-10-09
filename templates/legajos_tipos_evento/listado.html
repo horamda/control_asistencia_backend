@@ -45,7 +45,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Filtrar</button>
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="{{ url_for('legajo_tipos_evento.listado') }}">Limpiar</a>
     </div>
   </form>
@@ -104,7 +104,7 @@
               </td>
               <td data-label="Acciones">
                 <div class="inline-actions">
-                  <a href="{{ url_for('legajo_tipos_evento.editar', tipo_id=t.id) }}">Editar</a>
+                  <a href="{{ url_for('legajo_tipos_evento.editar', tipo_id=t.id) }}" class="btn btn-secondary">Editar</a>
                   {% if t.activo %}
                     <a class="btn btn-secondary" href="{{ url_for('legajo_tipos_evento.desactivar', tipo_id=t.id) }}">Desactivar</a>
                   {% else %}

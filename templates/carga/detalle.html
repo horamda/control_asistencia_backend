@@ -7,5 +7,5 @@
 </div>
 <p><strong>Regla aplicada:</strong> {{ row.horario_nombre }} · Desde {{ clock(row.desde_minuto) }} inclusive hasta {{ clock(row.hasta_minuto) }} exclusivo.</p>
 <div><h3>Observaciones</h3><p style="white-space:pre-wrap">{{ row.observaciones or 'Sin observaciones.' }}</p></div>
-<div><h3>Fotos</h3><div style="display:flex;flex-wrap:wrap;gap:16px">{% for photo in row.fotos %}<a href="{{ url_for('carga_web.photo', photo_id=photo.id, empresa_id=empresa_id) }}" target="_blank" rel="noopener"><img src="{{ url_for('carga_web.photo', photo_id=photo.id, empresa_id=empresa_id) }}" alt="Evidencia {{ loop.index }} de la validación {{ row.id }}" loading="lazy" style="width:240px;height:180px;object-fit:cover;border-radius:12px"></a>{% else %}<p>Sin fotos adjuntas.</p>{% endfor %}</div></div>
+<div><h3>Fotos</h3><div style="display:flex;flex-wrap:wrap;gap:16px">{% for photo in row.fotos %}<a href="{{ url_for('carga_web.photo', photo_id=photo.id, empresa_id=empresa_id) }}" target="_blank" rel="noopener" class="ui-image-link"><img src="{{ url_for('carga_web.photo', photo_id=photo.id, empresa_id=empresa_id) }}" alt="Evidencia {{ loop.index }} de la validación {{ row.id }}" loading="lazy" style="width:240px;height:180px;object-fit:cover;border-radius:12px"></a>{% else %}<p>Sin fotos adjuntas.</p>{% endfor %}</div></div>
 </div>{% endblock %}

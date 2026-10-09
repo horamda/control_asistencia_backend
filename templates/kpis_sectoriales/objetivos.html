@@ -68,7 +68,7 @@
     {% if not kpis_con_objetivo %}
       <div class="empty-state">
         Este sector no tiene KPIs definidos.
-        <a href="{{ url_for('kpis_sectoriales.nuevo', empresa_id=empresa_id, sector_id=sector_id) }}">Crear el primero</a>.
+        <a href="{{ url_for('kpis_sectoriales.nuevo', empresa_id=empresa_id, sector_id=sector_id) }}" class="btn btn-secondary ui-action-link">Crear el primero</a>.
       </div>
     {% else %}
 

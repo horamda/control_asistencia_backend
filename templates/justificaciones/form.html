@@ -107,7 +107,7 @@
             <div class="chip-row" style="flex-wrap: wrap;">
               {% for adjunto in adjuntos %}
                 <span class="chip">
-                  <a href="{{ url_for('media.legajo_adjunto', adjunto_id=adjunto.id) }}" target="_blank" rel="noopener">
+                  <a href="{{ url_for('media.legajo_adjunto', adjunto_id=adjunto.id) }}" target="_blank" rel="noopener" class="btn btn-secondary ui-action-link">
                     {{ adjunto.nombre_original or ('Adjunto ' ~ adjunto.id) }}
                   </a>
                   {% if (data.estado or 'pendiente') == 'pendiente' %}
@@ -133,7 +133,7 @@
     {% endif %}
 
     <div class="actions">
-      <button type="submit">Guardar</button>
+      <button type="submit" class="btn">Guardar</button>
       <a class="btn btn-secondary" href="{{ url_for('justificaciones.listado') }}">Volver</a>
     </div>
   </form>

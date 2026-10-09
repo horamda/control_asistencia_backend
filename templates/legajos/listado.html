@@ -79,7 +79,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Filtrar</button>
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="{{ url_for('legajos.listado_empleados') }}">Limpiar</a>
     </div>
   </form>
@@ -115,7 +115,7 @@
           <tr>
             <td data-label="Foto">
               {% if e.foto %}
-                <a href="{{ e.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
+                <a href="{{ e.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto" class="ui-image-link">
                   <img
                     class="employee-avatar sm"
                     src="{{ e.foto }}"

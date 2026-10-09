@@ -121,7 +121,7 @@
 
     <div class="actions" style="padding:1.25rem;display:flex;gap:.75rem;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:1.25rem">
       <button type="submit" class="btn btn-primary">{{ 'Guardar cambios' if trivia else 'Crear trivia' }}</button>
-      <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost">Cancelar</a>
+      <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost btn-secondary">Cancelar</a>
     </div>
   </form>
 </div>

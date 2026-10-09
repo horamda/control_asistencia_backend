@@ -138,7 +138,7 @@
               <small>{{ item.motivo.nombre or "-" }}</small>
               <p class="feedback-row-text">{{ item.descripcion }}</p>
               {% if item.evidencia %}
-                <a href="{{ item.evidencia.url }}" target="_blank" rel="noopener">Ver evidencia</a>
+                <a href="{{ item.evidencia.url }}" target="_blank" rel="noopener" class="btn btn-secondary ui-action-link">Ver evidencia</a>
               {% endif %}
             </td>
             <td data-label="Responsable">

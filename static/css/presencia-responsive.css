@@ -141,7 +141,7 @@ summary:focus-visible { outline:3px solid #1b8271; outline-offset:3px; }
 @media screen and (max-width: 360px) {
   .brand small { display: none; }
   .connection { max-width: 42%; font-size: 10px; }
-  .view-tabs button { font-size: 11px; padding: 8px 5px; }
+  .view-tabs button { font-size: 13px; padding: 8px 5px; min-height: 44px; }
   .person { align-items: flex-start; }
   .person-time { padding-top: 2px; }
 }

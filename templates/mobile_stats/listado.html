@@ -145,7 +145,7 @@
     </div>
     <button type="submit" class="btn btn-secondary">Filtrar</button>
     {% if filtros.q or filtros.fecha_desde or filtros.fecha_hasta or filtros.platform or filtros.app_version or sucursal_id or sector_id %}
-    <a href="{{ url_for('mobile_stats.listado') }}" class="btn btn-ghost">Limpiar</a>
+    <a href="{{ url_for('mobile_stats.listado') }}" class="btn btn-ghost btn-secondary">Limpiar</a>
     {% endif %}
   </div>
 </form>

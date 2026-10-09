@@ -1,0 +1,165 @@
+/* Shared action sizing. Keep navigation, chart controls and standalone pages independent. */
+:is(.page-content,.embedded-layout) a.ui-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: middle;
+}
+:is(.page-content,.embedded-layout) td a.ui-action-link {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: .8125rem;
+  margin-block: 2px;
+}
+:is(.page-content,.embedded-layout) a.ui-action-link:hover {
+  background: var(--surface-strong);
+  color: var(--text);
+  border-color: var(--primary);
+  text-decoration: none;
+}
+:is(.page-content,.embedded-layout) a.ui-image-link {
+  display: inline-flex;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  vertical-align: middle;
+}
+:is(.page-content,.embedded-layout) a.ui-image-link:hover {border-color:var(--primary)}
+@media (max-width:760px), (pointer:coarse) {
+  :is(.page-content,.embedded-layout) a.ui-action-link,
+  :is(.page-content,.embedded-layout) td a.ui-action-link {min-height:44px;min-width:44px}
+}
+:is(.page-content,.embedded-layout) :is(button.btn,a.btn,input[type=submit]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  max-width: 100%;
+  padding: 9px 14px;
+  white-space: normal;
+  vertical-align: middle;
+}
+:is(.page-content,.embedded-layout) :is(.btn.btn-sm,.planilla-action-edit,.planilla-action-delete) {
+  min-height: 36px;
+  padding: 7px 10px;
+  font-size: .8125rem;
+}
+:is(.page-content,.embedded-layout) .btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+:is(.page-content,.embedded-layout) .btn-ghost:hover {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+:is(.page-content,.embedded-layout) button[aria-label="Cerrar"] {
+  min-width: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+:is(.page-content,.embedded-layout) :is(.btn,.btn-secondary,.btn-danger,button,input[type=submit]) {
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: .875rem;
+  line-height: 1.35;
+}
+:is(.page-content,.embedded-layout) :is(a.btn,a.btn-secondary,a.btn-danger) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  text-align: center;
+  text-decoration: none;
+}
+:is(.page-content,.embedded-layout) :is(.actions,.toolbar,.sh-toolbar,.reintegros-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+:is(.page-content,.embedded-layout) :is(.actions,.toolbar,.sh-toolbar,.reintegros-actions)>:is(button,.btn,.btn-secondary,.btn-danger,input[type=submit]),
+:is(.page-content,.embedded-layout) .form-grid>:is(button,.btn,.btn-secondary,.btn-danger,input[type=submit]) {
+  width: auto;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 9px 14px;
+  flex: 0 1 auto;
+  align-self: end;
+  justify-self: start;
+  white-space: normal;
+  text-align: center;
+}
+:is(.page-content,.embedded-layout) .btn-secondary {
+  color: var(--text);
+  background: var(--surface-soft);
+  border-color: var(--border);
+}
+:is(.page-content,.embedded-layout) .btn-secondary:hover {
+  color: var(--text);
+  background: var(--surface-strong);
+  border-color: var(--primary);
+}
+:is(.page-content,.embedded-layout) .btn-danger {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+:is(.page-content,.embedded-layout) .btn-danger:hover {filter: brightness(.9)}
+:is(.page-content,.embedded-layout) :is(button,.btn,.btn-secondary,.btn-danger,input[type=submit]):disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: none;
+}
+:is(.page-content,.embedded-layout) :is(a,button,input,select,textarea):focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+:is(.page-content,.embedded-layout) :is(p,td,.reintegros-actions)>a:not([class]),
+:is(.page-content,.embedded-layout) .content-stack>a:not([class]) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:is(.page-content,.embedded-layout) :is(.actions,.reintegros-actions)>a:not([class]) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 4px;
+}
+@media (max-width:760px), (pointer:coarse) {
+  :is(.page-content,.embedded-layout) :is(button.btn,a.btn,.btn.btn-sm,.planilla-action-edit,.planilla-action-delete,button[aria-label="Cerrar"]) {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  :is(.page-content,.embedded-layout) :is(.actions,.toolbar,.sh-toolbar,.reintegros-actions)>:is(button,a,input[type=submit]),
+  :is(.page-content,.embedded-layout) :is(.btn,.btn-secondary,.btn-danger),
+  :is(.page-content,.embedded-layout) .form-grid>button {
+    min-height: 44px;
+  }
+  :is(.page-content,.embedded-layout) form:not([method="get"])>.actions:last-child>:is(a,button,.btn,.btn-secondary,.btn-danger,input[type=submit]) {
+    width: auto;
+    flex: 0 1 auto;
+  }
+  .concept-page .concept-table button,.concept-dialog button {min-height:44px}
+}

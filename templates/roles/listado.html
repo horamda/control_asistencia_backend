@@ -28,7 +28,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Filtrar</button>
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="/roles/">Limpiar</a>
     </div>
   </form>
@@ -51,10 +51,10 @@
           <td data-label="Nombre">{{ r.nombre }}</td>
           <td data-label="Acciones">
             <div class="inline-actions">
-              <a href="/roles/editar/{{ r.id }}">Editar</a>
+              <a href="/roles/editar/{{ r.id }}" class="btn btn-secondary">Editar</a>
               <form method="post" action="/roles/eliminar/{{ r.id }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="btn-danger" type="submit">Eliminar</button>
+                <button class="btn-danger btn" type="submit">Eliminar</button>
               </form>
             </div>
           </td>

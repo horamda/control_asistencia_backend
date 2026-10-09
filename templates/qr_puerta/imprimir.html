@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>QR Puerta - {{ empresa.razon_social }}</title>
     <style>
+      @media screen {
+        button.print-hide { min-height: 44px; padding: 9px 16px; border: 1px solid #0f4c81; border-radius: 8px; background: #0f4c81; color: white; font: inherit; cursor: pointer; }
+        button.print-hide:focus-visible { outline: 3px solid #0f4c81; outline-offset: 3px; }
+      }
       body {
         font-family: "Segoe UI", Arial, sans-serif;
         margin: 24px;

@@ -107,7 +107,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Filtrar</button>
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="{{ url_for('empleados.listado') }}">Limpiar</a>
     </div>
   </form>
@@ -145,7 +145,7 @@
             <div class="employee-list-person">
               {% if e.foto %}
                 {% set foto_url = e.foto ~ ('&v=' if '?' in e.foto else '?v=') ~ (photo_cache_buster|string) %}
-                <a href="{{ e.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
+                <a href="{{ e.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto" class="ui-image-link">
                   <img
                     class="employee-avatar sm"
                     src="{{ foto_url }}"

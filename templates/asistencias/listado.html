@@ -39,7 +39,7 @@
           <input name="fecha" type="date" value="{{ today }}" max="{{ today }}">
         </div>
         <div class="actions">
-          <button type="submit" name="modo" value="dia">Generar ausentes del dia</button>
+          <button type="submit" name="modo" value="dia" class="btn">Generar ausentes del dia</button>
         </div>
       </section>
 
@@ -99,7 +99,7 @@
       </div>
       <div class="row">
         <label>&nbsp;</label>
-        <button type="submit">Aplicar filtros</button>
+        <button type="submit" class="btn">Aplicar filtros</button>
       </div>
     </div>
   </form>
@@ -150,10 +150,10 @@
             </td>
             <td data-label="Acciones">
               <div class="inline-actions">
-                <a href="/asistencias/editar/{{ a.id }}">Editar</a>
+                <a href="/asistencias/editar/{{ a.id }}" class="btn btn-secondary">Editar</a>
                 <form method="post" action="/asistencias/eliminar/{{ a.id }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit">Eliminar</button>
+                  <button type="submit" class="btn btn-danger">Eliminar</button>
                 </form>
               </div>
             </td>

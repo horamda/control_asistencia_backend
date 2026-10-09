@@ -80,7 +80,7 @@
     </div>
 
     <div class="actions">
-      <button type="submit">{% if mode == "edit" %}Guardar cambios{% else %}Asignar horario{% endif %}</button>
+      <button type="submit" class="btn">{% if mode == "edit" %}Guardar cambios{% else %}Asignar horario{% endif %}</button>
       {% if mode == "edit" %}
         <a class="btn btn-secondary" href="{{ url_for('empleado_horarios.asignar', empleado_id=empleado.id) }}">Cancelar edicion</a>
       {% else %}
@@ -109,10 +109,10 @@
             <td data-label="Hasta">{{ h.fecha_hasta or "Abierta" }}</td>
             <td data-label="Acciones">
               <div class="inline-actions">
-                <a href="{{ url_for('empleado_horarios.editar', empleado_id=empleado.id, asignacion_id=h.id) }}">Editar</a>
+                <a href="{{ url_for('empleado_horarios.editar', empleado_id=empleado.id, asignacion_id=h.id) }}" class="btn btn-secondary">Editar</a>
                 <form method="post" action="{{ url_for('empleado_horarios.eliminar', empleado_id=empleado.id, asignacion_id=h.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button class="btn-danger" type="submit">Eliminar</button>
+                  <button class="btn-danger btn" type="submit">Eliminar</button>
                 </form>
               </div>
             </td>

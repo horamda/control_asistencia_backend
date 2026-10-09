@@ -34,7 +34,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Filtrar</button>
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="{{ url_for('horarios.listado') }}">Limpiar</a>
     </div>
   </form>
@@ -81,10 +81,10 @@
                 {% else %}
                   <a class="btn btn-secondary" href="/horarios/activar/{{ h.id }}">Activar</a>
                 {% endif %}
-                <a href="/horarios/editar/{{ h.id }}">Editar</a>
+                <a href="/horarios/editar/{{ h.id }}" class="btn btn-secondary">Editar</a>
                 <form method="post" action="/horarios/eliminar/{{ h.id }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button class="btn-danger" type="submit">Eliminar</button>
+                  <button class="btn-danger btn" type="submit">Eliminar</button>
                 </form>
               </div>
             </td>

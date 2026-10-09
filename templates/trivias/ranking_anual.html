@@ -94,7 +94,7 @@
 {# Podio top 3 #}
 {% set top3 = ranking[:3] %}
 <div style="display:flex;justify-content:center;align-items:flex-end;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap">
-  {% for pos, emoji, height, bg in [(1,'🥇','120px','#fef3c7'),(2,'🥈','90px','#f1f5f9'),(3,'🥉','70px','#fef3c7')] %}
+  {% for pos, emoji, height, bg in [(1,'🥇','120px','var(--primary-soft)'),(2,'🥈','90px','var(--surface-strong)'),(3,'🥉','70px','var(--primary-soft)')] %}
     {% if loop.index0 < top3|length %}
       {% set r = top3[loop.index0] %}
       <div style="text-align:center;background:{{ bg }};border-radius:.75rem;padding:1rem .75rem;min-width:140px;max-width:180px;
@@ -148,7 +148,7 @@
       </thead>
       <tbody>
         {% for r in ranking %}
-        <tr {% if r.es_ganador_anual %}style="background:linear-gradient(90deg,#fffbeb,transparent)"{% endif %}>
+        <tr {% if r.es_ganador_anual %}style="background:linear-gradient(90deg,var(--primary-soft),transparent)"{% endif %}>
           <td data-label="#">
             {% if r.posicion == 1 %}🥇{% elif r.posicion == 2 %}🥈{% elif r.posicion == 3 %}🥉{% else %}{{ r.posicion }}{% endif %}
           </td>

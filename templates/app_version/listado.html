@@ -58,7 +58,7 @@
             </td>
             <td data-label="URL descarga">
               {% if c.url_descarga %}
-                <a href="{{ c.url_descarga }}" target="_blank" rel="noopener noreferrer" class="link-text">Ver enlace</a>
+                <a href="{{ c.url_descarga }}" target="_blank" rel="noopener noreferrer" class="link-text btn btn-secondary ui-action-link">Ver enlace</a>
               {% else %}
                 <span class="muted">—</span>
               {% endif %}
@@ -80,12 +80,12 @@
             </td>
             <td data-label="Acciones">
               <div class="inline-actions">
-                <a href="{{ url_for('app_version.editar', config_id=c.id) }}">Editar</a>
+                <a href="{{ url_for('app_version.editar', config_id=c.id) }}" class="btn btn-secondary">Editar</a>
                 <form method="post" action="{{ url_for('app_version.eliminar', config_id=c.id) }}"
                       style="display:inline"
                       onsubmit="return confirm('¿Eliminar esta configuración?')">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn btn-secondary btn-danger-text">Eliminar</button>
+                  <button type="submit" class="btn btn-danger">Eliminar</button>
                 </form>
               </div>
             </td>

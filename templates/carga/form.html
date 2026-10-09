@@ -16,4 +16,4 @@
 {% endif %}
 <label class="check-inline"><input name="activo" type="checkbox" value="1" {% if data.activo|string == '1' %}checked{% endif %}>Activo</label></div>
 <p>Los registros históricos conservan los datos originales. Para retirar este registro del uso, desmarque Activo.</p>
-<div class="actions"><button>Guardar</button><a class="btn btn-secondary" href="{{ url_for('carga_web.catalogs', empresa_id=empresa_id) }}">Cancelar</a></div></form></div>{% endblock %}
+<div class="actions"><button class="btn">Guardar</button><a class="btn btn-secondary" href="{{ url_for('carga_web.catalogs', empresa_id=empresa_id) }}">Cancelar</a></div></form></div>{% endblock %}

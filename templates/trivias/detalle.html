@@ -135,8 +135,8 @@
           <td data-label="Empleado"><strong>{{ r.empleado_nombre }}</strong></td>
           <td data-label="DNI">{{ r.empleado_dni }}</td>
           <td data-label="Puntos"><strong style="color:var(--primary)">{{ r.puntos_total }}</strong></td>
-          <td data-label="Correctas" style="color:#16a34a">{{ r.correctas }}</td>
-          <td data-label="Incorrectas" style="color:#dc2626">{{ r.incorrectas }}</td>
+          <td data-label="Correctas" style="color:var(--success)">{{ r.correctas }}</td>
+          <td data-label="Incorrectas" style="color:var(--danger)">{{ r.incorrectas }}</td>
           <td data-label="Tiempo">{{ r.tiempo_total_segundos }}s</td>
         </tr>
         {% endfor %}
@@ -197,7 +197,7 @@
       </div>
       <div style="display:flex;gap:.6rem">
         <button type="submit" class="btn btn-primary">Guardar pregunta</button>
-        <button type="button" class="btn btn-ghost" onclick="toggleAgregarPregunta()">Cancelar</button>
+        <button type="button" class="btn btn-ghost btn-secondary" onclick="toggleAgregarPregunta()">Cancelar</button>
       </div>
     </form>
   </div>
@@ -228,7 +228,7 @@
           <td data-label="Correcta">
             <span style="display:inline-flex;align-items:center;justify-content:center;
                          width:26px;height:26px;border-radius:50%;
-                         background:var(--success,#16a34a);color:#fff;font-weight:700;font-size:.85rem">
+                         background:var(--primary-soft);color:var(--text);font-weight:700;font-size:.85rem">
               {{ p.respuesta_correcta }}
             </span>
           </td>
@@ -319,7 +319,7 @@
         </div>
       </div>
       <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.2rem;flex-wrap:wrap">
-        <button type="button" class="btn btn-ghost" onclick="cerrarModal()">Cancelar</button>
+        <button type="button" class="btn btn-ghost btn-secondary" onclick="cerrarModal()">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar cambios</button>
       </div>
     </form>

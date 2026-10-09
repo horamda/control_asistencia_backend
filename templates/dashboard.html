@@ -51,7 +51,7 @@
     </div>
     <div class="dashboard-filter-meta" id="dashboard-filter-meta" aria-live="polite"></div>
     <div class="actions">
-      <button type="submit">Aplicar filtros</button>
+      <button type="submit" class="btn">Aplicar filtros</button>
       <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Limpiar</a>
     </div>
   </form>
@@ -109,24 +109,24 @@
           <span class="chip scope-chip-general">OPERACION</span>
         </div>
         <div class="executive-shortcut-list">
-          <a href="{{ url_for('asistencias.reportes_mensuales', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}">Reporte mensual</a>
-          <a href="/asistencias/planilla">Planilla diaria</a>
-          <a href="/justificaciones/">Justificaciones</a>
-          <a href="/vacaciones/">Vacaciones</a>
-          <a href="/empleados/">Empleados</a>
-          <a href="/feedback/">Feedback</a>
+          <a href="{{ url_for('asistencias.reportes_mensuales', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}" class="btn btn-secondary ui-action-link">Reporte mensual</a>
+          <a href="/asistencias/planilla" class="btn btn-secondary ui-action-link">Planilla diaria</a>
+          <a href="/justificaciones/" class="btn btn-secondary ui-action-link">Justificaciones</a>
+          <a href="/vacaciones/" class="btn btn-secondary ui-action-link">Vacaciones</a>
+          <a href="/empleados/" class="btn btn-secondary ui-action-link">Empleados</a>
+          <a href="/feedback/" class="btn btn-secondary ui-action-link">Feedback</a>
         </div>
       </article>
     </div>
   </section>
   <nav class="dashboard-jump" aria-label="Navegacion rapida del panel de asistencia">
-    <a href="#dash-reporte-mensual">Reporte mensual</a>
-    <a href="#dash-kpis">KPIs</a>
-    <a href="#dash-riesgo">Riesgo</a>
-    <a href="#dash-tendencias">Tendencias</a>
-    <a href="#dash-sucursal">Sucursal</a>
-    <a href="#dash-horas">Horas</a>
-    <a href="#dash-actividad">Actividad</a>
+    <a href="#dash-reporte-mensual" class="btn btn-secondary ui-action-link">Reporte mensual</a>
+    <a href="#dash-kpis" class="btn btn-secondary ui-action-link">KPIs</a>
+    <a href="#dash-riesgo" class="btn btn-secondary ui-action-link">Riesgo</a>
+    <a href="#dash-tendencias" class="btn btn-secondary ui-action-link">Tendencias</a>
+    <a href="#dash-sucursal" class="btn btn-secondary ui-action-link">Sucursal</a>
+    <a href="#dash-horas" class="btn btn-secondary ui-action-link">Horas</a>
+    <a href="#dash-actividad" class="btn btn-secondary ui-action-link">Actividad</a>
   </nav>
   <section id="dash-reporte-mensual" class="dashboard-block dashboard-monthly-report" style="--mobile-order: 1;">
     <div class="dashboard-monthly-head">
@@ -1007,16 +1007,16 @@
       <h3>Accesos rapidos</h3>
       <div class="chip-row"><span class="chip scope-chip-general">GENERAL</span></div>
       <div class="quick-links">
-        <a href="/horarios/">Gestionar plantillas de horarios</a>
-        <a href="/empleado-horarios/">Asignaciones vigentes por empleado</a>
-        <a href="/empleado-excepciones/">Registrar excepciones puntuales</a>
-        <a href="/asistencias/">Control diario de asistencias</a>
-        <a href="{{ url_for('asistencias.reportes_mensuales', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}">Reporte mensual de asistencia</a>
-        <a href="/adelantos/">Reporte de adelantos</a>
-        <a href="/justificaciones/">Gestion de justificaciones</a>
-        <a href="/legajos/eventos/">Eventos de legajo</a>
-        <a href="/vacaciones/">Gestion de vacaciones</a>
-        <a href="/auditoria/">Trazabilidad y auditoria</a>
+        <a href="/horarios/" class="btn btn-secondary ui-action-link">Gestionar plantillas de horarios</a>
+        <a href="/empleado-horarios/" class="btn btn-secondary ui-action-link">Asignaciones vigentes por empleado</a>
+        <a href="/empleado-excepciones/" class="btn btn-secondary ui-action-link">Registrar excepciones puntuales</a>
+        <a href="/asistencias/" class="btn btn-secondary ui-action-link">Control diario de asistencias</a>
+        <a href="{{ url_for('asistencias.reportes_mensuales', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}" class="btn btn-secondary ui-action-link">Reporte mensual de asistencia</a>
+        <a href="/adelantos/" class="btn btn-secondary ui-action-link">Reporte de adelantos</a>
+        <a href="/justificaciones/" class="btn btn-secondary ui-action-link">Gestion de justificaciones</a>
+        <a href="/legajos/eventos/" class="btn btn-secondary ui-action-link">Eventos de legajo</a>
+        <a href="/vacaciones/" class="btn btn-secondary ui-action-link">Gestion de vacaciones</a>
+        <a href="/auditoria/" class="btn btn-secondary ui-action-link">Trazabilidad y auditoria</a>
       </div>
     </article>
     <article class="panel dashboard-state" style="--mobile-order: 1;">

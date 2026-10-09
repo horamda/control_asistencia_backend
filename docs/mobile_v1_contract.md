@@ -2,6 +2,8 @@
 
 Version de contrato: 1.35.0
 
+Actualización documental del 08/10/2026: [selector de conceptos de viáticos](reintegros_mobile.md#catálogo-de-conceptos-integración-del-selector), manejo de conceptos desactivados e históricos. El CRUD es administrativo; mobile consume `/reintegros/config`. Sin cambios incompatibles ni nuevas rutas.
+
 - Seguridad e Higiene: selección múltiple de externos registrados y nuevos, combinable con empleados. Ver [guía para web y Flutter](seguridad_higiene.md#seleccion-multiple-de-externos).
 
 - **Viáticos y reintegros mensuales (1.35.0):** un período por empleado/mes, habilitación por sector, kilómetros informativos, odómetro opcional, conceptos del panel, comprobantes, cierre del día 15, reaperturas y recordatorios del día 5. Conserva aprobación y pago. Integración web/Flutter: [contrato completo y ejemplos](reintegros_mobile.md). OpenAPI específico: [reintegros_mobile_openapi.yaml](reintegros_mobile_openapi.yaml).

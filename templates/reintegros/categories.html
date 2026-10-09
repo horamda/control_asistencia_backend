@@ -1,9 +1,9 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% block title %}Conceptos de viáticos{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/reintegros_concepts.css') }}">{% endblock %}
 {% block content %}
 <div class="content-stack concept-page">
-  <a href="{{ url_for('reintegros_web.index') }}">← Volver a solicitudes</a>
+  <a href="{{ url_for('reintegros_web.index') }}" class="btn btn-secondary ui-action-link">← Volver a solicitudes</a>
   <header class="concept-heading">
     <div><h2>Conceptos de viáticos</h2><p>Administrá los conceptos que los empleados pueden seleccionar al cargar sus gastos.</p></div>
     <button type="button" id="concept-create">+ Nuevo concepto</button>

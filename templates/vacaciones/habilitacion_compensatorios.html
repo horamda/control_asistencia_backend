@@ -15,7 +15,7 @@
     <div class="table-responsive"><table><thead><tr><th>Seleccionar</th><th>Empresa</th><th>Puesto</th><th>Estado actual</th></tr></thead><tbody>
       {% for p in puestos %}<tr><td><input type="checkbox" name="ids" value="{{ p.id }}" aria-label="Seleccionar puesto {{ p.nombre }}"></td><td>{{ p.empresa_nombre }}</td><td>{{ p.nombre }}</td><td>{{ 'Excluido' if p.id in excluidos else 'Sin exclusión' }}</td></tr>{% endfor %}
     </tbody></table></div>
-    <div class="actions"><button name="accion" value="activar">Excluir puestos seleccionados</button><button name="accion" value="desactivar">Quitar exclusión a seleccionados</button></div>
+    <div class="actions"><button name="accion" value="activar" class="btn">Excluir puestos seleccionados</button><button name="accion" value="desactivar" class="btn">Quitar exclusión a seleccionados</button></div>
   </form>
   <h3>2. Habilitación por empleado</h3>
   <p>Los empleados nuevos empiezan sin habilitación. Filtre por sector o puesto principal, seleccione el grupo y quite las personas que no correspondan. Solo cambian los empleados seleccionados. Los movimientos históricos se conservan.</p>
@@ -26,7 +26,7 @@
       <label>Sector<select id="sector"><option value="">Todos</option>{% for s in sectores %}<option value="{{ s.id }}">{{ s.empresa_nombre }} — {{ s.nombre }}</option>{% endfor %}</select></label>
       <label>Puesto principal<select id="puesto"><option value="">Todos</option>{% for p in puestos %}<option value="{{ p.id }}">{{ p.empresa_nombre }} — {{ p.nombre }}</option>{% endfor %}</select></label>
     </div>
-    <div class="actions"><button type="button" id="seleccionar">Seleccionar visibles</button><button type="button" id="limpiar">Deseleccionar todos</button></div>
+    <div class="actions"><button type="button" id="seleccionar" class="btn btn-secondary">Seleccionar visibles</button><button type="button" id="limpiar" class="btn btn-secondary">Deseleccionar todos</button></div>
     <p id="seleccion" aria-live="polite"></p>
     <div class="table-responsive"><table><thead><tr><th>Seleccionar</th><th>Legajo</th><th>Empleado</th><th>Empresa</th><th>Sector</th><th>Puesto principal</th><th>Puede recibir</th></tr></thead><tbody>
       {% for e in empleados %}<tr class="empleado" data-sector="{{ e.sector_id or '' }}" data-puesto="{{ e.puesto_id or '' }}" data-busqueda="{{ e.apellido }} {{ e.nombre }} {{ e.legajo or '' }}">
@@ -34,7 +34,7 @@
         <td>{% if e.id in bloqueados %}No: puesto excluido{% elif e.id in habilitados %}Sí{% else %}No: sin habilitación{% endif %}</td>
       </tr>{% endfor %}
     </tbody></table></div>
-    <div class="actions"><button name="accion" value="activar">Habilitar seleccionados</button><button name="accion" value="desactivar">Deshabilitar seleccionados</button></div>
+    <div class="actions"><button name="accion" value="activar" class="btn">Habilitar seleccionados</button><button name="accion" value="desactivar" class="btn">Deshabilitar seleccionados</button></div>
   </form>
 </div>
 {% endblock %}

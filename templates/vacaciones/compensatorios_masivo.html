@@ -23,7 +23,7 @@
   {% endif %}
 
   <form method="post" id="form-compensatorios">
-    <p>Se muestran únicamente empleados habilitados y sin puestos excluidos. <a href="{{ url_for('vacaciones.compensatorios_habilitacion') }}">Configurar quiénes pueden recibir compensatorios</a>.</p>
+    <p>Se muestran únicamente empleados habilitados y sin puestos excluidos. <a href="{{ url_for('vacaciones.compensatorios_habilitacion') }}" class="btn btn-secondary ui-action-link">Configurar quiénes pueden recibir compensatorios</a>.</p>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div class="form-grid">

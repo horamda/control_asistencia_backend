@@ -21,7 +21,7 @@
     <ul style="font-size:.82rem;color:var(--muted);margin:0;padding-left:1.2rem;line-height:1.8">
       <li><strong>fecha</strong>: formato YYYY-MM-DD, no puede ser futura</li>
       <li><strong>legajo</strong>: legajo del empleado activo en la empresa seleccionada</li>
-      <li><strong>codigo_kpi</strong>: codigo exacto del KPI dentro del sector del empleado (ver <a href="{{ url_for('kpis_sectoriales.listado') }}">listado de KPIs</a>)</li>
+      <li><strong>codigo_kpi</strong>: codigo exacto del KPI dentro del sector del empleado (ver <a href="{{ url_for('kpis_sectoriales.listado') }}" class="btn btn-secondary ui-action-link">listado de KPIs</a>)</li>
       <li><strong>valor</strong>: numero decimal — se admite punto o coma como separador</li>
       <li><strong>mes actual</strong>: se reemplaza completo para los empleados incluidos en el CSV; los meses historicos no se borran masivamente</li>
     </ul>

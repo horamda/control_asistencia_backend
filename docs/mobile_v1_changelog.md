@@ -1,5 +1,7 @@
 ## 1.35.0 — 2026-10-08
 
+- Catálogo de viáticos: documentado selector desde `conceptos`, alias `categorias`, refresco, catálogo vacío, desactivación durante edición y nombre histórico `categoria_nombre`. CRUD reservado al panel administrativo; no cambia la API Bearer ni su versión.
+
 - Entrega a frontend: resumen principal sincronizado, ejemplos completos de borrador y PUT conservando comprobantes, y tabla de controles según habilitación/estado/plazo. Mantiene la versión publicada por `/reintegros/config`.
 
 - Viáticos mensuales: período obligatorio para nuevas altas, único por empleado/empresa/mes. Mantiene estados de aprobación/pago y preserva históricos sin período.

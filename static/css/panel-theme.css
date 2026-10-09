@@ -1,0 +1,53 @@
+/* Theme surfaces and text colors. Chart series retain their categorical colors. */
+:root {
+  color-scheme: light;
+  --panel: var(--surface);
+  --bg-card: var(--surface);
+  --action-bg: #0f4c81;
+  --action-hover: #09365d;
+  --danger-bg: #b32135;
+  --warning: #855000;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --primary: #75baff;
+  --danger: #ff8fa3;
+  --action-bg: #2563a6;
+  --action-hover: #1d518b;
+  --danger-bg: #a92c43;
+  --warning: #e1a230;
+}
+:is(.page-content,.embedded-layout,.concept-dialog) :is(button,.btn,input[type=submit]):not(.btn-secondary):not(.btn-ghost):not(.btn-danger):not(.concept-secondary) {
+  background-color: var(--action-bg);
+  color: #fff;
+}
+:is(.page-content,.embedded-layout,.concept-dialog) :is(button,.btn,input[type=submit]):not(.btn-secondary):not(.btn-ghost):not(.btn-danger):not(.concept-secondary):hover {
+  background-color: var(--action-hover);
+  color: #fff;
+}
+:is(.page-content,.embedded-layout) .btn-danger {background:var(--danger-bg);border-color:var(--danger-bg);color:#fff}
+:is(.page-content,.embedded-layout) .btn :is(span,small),
+.concept-dialog button :is(span,small) {color:inherit}
+.concept-dialog .concept-secondary:hover {background:var(--surface-strong);color:var(--text)}
+.sh-page .sh-panel,.sh-dashboard .sh-kpi {background:var(--surface);color:var(--text);border-color:var(--border)}
+.sh-page :is(.sh-muted,.sh-person small,.sh-empty,.sh-axis,.sh-bar-label small),
+.sh-dashboard .sh-kpi>small {color:var(--muted)}
+.sh-page .sh-table th {background:var(--surface-strong);color:var(--text)}
+.sh-page .sh-table :is(th,td),.sh-page .table-responsive,.sh-page .sh-form-section,.sh-page .sh-module-nav {border-color:var(--border)}
+.sh-page .sh-table tbody tr:hover {background:var(--surface-soft)}
+.sh-dashboard .sh-bar-track {background:var(--surface-strong)}
+.sh-dashboard .sh-donut-number {fill:var(--text)}
+.sh-dashboard .sh-donut-caption {fill:var(--muted)}
+.sh-page .sh-editor summary {color:var(--primary)}
+.sh-dashboard .sh-epp,.sh-page .sh-process-status {background:var(--primary-soft);color:var(--text);border-color:var(--primary)}
+.sh-dashboard .sh-epp :is(p,span,small) {color:var(--text)}
+.sh-dashboard .sh-indicator-banner :is(p,span,small) {color:#e5edf7}
+:root[data-theme="dark"] .sh-dashboard {--sh-accent:#ff8585}
+:root[data-theme="dark"] .sh-view-seguro {--sh-accent:#57d38c}
+:root[data-theme="dark"] :is(.sh-view-resumen,.sh-view-indicadores) {--sh-accent:#7dbbff}
+.sh-page :is(.sh-tabs,.sh-module-nav) a[aria-current=page] {background:var(--action-bg);color:#fff;border-color:var(--action-bg)}
+.sh-page .sh-year-toggle {border-color:var(--border)}
+@media print {
+  :root[data-theme] {color-scheme:light;--surface:#fff;--surface-soft:#f7f9fc;--surface-strong:#f1f6fd;--text:#111827;--muted:#5f6b7c;--border:#d6deea}
+  .sh-dashboard .sh-panel,.sh-dashboard .sh-kpi {background:#fff!important;color:#111827!important}
+}

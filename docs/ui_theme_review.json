@@ -1,0 +1,935 @@
+{
+  "scope": "Static theme audit; ratios measure declared pairs, not full computed-style WCAG compliance. Print and Excel templates retain paper colors.",
+  "contrast": {
+    "light text": {
+      "foreground": "#111827",
+      "background": "#ffffff",
+      "ratio": 17.74,
+      "passes_4_5": true
+    },
+    "light muted": {
+      "foreground": "#5f6b7c",
+      "background": "#f1f6fd",
+      "ratio": 4.98,
+      "passes_4_5": true
+    },
+    "dark text": {
+      "foreground": "#e5edf7",
+      "background": "#162335",
+      "ratio": 13.42,
+      "passes_4_5": true
+    },
+    "dark muted": {
+      "foreground": "#9db0c9",
+      "background": "#203248",
+      "ratio": 5.89,
+      "passes_4_5": true
+    },
+    "light primary button": {
+      "foreground": "#ffffff",
+      "background": "#0f4c81",
+      "ratio": 8.86,
+      "passes_4_5": true
+    },
+    "dark primary button": {
+      "foreground": "#ffffff",
+      "background": "#2563a6",
+      "ratio": 6.15,
+      "passes_4_5": true
+    },
+    "dark hover": {
+      "foreground": "#ffffff",
+      "background": "#1d518b",
+      "ratio": 8.07,
+      "passes_4_5": true
+    },
+    "light danger button": {
+      "foreground": "#ffffff",
+      "background": "#b32135",
+      "ratio": 6.59,
+      "passes_4_5": true
+    },
+    "dark danger button": {
+      "foreground": "#ffffff",
+      "background": "#a92c43",
+      "ratio": 6.71,
+      "passes_4_5": true
+    },
+    "light warning": {
+      "foreground": "#855000",
+      "background": "#f1f6fd",
+      "ratio": 6.15,
+      "passes_4_5": true
+    },
+    "dark warning": {
+      "foreground": "#e1a230",
+      "background": "#203248",
+      "ratio": 5.84,
+      "passes_4_5": true
+    },
+    "dark danger text": {
+      "foreground": "#ff8fa3",
+      "background": "#203248",
+      "ratio": 6.03,
+      "passes_4_5": true
+    },
+    "dark primary link": {
+      "foreground": "#75baff",
+      "background": "#203248",
+      "ratio": 6.35,
+      "passes_4_5": true
+    }
+  },
+  "templates": [
+    {
+      "template": "templates/base.html",
+      "literal_hex_colors": [
+        "#0C2D5C"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/dashboard.html",
+      "literal_hex_colors": [
+        "#2f8f5b",
+        "#667a92",
+        "#9aa8b8",
+        "#c53a4d",
+        "#d58d00"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/error.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/login.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/presencia.html",
+      "literal_hex_colors": [
+        "#173d36"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/_filters.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/_panel_notifications.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/adelantos/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/app_version/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/app_version/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/asistencias/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/asistencias/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/asistencias/marcas.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/asistencias/planilla.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/asistencias/planilla_marca_form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/asistencias/planilla_pdf.html",
+      "literal_hex_colors": [
+        "#111",
+        "#2f855a",
+        "#444",
+        "#888",
+        "#b91c1c",
+        "#f2f2f2",
+        "#f8f8f8"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/asistencias/planilla_xls.html",
+      "literal_hex_colors": [
+        "#000",
+        "#006400",
+        "#a40000",
+        "#e8e8e8"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/asistencias/reportes.html",
+      "literal_hex_colors": [
+        "#10003"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/asistencias/_planilla_table.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/auditoria/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/calificaciones_app/listado.html",
+      "literal_hex_colors": [
+        "#22c55e",
+        "#ef4444",
+        "#f59e0b",
+        "#f8f9fa"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/carga/auditoria.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/carga/catalogos.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/carga/detalle.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/carga/error.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/carga/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/carga/importar_camiones.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/carga/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/configuracion_empresa/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/configuracion_empresa/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empleados/form.html",
+      "literal_hex_colors": [
+        "#d7e3ee"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empleados/importar_csv.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empleados/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empleado_excepciones/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empleado_excepciones/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empleado_horarios/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empleado_horarios/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empleado_roles/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empleado_roles/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empresas/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/empresas/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/feedback/clientes_importar.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/feedback/clientes_listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/feedback/dashboard.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/feedback/fechas_editar.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/feedback/fechas_listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/feedback/feedback_form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/feedback/motivos_listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/feedback/motivo_form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/feedback/registros_listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/feedback/registro_detalle.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/francos/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/francos/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/horarios/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/horarios/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/justificaciones/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/justificaciones/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/kpis_sectoriales/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/kpis_sectoriales/importar_resultados.html",
+      "literal_hex_colors": [
+        "#c53a4d"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/kpis_sectoriales/listado.html",
+      "literal_hex_colors": [
+        "#1a56db",
+        "#8593",
+        "#8595",
+        "#e8f0fe"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/kpis_sectoriales/objetivos.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/kpis_sectoriales/resultados.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/legajos/dashboard_empleado.html",
+      "literal_hex_colors": [
+        "#15803d",
+        "#16a34a",
+        "#1d4ed8",
+        "#2563eb",
+        "#475569",
+        "#64748b",
+        "#8592",
+        "#8594",
+        "#92400e",
+        "#94a3b8",
+        "#b45309",
+        "#b91c1c",
+        "#cbd5e1",
+        "#d97706",
+        "#dc2626",
+        "#dcfce7",
+        "#e2e8f0",
+        "#eff6ff",
+        "#f1f5f9",
+        "#f59e0b",
+        "#fee2e2",
+        "#fef3c7",
+        "#fff"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/legajos/dashboard_empleado_print.html",
+      "literal_hex_colors": [
+        "#0f4c81",
+        "#111",
+        "#444",
+        "#666",
+        "#f0f0f0",
+        "#f8f8f8"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/legajos/dashboard_empleado_xls.html",
+      "literal_hex_colors": [
+        "#111",
+        "#777",
+        "#efefef",
+        "#fff"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/legajos/empleado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/legajos/eventos_listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/legajos/evento_form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/legajos/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/legajos/permisos_mobile.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/legajos_tipos_evento/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/legajos_tipos_evento/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/localidades/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/localidades/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/mobile_stats/listado.html",
+      "literal_hex_colors": [
+        "#22c55e",
+        "#3b82f6",
+        "#6366f1",
+        "#94a3b8"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/organigrama/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/pedidos_mercaderia/detalle.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/pedidos_mercaderia/importar_csv.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/pedidos_mercaderia/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/premios_concursos/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/premios_concursos/importar.html",
+      "literal_hex_colors": [
+        "#c53a4d"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/premios_concursos/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/premios_concursos/resultados.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/premios_concursos/resultado_form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/puestos/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/puestos/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/qr_puerta/generar.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/qr_puerta/imprimir.html",
+      "literal_hex_colors": [
+        "#0f4c81",
+        "#111827",
+        "#1f5f8f",
+        "#374151",
+        "#bcd0e8",
+        "#d1d5db",
+        "#eaf2fc",
+        "#f4f7fb",
+        "#fff"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/reintegros/categories.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/reintegros/detail.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/reintegros/error.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/reintegros/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/reintegros/index.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/reintegros/monthly.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/reintegros/settings.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/roles/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/roles/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/sectores/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/sectores/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/campeon.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/catalogos.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/dashboard.html",
+      "literal_hex_colors": [
+        "#06b6d4",
+        "#14b8a6",
+        "#16a34a",
+        "#2563eb",
+        "#64748b",
+        "#8b5cf6",
+        "#a3a31b",
+        "#dc2626",
+        "#e2e8f0",
+        "#ec4899",
+        "#f59e0b"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/detalle.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/error.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/externos.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/importar.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/ranking.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/_comparacion_anual.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/_nav.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/seguridad/_tarjetas_sucursales.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/dashboard.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/evaluaciones_listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/evaluacion_detalle.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/evaluar_empleado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/evaluar_sector.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/matrices.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/matriz_detalle.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/matriz_importar.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/matriz_previa.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/planes_listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/plan_detalle.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/preguntas_importar.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/preguntas_listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/pregunta_form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/skap/_metricas.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/sucursales/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/sucursales/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/trivias/detalle.html",
+      "literal_hex_colors": [
+        "#f59e0b",
+        "#fff"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/trivias/eliminar.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/trivias/form.html",
+      "literal_hex_colors": [
+        "#ccc",
+        "#fff"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/trivias/fuera_ranking.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/trivias/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/trivias/ranking_anual.html",
+      "literal_hex_colors": [
+        "#16a34a",
+        "#dc2626",
+        "#f59e0b"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/trivias/resultados.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/usuarios/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/usuarios/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/vacaciones/compensatorios_masivo.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/vacaciones/form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/vacaciones/gantt.html",
+      "literal_hex_colors": [
+        "#378ADD",
+        "#3d2c00",
+        "#8249",
+        "#8250",
+        "#856404",
+        "#a0c4f1",
+        "#dc3545",
+        "#e1a230",
+        "#fff",
+        "#fff3cd"
+      ],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/vacaciones/habilitacion_compensatorios.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/vacaciones/listado.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/vacaciones/movimiento_form.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    },
+    {
+      "template": "templates/vacaciones/reporte.html",
+      "literal_hex_colors": [],
+      "browser_verified": false
+    }
+  ]
+}

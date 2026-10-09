@@ -1,0 +1,1397 @@
+{
+  "date": "2026-10-08",
+  "review": "Static review of all templates; browser unavailable. Routes and handlers preserved.",
+  "templates": [
+    {
+      "template": "templates/_filters.html",
+      "scope": "partial_or_standalone",
+      "buttons": 0,
+      "links": 0,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/_panel_notifications.html",
+      "scope": "partial_or_standalone",
+      "buttons": 0,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/adelantos/listado.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 5,
+      "updated_actions": [
+        "Filtrar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/app_version/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/app_version/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 5,
+      "updated_actions": [
+        "Editar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/asistencias/_planilla_table.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 4,
+      "updated_actions": [
+        "Eliminar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/asistencias/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "{% if mode == \"edit\" %}Guardar cambios{% else %}Guardar asistencia{% endif %}"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/asistencias/listado.html",
+      "scope": "panel",
+      "buttons": 4,
+      "links": 6,
+      "updated_actions": [
+        "Generar ausentes del dia",
+        "Aplicar filtros",
+        "Editar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/asistencias/marcas.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 7,
+      "updated_actions": [
+        "Aplicar filtros"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/asistencias/planilla.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 6,
+      "updated_actions": [
+        "Ver planilla"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/asistencias/planilla_marca_form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/asistencias/planilla_pdf.html",
+      "scope": "partial_or_standalone",
+      "buttons": 0,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/asistencias/planilla_xls.html",
+      "scope": "partial_or_standalone",
+      "buttons": 0,
+      "links": 0,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/asistencias/reportes.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 3,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/auditoria/listado.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 3,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/base.html",
+      "scope": "panel",
+      "buttons": 18,
+      "links": 80,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/calificaciones_app/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 3,
+      "updated_actions": [
+        "Limpiar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/carga/auditoria.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 3,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/carga/catalogos.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 5,
+      "updated_actions": [
+        "Consultar",
+        "Guardar puestos habilitados"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/carga/detalle.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 2,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/carga/error.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/carga/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/carga/importar_camiones.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 2,
+      "updated_actions": [
+        "Seleccionar empresa",
+        "Validar y previsualizar",
+        "Confirmar importación"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/carga/listado.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 4,
+      "updated_actions": [
+        "Filtrar",
+        "Exportar CSV"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/configuracion_empresa/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/configuracion_empresa/listado.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 2,
+      "updated_actions": [
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/dashboard.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 34,
+      "updated_actions": [
+        "Aplicar filtros"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empleado_excepciones/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empleado_excepciones/listado.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 4,
+      "updated_actions": [
+        "Filtrar",
+        "Editar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empleado_horarios/form.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 3,
+      "updated_actions": [
+        "{% if mode == \"edit\" %}Guardar cambios{% else %}Asignar horario{% endif %}",
+        "Editar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empleado_horarios/listado.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empleado_roles/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empleado_roles/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 5,
+      "updated_actions": [
+        "Filtrar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empleados/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 2,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empleados/importar_csv.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 2,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empleados/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 14,
+      "updated_actions": [
+        "Filtrar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empresas/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/empresas/listado.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 5,
+      "updated_actions": [
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/error.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/feedback/clientes_importar.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/feedback/clientes_listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 5,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/feedback/dashboard.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 13,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/feedback/fechas_editar.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/feedback/fechas_listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 4,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/feedback/feedback_form.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/feedback/motivo_form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/feedback/motivos_listado.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 6,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/feedback/registro_detalle.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 4,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/feedback/registros_listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 9,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/francos/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/francos/listado.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 4,
+      "updated_actions": [
+        "Filtrar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/horarios/form.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/horarios/listado.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 6,
+      "updated_actions": [
+        "Filtrar",
+        "Editar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/justificaciones/form.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 2,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/justificaciones/listado.html",
+      "scope": "panel",
+      "buttons": 5,
+      "links": 7,
+      "updated_actions": [
+        "Filtrar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/kpis_sectoriales/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/kpis_sectoriales/importar_resultados.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 2,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/kpis_sectoriales/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 6,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/kpis_sectoriales/objetivos.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 4,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/kpis_sectoriales/resultados.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 5,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/legajos/dashboard_empleado.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 18,
+      "updated_actions": [
+        "Aplicar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/legajos/dashboard_empleado_print.html",
+      "scope": "partial_or_standalone",
+      "buttons": 0,
+      "links": 2,
+      "updated_actions": [
+        "Controles de pantalla de 44 px; impresión preservada"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/legajos/dashboard_empleado_xls.html",
+      "scope": "partial_or_standalone",
+      "buttons": 0,
+      "links": 0,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/legajos/empleado.html",
+      "scope": "panel",
+      "buttons": 4,
+      "links": 6,
+      "updated_actions": [
+        "Guardar evento",
+        "Subir",
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/legajos/evento_form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 2,
+      "updated_actions": [
+        "Guardar cambios"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/legajos/eventos_listado.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 7,
+      "updated_actions": [
+        "Filtrar",
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/legajos/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 8,
+      "updated_actions": [
+        "Filtrar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/legajos/permisos_mobile.html",
+      "scope": "panel",
+      "buttons": 4,
+      "links": 5,
+      "updated_actions": [
+        "Guardar permiso",
+        "Filtrar",
+        "Activar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/legajos_tipos_evento/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/legajos_tipos_evento/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 9,
+      "updated_actions": [
+        "Filtrar",
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/localidades/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/localidades/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 3,
+      "updated_actions": [
+        "Editar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/login.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 0,
+      "updated_actions": [
+        "Ingresar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/mobile_stats/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 3,
+      "updated_actions": [
+        "Limpiar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/organigrama/listado.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 4,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/pedidos_mercaderia/detalle.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/pedidos_mercaderia/importar_csv.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Importar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/pedidos_mercaderia/listado.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 7,
+      "updated_actions": [
+        "Filtrar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/premios_concursos/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/premios_concursos/importar.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/premios_concursos/listado.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 7,
+      "updated_actions": [
+        "Filtrar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/premios_concursos/resultado_form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/premios_concursos/resultados.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 9,
+      "updated_actions": [
+        "Filtrar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/presencia.html",
+      "scope": "partial_or_standalone",
+      "buttons": 8,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/puestos/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/puestos/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 8,
+      "updated_actions": [
+        "Filtrar",
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/qr_puerta/generar.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 3,
+      "updated_actions": [
+        "Generar QR"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/qr_puerta/imprimir.html",
+      "scope": "partial_or_standalone",
+      "buttons": 1,
+      "links": 0,
+      "updated_actions": [
+        "Controles de pantalla de 44 px; impresión preservada"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/reintegros/categories.html",
+      "scope": "panel",
+      "buttons": 6,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/reintegros/detail.html",
+      "scope": "panel",
+      "buttons": 6,
+      "links": 4,
+      "updated_actions": [
+        "Guardar decisiones de los gastos",
+        "Devolver para corregir",
+        "Rechazar solicitud completa",
+        "Marcar como pagado",
+        "Confirmar cancelación",
+        "Confirmar reapertura",
+        "Confirmar cancelación: estilo de acción destructiva"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/reintegros/error.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/reintegros/form.html",
+      "scope": "panel",
+      "buttons": 4,
+      "links": 3,
+      "updated_actions": [
+        "Guardar y enviar a aprobación"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/reintegros/index.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 9,
+      "updated_actions": [
+        "Filtrar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/reintegros/monthly.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 6,
+      "updated_actions": [
+        "Consultar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/reintegros/settings.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar sectores habilitados"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/roles/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/roles/listado.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 6,
+      "updated_actions": [
+        "Filtrar",
+        "Editar",
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/sectores/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/sectores/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 9,
+      "updated_actions": [
+        "Filtrar",
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/_comparacion_anual.html",
+      "scope": "partial_or_standalone",
+      "buttons": 0,
+      "links": 0,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/_nav.html",
+      "scope": "partial_or_standalone",
+      "buttons": 0,
+      "links": 8,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/_tarjetas_sucursales.html",
+      "scope": "partial_or_standalone",
+      "buttons": 0,
+      "links": 0,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/campeon.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 0,
+      "updated_actions": [
+        "Consultar",
+        "Guardar reglas",
+        "Confirmar reconocimiento revisado"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/catalogos.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 1,
+      "updated_actions": [
+        "Crear",
+        "Filtrar",
+        "Guardar cambios"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/dashboard.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 9,
+      "updated_actions": [
+        "Imprimir / PDF",
+        "Aplicar filtros",
+        "Guardar inicio"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/detalle.html",
+      "scope": "panel",
+      "buttons": 4,
+      "links": 3,
+      "updated_actions": [
+        "Aprobar",
+        "Rechazar con motivo",
+        "Anular conservando historial",
+        "Guardar acción"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/error.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/externos.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 4,
+      "updated_actions": [
+        "Crear persona",
+        "Buscar",
+        "Guardar cambios"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/form.html",
+      "scope": "panel",
+      "buttons": 4,
+      "links": 1,
+      "updated_actions": [
+        "Guardar pendiente de aprobación"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/importar.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 8,
+      "updated_actions": [
+        "Preparar importación y revisar",
+        "Revalidar y crear las filas completas como pendientes"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/listado.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 6,
+      "updated_actions": [
+        "Filtrar",
+        "Exportar CSV",
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/seguridad/ranking.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Consultar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/_metricas.html",
+      "scope": "partial_or_standalone",
+      "buttons": 0,
+      "links": 0,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/dashboard.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/evaluacion_detalle.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 2,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/evaluaciones_listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 2,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/evaluar_empleado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/evaluar_sector.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 2,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/matrices.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 5,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/matriz_detalle.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 4,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/matriz_importar.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 2,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/matriz_previa.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/plan_detalle.html",
+      "scope": "panel",
+      "buttons": 6,
+      "links": 2,
+      "updated_actions": [
+        "Eliminar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/planes_listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 2,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/pregunta_form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/preguntas_importar.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/skap/preguntas_listado.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 4,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/sucursales/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/sucursales/listado.html",
+      "scope": "panel",
+      "buttons": 0,
+      "links": 5,
+      "updated_actions": [
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/trivias/detalle.html",
+      "scope": "panel",
+      "buttons": 10,
+      "links": 5,
+      "updated_actions": [
+        "Cancelar",
+        "Cancelar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/trivias/eliminar.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/trivias/form.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 2,
+      "updated_actions": [
+        "Cancelar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/trivias/fuera_ranking.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/trivias/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 7,
+      "updated_actions": [
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/trivias/ranking_anual.html",
+      "scope": "panel",
+      "buttons": 2,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/trivias/resultados.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 5,
+      "updated_actions": [
+        "Volver",
+        "Filtrar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/usuarios/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/usuarios/listado.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 8,
+      "updated_actions": [
+        "Filtrar",
+        "Editar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/vacaciones/compensatorios_masivo.html",
+      "scope": "panel",
+      "buttons": 3,
+      "links": 2,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/vacaciones/form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/vacaciones/gantt.html",
+      "scope": "panel",
+      "buttons": 10,
+      "links": 1,
+      "updated_actions": [],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/vacaciones/habilitacion_compensatorios.html",
+      "scope": "panel",
+      "buttons": 6,
+      "links": 2,
+      "updated_actions": [
+        "Excluir puestos seleccionados",
+        "Quitar exclusión a seleccionados",
+        "Seleccionar visibles",
+        "Deseleccionar todos",
+        "Habilitar seleccionados",
+        "Deshabilitar seleccionados"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/vacaciones/listado.html",
+      "scope": "panel",
+      "buttons": 4,
+      "links": 11,
+      "updated_actions": [
+        "Filtrar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/vacaciones/movimiento_form.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 1,
+      "updated_actions": [
+        "Guardar"
+      ],
+      "visual_verified": false
+    },
+    {
+      "template": "templates/vacaciones/reporte.html",
+      "scope": "panel",
+      "buttons": 1,
+      "links": 6,
+      "updated_actions": [
+        "Exportar CSV",
+        "Filtrar"
+      ],
+      "visual_verified": false
+    }
+  ],
+  "validation": {
+    "jinja_templates_parsed": 145,
+    "functional_attributes_preserved_in_bulk_edit": true,
+    "browser_visual_review": "pending: integrated browser unavailable"
+  }
+}

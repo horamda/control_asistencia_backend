@@ -29,7 +29,7 @@
       </div>
       <div class="feedback-filter-actions"><div class="actions"><button class="btn" type="submit">Aplicar filtros</button><a class="btn btn-secondary" href="{{ url_for('feedback_web.dashboard') }}">Limpiar</a></div>
         <nav class="feedback-quick-periods" aria-label="Períodos rápidos">
-          {% for months, label in [(1, 'Este mes'), (6, '6 meses'), (12, '12 meses')] %}<a href="{{ url_for('feedback_web.dashboard', periodo=months, **quick_filters) }}">{{ label }}</a>{% endfor %}
+          {% for months, label in [(1, 'Este mes'), (6, '6 meses'), (12, '12 meses')] %}<a href="{{ url_for('feedback_web.dashboard', periodo=months, **quick_filters) }}" class="btn btn-secondary ui-action-link">{{ label }}</a>{% endfor %}
         </nav></div>
     </form>
     <p class="helper-text feedback-scope-note">Casos registrados del {{ desde }} al {{ hasta }}. Dolores incluye Dolores y Chascomús. El estado de cada caso corresponde al momento de la consulta.</p>
@@ -61,7 +61,7 @@
   <section class="panel">
     <div class="section-head"><div><div class="section-kicker">Distribución</div><h3>Comparación por sucursal</h3><p class="helper-text">Mismo período y filtros. Dolores reúne los casos de ambas sucursales.</p></div></div>
     <div class="table-responsive"><table class="table"><thead><tr><th>Sucursal</th><th>Registrados</th><th>Vencidos</th><th>Resueltos</th><th>Resolución</th></tr></thead><tbody>
-      {% for branch in sucursales %}<tr><td>{% if branch.id %}<a href="{{ registros_url(sucursal_id=branch.id) }}">{{ branch.nombre }}</a>{% else %}{{ branch.nombre }}{% endif %}<small class="feedback-company">{{ branch.empresa_nombre or '' }}</small></td><td>{{ branch.total }}</td><td><span class="badge {{ 'danger' if branch.vencidos else 'neutral' }}">{{ branch.vencidos }}</span></td><td>{{ branch.resueltos }}</td><td><div class="feedback-resolution"><span>{{ '%.1f'|format(branch.resueltos_pct) }}%</span><span class="feedback-resolution-track"><span style="width:{{ branch.resueltos_pct }}%"></span></span></div></td></tr>
+      {% for branch in sucursales %}<tr><td>{% if branch.id %}<a href="{{ registros_url(sucursal_id=branch.id) }}" class="btn btn-secondary ui-action-link">{{ branch.nombre }}</a>{% else %}{{ branch.nombre }}{% endif %}<small class="feedback-company">{{ branch.empresa_nombre or '' }}</small></td><td>{{ branch.total }}</td><td><span class="badge {{ 'danger' if branch.vencidos else 'neutral' }}">{{ branch.vencidos }}</span></td><td>{{ branch.resueltos }}</td><td><div class="feedback-resolution"><span>{{ '%.1f'|format(branch.resueltos_pct) }}%</span><span class="feedback-resolution-track"><span style="width:{{ branch.resueltos_pct }}%"></span></span></div></td></tr>
       {% else %}<tr><td colspan="5">No hay casos para comparar en este período.</td></tr>{% endfor %}
     </tbody></table></div>
   </section>

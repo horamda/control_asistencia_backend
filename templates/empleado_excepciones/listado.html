@@ -73,7 +73,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Filtrar</button>
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="/empleado-excepciones/">Limpiar</a>
     </div>
   </form>
@@ -110,10 +110,10 @@
           <td data-label="Descripcion">{{ e.descripcion or "-" }}</td>
           <td data-label="Acciones">
             <div class="inline-actions">
-              <a href="/empleado-excepciones/editar/{{ e.id }}">Editar</a>
+              <a href="/empleado-excepciones/editar/{{ e.id }}" class="btn btn-secondary">Editar</a>
               <form method="post" action="/empleado-excepciones/eliminar/{{ e.id }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="btn-danger" type="submit">Eliminar</button>
+                <button class="btn-danger btn" type="submit">Eliminar</button>
               </form>
             </div>
           </td>

@@ -104,7 +104,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Filtrar</button>
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="{{ url_for('legajos.listado_eventos') }}">Limpiar</a>
     </div>
   </form>
@@ -179,7 +179,7 @@
               <div class="inline-actions">
                 <a class="btn btn-secondary" href="{{ url_for('legajos.empleado', emp_id=ev.empleado_id) }}">Abrir legajo</a>
                 {% if can_edit and ev.estado == "vigente" %}
-                  <a href="{{ url_for('legajos.editar_evento', emp_id=ev.empleado_id, evento_id=ev.id, next=request.full_path if request.query_string else request.path) }}">Editar</a>
+                  <a href="{{ url_for('legajos.editar_evento', emp_id=ev.empleado_id, evento_id=ev.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-secondary">Editar</a>
                   <form method="post" action="{{ url_for('legajos.anular_evento_route', emp_id=ev.empleado_id, evento_id=ev.id, next=request.full_path if request.query_string else request.path) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn-danger" type="submit" data-confirm="Confirma anular este evento?">Anular</button>

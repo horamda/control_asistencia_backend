@@ -72,7 +72,7 @@
           <td data-label="Acciones" class="inline-actions" onclick="event.stopPropagation()">
             <a href="{{ url_for('trivia_admin.detalle', trivia_id=t.id) }}" class="btn btn-sm btn-secondary">Ver</a>
             <a href="{{ url_for('trivia_admin.resultados', trivia_id=t.id) }}" class="btn btn-sm btn-ghost">Resultados</a>
-            <a href="{{ url_for('trivia_admin.editar', trivia_id=t.id) }}" class="btn btn-sm btn-ghost">Editar</a>
+            <a href="{{ url_for('trivia_admin.editar', trivia_id=t.id) }}" class="btn btn-sm btn-ghost btn-secondary">Editar</a>
           </td>
         </tr>
         {% else %}

@@ -96,7 +96,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Aplicar</button>
+      <button type="submit" class="btn">Aplicar</button>
       <a class="btn btn-secondary" href="{{ url_for('legajos.dashboard_empleado') }}">Limpiar</a>
     </div>
   </form>
@@ -125,7 +125,7 @@
                   <td data-label="Legajo">{{ e.legajo or "-" }}</td>
                   <td data-label="DNI">{{ e.dni }}</td>
                   <td data-label="Accion">
-                    <a href="{{ url_for('legajos.dashboard_empleado', q=q, empleado_id=e.id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">Ver resumen</a>
+                    <a href="{{ url_for('legajos.dashboard_empleado', q=q, empleado_id=e.id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}" class="btn btn-secondary ui-action-link">Ver resumen</a>
                   </td>
                 </tr>
               {% endfor %}
@@ -146,12 +146,12 @@
         <li>Antiguedad (al corte): <strong>{{ antiguedad.text if antiguedad else "-" }}</strong></li>
         <li>Legajo historico: <strong>{{ legajo.historico.get("total", 0) }}</strong> evento(s) en <strong>{{ legajo.get("por_tipo_historico", []) | length }}</strong> tipo(s)</li>
         <li>Accesos:
-          <strong><a href="{{ url_for('legajos.empleado', emp_id=empleado.id) }}">Legajo</a></strong> |
-          <strong><a href="{{ url_for('legajos.listado_eventos', empleado_id=empleado.id) }}">Eventos</a></strong> |
-          <strong><a href="{{ url_for('asistencias.listado', empleado_id=empleado.id) }}">Asistencias</a></strong> |
-          <strong><a href="{{ url_for('legajos.dashboard_empleado_export_csv', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">CSV</a></strong> |
-          <strong><a href="{{ url_for('legajos.dashboard_empleado_export_xls', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">Excel</a></strong> |
-          <strong><a target="_blank" rel="noopener" href="{{ url_for('legajos.dashboard_empleado_print', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0), auto_print=1) }}">PDF</a></strong>
+          <strong><a href="{{ url_for('legajos.empleado', emp_id=empleado.id) }}" class="btn btn-secondary ui-action-link">Legajo</a></strong> |
+          <strong><a href="{{ url_for('legajos.listado_eventos', empleado_id=empleado.id) }}" class="btn btn-secondary ui-action-link">Eventos</a></strong> |
+          <strong><a href="{{ url_for('asistencias.listado', empleado_id=empleado.id) }}" class="btn btn-secondary ui-action-link">Asistencias</a></strong> |
+          <strong><a href="{{ url_for('legajos.dashboard_empleado_export_csv', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}" class="btn btn-secondary ui-action-link">CSV</a></strong> |
+          <strong><a href="{{ url_for('legajos.dashboard_empleado_export_xls', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}" class="btn btn-secondary ui-action-link">Excel</a></strong> |
+          <strong><a target="_blank" rel="noopener" href="{{ url_for('legajos.dashboard_empleado_print', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0), auto_print=1) }}" class="btn btn-secondary ui-action-link">PDF</a></strong>
         </li>
       </ul>
       {% if legajo.get("por_tipo_historico") %}
@@ -184,9 +184,9 @@
             <span class="alerta-icono">{{ a.icono }}</span>
             <span class="alerta-msg">{{ a.msg }}</span>
             {% if a.link_key == "justificaciones" %}
-              <a class="alerta-link" href="{{ url_for('justificaciones.listado', empleado_id=empleado.id) }}">{{ a.link_label }}</a>
+              <a class="alerta-link btn btn-secondary ui-action-link" href="{{ url_for('justificaciones.listado', empleado_id=empleado.id) }}">{{ a.link_label }}</a>
             {% elif a.link_key == "asistencias" %}
-              <a class="alerta-link" href="{{ url_for('asistencias.listado', empleado_id=empleado.id) }}">{{ a.link_label }}</a>
+              <a class="alerta-link btn btn-secondary ui-action-link" href="{{ url_for('asistencias.listado', empleado_id=empleado.id) }}">{{ a.link_label }}</a>
             {% endif %}
           </li>
         {% endfor %}

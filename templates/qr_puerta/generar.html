@@ -79,7 +79,7 @@
     </div>
 
     <div class="actions">
-      <button type="submit">Generar QR</button>
+      <button type="submit" class="btn">Generar QR</button>
       <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver</a>
     </div>
   </form>
@@ -151,7 +151,7 @@
               <td data-label="Generado">{{ h.fecha }}</td>
               <td data-label="Acciones">
                 {% if activo %}
-                  <a href="{{ url_for('qr_puerta.reimprimir', historial_id=h.id) }}" target="_blank" rel="noopener">Reimprimir</a>
+                  <a href="{{ url_for('qr_puerta.reimprimir', historial_id=h.id) }}" target="_blank" rel="noopener" class="btn btn-secondary ui-action-link">Reimprimir</a>
                   <form method="post" action="{{ url_for('qr_puerta.inactivar', historial_id=h.id) }}" style="display:inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-secondary" onclick="return confirm('Inactivar este QR? Los escaneos futuros seran rechazados.');">Inactivar</button>

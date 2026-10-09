@@ -7,7 +7,7 @@
   <div class="section-head">
     <div class="employee-head">
       {% if empleado.foto %}
-        <a href="{{ empleado.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto">
+        <a href="{{ empleado.foto }}" target="_blank" rel="noopener noreferrer" title="Abrir foto" class="ui-image-link">
           <img
             class="employee-avatar lg"
             src="{{ foto_empleado_url }}"
@@ -103,7 +103,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Guardar evento</button>
+      <button type="submit" class="btn">Guardar evento</button>
       <a class="btn btn-secondary" href="{{ url_for('legajos.listado_empleados') }}">Volver</a>
     </div>
   </form>
@@ -147,7 +147,7 @@
                 <ul class="legajo-attachment-list">
                   {% for a in adjuntos %}
                     <li>
-                      <a href="{{ url_for('media.legajo_adjunto', adjunto_id=a.id) }}" target="_blank" rel="noopener noreferrer">
+                      <a href="{{ url_for('media.legajo_adjunto', adjunto_id=a.id) }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary ui-action-link">
                         {{ a.nombre_original }}
                       </a>
                       <span class="helper-text">({{ a.tamano_bytes }} bytes)</span>
@@ -170,7 +170,7 @@
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input class="legajo-file-input" type="file" name="adjuntos" multiple accept="image/jpeg,image/png,image/webp,application/pdf">
                   <div class="helper-text">Se guardan en PDF optimizado.</div>
-                  <button type="submit">Subir</button>
+                  <button type="submit" class="btn">Subir</button>
                 </form>
               {% else %}
                 <span class="helper-text">Evento anulado</span>
@@ -179,7 +179,7 @@
             <td data-label="Acciones">
               {% if ev.estado == "vigente" %}
                 <div class="inline-actions">
-                  <a href="{{ url_for('legajos.editar_evento', emp_id=empleado.id, evento_id=ev.id, next=request.path) }}">Editar</a>
+                  <a href="{{ url_for('legajos.editar_evento', emp_id=empleado.id, evento_id=ev.id, next=request.path) }}" class="btn btn-secondary">Editar</a>
                   <form method="post" action="{{ url_for('legajos.anular_evento_route', emp_id=empleado.id, evento_id=ev.id, next=request.path) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="text" name="motivo_anulacion" placeholder="Motivo (opcional)" maxlength="255">

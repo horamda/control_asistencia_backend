@@ -222,7 +222,7 @@
         {% if data.foto %}
           {% set foto_actual_url = data.foto ~ ('&v=' if '?' in data.foto else '?v=') ~ (photo_cache_buster|string) %}
           <div class="helper-text" style="margin-top:6px;">
-            <a href="{{ data.foto }}" target="_blank" rel="noopener noreferrer">Abrir foto actual</a>
+            <a href="{{ data.foto }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary ui-action-link">Abrir foto actual</a>
           </div>
         {% else %}
           {% set foto_actual_url = default_foto_url %}

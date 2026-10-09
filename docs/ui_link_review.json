@@ -1,0 +1,731 @@
+{
+  "date": "2026-10-08",
+  "scope": "All 145 templates. Existing navigation, cards, chart links and styled controls retain their dedicated design.",
+  "validation": "Jinja syntax and unchanged content after stripping class attributes verified. Visual review pending.",
+  "templates": [
+    {
+      "template": "templates/_filters.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/_panel_notifications.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/adelantos/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/app_version/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/app_version/listado.html",
+      "links_updated": [
+        "Ver enlace"
+      ]
+    },
+    {
+      "template": "templates/asistencias/_planilla_table.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/asistencias/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/asistencias/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/asistencias/marcas.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/asistencias/planilla.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/asistencias/planilla_marca_form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/asistencias/planilla_pdf.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/asistencias/planilla_xls.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/asistencias/reportes.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/auditoria/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/base.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/calificaciones_app/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/carga/auditoria.html",
+      "links_updated": [
+        "Volver a configuración",
+        "Anterior",
+        "Siguiente"
+      ]
+    },
+    {
+      "template": "templates/carga/catalogos.html",
+      "links_updated": [
+        "Editar / desactivar",
+        "Consultar historial de cambios de configuración"
+      ]
+    },
+    {
+      "template": "templates/carga/detalle.html",
+      "links_updated": [
+        "Imagen enlazada"
+      ]
+    },
+    {
+      "template": "templates/carga/error.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/carga/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/carga/importar_camiones.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/carga/listado.html",
+      "links_updated": [
+        "Ver detalle"
+      ]
+    },
+    {
+      "template": "templates/configuracion_empresa/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/configuracion_empresa/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/dashboard.html",
+      "links_updated": [
+        "Reporte mensual",
+        "Planilla diaria",
+        "Justificaciones",
+        "Vacaciones",
+        "Empleados",
+        "Feedback",
+        "Reporte mensual",
+        "KPIs",
+        "Riesgo",
+        "Tendencias",
+        "Sucursal",
+        "Horas",
+        "Actividad",
+        "Gestionar plantillas de horarios",
+        "Asignaciones vigentes por empleado",
+        "Registrar excepciones puntuales",
+        "Control diario de asistencias",
+        "Reporte mensual de asistencia",
+        "Reporte de adelantos",
+        "Gestion de justificaciones",
+        "Eventos de legajo",
+        "Gestion de vacaciones",
+        "Trazabilidad y auditoria"
+      ]
+    },
+    {
+      "template": "templates/empleado_excepciones/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/empleado_excepciones/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/empleado_horarios/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/empleado_horarios/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/empleado_roles/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/empleado_roles/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/empleados/form.html",
+      "links_updated": [
+        "Abrir foto actual"
+      ]
+    },
+    {
+      "template": "templates/empleados/importar_csv.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/empleados/listado.html",
+      "links_updated": [
+        "Imagen enlazada"
+      ]
+    },
+    {
+      "template": "templates/empresas/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/empresas/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/error.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/feedback/clientes_importar.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/feedback/clientes_listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/feedback/dashboard.html",
+      "links_updated": [
+        "{{ label }}",
+        "{{ branch.nombre }}"
+      ]
+    },
+    {
+      "template": "templates/feedback/fechas_editar.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/feedback/fechas_listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/feedback/feedback_form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/feedback/motivo_form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/feedback/motivos_listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/feedback/registro_detalle.html",
+      "links_updated": [
+        "Ver evidencia"
+      ]
+    },
+    {
+      "template": "templates/feedback/registros_listado.html",
+      "links_updated": [
+        "Ver evidencia"
+      ]
+    },
+    {
+      "template": "templates/francos/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/francos/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/horarios/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/horarios/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/justificaciones/form.html",
+      "links_updated": [
+        "{{ adjunto.nombre_original or ('Adjunto ' ~ adjunto.id) }}"
+      ]
+    },
+    {
+      "template": "templates/justificaciones/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/kpis_sectoriales/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/kpis_sectoriales/importar_resultados.html",
+      "links_updated": [
+        "listado de KPIs"
+      ]
+    },
+    {
+      "template": "templates/kpis_sectoriales/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/kpis_sectoriales/objetivos.html",
+      "links_updated": [
+        "Crear el primero"
+      ]
+    },
+    {
+      "template": "templates/kpis_sectoriales/resultados.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/legajos/dashboard_empleado.html",
+      "links_updated": [
+        "Ver resumen",
+        "Legajo",
+        "Eventos",
+        "Asistencias",
+        "CSV",
+        "Excel",
+        "PDF",
+        "{{ a.link_label }}",
+        "{{ a.link_label }}"
+      ]
+    },
+    {
+      "template": "templates/legajos/dashboard_empleado_print.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/legajos/dashboard_empleado_xls.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/legajos/empleado.html",
+      "links_updated": [
+        "Imagen enlazada",
+        "{{ a.nombre_original }}"
+      ]
+    },
+    {
+      "template": "templates/legajos/evento_form.html",
+      "links_updated": [
+        "Imagen enlazada"
+      ]
+    },
+    {
+      "template": "templates/legajos/eventos_listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/legajos/listado.html",
+      "links_updated": [
+        "Imagen enlazada"
+      ]
+    },
+    {
+      "template": "templates/legajos/permisos_mobile.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/legajos_tipos_evento/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/legajos_tipos_evento/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/localidades/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/localidades/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/login.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/mobile_stats/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/organigrama/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/pedidos_mercaderia/detalle.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/pedidos_mercaderia/importar_csv.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/pedidos_mercaderia/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/premios_concursos/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/premios_concursos/importar.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/premios_concursos/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/premios_concursos/resultado_form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/premios_concursos/resultados.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/presencia.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/puestos/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/puestos/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/qr_puerta/generar.html",
+      "links_updated": [
+        "Reimprimir"
+      ]
+    },
+    {
+      "template": "templates/qr_puerta/imprimir.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/reintegros/categories.html",
+      "links_updated": [
+        "← Volver a solicitudes"
+      ]
+    },
+    {
+      "template": "templates/reintegros/detail.html",
+      "links_updated": [
+        "← Volver a solicitudes",
+        "Ver foto del odómetro",
+        "Editar solicitud",
+        "Imagen enlazada"
+      ]
+    },
+    {
+      "template": "templates/reintegros/error.html",
+      "links_updated": [
+        "Volver a reintegros"
+      ]
+    },
+    {
+      "template": "templates/reintegros/form.html",
+      "links_updated": [
+        "← Volver",
+        "Ver foto actual del odómetro",
+        "Imagen enlazada"
+      ]
+    },
+    {
+      "template": "templates/reintegros/index.html",
+      "links_updated": [
+        "Rendiciones mensuales",
+        "Sectores habilitados",
+        "Administrar conceptos",
+        "Descargar CSV",
+        "Limpiar filtros",
+        "Revisar #{{ r.id }}",
+        "Anterior",
+        "Siguiente"
+      ]
+    },
+    {
+      "template": "templates/reintegros/monthly.html",
+      "links_updated": [
+        "Volver a viáticos",
+        "Conceptos de viáticos",
+        "Sectores habilitados",
+        "Exportar CSV · una fila por empleado",
+        "Ver rendición",
+        "Cargar período"
+      ]
+    },
+    {
+      "template": "templates/reintegros/settings.html",
+      "links_updated": [
+        "Volver a viáticos"
+      ]
+    },
+    {
+      "template": "templates/roles/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/roles/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/sectores/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/sectores/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/seguridad/_comparacion_anual.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/seguridad/_nav.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/seguridad/_tarjetas_sucursales.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/seguridad/campeon.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/seguridad/catalogos.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/seguridad/dashboard.html",
+      "links_updated": [
+        "Restablecer",
+        "{{ r.fotos }} fotos",
+        "Ver #{{ r.id }}",
+        "Anterior",
+        "Siguiente"
+      ]
+    },
+    {
+      "template": "templates/seguridad/detalle.html",
+      "links_updated": [
+        "Ver historial",
+        "Imagen enlazada"
+      ]
+    },
+    {
+      "template": "templates/seguridad/error.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/seguridad/externos.html",
+      "links_updated": [
+        "Ver historial"
+      ]
+    },
+    {
+      "template": "templates/seguridad/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/seguridad/importar.html",
+      "links_updated": [
+        "{{ r.nombre }} — {{ r.creado_at }}",
+        "Descargar original intacto",
+        "Evento #{{ r.evento_id }}",
+        "Resolver y vincular legajos",
+        "Anterior",
+        "Siguiente"
+      ]
+    },
+    {
+      "template": "templates/seguridad/listado.html",
+      "links_updated": [
+        "Ver detalle",
+        "Anterior",
+        "Siguiente"
+      ]
+    },
+    {
+      "template": "templates/seguridad/ranking.html",
+      "links_updated": [
+        "Ver historial"
+      ]
+    },
+    {
+      "template": "templates/skap/_metricas.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/skap/dashboard.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/skap/evaluacion_detalle.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/skap/evaluaciones_listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/skap/evaluar_empleado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/skap/evaluar_sector.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/skap/matrices.html",
+      "links_updated": [
+        "Limpiar filtros",
+        "Anterior",
+        "Siguiente"
+      ]
+    },
+    {
+      "template": "templates/skap/matriz_detalle.html",
+      "links_updated": [
+        "← Evaluaciones SKAP",
+        "Resultados",
+        "Competencias",
+        "Plan de desarrollo"
+      ]
+    },
+    {
+      "template": "templates/skap/matriz_importar.html",
+      "links_updated": [
+        "← Evaluaciones SKAP",
+        "{{ b.archivo }}"
+      ]
+    },
+    {
+      "template": "templates/skap/matriz_previa.html",
+      "links_updated": [
+        "← Evaluaciones SKAP"
+      ]
+    },
+    {
+      "template": "templates/skap/plan_detalle.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/skap/planes_listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/skap/pregunta_form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/skap/preguntas_importar.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/skap/preguntas_listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/sucursales/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/sucursales/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/trivias/detalle.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/trivias/eliminar.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/trivias/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/trivias/fuera_ranking.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/trivias/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/trivias/ranking_anual.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/trivias/resultados.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/usuarios/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/usuarios/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/vacaciones/compensatorios_masivo.html",
+      "links_updated": [
+        "Configurar quiénes pueden recibir compensatorios"
+      ]
+    },
+    {
+      "template": "templates/vacaciones/form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/vacaciones/gantt.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/vacaciones/habilitacion_compensatorios.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/vacaciones/listado.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/vacaciones/movimiento_form.html",
+      "links_updated": []
+    },
+    {
+      "template": "templates/vacaciones/reporte.html",
+      "links_updated": []
+    }
+  ]
+}

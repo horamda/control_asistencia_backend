@@ -45,10 +45,10 @@
             <td data-label="Pais">{{ l.pais }}</td>
             <td data-label="Acciones">
               <div class="inline-actions">
-                <a href="/localidades/editar/{{ l.codigo_postal }}">Editar</a>
+                <a href="/localidades/editar/{{ l.codigo_postal }}" class="btn btn-secondary">Editar</a>
                 <form method="post" action="/localidades/eliminar/{{ l.codigo_postal }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button class="btn-danger" type="submit">Eliminar</button>
+                  <button class="btn-danger btn" type="submit">Eliminar</button>
                 </form>
               </div>
             </td>

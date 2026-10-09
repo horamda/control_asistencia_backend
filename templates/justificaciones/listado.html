@@ -65,7 +65,7 @@
       </div>
     </div>
     <div class="actions">
-      <button type="submit">Filtrar</button>
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="/justificaciones/">Limpiar</a>
     </div>
   </form>
@@ -179,7 +179,7 @@
 
                 <form method="post" action="/justificaciones/eliminar/{{ j.id }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button class="btn-danger" type="submit">Eliminar</button>
+                  <button class="btn-danger btn" type="submit">Eliminar</button>
                 </form>
               </div>
             </td>

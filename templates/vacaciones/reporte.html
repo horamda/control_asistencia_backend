@@ -23,7 +23,7 @@
     <a class="btn btn-secondary" href="{{ url_for('vacaciones.compensatorios_habilitacion') }}">Quiénes reciben compensatorios</a>
     <a class="btn btn-secondary" href="{{ url_for('vacaciones.listado') }}">Volver a gestion</a>
     <a
-      class="btn"
+      class="btn btn-secondary"
       href="{{ url_for('vacaciones.reporte_export_csv', anio=anio, sector_id=sector_id or None, sucursal_id=sucursal_id or None, q=q or None, activo=(activo if activo != '1' else None)) }}"
     >
       Exportar CSV
@@ -80,7 +80,7 @@
     </div>
 
     <div class="actions">
-      <button type="submit">Filtrar</button>
+      <button type="submit" class="btn">Filtrar</button>
       <a class="btn btn-secondary" href="{{ url_for('vacaciones.reporte') }}">Limpiar</a>
     </div>
   </form>

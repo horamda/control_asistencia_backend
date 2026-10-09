@@ -85,7 +85,7 @@
     </div>
     <button type="submit" class="btn btn-secondary">Filtrar</button>
     {% if filtros.fecha_desde or filtros.fecha_hasta or filtros.version_app or filtros.puntuacion or filtros.sector_id or filtros.sucursal_id %}
-    <a href="{{ url_for('calificaciones_app.listado') }}" class="btn btn-ghost">Limpiar</a>
+    <a href="{{ url_for('calificaciones_app.listado') }}" class="btn btn-ghost btn-secondary">Limpiar</a>
     {% endif %}
   </div>
 </form>

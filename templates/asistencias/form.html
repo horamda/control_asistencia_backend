@@ -104,7 +104,7 @@
     </div>
 
     <div class="actions">
-      <button type="submit">{% if mode == "edit" %}Guardar cambios{% else %}Guardar asistencia{% endif %}</button>
+      <button type="submit" class="btn">{% if mode == "edit" %}Guardar cambios{% else %}Guardar asistencia{% endif %}</button>
       <a class="btn btn-secondary" href="{{ url_for('asistencias.listado') }}">Volver al listado</a>
     </div>
   </form>

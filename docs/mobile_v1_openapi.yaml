@@ -3661,7 +3661,7 @@ paths:
       parameters:
         - {in: path, name: id, required: true, schema: {type: integer}}
       responses:
-        '200': {description: Evento con detalles, involucrados visibles y fotos (IDs)}
+        '200': {description: 'Evento con detalles, involucrados visibles y fotos (IDs)'}
         '401': {description: Sesión inválida}
         '404': {description: Inexistente o no autorizado}
   /seguridad/fotos/{id}:

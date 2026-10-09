@@ -13,7 +13,7 @@
     </p>
   </div>
   <div class="page-actions"><a class="btn btn-secondary" href="{{ url_for('trivia_admin.fuera_ranking',trivia_id=trivia.id) }}">Participación sin ranking</a>
-    <a href="{{ url_for('trivia_admin.detalle', trivia_id=trivia.id) }}" class="btn btn-ghost">Volver</a>
+    <a href="{{ url_for('trivia_admin.detalle', trivia_id=trivia.id) }}" class="btn btn-ghost btn-secondary">Volver</a>
     <a href="{{ url_for('trivia_admin.resultados_export_csv', trivia_id=trivia.id, sucursal_id=sucursal_id or None) }}" class="btn btn-secondary">Exportar CSV</a>
     <a href="{{ url_for('trivia_admin.resultados_export_xlsx', trivia_id=trivia.id, sucursal_id=sucursal_id or None) }}" class="btn btn-secondary">Exportar Excel</a>
   </div>
@@ -33,7 +33,7 @@
     </div>
   </div>
   <div class="actions">
-    <button type="submit">Filtrar</button>
+    <button type="submit" class="btn">Filtrar</button>
     <a class="btn btn-secondary" href="{{ url_for('trivia_admin.resultados', trivia_id=trivia.id) }}">Limpiar</a>
   </div>
 </form>
@@ -168,8 +168,8 @@
             <td data-label="Sector">{{ r.sector_nombre or '-' }}</td>
             <td data-label="Sucursal">{{ r.sucursal_nombre or '-' }}</td>
             <td data-label="Puntos">{{ r.puntos_total if r.resultado_id else '-' }}</td>
-            <td data-label="OK" style="color:#16a34a">{{ r.correctas if r.resultado_id else '-' }}</td>
-            <td data-label="Mal" style="color:#dc2626">{{ r.incorrectas if r.resultado_id else '-' }}</td>
+            <td data-label="OK" style="color:var(--success)">{{ r.correctas if r.resultado_id else '-' }}</td>
+            <td data-label="Mal" style="color:var(--danger)">{{ r.incorrectas if r.resultado_id else '-' }}</td>
             <td data-label="Tiempo">{{ (r.tiempo_total_segundos ~ 's') if r.tiempo_total_segundos is not none else '-' }}</td>
             <td data-label="Fin">{{ r.fecha_finalizacion.strftime('%d/%m/%Y %H:%M') if r.fecha_finalizacion else '-' }}</td>
           </tr>

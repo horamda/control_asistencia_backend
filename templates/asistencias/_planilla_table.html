@@ -47,7 +47,7 @@
                       <input type="hidden" name="sector_id" value="{{ sector_id or '' }}">
                       <input type="hidden" name="jefe_directo_id" value="{{ jefe_directo_id or '' }}">
                       <input type="hidden" name="fecha" value="{{ fecha }}">
-                      <button class="planilla-action-delete" type="submit">Eliminar</button>
+                      <button class="planilla-action-delete btn btn-danger" type="submit">Eliminar</button>
                     </form>
                   {% elif asistencia_ref %}
                     <a class="planilla-action-add" href="{{ url_for('asistencias.planilla_marca_agregar', asistencia_id=asistencia_ref, accion='ingreso', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', jefe_directo_id=jefe_directo_id or '', fecha=fecha) }}">Agregar</a>
@@ -71,7 +71,7 @@
                       <input type="hidden" name="sector_id" value="{{ sector_id or '' }}">
                       <input type="hidden" name="jefe_directo_id" value="{{ jefe_directo_id or '' }}">
                       <input type="hidden" name="fecha" value="{{ fecha }}">
-                      <button class="planilla-action-delete" type="submit">Eliminar</button>
+                      <button class="planilla-action-delete btn btn-danger" type="submit">Eliminar</button>
                     </form>
                   {% elif asistencia_ref %}
                     <a class="planilla-action-add" href="{{ url_for('asistencias.planilla_marca_agregar', asistencia_id=asistencia_ref, accion='egreso', empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', jefe_directo_id=jefe_directo_id or '', fecha=fecha) }}">Agregar</a>
