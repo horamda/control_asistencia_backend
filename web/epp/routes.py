@@ -183,8 +183,11 @@ def sizes():
         s.save_size(who, eid, d)
         flash("Talles actualizados.", "success")
         return redirect(url_for("epp_web.sizes", empleado_id=eid))
+    search = request.args.get("q", "").strip()[:120]
     return render(
         "sizes",
+        staff=s.staff_sizes(who, search) if not eid else [],
+        search=search,
         options=options(who),
         eid=eid,
         items=s.catalogs(who, eid) if eid else [],

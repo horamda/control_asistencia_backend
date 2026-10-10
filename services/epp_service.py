@@ -162,6 +162,36 @@ def save_article(who, data, photo=None):
     return rid
 
 
+def staff_sizes(who, search=""):
+    """List active staff, including those without sizes, within the actor's scope."""
+    filters = ["e.empresa_id=%s", "e.activo=1"]
+    args = [who["empresa_id"]]
+    if who.get("mode") == "empleado":
+        filters.append("e.id=%s")
+        args.append(who.get("empleado_id"))
+    elif not who.get("global"):
+        filters.append("e.reporta_a_empleado_id=%s")
+        args.append(who.get("empleado_id") or -1)
+    if search:
+        filters.append("(CONCAT(e.apellido,' ',e.nombre) LIKE %s OR CONCAT(e.nombre,' ',e.apellido) LIKE %s OR e.legajo LIKE %s)")
+        args.extend([f"%{search}%"] * 3)
+    with db.transaction(read_only=True) as c:
+        rows = db.all_rows(
+            c,
+            "SELECT e.id,e.legajo,e.nombre,e.apellido,t.articulo_id,t.talle,t.medidas,a.nombre articulo "
+            "FROM empleados e LEFT JOIN epp_talles t ON t.empleado_id=e.id AND t.empresa_id=e.empresa_id "
+            "LEFT JOIN epp_articulos a ON a.id=t.articulo_id AND a.empresa_id=e.empresa_id "
+            "WHERE " + " AND ".join(filters) + " ORDER BY e.apellido,e.nombre,e.id,a.nombre",
+            tuple(args),
+        )
+    staff = {}
+    for row in rows:
+        person = staff.setdefault(row["id"], dict(id=row["id"], legajo=row["legajo"], nombre=row["nombre"], apellido=row["apellido"], talles=[]))
+        if row["articulo_id"] is not None and row["articulo"] is not None:
+            person["talles"].append(dict(articulo=row["articulo"], talle=row["talle"], medidas=row["medidas"]))
+    return list(staff.values())
+
+
 def sizes(who, eid):
     with db.transaction(read_only=True) as c:
         employee(c, who, eid)

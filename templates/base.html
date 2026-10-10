@@ -353,18 +353,7 @@
                 </div>
               </div>
             {% endif %}
-            {% if can_web('epp') %}
-              <div class="nav-group" data-collapsible="1">
-                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-epp"><span class="nav-toggle-label"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4c0 4-8 4-8 0Z"/></svg><span class="nav-label">EPP y vestimenta</span></span><span class="nav-caret" aria-hidden="true"></span></button>
-                <div class="nav-submenu" id="nav-submenu-epp">
-                  <a class="nav-link" href="/epp/">Pedidos y entregas</a>
-                  <a class="nav-link" href="/epp/talles">Talles del personal</a>
-                  {% if can_web('epp_responsables','editar') %}<a class="nav-link" href="/epp/catalogo">Artículos y talles</a>{% endif %}
-                  <a class="nav-link" href="/epp/reporte">Entregas anuales</a>
-                </div>
-              </div>
-            {% endif %}
-            {% if can_web('seguridad_higiene') %}
+            {% if can_web('seguridad_higiene') or can_web('epp') %}
               <div class="nav-group nav-group-safety" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-seguridad-higiene">
                   <span class="nav-toggle-label">
@@ -374,6 +363,15 @@
                   <span class="nav-caret" aria-hidden="true"></span>
                 </button>
                 <div class="nav-submenu" id="nav-submenu-seguridad-higiene">
+                  {% if can_web('epp') %}
+                  <div class="nav-module-heading">Ropa y EPP</div>
+                  <a class="nav-link" href="/epp/">Pedidos y entregas</a>
+                  {% if can_web('epp','editar') %}<a class="nav-link" href="/epp/talles">Talles del personal</a>{% endif %}
+                  {% if can_web('epp_responsables','editar') %}<a class="nav-link" href="/epp/catalogo">Artículos y talles</a><a class="nav-link" href="/epp/categorias">Categorías de ropa y EPP</a>{% endif %}
+                  <a class="nav-link" href="/epp/reporte">Entregas anuales</a>
+                  {% endif %}
+                  {% if can_web('seguridad_higiene') %}
+                  <div class="nav-module-heading">Comportamientos seguros / inseguros</div>
                   <a class="nav-link" href="{{ url_for('seguridad_web.dashboard') }}">Dashboard de seguridad</a>
                   <a class="nav-link" href="{{ url_for('seguridad_web.index') }}">Consultar reportes</a>
                   {% if can_web('seguridad_higiene', 'crear') %}
@@ -384,6 +382,7 @@
                   <a class="nav-link" href="{{ url_for('seguridad_web.external_people') }}">Personas externas</a>
                   <a class="nav-link" href="{{ url_for('seguridad_web.ranking') }}">Estadísticas y rankings</a>
 <a class="nav-link" href="{{ url_for('seguridad_web.safety_champion') }}">Campeón de la Seguridad</a>
+                  {% endif %}
                 </div>
               </div>
             {% endif %}
