@@ -1,11 +1,11 @@
 <nav class="actions sh-module-nav" aria-label="Seguridad e Higiene">
-<a class="btn btn-secondary" href="{{ url_for('seguridad_web.dashboard',empresa_id=empresa_id) }}">Dashboard</a>
-<a class="btn btn-secondary" href="{{ url_for('seguridad_web.index',empresa_id=empresa_id) }}">Reportes</a>
-{% if can_web('seguridad_higiene','crear') %}<a class="btn" href="{{ url_for('seguridad_web.create',empresa_id=empresa_id) }}">Nuevo reporte</a><a class="btn btn-secondary" href="{{ url_for('seguridad_web.imports',empresa_id=empresa_id) }}">Importar histórico</a>{% endif %}
-<a class="btn btn-secondary" href="{{ url_for('seguridad_web.catalogs',empresa_id=empresa_id) }}">Catálogos</a>
-<a class="btn btn-secondary" href="{{ url_for('seguridad_web.external_people',empresa_id=empresa_id) }}">Personas externas</a>
-<a class="btn btn-secondary" href="{{ url_for('seguridad_web.ranking',empresa_id=empresa_id) }}">Estadísticas y rankings</a>
-<a class="btn btn-secondary" href="{{ url_for('seguridad_web.safety_champion',empresa_id=empresa_id) }}">Campeón de la Seguridad</a>
+<a class="btn btn-secondary" {% if request.endpoint == 'seguridad_web.dashboard' %}aria-current="page"{% endif %} href="{{ url_for('seguridad_web.dashboard',empresa_id=empresa_id) }}">Resumen</a>
+<a class="btn btn-secondary" {% if request.endpoint in ['seguridad_web.index','seguridad_web.detail','seguridad_web.edit'] %}aria-current="page"{% endif %} href="{{ url_for('seguridad_web.index',empresa_id=empresa_id) }}">Reportes</a>
+{% if can_web('seguridad_higiene','crear') %}<a class="btn" {% if request.endpoint == 'seguridad_web.create' %}aria-current="page"{% endif %} href="{{ url_for('seguridad_web.create',empresa_id=empresa_id) }}">Nuevo reporte</a><a class="btn btn-secondary" {% if request.endpoint == 'seguridad_web.imports' %}aria-current="page"{% endif %} href="{{ url_for('seguridad_web.imports',empresa_id=empresa_id) }}">Importar histórico</a>{% endif %}
+<a class="btn btn-secondary" {% if request.endpoint == 'seguridad_web.catalogs' %}aria-current="page"{% endif %} href="{{ url_for('seguridad_web.catalogs',empresa_id=empresa_id) }}">Catálogos</a>
+<a class="btn btn-secondary" {% if request.endpoint == 'seguridad_web.external_people' %}aria-current="page"{% endif %} href="{{ url_for('seguridad_web.external_people',empresa_id=empresa_id) }}">Personas externas</a>
+<a class="btn btn-secondary" {% if request.endpoint == 'seguridad_web.ranking' %}aria-current="page"{% endif %} href="{{ url_for('seguridad_web.ranking',empresa_id=empresa_id) }}">Estadísticas y rankings</a>
+<a class="btn btn-secondary" {% if request.endpoint == 'seguridad_web.safety_champion' %}aria-current="page"{% endif %} href="{{ url_for('seguridad_web.safety_champion',empresa_id=empresa_id) }}">Campeón de la Seguridad</a>
 </nav>
 
 <script defer src="{{ url_for('static',filename='js/seguridad-ui.js') }}"></script>
