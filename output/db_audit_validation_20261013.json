@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "documented_results": 416,
+  "evidence_sha256": {
+    "output\\db_audit_20261013.json": "bbbf8e7a4a527cf56c2a9616163153fb86c032f82c4a6fb2e518c3aee6cacc08",
+    "output\\db_audit_plans_20261013.json": "7bedc76ef8ffb8b8eafc31982646d2f667b68fb13a269a1b47244e9ff10fa293",
+    "output\\db_audit_followup_20261013.json": "7c0d822d00af7a541b26d7f93706ee8d485af24085a0c519176c06f0fe22b941"
+  },
+  "duplicate_indexes": [
+    {
+      "definition": "('empleado_excepciones', 1, 'BTREE', 'YES', (('empresa_id', None), ('fecha', None)))",
+      "names": [
+        "idx_ee_empresa_fecha",
+        "idx_ex_emp_empresa_fecha"
+      ]
+    },
+    {
+      "definition": "('empleado_horarios', 1, 'BTREE', 'YES', (('empleado_id', None), ('fecha_hasta', None)))",
+      "names": [
+        "idx_eh_actual",
+        "idx_empleado_horarios_vigente"
+      ]
+    },
+    {
+      "definition": "('empleado_horarios', 1, 'BTREE', 'YES', (('empleado_id', None), ('fecha_desde', None), ('fecha_hasta', None)))",
+      "names": [
+        "idx_eh_empleado_rango",
+        "idx_empleado_fechas"
+      ]
+    }
+  ],
+  "scope": "Offline reconciliation of report claims against saved SQL evidence; no database writes"
+}

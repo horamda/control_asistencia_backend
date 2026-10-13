@@ -1,3 +1,4 @@
+from utils.export_safety import SafeCsvWriter
 import csv
 import datetime
 import io
@@ -475,7 +476,7 @@ def resultados_export_csv():
         periodo_month=filters["periodo_month"],
     )
     out = io.StringIO()
-    writer = csv.writer(out)
+    writer = SafeCsvWriter(out)
     writer.writerow([
         "id",
         "empresa",

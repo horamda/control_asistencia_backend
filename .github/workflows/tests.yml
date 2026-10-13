@@ -1,0 +1,43 @@
+name: Backend tests
+on: [push, pull_request]
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.3
+        env:
+          MARIADB_ROOT_PASSWORD: isolated-ci-test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=15
+    env:
+      APP_ENV: test
+      FLASK_SKIP_APP_BOOT: '1'
+      RUN_DB_INTEGRATION: '0'
+      SH_TEST_DB_PORT: '3306'
+      SH_TEST_DB_PASSWORD: isolated-ci-test
+      CARGA_TEST_DB_PORT: '3306'
+      CARGA_TEST_DB_PASSWORD: isolated-ci-test
+      DB_HOST: 127.0.0.1
+      DB_PORT: '1'
+      DB_USER: isolated-test
+      DB_PASSWORD: isolated-test
+      DB_NAME: isolated-test
+      SECRET_KEY: isolated-ci-secret-key-at-least-32-chars
+      JWT_SECRET: isolated-ci-jwt-secret-at-least-32-chars
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.13'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pytest tests -q --tb=short --junitxml=test-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results.xml

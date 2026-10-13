@@ -55,9 +55,9 @@
             <td data-label="Acciones">
               <div class="inline-actions">
                 {% if s.activa %}
-                  <a class="btn btn-secondary" href="/sucursales/desactivar/{{ s.id }}">Desactivar</a>
+                  <form method="post" action="/sucursales/desactivar/{{ s.id }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-secondary" >Desactivar</button></form>
                 {% else %}
-                  <a class="btn btn-secondary" href="/sucursales/activar/{{ s.id }}">Activar</a>
+                  <form method="post" action="/sucursales/activar/{{ s.id }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-secondary" >Activar</button></form>
                 {% endif %}
                 <a href="/sucursales/editar/{{ s.id }}" class="btn btn-secondary">Editar</a>
               </div>

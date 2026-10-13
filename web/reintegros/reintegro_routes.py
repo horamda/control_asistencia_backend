@@ -1,3 +1,4 @@
+from utils.export_safety import SafeCsvWriter
 import csv
 import io
 from uuid import uuid4
@@ -282,7 +283,7 @@ def monthly_export():
         actor(), request.args.get("periodo", service.now_local().strftime("%Y-%m"))
     )
     output = io.StringIO()
-    writer = csv.writer(output, delimiter=";")
+    writer = SafeCsvWriter(output, delimiter=";")
     writer.writerow(
         [
             "Periodo",
@@ -428,7 +429,7 @@ def export():
             "Acote las fechas: máximo 10.000 solicitudes por exportación."
         )
     output = io.StringIO()
-    writer = csv.writer(output, delimiter=";")
+    writer = SafeCsvWriter(output, delimiter=";")
     writer.writerow(
         [
             "Solicitud",

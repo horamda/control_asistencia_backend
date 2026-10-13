@@ -1,0 +1,4471 @@
+{
+  "date": "2026-10-13",
+  "scope": "Local source and synthetic data only",
+  "python": "3.14.2 (tags/v3.14.2:df79316, Dec  5 2025, 17:18:21) [MSC v.1944 64 bit (AMD64)]",
+  "packages": {
+    "Flask": "3.1.2",
+    "Werkzeug": "3.1.5",
+    "SQLAlchemy": "2.0.36",
+    "pytest": "8.3.4",
+    "openpyxl": "3.1.5"
+  },
+  "inventory": {
+    "python_files": 280,
+    "by_directory": {
+      "web": 55,
+      "routes": 12,
+      "services": 49,
+      "repositories": 55,
+      "utils": 13,
+      "models": 2,
+      "tests": 90,
+      "app.py": 1,
+      "db.py": 1,
+      "extensions.py": 1,
+      "config.py": 1
+    },
+    "syntax_errors": [],
+    "route_declarations": 458,
+    "route_files": 52,
+    "get_activation_routes": [
+      {
+        "file": "web/empleados/empleados_routes.py",
+        "line": 439,
+        "function": "activar",
+        "path": "/activar/<int:emp_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empleados/empleados_routes.py",
+        "line": 447,
+        "function": "desactivar",
+        "path": "/desactivar/<int:emp_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empresas/empresas_routes.py",
+        "line": 87,
+        "function": "activar",
+        "path": "/activar/<int:empresa_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empresas/empresas_routes.py",
+        "line": 95,
+        "function": "desactivar",
+        "path": "/desactivar/<int:empresa_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 182,
+        "function": "activar",
+        "path": "/activar/<int:horario_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 193,
+        "function": "desactivar",
+        "path": "/desactivar/<int:horario_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajo_tipos_evento_routes.py",
+        "line": 138,
+        "function": "activar",
+        "path": "/activar/<int:tipo_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajo_tipos_evento_routes.py",
+        "line": 149,
+        "function": "desactivar",
+        "path": "/desactivar/<int:tipo_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/puestos/puestos_routes.py",
+        "line": 88,
+        "function": "activar",
+        "path": "/activar/<int:puesto_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/puestos/puestos_routes.py",
+        "line": 96,
+        "function": "desactivar",
+        "path": "/desactivar/<int:puesto_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/sectores/sectores_routes.py",
+        "line": 158,
+        "function": "activar",
+        "path": "/activar/<int:sector_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/sectores/sectores_routes.py",
+        "line": 166,
+        "function": "desactivar",
+        "path": "/desactivar/<int:sector_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/sucursales/sucursales_routes.py",
+        "line": 129,
+        "function": "activar",
+        "path": "/activar/<int:sucursal_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/sucursales/sucursales_routes.py",
+        "line": 137,
+        "function": "desactivar",
+        "path": "/desactivar/<int:sucursal_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/usuarios/usuarios_routes.py",
+        "line": 189,
+        "function": "activar",
+        "path": "/activar/<int:user_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/usuarios/usuarios_routes.py",
+        "line": 197,
+        "function": "desactivar",
+        "path": "/desactivar/<int:user_id>",
+        "methods": [
+          "GET"
+        ]
+      }
+    ],
+    "routes": [
+      {
+        "file": "web/panel_notifications_routes.py",
+        "line": 9,
+        "function": "notifications",
+        "path": "/panel/notificaciones",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/presencia_routes.py",
+        "line": 9,
+        "function": "pantalla",
+        "path": "",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/presencia_routes.py",
+        "line": 10,
+        "function": "pantalla",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/presencia_routes.py",
+        "line": 17,
+        "function": "datos",
+        "path": "/datos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/web_routes.py",
+        "line": 69,
+        "function": "dashboard",
+        "path": "/dashboard",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/adelantos/adelantos_routes.py",
+        "line": 64,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/adelantos/adelantos_routes.py",
+        "line": 121,
+        "function": "export_csv",
+        "path": "/export.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/adelantos/adelantos_routes.py",
+        "line": 178,
+        "function": "aprobar",
+        "path": "/aprobar/<int:adelanto_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/adelantos/adelantos_routes.py",
+        "line": 189,
+        "function": "rechazar",
+        "path": "/rechazar/<int:adelanto_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/app_version/app_version_routes.py",
+        "line": 42,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/app_version/app_version_routes.py",
+        "line": 49,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/app_version/app_version_routes.py",
+        "line": 70,
+        "function": "editar",
+        "path": "/editar/<int:config_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/app_version/app_version_routes.py",
+        "line": 95,
+        "function": "eliminar",
+        "path": "/eliminar/<int:config_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 388,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 433,
+        "function": "planilla",
+        "path": "/planilla",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 458,
+        "function": "planilla_xls",
+        "path": "/planilla.xls",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 492,
+        "function": "planilla_pdf",
+        "path": "/planilla.pdf",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 516,
+        "function": "reportes_mensuales",
+        "path": "/reportes",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 712,
+        "function": "reportes_dias_no_laborables_guardar",
+        "path": "/reportes/dias-no-laborables",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 734,
+        "function": "planilla_marca_editar",
+        "path": "/planilla/marca/editar/<int:marca_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 804,
+        "function": "planilla_marca_eliminar",
+        "path": "/planilla/marca/eliminar/<int:marca_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 839,
+        "function": "planilla_marca_agregar",
+        "path": "/planilla/marca/agregar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 934,
+        "function": "marcas",
+        "path": "/marcas",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 998,
+        "function": "marcas_csv",
+        "path": "/marcas.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 1088,
+        "function": "marcas_reporte_csv",
+        "path": "/marcas/reporte.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 1128,
+        "function": "marcas_xlsx",
+        "path": "/marcas.xlsx",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 1190,
+        "function": "marcas_backfill",
+        "path": "/marcas/backfill",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 1215,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 1242,
+        "function": "generar_ausentes_post",
+        "path": "/generar-ausentes",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 1303,
+        "function": "editar",
+        "path": "/editar/<int:asistencia_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 1336,
+        "function": "eliminar",
+        "path": "/eliminar/<int:asistencia_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/asistencias/asistencias_routes.py",
+        "line": 1343,
+        "function": "horario_esperado",
+        "path": "/horario-esperado",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/auditoria/auditoria_routes.py",
+        "line": 8,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/auth/web_auth_routes.py",
+        "line": 9,
+        "function": "login",
+        "path": "/login",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/auth/web_auth_routes.py",
+        "line": 35,
+        "function": "logout",
+        "path": "/logout",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/calificaciones_app/calificaciones_app_routes.py",
+        "line": 18,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 24,
+        "function": "import_camiones",
+        "path": "/camiones/importar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 59,
+        "function": "camion_template",
+        "path": "/camiones/plantilla.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 103,
+        "function": "index",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 115,
+        "function": "detail",
+        "path": "/<int:record_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 125,
+        "function": "photo",
+        "path": "/fotos/<int:photo_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 135,
+        "function": "catalogs",
+        "path": "/catalogos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 143,
+        "function": "edit_catalog",
+        "path": "/catalogos/<kind>/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 144,
+        "function": "edit_catalog",
+        "path": "/catalogos/<kind>/<int:record_id>/editar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 174,
+        "function": "positions",
+        "path": "/puestos",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 183,
+        "function": "audit",
+        "path": "/auditoria",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/carga/carga_routes.py",
+        "line": 198,
+        "function": "export",
+        "path": "/exportar",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/configuracion/configuracion_empresa_routes.py",
+        "line": 20,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/configuracion/configuracion_empresa_routes.py",
+        "line": 32,
+        "function": "editar",
+        "path": "/editar/<int:empresa_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleados/empleados_routes.py",
+        "line": 209,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empleados/empleados_routes.py",
+        "line": 279,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleados/empleados_routes.py",
+        "line": 351,
+        "function": "editar",
+        "path": "/editar/<int:emp_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleados/empleados_routes.py",
+        "line": 439,
+        "function": "activar",
+        "path": "/activar/<int:emp_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empleados/empleados_routes.py",
+        "line": 447,
+        "function": "desactivar",
+        "path": "/desactivar/<int:emp_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empleados/empleados_routes.py",
+        "line": 455,
+        "function": "exportar",
+        "path": "/exportar",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empleados/empleados_routes.py",
+        "line": 490,
+        "function": "importar_csv",
+        "path": "/importar-csv",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleados/empleados_routes.py",
+        "line": 519,
+        "function": "descargar_template_csv",
+        "path": "/importar-csv/template",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empleado_excepciones/empleado_excepciones_routes.py",
+        "line": 86,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empleado_excepciones/empleado_excepciones_routes.py",
+        "line": 135,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleado_excepciones/empleado_excepciones_routes.py",
+        "line": 180,
+        "function": "editar",
+        "path": "/editar/<int:excepcion_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleado_excepciones/empleado_excepciones_routes.py",
+        "line": 233,
+        "function": "eliminar",
+        "path": "/eliminar/<int:excepcion_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleado_excepciones/empleado_excepciones_routes.py",
+        "line": 241,
+        "function": "api_get",
+        "path": "/api/<int:excepcion_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empleado_excepciones/empleado_excepciones_routes.py",
+        "line": 253,
+        "function": "api_create",
+        "path": "/api",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleado_excepciones/empleado_excepciones_routes.py",
+        "line": 285,
+        "function": "api_update",
+        "path": "/api/<int:excepcion_id>",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "web/empleado_horarios/empleado_horarios_routes.py",
+        "line": 94,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empleado_horarios/empleado_horarios_routes.py",
+        "line": 101,
+        "function": "asignar",
+        "path": "/<int:empleado_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleado_horarios/empleado_horarios_routes.py",
+        "line": 157,
+        "function": "editar",
+        "path": "/<int:empleado_id>/editar/<int:asignacion_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleado_horarios/empleado_horarios_routes.py",
+        "line": 227,
+        "function": "eliminar",
+        "path": "/<int:empleado_id>/eliminar/<int:asignacion_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleado_horarios/empleado_horarios_routes.py",
+        "line": 239,
+        "function": "api_historial",
+        "path": "/api/<int:empleado_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empleado_horarios/empleado_horarios_routes.py",
+        "line": 260,
+        "function": "api_asignar",
+        "path": "/api",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empleado_horarios/empleado_horarios_routes.py",
+        "line": 304,
+        "function": "api_editar",
+        "path": "/api/<int:asignacion_id>",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "web/empleado_horarios/empleado_horarios_routes.py",
+        "line": 351,
+        "function": "api_eliminar",
+        "path": "/api/<int:asignacion_id>",
+        "methods": [
+          "DELETE"
+        ]
+      },
+      {
+        "file": "web/empresas/empresas_routes.py",
+        "line": 42,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empresas/empresas_routes.py",
+        "line": 49,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empresas/empresas_routes.py",
+        "line": 65,
+        "function": "editar",
+        "path": "/editar/<int:empresa_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/empresas/empresas_routes.py",
+        "line": 87,
+        "function": "activar",
+        "path": "/activar/<int:empresa_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/empresas/empresas_routes.py",
+        "line": 95,
+        "function": "desactivar",
+        "path": "/desactivar/<int:empresa_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 138,
+        "function": "index",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 146,
+        "function": "catalog",
+        "path": "/catalogo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 175,
+        "function": "sizes",
+        "path": "/talles",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 198,
+        "function": "create",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 218,
+        "function": "detail",
+        "path": "/pedidos/<int:pid>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 229,
+        "function": "action",
+        "path": "/pedidos/<int:pid>/acciones",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 244,
+        "function": "deliver",
+        "path": "/pedidos/<int:pid>/entregas",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 256,
+        "function": "receipt_view",
+        "path": "/entregas/<int:did>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 349,
+        "function": "receipt_pdf",
+        "path": "/entregas/<int:did>/pdf",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 355,
+        "function": "image",
+        "path": "/imagenes/<kind>/<int:rid>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 363,
+        "function": "report",
+        "path": "/reporte",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 393,
+        "function": "config_mobile",
+        "path": "/config",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 409,
+        "function": "sizes_mobile",
+        "path": "/talles",
+        "methods": [
+          "GET",
+          "PUT"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 418,
+        "function": "orders_mobile",
+        "path": "/pedidos",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 430,
+        "function": "detail_mobile",
+        "path": "/pedidos/<int:pid>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 436,
+        "function": "action_mobile",
+        "path": "/pedidos/<int:pid>/acciones",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 443,
+        "function": "pdf_mobile",
+        "path": "/entregas/<int:did>/pdf",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 449,
+        "function": "image_mobile",
+        "path": "/imagenes/<kind>/<int:rid>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 457,
+        "function": "summary_mobile",
+        "path": "/resumen",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 463,
+        "function": "edit",
+        "path": "/pedidos/<int:pid>/editar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 485,
+        "function": "edit_mobile",
+        "path": "/pedidos/<int:pid>",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "web/epp/routes.py",
+        "line": 492,
+        "function": "categories",
+        "path": "/categorias",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 153,
+        "function": "dashboard",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 188,
+        "function": "registros_listado",
+        "path": "/registros",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 283,
+        "function": "bandeja_jefe",
+        "path": "/bandeja",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 294,
+        "function": "registro_detalle",
+        "path": "/registros/<int:feedback_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 315,
+        "function": "registro_tomar",
+        "path": "/registros/<int:feedback_id>/tomar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 338,
+        "function": "registro_resolver",
+        "path": "/registros/<int:feedback_id>/resolver",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 373,
+        "function": "nuevo_feedback",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 408,
+        "function": "motivos_listado",
+        "path": "/motivos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 435,
+        "function": "motivo_nuevo",
+        "path": "/motivos/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 479,
+        "function": "motivo_editar",
+        "path": "/motivos/editar/<int:motivo_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 527,
+        "function": "motivo_activar",
+        "path": "/motivos/activar/<int:motivo_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 535,
+        "function": "motivo_desactivar",
+        "path": "/motivos/desactivar/<int:motivo_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 543,
+        "function": "clientes_listado",
+        "path": "/clientes",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 569,
+        "function": "clientes_importar",
+        "path": "/clientes/importar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 596,
+        "function": "fechas_listado",
+        "path": "/correccion-fechas",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/feedback/feedback_routes.py",
+        "line": 640,
+        "function": "fechas_editar",
+        "path": "/correccion-fechas/<int:feedback_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/francos/francos_routes.py",
+        "line": 29,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/francos/francos_routes.py",
+        "line": 47,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/francos/francos_routes.py",
+        "line": 63,
+        "function": "editar",
+        "path": "/editar/<int:franco_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/francos/francos_routes.py",
+        "line": 85,
+        "function": "eliminar",
+        "path": "/eliminar/<int:franco_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 54,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 70,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 119,
+        "function": "editar",
+        "path": "/editar/<int:horario_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 182,
+        "function": "activar",
+        "path": "/activar/<int:horario_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 193,
+        "function": "desactivar",
+        "path": "/desactivar/<int:horario_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 204,
+        "function": "eliminar",
+        "path": "/eliminar/<int:horario_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 221,
+        "function": "api_list",
+        "path": "/api",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 227,
+        "function": "api_get",
+        "path": "/api/<int:horario_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 236,
+        "function": "api_create",
+        "path": "/api",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 248,
+        "function": "api_update",
+        "path": "/api/<int:horario_id>",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "web/horarios/horarios_routes.py",
+        "line": 260,
+        "function": "api_delete",
+        "path": "/api/<int:horario_id>",
+        "methods": [
+          "DELETE"
+        ]
+      },
+      {
+        "file": "web/justificaciones/justificaciones_routes.py",
+        "line": 62,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/justificaciones/justificaciones_routes.py",
+        "line": 123,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/justificaciones/justificaciones_routes.py",
+        "line": 179,
+        "function": "eliminar_adjunto",
+        "path": "/<int:justificacion_id>/adjuntos/<int:adjunto_id>/eliminar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/justificaciones/justificaciones_routes.py",
+        "line": 198,
+        "function": "editar",
+        "path": "/editar/<int:justificacion_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/justificaciones/justificaciones_routes.py",
+        "line": 267,
+        "function": "aprobar",
+        "path": "/aprobar/<int:justificacion_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/justificaciones/justificaciones_routes.py",
+        "line": 282,
+        "function": "rechazar",
+        "path": "/rechazar/<int:justificacion_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/justificaciones/justificaciones_routes.py",
+        "line": 297,
+        "function": "revertir",
+        "path": "/revertir/<int:justificacion_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/justificaciones/justificaciones_routes.py",
+        "line": 312,
+        "function": "eliminar",
+        "path": "/eliminar/<int:justificacion_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 398,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 422,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 472,
+        "function": "editar",
+        "path": "/<int:kpi_id>/editar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 521,
+        "function": "toggle",
+        "path": "/<int:kpi_id>/toggle",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 539,
+        "function": "objetivos",
+        "path": "/objetivos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 571,
+        "function": "guardar_objetivo",
+        "path": "/objetivos/guardar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 628,
+        "function": "copiar_objetivos_anio_anterior",
+        "path": "/objetivos/copiar-anio-anterior",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 656,
+        "function": "resultados",
+        "path": "/resultados",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 719,
+        "function": "resultados_export_xlsx",
+        "path": "/resultados/export.xlsx",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 796,
+        "function": "eliminar_resultados_mes",
+        "path": "/resultados/eliminar-mes",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/kpis_sectoriales/kpis_sectoriales_routes.py",
+        "line": 851,
+        "function": "importar_resultados",
+        "path": "/importar-resultados",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 217,
+        "function": "listado_empleados",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 277,
+        "function": "listado_eventos",
+        "path": "/eventos/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 346,
+        "function": "permisos_mobile",
+        "path": "/permisos-mobile",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 393,
+        "function": "permisos_mobile_activar",
+        "path": "/permisos-mobile/<int:permiso_id>/activar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 401,
+        "function": "permisos_mobile_desactivar",
+        "path": "/permisos-mobile/<int:permiso_id>/desactivar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 409,
+        "function": "empleado",
+        "path": "/empleado/<int:emp_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 424,
+        "function": "crear_evento",
+        "path": "/empleado/<int:emp_id>/eventos",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 475,
+        "function": "editar_evento",
+        "path": "/empleado/<int:emp_id>/eventos/<int:evento_id>/editar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 520,
+        "function": "anular_evento_route",
+        "path": "/empleado/<int:emp_id>/eventos/<int:evento_id>/anular",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 538,
+        "function": "agregar_adjuntos",
+        "path": "/empleado/<int:emp_id>/eventos/<int:evento_id>/adjuntos",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 565,
+        "function": "eliminar_adjunto",
+        "path": "/empleado/<int:emp_id>/eventos/<int:evento_id>/adjuntos/<int:adjunto_id>/eliminar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 1603,
+        "function": "dashboard_empleado",
+        "path": "/dashboard-empleado",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 1621,
+        "function": "dashboard_empleado_export_csv",
+        "path": "/dashboard-empleado/export.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 1718,
+        "function": "dashboard_empleado_export_xls",
+        "path": "/dashboard-empleado/export.xls",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajos_routes.py",
+        "line": 1786,
+        "function": "dashboard_empleado_print",
+        "path": "/dashboard-empleado/print",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajo_tipos_evento_routes.py",
+        "line": 68,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajo_tipos_evento_routes.py",
+        "line": 98,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajo_tipos_evento_routes.py",
+        "line": 117,
+        "function": "editar",
+        "path": "/editar/<int:tipo_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/legajos/legajo_tipos_evento_routes.py",
+        "line": 138,
+        "function": "activar",
+        "path": "/activar/<int:tipo_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/legajos/legajo_tipos_evento_routes.py",
+        "line": 149,
+        "function": "desactivar",
+        "path": "/desactivar/<int:tipo_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/localidades/localidades_routes.py",
+        "line": 31,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/localidades/localidades_routes.py",
+        "line": 38,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/localidades/localidades_routes.py",
+        "line": 53,
+        "function": "editar",
+        "path": "/editar/<codigo_postal>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/localidades/localidades_routes.py",
+        "line": 74,
+        "function": "eliminar",
+        "path": "/eliminar/<codigo_postal>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/mobile_stats/mobile_stats_routes.py",
+        "line": 16,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/organigrama/organigrama_routes.py",
+        "line": 19,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/pedidos_mercaderia/pedidos_mercaderia_routes.py",
+        "line": 70,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/pedidos_mercaderia/pedidos_mercaderia_routes.py",
+        "line": 127,
+        "function": "detalle",
+        "path": "/<int:pedido_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/pedidos_mercaderia/pedidos_mercaderia_routes.py",
+        "line": 139,
+        "function": "export_csv",
+        "path": "/export.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/pedidos_mercaderia/pedidos_mercaderia_routes.py",
+        "line": 213,
+        "function": "aprobar",
+        "path": "/aprobar/<int:pedido_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/pedidos_mercaderia/pedidos_mercaderia_routes.py",
+        "line": 229,
+        "function": "rechazar",
+        "path": "/rechazar/<int:pedido_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/pedidos_mercaderia/pedidos_mercaderia_routes.py",
+        "line": 250,
+        "function": "importar_csv",
+        "path": "/articulos/importar-csv",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 127,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 166,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 206,
+        "function": "editar",
+        "path": "/<int:concurso_id>/editar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 245,
+        "function": "activar",
+        "path": "/<int:concurso_id>/activar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 256,
+        "function": "desactivar",
+        "path": "/<int:concurso_id>/desactivar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 287,
+        "function": "resultados",
+        "path": "/resultados",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 395,
+        "function": "resultado_nuevo",
+        "path": "/resultados/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 421,
+        "function": "resultado_editar",
+        "path": "/resultados/<int:resultado_id>/editar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 450,
+        "function": "resultado_eliminar",
+        "path": "/resultados/<int:resultado_id>/eliminar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 461,
+        "function": "resultados_export_csv",
+        "path": "/resultados/export.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 521,
+        "function": "resultados_export_xlsx",
+        "path": "/resultados/export.xlsx",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/premios_concursos/premios_concursos_routes.py",
+        "line": 591,
+        "function": "resultados_importar",
+        "path": "/resultados/importar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/puestos/puestos_routes.py",
+        "line": 27,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/puestos/puestos_routes.py",
+        "line": 50,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/puestos/puestos_routes.py",
+        "line": 66,
+        "function": "editar",
+        "path": "/editar/<int:puesto_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/puestos/puestos_routes.py",
+        "line": 88,
+        "function": "activar",
+        "path": "/activar/<int:puesto_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/puestos/puestos_routes.py",
+        "line": 96,
+        "function": "desactivar",
+        "path": "/desactivar/<int:puesto_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/qr_puerta/qr_puerta_routes.py",
+        "line": 48,
+        "function": "generar",
+        "path": "/",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/qr_puerta/qr_puerta_routes.py",
+        "line": 178,
+        "function": "imprimir",
+        "path": "/imprimir/<int:empresa_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/qr_puerta/qr_puerta_routes.py",
+        "line": 260,
+        "function": "reimprimir",
+        "path": "/reimprimir/<int:historial_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/qr_puerta/qr_puerta_routes.py",
+        "line": 289,
+        "function": "inactivar",
+        "path": "/inactivar/<int:historial_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 75,
+        "function": "index",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 232,
+        "function": "create",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 239,
+        "function": "edit",
+        "path": "/solicitudes/<int:rid>/editar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 246,
+        "function": "settings",
+        "path": "/configuracion",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 267,
+        "function": "monthly_report",
+        "path": "/mensual",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 277,
+        "function": "monthly_export",
+        "path": "/mensual.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 324,
+        "function": "odometer",
+        "path": "/odometro/<int:fid>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 330,
+        "function": "detail",
+        "path": "/solicitudes/<int:rid>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 361,
+        "function": "action",
+        "path": "/solicitudes/<int:rid>/acciones",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 381,
+        "function": "photo",
+        "path": "/fotos/<int:fid>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 387,
+        "function": "categories",
+        "path": "/categorias",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/reintegros/reintegro_routes.py",
+        "line": 418,
+        "function": "export",
+        "path": "/exportar.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/roles/empleado_roles_routes.py",
+        "line": 14,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/roles/empleado_roles_routes.py",
+        "line": 50,
+        "function": "editar",
+        "path": "/<int:empleado_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/roles/roles_routes.py",
+        "line": 16,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/roles/roles_routes.py",
+        "line": 33,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/roles/roles_routes.py",
+        "line": 47,
+        "function": "editar",
+        "path": "/editar/<int:rol_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/roles/roles_routes.py",
+        "line": 65,
+        "function": "eliminar",
+        "path": "/eliminar/<int:rol_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/sectores/sectores_routes.py",
+        "line": 84,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/sectores/sectores_routes.py",
+        "line": 107,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/sectores/sectores_routes.py",
+        "line": 131,
+        "function": "editar",
+        "path": "/editar/<int:sector_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/sectores/sectores_routes.py",
+        "line": 158,
+        "function": "activar",
+        "path": "/activar/<int:sector_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/sectores/sectores_routes.py",
+        "line": 166,
+        "function": "desactivar",
+        "path": "/desactivar/<int:sector_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 17,
+        "function": "safety_champion",
+        "path": "/campeon",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 25,
+        "function": "champion_rules",
+        "path": "/campeon/reglas",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 35,
+        "function": "champion_confirm",
+        "path": "/campeon/confirmar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 69,
+        "function": "index",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 88,
+        "function": "dashboard",
+        "path": "/dashboard",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 101,
+        "function": "dashboard_configuration",
+        "path": "/dashboard/configuracion",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 111,
+        "function": "create",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 131,
+        "function": "detail",
+        "path": "/eventos/<int:event_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 138,
+        "function": "edit",
+        "path": "/eventos/<int:event_id>/editar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 156,
+        "function": "review",
+        "path": "/eventos/<int:event_id>/revisar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 167,
+        "function": "annul",
+        "path": "/eventos/<int:event_id>/anular",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 176,
+        "function": "photo",
+        "path": "/fotos/<int:photo_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 183,
+        "function": "catalogs",
+        "path": "/catalogos",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 203,
+        "function": "action",
+        "path": "/eventos/<int:event_id>/acciones",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 212,
+        "function": "ranking",
+        "path": "/ranking",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 220,
+        "function": "export",
+        "path": "/exportar",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 252,
+        "function": "imports",
+        "path": "/importar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 270,
+        "function": "import_template",
+        "path": "/importar/plantilla",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 280,
+        "function": "import_correctable",
+        "path": "/importar/<int:batch_id>/corregir",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 291,
+        "function": "external_people",
+        "path": "/externos",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 325,
+        "function": "batch",
+        "path": "/importar/<int:batch_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/seguridad/seguridad_routes.py",
+        "line": 337,
+        "function": "original",
+        "path": "/importar/<int:batch_id>/original",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/matriz_routes.py",
+        "line": 31,
+        "function": "mine",
+        "path": "/mis-evaluaciones",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/matriz_routes.py",
+        "line": 41,
+        "function": "index",
+        "path": "/matrices",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/matriz_routes.py",
+        "line": 64,
+        "function": "detail",
+        "path": "/matrices/<int:evaluation_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/matriz_routes.py",
+        "line": 76,
+        "function": "upload",
+        "path": "/matrices/importar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/matriz_routes.py",
+        "line": 95,
+        "function": "preview",
+        "path": "/matrices/importaciones/<int:import_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/matriz_routes.py",
+        "line": 121,
+        "function": "revert",
+        "path": "/matrices/importaciones/<int:import_id>/revertir",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/matriz_routes.py",
+        "line": 156,
+        "function": "edit_action",
+        "path": "/matrices/<int:evaluation_id>/acciones/<int:action_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 200,
+        "function": "matriz_inicio",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 205,
+        "function": "dashboard",
+        "path": "/clasico",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 223,
+        "function": "preguntas_listado",
+        "path": "/preguntas",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 268,
+        "function": "pregunta_nueva",
+        "path": "/preguntas/nueva",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 295,
+        "function": "pregunta_editar",
+        "path": "/preguntas/editar/<int:pregunta_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 325,
+        "function": "pregunta_activar",
+        "path": "/preguntas/activar/<int:pregunta_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 336,
+        "function": "pregunta_desactivar",
+        "path": "/preguntas/desactivar/<int:pregunta_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 347,
+        "function": "preguntas_importar",
+        "path": "/preguntas/importar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 366,
+        "function": "evaluar_sector",
+        "path": "/evaluar",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 388,
+        "function": "evaluar_empleado",
+        "path": "/evaluar/<int:empleado_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 460,
+        "function": "evaluaciones_listado",
+        "path": "/evaluaciones",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 495,
+        "function": "evaluacion_detalle",
+        "path": "/evaluaciones/<int:evaluacion_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 514,
+        "function": "planes_listado",
+        "path": "/planes",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 549,
+        "function": "plan_detalle",
+        "path": "/planes/<int:plan_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 570,
+        "function": "plan_accion_nueva",
+        "path": "/planes/<int:plan_id>/acciones",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 589,
+        "function": "plan_accion_editar",
+        "path": "/planes/<int:plan_id>/acciones/<int:action_id>/editar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 608,
+        "function": "plan_accion_estado",
+        "path": "/planes/<int:plan_id>/acciones/<int:action_id>/estado",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/skap/skap_routes.py",
+        "line": 624,
+        "function": "plan_accion_eliminar",
+        "path": "/planes/<int:plan_id>/acciones/<int:action_id>/eliminar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/sucursales/sucursales_routes.py",
+        "line": 59,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/sucursales/sucursales_routes.py",
+        "line": 66,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/sucursales/sucursales_routes.py",
+        "line": 94,
+        "function": "editar",
+        "path": "/editar/<int:sucursal_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/sucursales/sucursales_routes.py",
+        "line": 129,
+        "function": "activar",
+        "path": "/activar/<int:sucursal_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/sucursales/sucursales_routes.py",
+        "line": 137,
+        "function": "desactivar",
+        "path": "/desactivar/<int:sucursal_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 146,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 175,
+        "function": "nueva",
+        "path": "/nueva",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 211,
+        "function": "detalle",
+        "path": "/<int:trivia_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 238,
+        "function": "resultados",
+        "path": "/<int:trivia_id>/resultados",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 274,
+        "function": "resultados_export_csv",
+        "path": "/<int:trivia_id>/resultados/export.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 329,
+        "function": "resultados_export_xlsx",
+        "path": "/<int:trivia_id>/resultados/export.xlsx",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 352,
+        "function": "agregar_exclusion",
+        "path": "/<int:trivia_id>/exclusiones",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 378,
+        "function": "eliminar_exclusion",
+        "path": "/<int:trivia_id>/exclusiones/<int:empleado_id>/eliminar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 393,
+        "function": "editar",
+        "path": "/<int:trivia_id>/editar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 434,
+        "function": "agregar_pregunta",
+        "path": "/<int:trivia_id>/preguntas",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 483,
+        "function": "editar_pregunta",
+        "path": "/<int:trivia_id>/preguntas/<int:pregunta_id>/editar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 532,
+        "function": "eliminar_pregunta",
+        "path": "/<int:trivia_id>/preguntas/<int:pregunta_id>/eliminar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 550,
+        "function": "finalizar_manual",
+        "path": "/<int:trivia_id>/finalizar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 568,
+        "function": "ranking_anual_view",
+        "path": "/ranking-anual",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 589,
+        "function": "agregar_exclusion_ranking_anual",
+        "path": "/ranking-anual/exclusiones",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 611,
+        "function": "eliminar_exclusion_ranking_anual",
+        "path": "/ranking-anual/exclusiones/<int:empleado_id>/eliminar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 626,
+        "function": "api_ranking",
+        "path": "/api/<int:trivia_id>/ranking",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 633,
+        "function": "api_ranking_anual",
+        "path": "/api/ranking-anual/<int:anio>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 649,
+        "function": "eliminar",
+        "path": "/<int:trivia_id>/eliminar",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/trivias/trivia_admin_routes.py",
+        "line": 672,
+        "function": "fuera_ranking",
+        "path": "/<int:trivia_id>/fuera-ranking",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/usuarios/usuarios_routes.py",
+        "line": 61,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/usuarios/usuarios_routes.py",
+        "line": 84,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/usuarios/usuarios_routes.py",
+        "line": 133,
+        "function": "editar",
+        "path": "/editar/<int:user_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/usuarios/usuarios_routes.py",
+        "line": 189,
+        "function": "activar",
+        "path": "/activar/<int:user_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/usuarios/usuarios_routes.py",
+        "line": 197,
+        "function": "desactivar",
+        "path": "/desactivar/<int:user_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 253,
+        "function": "listado",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 322,
+        "function": "movimientos_export_csv",
+        "path": "/movimientos/export.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 389,
+        "function": "reporte",
+        "path": "/reporte",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 411,
+        "function": "reporte_export_csv",
+        "path": "/reporte/export.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 489,
+        "function": "reporte_export_xlsx",
+        "path": "/reporte/export.xlsx",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 528,
+        "function": "movimiento_nuevo",
+        "path": "/movimientos/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 572,
+        "function": "movimiento_editar",
+        "path": "/movimientos/editar/<int:movimiento_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 609,
+        "function": "movimiento_aprobar",
+        "path": "/movimientos/aprobar/<int:movimiento_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 620,
+        "function": "movimiento_rechazar",
+        "path": "/movimientos/rechazar/<int:movimiento_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 636,
+        "function": "movimiento_cancelar",
+        "path": "/movimientos/cancelar/<int:movimiento_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 653,
+        "function": "compensatorios_habilitacion",
+        "path": "/compensatorios/habilitacion",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 678,
+        "function": "compensatorios_masivos",
+        "path": "/compensatorios/carga-masiva",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 749,
+        "function": "nuevo",
+        "path": "/nuevo",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 755,
+        "function": "editar",
+        "path": "/editar/<int:vacacion_id>",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 764,
+        "function": "eliminar",
+        "path": "/eliminar/<int:vacacion_id>",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 785,
+        "function": "gantt",
+        "path": "/gantt",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 796,
+        "function": "gantt_api_datos",
+        "path": "/gantt/api/datos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 822,
+        "function": "gantt_api_crear",
+        "path": "/gantt/api/movimientos",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 847,
+        "function": "gantt_api_editar",
+        "path": "/gantt/api/movimientos/<int:movimiento_id>",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "web/vacaciones/vacaciones_routes.py",
+        "line": 880,
+        "function": "gantt_api_eliminar",
+        "path": "/gantt/api/movimientos/<int:movimiento_id>",
+        "methods": [
+          "DELETE"
+        ]
+      },
+      {
+        "file": "routes/auth_routes.py",
+        "line": 25,
+        "function": "login",
+        "path": "/login",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/carga_routes.py",
+        "line": 56,
+        "function": "configuration",
+        "path": "/config",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/carga_routes.py",
+        "line": 62,
+        "function": "create",
+        "path": "",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/carga_routes.py",
+        "line": 75,
+        "function": "history",
+        "path": "",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/carga_routes.py",
+        "line": 84,
+        "function": "detail",
+        "path": "/<int:record_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/carga_routes.py",
+        "line": 94,
+        "function": "photo",
+        "path": "/fotos/<int:photo_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/external_api_routes.py",
+        "line": 103,
+        "function": "auth_token",
+        "path": "/auth/token",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/external_api_routes.py",
+        "line": 131,
+        "function": "cargar_resultados_kpi",
+        "path": "/kpis/resultados",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/external_api_routes.py",
+        "line": 484,
+        "function": "empresas",
+        "path": "/empresas",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/external_api_routes.py",
+        "line": 494,
+        "function": "sucursales",
+        "path": "/sucursales",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/external_api_routes.py",
+        "line": 507,
+        "function": "empleados",
+        "path": "/empleados",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/external_api_routes.py",
+        "line": 520,
+        "function": "justificaciones",
+        "path": "/justificaciones",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/external_api_routes.py",
+        "line": 537,
+        "function": "vacaciones_movimientos",
+        "path": "/vacaciones/movimientos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/external_api_routes.py",
+        "line": 560,
+        "function": "catalogo",
+        "path": "/catalogo",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/external_api_routes.py",
+        "line": 597,
+        "function": "reporte_asistencia_csv",
+        "path": "/reportes/asistencia.csv",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/feedback_routes.py",
+        "line": 55,
+        "function": "motivos",
+        "path": "/motivos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/feedback_routes.py",
+        "line": 79,
+        "function": "clientes",
+        "path": "/clientes",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/feedback_routes.py",
+        "line": 117,
+        "function": "historial",
+        "path": "/historial",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/feedback_routes.py",
+        "line": 138,
+        "function": "bandeja",
+        "path": "/bandeja",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/feedback_routes.py",
+        "line": 158,
+        "function": "dashboard",
+        "path": "/dashboard",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/feedback_routes.py",
+        "line": 181,
+        "function": "crear",
+        "path": "",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/feedback_routes.py",
+        "line": 219,
+        "function": "detalle",
+        "path": "/<int:feedback_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/feedback_routes.py",
+        "line": 237,
+        "function": "tomar",
+        "path": "/<int:feedback_id>/tomar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/feedback_routes.py",
+        "line": 259,
+        "function": "resolver",
+        "path": "/<int:feedback_id>/resolver",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/media_routes.py",
+        "line": 78,
+        "function": "empleado_foto",
+        "path": "/empleados/foto/<dni>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/media_routes.py",
+        "line": 83,
+        "function": "empleado_imagen",
+        "path": "/empleados/imagen/<dni>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/media_routes.py",
+        "line": 88,
+        "function": "legajo_adjunto",
+        "path": "/legajos/adjunto/<int:adjunto_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/media_routes.py",
+        "line": 134,
+        "function": "feedback_evidencia",
+        "path": "/feedback/evidencias/<int:feedback_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 405,
+        "function": "app_version",
+        "path": "/version",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 439,
+        "function": "auth_login",
+        "path": "/auth/login",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 494,
+        "function": "auth_refresh",
+        "path": "/auth/refresh",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 523,
+        "function": "me",
+        "path": "/me",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 551,
+        "function": "me_config_asistencia",
+        "path": "/me/config-asistencia",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 573,
+        "function": "me_generar_qr",
+        "path": "/me/qr",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 630,
+        "function": "fichar_scan_qr",
+        "path": "/me/fichadas/scan",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 825,
+        "function": "me_marcas",
+        "path": "/me/marcas",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 886,
+        "function": "me_horario_esperado",
+        "path": "/me/horario-esperado",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 905,
+        "function": "me_asistencias",
+        "path": "/me/asistencias",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 964,
+        "function": "me_estadisticas",
+        "path": "/me/estadisticas",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1023,
+        "function": "me_eventos_seguridad",
+        "path": "/me/eventos-seguridad",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1087,
+        "function": "fichar_entrada",
+        "path": "/me/fichadas/entrada",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1177,
+        "function": "fichar_salida",
+        "path": "/me/fichadas/salida",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1273,
+        "function": "me_update_profile",
+        "path": "/me/perfil",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1359,
+        "function": "me_delete_profile_photo",
+        "path": "/me/perfil/foto",
+        "methods": [
+          "DELETE"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1392,
+        "function": "me_update_password",
+        "path": "/me/password",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1500,
+        "function": "me_justificaciones_mark_seen",
+        "path": "/me/justificaciones/<int:justificacion_id>/marcar-vista",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1518,
+        "function": "me_justificaciones_list",
+        "path": "/me/justificaciones",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1551,
+        "function": "me_justificaciones_detail",
+        "path": "/me/justificaciones/<int:justificacion_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1566,
+        "function": "me_justificaciones_adjuntos_list",
+        "path": "/me/justificaciones/<int:justificacion_id>/adjuntos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1584,
+        "function": "me_justificaciones_create",
+        "path": "/me/justificaciones",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1646,
+        "function": "me_justificaciones_update",
+        "path": "/me/justificaciones/<int:justificacion_id>",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1702,
+        "function": "me_justificaciones_delete",
+        "path": "/me/justificaciones/<int:justificacion_id>",
+        "methods": [
+          "DELETE"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1732,
+        "function": "me_justificaciones_adjunto_delete",
+        "path": "/me/justificaciones/<int:justificacion_id>/adjuntos/<int:adjunto_id>",
+        "methods": [
+          "DELETE"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1751,
+        "function": "me_justificaciones_adjunto",
+        "path": "/me/justificaciones/<int:justificacion_id>/adjuntos/<int:adjunto_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1821,
+        "function": "me_vacaciones_list",
+        "path": "/me/vacaciones",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1845,
+        "function": "me_vacaciones_detail",
+        "path": "/me/vacaciones/<int:vacacion_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1859,
+        "function": "me_vacaciones_create",
+        "path": "/me/vacaciones",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1893,
+        "function": "me_vacaciones_update",
+        "path": "/me/vacaciones/<int:vacacion_id>",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1944,
+        "function": "me_vacaciones_delete",
+        "path": "/me/vacaciones/<int:vacacion_id>",
+        "methods": [
+          "DELETE"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 1993,
+        "function": "vacaciones_resumen",
+        "path": "/vacaciones/resumen",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2020,
+        "function": "vacaciones_movimientos",
+        "path": "/vacaciones/movimientos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2047,
+        "function": "vacaciones_solicitar",
+        "path": "/vacaciones/solicitar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2117,
+        "function": "me_adelantos_resumen",
+        "path": "/me/adelantos/resumen",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2149,
+        "function": "me_adelantos_list",
+        "path": "/me/adelantos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2179,
+        "function": "me_adelantos_detail",
+        "path": "/me/adelantos/<int:adelanto_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2193,
+        "function": "me_adelantos_estado",
+        "path": "/me/adelantos/estado",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2217,
+        "function": "me_adelantos_create",
+        "path": "/me/adelantos",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2300,
+        "function": "me_pedidos_mercaderia_resumen",
+        "path": "/me/pedidos-mercaderia/resumen",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2341,
+        "function": "me_pedidos_mercaderia_estado",
+        "path": "/me/pedidos-mercaderia/estado",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2365,
+        "function": "me_pedidos_mercaderia_articulos",
+        "path": "/me/pedidos-mercaderia/articulos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2392,
+        "function": "me_pedidos_mercaderia_list",
+        "path": "/me/pedidos-mercaderia",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2422,
+        "function": "me_pedidos_mercaderia_detail",
+        "path": "/me/pedidos-mercaderia/<int:pedido_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2436,
+        "function": "me_pedidos_mercaderia_create",
+        "path": "/me/pedidos-mercaderia",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2465,
+        "function": "me_pedidos_mercaderia_update",
+        "path": "/me/pedidos-mercaderia/<int:pedido_id>",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2492,
+        "function": "me_pedidos_mercaderia_cancel",
+        "path": "/me/pedidos-mercaderia/<int:pedido_id>",
+        "methods": [
+          "DELETE"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2532,
+        "function": "me_horarios_asignaciones_list",
+        "path": "/me/horarios-asignaciones",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2543,
+        "function": "me_horarios_asignaciones_actual",
+        "path": "/me/horarios-asignaciones/actual",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2574,
+        "function": "me_francos_list",
+        "path": "/me/francos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2598,
+        "function": "me_francos_detail",
+        "path": "/me/francos/<int:franco_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2779,
+        "function": "me_legajo_eventos_admin_permisos",
+        "path": "/me/legajo/eventos-admin/permisos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2802,
+        "function": "me_legajo_eventos_admin_empleados",
+        "path": "/me/legajo/eventos-admin/empleados",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2861,
+        "function": "me_legajo_eventos_admin_tipos",
+        "path": "/me/legajo/eventos-admin/tipos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2879,
+        "function": "me_legajo_eventos_admin_create",
+        "path": "/me/legajo/eventos-admin",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2946,
+        "function": "me_legajo_resumen",
+        "path": "/me/legajo/resumen",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 2978,
+        "function": "me_legajo_tipos_evento",
+        "path": "/me/legajo/tipos-evento",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 3001,
+        "function": "me_legajo_eventos_list",
+        "path": "/me/legajo/eventos",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 3059,
+        "function": "me_legajo_eventos_detail",
+        "path": "/me/legajo/eventos/<int:evento_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 3079,
+        "function": "me_legajo_adjunto",
+        "path": "/me/legajo/adjuntos/<int:adjunto_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 3085,
+        "function": "me_legajo_historial_por_tipo",
+        "path": "/me/legajo/historial-por-tipo",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 3124,
+        "function": "me_dashboard",
+        "path": "/me/dashboard",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 3243,
+        "function": "me_kpis_sector",
+        "path": "/me/kpis-sector",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 3280,
+        "function": "me_kpis_sector_dia",
+        "path": "/me/kpis-sector/dia",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 3316,
+        "function": "me_kpis_sector_resumen",
+        "path": "/me/kpis-sector/resumen",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 3425,
+        "function": "me_premios",
+        "path": "/me/premios",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/mobile_v1_routes.py",
+        "line": 3483,
+        "function": "calificar_app",
+        "path": "/calificar-app",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/reintegro_routes.py",
+        "line": 82,
+        "function": "config",
+        "path": "/config",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/reintegro_routes.py",
+        "line": 109,
+        "function": "history",
+        "path": "/solicitudes",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/reintegro_routes.py",
+        "line": 115,
+        "function": "create",
+        "path": "/solicitudes",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/reintegro_routes.py",
+        "line": 125,
+        "function": "detail",
+        "path": "/solicitudes/<int:rid>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/reintegro_routes.py",
+        "line": 131,
+        "function": "edit",
+        "path": "/solicitudes/<int:rid>",
+        "methods": [
+          "PUT"
+        ]
+      },
+      {
+        "file": "routes/reintegro_routes.py",
+        "line": 139,
+        "function": "action",
+        "path": "/solicitudes/<int:rid>/acciones",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/reintegro_routes.py",
+        "line": 147,
+        "function": "photo",
+        "path": "/fotos/<int:fid>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/reintegro_routes.py",
+        "line": 153,
+        "function": "odometer",
+        "path": "/odometro/<int:fid>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/reintegro_routes.py",
+        "line": 159,
+        "function": "reminders",
+        "path": "/recordatorios",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/reintegro_routes.py",
+        "line": 165,
+        "function": "read_reminder",
+        "path": "/recordatorios/<int:rid>/leido",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/seguridad_routes.py",
+        "line": 30,
+        "function": "config",
+        "path": "/config",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/seguridad_routes.py",
+        "line": 41,
+        "function": "events",
+        "path": "/eventos",
+        "methods": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/seguridad_routes.py",
+        "line": 57,
+        "function": "summary",
+        "path": "/resumen",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/seguridad_routes.py",
+        "line": 63,
+        "function": "indicators",
+        "path": "/indicadores",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/seguridad_routes.py",
+        "line": 69,
+        "function": "detail",
+        "path": "/eventos/<int:event_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/seguridad_routes.py",
+        "line": 76,
+        "function": "photo",
+        "path": "/fotos/<int:photo_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/seguridad_routes.py",
+        "line": 83,
+        "function": "ranking",
+        "path": "/ranking",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/skap_routes.py",
+        "line": 88,
+        "function": "preguntas",
+        "path": "/preguntas",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/skap_routes.py",
+        "line": 126,
+        "function": "crear_evaluacion",
+        "path": "/evaluacion",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/skap_routes.py",
+        "line": 166,
+        "function": "detalle_evaluacion",
+        "path": "/evaluacion/<int:evaluacion_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/skap_routes.py",
+        "line": 191,
+        "function": "mi_desarrollo",
+        "path": "/mi_desarrollo",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/skap_routes.py",
+        "line": 204,
+        "function": "ranking",
+        "path": "/ranking",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/skap_routes.py",
+        "line": 214,
+        "function": "planes",
+        "path": "/planes",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/skap_routes.py",
+        "line": 257,
+        "function": "crear_o_actualizar_plan",
+        "path": "/planes",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/skap_routes.py",
+        "line": 271,
+        "function": "mis_matrices",
+        "path": "/matrices",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/skap_routes.py",
+        "line": 281,
+        "function": "mi_matriz_detalle",
+        "path": "/matrices/<int:evaluation_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 79,
+        "function": "estado",
+        "path": "/estado",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 128,
+        "function": "activa",
+        "path": "/activa",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 147,
+        "function": "iniciar",
+        "path": "/iniciar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 186,
+        "function": "finalizar",
+        "path": "/finalizar",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 220,
+        "function": "ranking_trivia",
+        "path": "/ranking/<int:trivia_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 236,
+        "function": "historial",
+        "path": "/historial",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 264,
+        "function": "mi_historial",
+        "path": "/mi-historial",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 300,
+        "function": "ganador_trivia",
+        "path": "/ganador/<int:trivia_id>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 324,
+        "function": "ranking_anual",
+        "path": "/ranking-anual/<int:anio>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 335,
+        "function": "ganador_anual",
+        "path": "/ganador-anual/<int:anio>",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 349,
+        "function": "notificaciones",
+        "path": "/notificaciones",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 377,
+        "function": "marcar_leida",
+        "path": "/notificaciones/<int:notif_id>/leer",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "routes/trivia_routes.py",
+        "line": 392,
+        "function": "marcar_todas_leidas",
+        "path": "/notificaciones/leer-todas",
+        "methods": [
+          "POST"
+        ]
+      },
+      {
+        "file": "app.py",
+        "line": 416,
+        "function": "index",
+        "path": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      {
+        "file": "app.py",
+        "line": 420,
+        "function": "healthz",
+        "path": "/healthz",
+        "methods": [
+          "GET"
+        ]
+      }
+    ]
+  },
+  "probes": {
+    "read_only_user_get_mutation": {
+      "status": 302,
+      "simulated_mutations": [
+        [
+          123,
+          0
+        ]
+      ],
+      "user_permissions": {
+        "empleados": {
+          "ver": true
+        }
+      },
+      "csrf_enabled": true
+    },
+    "future_month": {
+      "context_date": "2026-10-13",
+      "month": "2026-11",
+      "kpis": {
+        "ausentismo_pct": 100.0,
+        "ausencias_computables": 25,
+        "ausencias_justificadas": 0,
+        "dias_laborables": 25,
+        "empleados_activos": 1,
+        "dias_posibles": 25,
+        "presentes": 0,
+        "vacaciones": 0,
+        "fichajes_incompletos": 0,
+        "horas_trabajadas": 0.0,
+        "jornadas_mayores_12": 0,
+        "sin_egreso": 0,
+        "registros_mes": 0
+      }
+    },
+    "split_shift": {
+      "expected_hours": 8,
+      "reported_hours": 12.0
+    },
+    "excel_text": {
+      "input": "=1+1",
+      "stored_type": "f",
+      "stored_value": "=1+1"
+    },
+    "synthetic_cpu_benchmark": [
+      {
+        "employees": 100,
+        "marks": 5200,
+        "samples_ms": [
+          31.3,
+          31.44,
+          32.53
+        ],
+        "median_ms": 31.44
+      },
+      {
+        "employees": 500,
+        "marks": 26000,
+        "samples_ms": [
+          318.57,
+          326.83,
+          310.59
+        ],
+        "median_ms": 318.57
+      },
+      {
+        "employees": 1000,
+        "marks": 52000,
+        "samples_ms": [
+          1037.22,
+          1070.27,
+          1146.86
+        ],
+        "median_ms": 1070.27
+      }
+    ]
+  }
+}

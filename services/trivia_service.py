@@ -301,18 +301,18 @@ def generar_notificaciones(trivia_id: int):
         return
 
     empleados = repo.get_empleados_sin_participar(trivia_id)
+    notifications = []
     for emp in empleados:
         for tipo in tipos_a_enviar:
-            if repo.exists_notificacion(trivia_id, emp["empleado_id"], tipo):
-                continue
             mensaje = _build_mensaje(trivia, tipo)
-            repo.save_notificacion({
+            notifications.append({
                 "trivia_id": trivia_id,
                 "empleado_id": emp["empleado_id"],
                 "empleado_dni": emp["empleado_dni"],
                 "tipo": tipo,
                 "mensaje": mensaje,
             })
+    repo.save_notificaciones_batch(notifications)
 
 
 def _build_mensaje(trivia: dict, tipo: str) -> str:

@@ -158,6 +158,7 @@ def test_vacaciones_listado_ok(monkeypatch):
     monkeypatch.setattr(vacaciones_routes, "get_sucursales", lambda **kw: [])
     monkeypatch.setattr(vacaciones_routes, "get_all", lambda: [])
     monkeypatch.setattr(vacaciones_routes, "calcular_resumen_vacaciones", lambda empleado_id, anio: _stub_saldo())
+    monkeypatch.setattr(vacaciones_routes, "calcular_resumenes_vacaciones", lambda empleados, anio, **kw: {int(e["id"]): _stub_saldo() for e in empleados})
 
     client = _build_authed_client(monkeypatch)
     resp = client.get("/vacaciones/?empleado_id=10&anio=2026")
@@ -182,6 +183,7 @@ def test_vacaciones_listado_envia_filtros(monkeypatch):
     monkeypatch.setattr(vacaciones_routes, "get_sucursales", lambda **kw: [])
     monkeypatch.setattr(vacaciones_routes, "get_all", lambda: [])
     monkeypatch.setattr(vacaciones_routes, "calcular_resumen_vacaciones", lambda empleado_id, anio: _stub_saldo())
+    monkeypatch.setattr(vacaciones_routes, "calcular_resumenes_vacaciones", lambda empleados, anio, **kw: {int(e["id"]): _stub_saldo() for e in empleados})
 
     client = _build_authed_client(monkeypatch)
     resp = client.get("/vacaciones/?empleado_id=10&sector_id=4&anio=2026&mes=1&tipo=tomado&estado=pendiente&q=ana")
@@ -221,6 +223,7 @@ def test_vacaciones_reporte_export_xlsx_ok(monkeypatch):
     monkeypatch.setattr(vacaciones_routes, "get_sectores", lambda include_inactive=True: [{"id": 4, "nombre": "Ventas", "empresa_nombre": "Acme"}])
     monkeypatch.setattr(vacaciones_routes, "get_sucursales", lambda include_inactive=True: [])
     monkeypatch.setattr(vacaciones_routes, "calcular_resumen_vacaciones", lambda empleado_id, anio: _stub_saldo())
+    monkeypatch.setattr(vacaciones_routes, "calcular_resumenes_vacaciones", lambda empleados, anio, **kw: {int(e["id"]): _stub_saldo() for e in empleados})
 
     resp = client.get("/vacaciones/reporte/export.xlsx?anio=2026&sector_id=4&activo=1&q=ana")
 
@@ -486,7 +489,7 @@ def test_vacaciones_reporte_filtra_por_area_y_activos(monkeypatch):
         captured.append((empleado_id, anio))
         return _reporte_resumen(empleado_id, anio)
 
-    monkeypatch.setattr(vacaciones_routes, "calcular_resumen_vacaciones", _fake_resumen)
+    monkeypatch.setattr(vacaciones_routes, "calcular_resumenes_vacaciones", lambda empleados, anio, **kw: {int(e["id"]): _fake_resumen(e["id"], anio) for e in empleados})
 
     client = _build_authed_client(monkeypatch)
     resp = client.get("/vacaciones/reporte?sector_id=4&activo=1&anio=2026")
@@ -504,7 +507,7 @@ def test_vacaciones_reporte_filtra_por_area_y_activos(monkeypatch):
 
 def test_vacaciones_reporte_export_csv(monkeypatch):
     monkeypatch.setattr(vacaciones_routes, "get_empleados", lambda **kw: _reporte_empleados())
-    monkeypatch.setattr(vacaciones_routes, "calcular_resumen_vacaciones", _reporte_resumen)
+    monkeypatch.setattr(vacaciones_routes, "calcular_resumenes_vacaciones", lambda empleados, anio, **kw: {int(e["id"]): _reporte_resumen(e["id"], anio) for e in empleados})
 
     client = _build_authed_client(monkeypatch)
     resp = client.get("/vacaciones/reporte/export.csv?sector_id=4&activo=1&anio=2026")

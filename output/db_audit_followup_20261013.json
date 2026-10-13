@@ -1,0 +1,105 @@
+{
+  "started_utc": "2026-10-13 20:26:03.532623+00:00",
+  "queries": {
+    "nonworking_scope": {
+      "sql": "SELECT COUNT(*) total,SUM(empresa_id=0 AND sucursal_id=0 AND sector_id=0) global_scope,SUM(d.empresa_id<>0 AND NOT EXISTS(SELECT 1 FROM empresas e WHERE e.id=d.empresa_id)) invalid_company,SUM(d.sucursal_id<>0 AND NOT EXISTS(SELECT 1 FROM sucursales s WHERE s.id=d.sucursal_id)) invalid_branch,SUM(d.sector_id<>0 AND NOT EXISTS(SELECT 1 FROM sectores s WHERE s.id=d.sector_id)) invalid_sector FROM asistencia_dias_no_laborables d",
+      "rows": [
+        {
+          "total": 26,
+          "global_scope": "26",
+          "invalid_company": "0",
+          "invalid_branch": "0",
+          "invalid_sector": "0"
+        }
+      ]
+    },
+    "incomplete_by_month": {
+      "sql": "SELECT DATE_FORMAT(fecha,'%Y-%m') month,COUNT(*) total,SUM(hora_entrada IS NOT NULL AND hora_salida IS NULL) missing_exit,SUM(hora_entrada IS NULL AND hora_salida IS NOT NULL) missing_entry FROM asistencias WHERE fecha<DATE(UTC_TIMESTAMP()-INTERVAL 3 HOUR) GROUP BY month ORDER BY month",
+      "rows": [
+        {
+          "month": "2026-02",
+          "total": 15,
+          "missing_exit": "3",
+          "missing_entry": "0"
+        },
+        {
+          "month": "2026-03",
+          "total": 106,
+          "missing_exit": "5",
+          "missing_entry": "1"
+        },
+        {
+          "month": "2026-04",
+          "total": 79,
+          "missing_exit": "32",
+          "missing_entry": "0"
+        },
+        {
+          "month": "2026-05",
+          "total": 133,
+          "missing_exit": "38",
+          "missing_entry": "0"
+        },
+        {
+          "month": "2026-06",
+          "total": 305,
+          "missing_exit": "61",
+          "missing_entry": "0"
+        },
+        {
+          "month": "2026-07",
+          "total": 869,
+          "missing_exit": "206",
+          "missing_entry": "1"
+        },
+        {
+          "month": "2026-08",
+          "total": 1111,
+          "missing_exit": "233",
+          "missing_entry": "5"
+        },
+        {
+          "month": "2026-09",
+          "total": 1214,
+          "missing_exit": "181",
+          "missing_entry": "0"
+        },
+        {
+          "month": "2026-10",
+          "total": 433,
+          "missing_exit": "66",
+          "missing_entry": "0"
+        }
+      ]
+    },
+    "incomplete_with_marks": {
+      "sql": "SELECT COUNT(*) missing_exit,SUM(EXISTS(SELECT 1 FROM asistencia_marcas m WHERE m.empleado_id=a.empleado_id AND m.fecha=a.fecha AND m.accion='egreso')) days_with_exit_mark FROM asistencias a WHERE a.fecha<DATE(UTC_TIMESTAMP()-INTERVAL 3 HOUR) AND a.hora_entrada IS NOT NULL AND a.hora_salida IS NULL",
+      "rows": [
+        {
+          "missing_exit": 825,
+          "days_with_exit_mark": "29"
+        }
+      ]
+    },
+    "safety_future": {
+      "sql": "SELECT COUNT(*) future_rows FROM sh_eventos WHERE fecha_evento>DATE(UTC_TIMESTAMP()-INTERVAL 3 HOUR)",
+      "rows": [
+        {
+          "future_rows": 0
+        }
+      ]
+    }
+  },
+  "select1_client_ms": {
+    "samples": [
+      229.14,
+      248.35,
+      241.72,
+      249.04,
+      247.32
+    ],
+    "median": 247.32,
+    "scope": "execute + fetch only, local PC to configured Railway proxy; not application-server latency"
+  },
+  "finished_utc": "2026-10-13 20:26:09.191344+00:00"
+}

@@ -77,9 +77,9 @@
             <td data-label="Acciones">
               <div class="inline-actions">
                 {% if h.activo %}
-                  <a class="btn btn-secondary" href="/horarios/desactivar/{{ h.id }}">Desactivar</a>
+                  <form method="post" action="/horarios/desactivar/{{ h.id }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-secondary" >Desactivar</button></form>
                 {% else %}
-                  <a class="btn btn-secondary" href="/horarios/activar/{{ h.id }}">Activar</a>
+                  <form method="post" action="/horarios/activar/{{ h.id }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-secondary" >Activar</button></form>
                 {% endif %}
                 <a href="/horarios/editar/{{ h.id }}" class="btn btn-secondary">Editar</a>
                 <form method="post" action="/horarios/eliminar/{{ h.id }}">

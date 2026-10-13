@@ -96,10 +96,12 @@ def test_annual_series_full_months_scopes_cutoff_and_grain(client):
 def test_page_details_are_bounded_and_totals_keep_all_events(database,monkeypatch):
     ids=[approved(descripcion=f'Reporte {n}') for n in range(32)]
     reads=[]
+    participants=[]
     original=s.db.all_rows
     def capture(c,sql,args=()):
         rows=original(c,sql,args)
         if 'e.descripcion' in sql: reads.append(len(rows))
+        if 'SELECT p.*' in sql: participants.append(len(rows))
         return rows
     monkeypatch.setattr(s.db,'all_rows',capture)
     filters=dict(desde='2026-09-01',hasta='2026-09-30',vista='seguro',page='2')
@@ -108,6 +110,7 @@ def test_page_details_are_bounded_and_totals_keep_all_events(database,monkeypatc
     assert [r['id'] for r in result['items']]==list(reversed(ids[:2]))
     assert all('descripcion' in r and r['fotos']==0 and len(r['personas'])==2 for r in result['items'])
     assert reads==[2]
+    assert participants == [4, 0]
 
 
 def test_reports_follow_current_employee_master_without_rewriting_history(client):

@@ -33,6 +33,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/panel.css') }}">
+    {% if request.blueprint == 'asistencias' or request.path == '/dashboard' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/attendance-report.css') }}">
+    {% endif %}
     {% block extra_head %}{% endblock %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/panel-responsive.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/panel-controls.css') }}">

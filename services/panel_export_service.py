@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import inspect
 from dataclasses import dataclass
 from functools import wraps
 from typing import Any, Callable
@@ -44,12 +45,13 @@ from repositories.skap_repository import get_evaluaciones_page, get_planes_page
 from repositories.kpi_sectorial_repository import get_kpis_by_sector
 from services.horario_service import get_horarios_resumen
 from services.table_export_service import build_attachment_response, build_table_export, normalize_export_format
+from services.table_export_service import ExportLimitError, EXPORT_ROW_LIMITS
 from web.vacaciones.vacaciones_routes import _extract_filters as vacaciones_extract_filters
 from web.premios_concursos.premios_concursos_routes import _extract_concurso_filters as concursos_extract_filters
 import web.auth.decorators as auth_decorators
 
 
-EXPORT_PAGE_SIZE = 1_000_000
+EXPORT_PAGE_SIZE = 10001
 
 
 @dataclass(frozen=True)
@@ -84,11 +86,16 @@ def _tristate_arg(name: str) -> int | None:
 
 
 def _page_rows(getter: Callable[..., tuple[list[dict[str, Any]], int]], *args, **kwargs) -> list[dict[str, Any]]:
-    rows, _ = getter(1, EXPORT_PAGE_SIZE, *args, **kwargs)
+    limit = EXPORT_ROW_LIMITS.get(normalize_export_format(request.args.get("export")), 10000)
+    rows, total = getter(1, limit + 1, *args, **kwargs)
+    if total > limit:
+        raise ExportLimitError(f"La exportacion supera {limit} registros. Aplique filtros para reducirla.")
     return list(rows or [])
 
 
 def _all_rows(getter: Callable[..., list[dict[str, Any]]], *args, **kwargs) -> list[dict[str, Any]]:
+    if "limit" in inspect.signature(getter).parameters:
+        kwargs["limit"] = EXPORT_ROW_LIMITS.get(normalize_export_format(request.args.get("export")), 10000) + 1
     return list(getter(*args, **kwargs) or [])
 
 
@@ -124,6 +131,7 @@ def _load_vacaciones_export() -> list[dict[str, Any]]:
         get_movimientos_export,
         empleado_id=filters["empleado_id"],
         sector_id=filters["sector_id"],
+        sucursal_id=filters["sucursal_id"],
         search=filters["search"],
         estado=filters["estado"],
         tipo=filters["tipo"],
@@ -137,11 +145,11 @@ def _load_concursos_export() -> list[dict[str, Any]]:
     filters = _concursos_filters()
     return _page_rows(
         get_concursos_page,
-        filters["empresa_id"],
-        filters["sector_id"],
-        filters["search"],
-        filters["activo"],
-        filters["alcance"],
+        empresa_id=filters["empresa_id"],
+        sector_id=filters["sector_id"],
+        search=filters["search"],
+        activo=filters["activo"],
+        alcance=filters["alcance"],
     )
 
 
@@ -404,8 +412,9 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
         filename_base="feedback_motivos",
         loader=lambda: _page_rows(
             get_motivos_page,
-            _str_arg("q"),
-            _tristate_arg("activo"),
+            search=_str_arg("q"),
+            activo=_tristate_arg("activo"),
+            sector_id=_int_arg("sector_id"),
         ),
     ),
     "feedback_web.clientes_listado": ExportSpec(
@@ -413,8 +422,8 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
         filename_base="feedback_clientes",
         loader=lambda: _page_rows(
             get_clientes_page,
-            _str_arg("q"),
-            _tristate_arg("activo"),
+            search=_str_arg("q"),
+            activo=_tristate_arg("activo"),
         ),
     ),
     "calificaciones_app.listado": ExportSpec(
@@ -502,10 +511,12 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
         loader=lambda: _all_rows(
             get_adelantos_export,
             empleado_id=_int_arg("empleado_id"),
-            q=_str_arg("q"),
+            search=_str_arg("q"),
             estado=_str_arg("estado"),
-            anio=_int_arg("anio"),
-            mes=_int_arg("mes"),
+            periodo_year=_int_arg("anio"),
+            periodo_month=_int_arg("mes"),
+            sucursal_id=_int_arg("sucursal_id"),
+            sector_id=_int_arg("sector_id"),
         ),
     ),
     "pedidos_mercaderia.listado": ExportSpec(
@@ -514,10 +525,12 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
         loader=lambda: _all_rows(
             get_pedidos_export,
             empleado_id=_int_arg("empleado_id"),
-            q=_str_arg("q"),
+            search=_str_arg("q"),
             estado=_str_arg("estado"),
-            anio=_int_arg("anio"),
-            mes=_int_arg("mes"),
+            periodo_year=_int_arg("anio"),
+            periodo_month=_int_arg("mes"),
+            sucursal_id=_int_arg("sucursal_id"),
+            sector_id=_int_arg("sector_id"),
         ),
     ),
     "premios_concursos.listado": ExportSpec(
@@ -537,7 +550,7 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
     "qr_puerta.generar": ExportSpec(
         title="Historial de QR de puerta",
         filename_base="qr_puerta_historial",
-        loader=lambda: _all_rows(get_qr_historial_recent, limit=5000, empresa_id=_int_arg("empresa_id")),
+        loader=lambda: _all_rows(get_qr_historial_recent, limit=EXPORT_PAGE_SIZE, empresa_id=_int_arg("empresa_id"), export=True),
     ),
     "skap_web.evaluaciones_listado": ExportSpec(
         title="Evaluaciones SKAP",
@@ -571,28 +584,13 @@ EXPORT_SPECS: dict[str, ExportSpec] = {
 }
 
 
-def _required_roles(view_func: Callable[..., Any]) -> tuple[str, ...]:
-    closure = getattr(view_func, "__closure__", None) or ()
-    for cell in closure:
-        try:
-            value = cell.cell_contents
-        except ValueError:
-            continue
-        if isinstance(value, tuple) and value and all(isinstance(item, str) for item in value):
-            return tuple(value)
-    return ()
-
-
-def _enforce_roles(view_func: Callable[..., Any]):
-    roles = _required_roles(view_func)
-    if not roles:
-        return
-
+def _enforce_export_permission():
     user_id = session.get("user_id")
     if not user_id:
         return redirect(url_for("web_auth.login"))
 
-    if not any(auth_decorators.has_role(user_id, role) for role in roles):
+    module = auth_decorators._module_for_current_path()
+    if not module or not auth_decorators.can_access_module(user_id, module, "exportar"):
         abort(403)
 
 
@@ -639,7 +637,7 @@ def wrap_exportable_views(app):
             if not __spec.toolbar_enabled():
                 abort(400, description=__spec.disabled_message)
 
-            auth_result = _enforce_roles(__view_func)
+            auth_result = _enforce_export_permission()
             if auth_result is not None:
                 return auth_result
 
@@ -652,6 +650,8 @@ def wrap_exportable_views(app):
                     filename=filename,
                     mimetype=export_file.mimetype,
                 )
+            except ExportLimitError as exc:
+                return current_app.response_class(str(exc), status=422, mimetype="text/plain")
             except Exception:
                 current_app.logger.exception(
                     "panel_export_error",

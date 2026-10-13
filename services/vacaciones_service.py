@@ -157,7 +157,7 @@ def calcular_resumen_vacaciones(empleado_id: int, anio: int) -> dict:
     )
 
 
-def calcular_resumenes_vacaciones(empleados: list[dict], anio: int) -> dict:
+def calcular_resumenes_vacaciones(empleados: list[dict], anio: int, *, include_errors=False) -> dict:
     valid = [e for e in empleados if e.get("id") and e.get("activo") and e.get("empresa_id")]
     if not valid:
         return {}
@@ -183,9 +183,9 @@ def calcular_resumenes_vacaciones(empleados: list[dict], anio: int) -> dict:
             result[int(empleado["id"])] = _calcular_resumen_vacaciones(
                 empleado, anio, count_worked=count_worked, load_movimientos=load_movimientos,
             )
-        except VacacionesError:
+        except VacacionesError as exc:
             # The individual panel summary also omits invalid employee dates.
-            result[int(empleado["id"])] = None
+            result[int(empleado["id"])] = {"error": str(exc)} if include_errors else None
     return result
 
 

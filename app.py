@@ -261,6 +261,9 @@ def create_app():
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
     app.config.update(_build_security_config())
+    from utils.static_assets import init_static_assets
+    init_static_assets(app)
+    app.config["RATELIMIT_STORAGE_URI"] = os.getenv("RATELIMIT_STORAGE_URI") or "memory://"
 
     # Rate limiting: desactivar en entorno test para no afectar tests unitarios.
     if _app_env() in {"test", "testing"}:
@@ -407,7 +410,7 @@ def create_app():
     wrap_exportable_views(app)
 
     # Scheduler de trivia (solo en entornos no-test y cuando se usa gunicorn/run)
-    if _app_env() not in {"test", "testing"}:
+    if _app_env() not in {"test", "testing"} and _parse_bool_env("SCHEDULER_IN_WEB", default=False):
         from utils.trivia_scheduler import init_trivia_scheduler
         init_trivia_scheduler(app)
         from utils.reintegro_scheduler import init_reintegro_scheduler
@@ -501,6 +504,8 @@ def create_app():
             elapsed = round((time.time() - request._start_time) * 1000, 2)
         if elapsed is not None:
             response.headers["Server-Timing"] = f"app;dur={elapsed}"
+            if hasattr(g, 'db_ms'):
+                response.headers["Server-Timing"] += f", db;dur={g.db_ms:.2f}"
             if hasattr(g, 'skap_db_ms'):
                 response.headers["Server-Timing"] += f", skap_db;dur={g.skap_db_ms:.2f}"
 
@@ -514,6 +519,8 @@ def create_app():
                     "method": request.method,
                     "status": response.status_code,
                     "ms": elapsed,
+                    "db_ms": round(getattr(g, "db_ms", 0), 2),
+                    "db_queries": getattr(g, "db_queries", 0),
                     "skap_db_ms": round(g.skap_db_ms, 2) if hasattr(g, "skap_db_ms") else None,
                     "skap_db_reads": getattr(g, "skap_db_reads", None),
                     "user_id": user_id,

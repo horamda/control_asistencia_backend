@@ -435,6 +435,8 @@ def get_for_export_admin(
     estados: list[str] | None = None,
     limit: int | None = None,
     order_asc: bool = False,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -452,6 +454,11 @@ def get_for_export_admin(
             activo=activo,
             estados=estados,
         )
+
+        for column, value in [('sucursal_id', sucursal_id), ('sector_id', sector_id)]:
+            if value:
+                where_sql += f" AND e.{column} = %s"
+                params.append(value)
 
         order_direction = "ASC" if order_asc else "DESC"
         limit_sql = "LIMIT %s" if limit is not None else ""

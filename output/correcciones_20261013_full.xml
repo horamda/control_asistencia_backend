@@ -1,0 +1,668 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="29" failures="0" skipped="0" tests="29" time="14.333" timestamp="2026-10-13T16:58:52.523960-03:00" hostname="HoracioNOTE2"><testcase classname="" name="tests.test_app_security" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_app_security.py:3: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_app_version" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_app_version.py:14: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_auth_routes" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_auth_routes.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_external_api_routes" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_external_api_routes.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_feedback_routes" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_feedback_routes.py:4: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_integracion_horarios_asistencias" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_integracion_horarios_asistencias.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_media_legajo_routes" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_media_legajo_routes.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_media_routes" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_media_routes.py:3: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_mobile_v1_api" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_mobile_v1_api.py:4: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_panel_exports" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_panel_exports.py:3: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_security_performance_20261006" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_security_performance_20261006.py:5: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_skap_routes" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_skap_routes.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_trivia_routes" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_trivia_routes.py:12: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_adelantos" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_adelantos.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_asistencias" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_asistencias.py:6: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_auth" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_auth.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_configuracion_empresa" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_configuracion_empresa.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_dashboard" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_dashboard.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_empleados" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_empleados.py:3: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_justificaciones" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_justificaciones.py:7: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_kpis_sectoriales" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_kpis_sectoriales.py:6: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_legajos" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_legajos.py:6: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_organigrama" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_organigrama.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_pedidos_mercaderia" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_pedidos_mercaderia.py:3: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_premios_concursos" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_premios_concursos.py:7: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_qr_puerta" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_qr_puerta.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_sectores" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_sectores.py:1: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_trivias" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_trivias.py:6: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase><testcase classname="" name="tests.test_web_vacaciones" time="0.000"><error message="collection failure">venv\Lib\site-packages\_pytest\python.py:493: in importtestmodule
+    mod = import_path(
+venv\Lib\site-packages\_pytest\pathlib.py:587: in import_path
+    importlib.import_module(module_name)
+C:\Python314\Lib\importlib\__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+&lt;frozen importlib._bootstrap&gt;:1398: in _gcd_import
+    ???
+&lt;frozen importlib._bootstrap&gt;:1371: in _find_and_load
+    ???
+&lt;frozen importlib._bootstrap&gt;:1342: in _find_and_load_unlocked
+    ???
+&lt;frozen importlib._bootstrap&gt;:938: in _load_unlocked
+    ???
+venv\Lib\site-packages\_pytest\assertion\rewrite.py:184: in exec_module
+    exec(co, module.__dict__)
+tests\test_web_vacaciones.py:5: in &lt;module&gt;
+    import app as app_module
+app.py:32: in &lt;module&gt;
+    from web.asistencias.asistencias_routes import asistencias_bp
+E     File "C:\Users\horac\Desktop\Proyectos WEB\control_asistencia\backend\web\asistencias\asistencias_routes.py", line 3
+E       ﻿import csv
+E       ^
+E   SyntaxError: invalid non-printable character U+FEFF</error></testcase></testsuite></testsuites>

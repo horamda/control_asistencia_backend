@@ -1,3 +1,4 @@
+from utils.export_safety import SafeCsvWriter
 import csv
 import datetime
 import io
@@ -155,7 +156,7 @@ def export_csv():
     )
 
     out = io.StringIO()
-    writer = csv.writer(out)
+    writer = SafeCsvWriter(out)
     writer.writerow(
         [
             "pedido_id",

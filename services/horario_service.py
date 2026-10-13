@@ -231,15 +231,19 @@ def get_horario_estructurado(horario_id: int):
         """, (horario_id,))
         dias_rows = cursor.fetchall()
 
+        cursor.execute("""
+            SELECT b.horario_dia_id, b.orden, b.hora_entrada, b.hora_salida
+            FROM horario_dia_bloques b
+            JOIN horario_dias d ON d.id = b.horario_dia_id
+            WHERE d.horario_id = %s
+            ORDER BY d.dia_semana, b.orden
+        """, (horario_id,))
+        bloques_por_dia = {}
+        for bloque in cursor.fetchall():
+            bloques_por_dia.setdefault(bloque["horario_dia_id"], []).append(bloque)
         dias = []
         for d in dias_rows:
-            cursor.execute("""
-                SELECT orden, hora_entrada, hora_salida
-                FROM horario_dia_bloques
-                WHERE horario_dia_id = %s
-                ORDER BY orden
-            """, (d["id"],))
-            bloques_rows = cursor.fetchall()
+            bloques_rows = bloques_por_dia.get(d["id"], [])
             bloques = []
             for b in bloques_rows:
                 entrada = _format_hhmm(b.get("hora_entrada"))

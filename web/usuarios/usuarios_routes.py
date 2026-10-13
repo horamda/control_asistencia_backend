@@ -1,3 +1,4 @@
+from web.auth.decorators import permission_required, require_company_record
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from werkzeug.security import generate_password_hash
 from web.auth.decorators import role_required
@@ -186,17 +187,19 @@ def editar(user_id):
     )
 
 
-@usuarios_bp.route("/activar/<int:user_id>")
-@role_required("admin")
+@usuarios_bp.route("/activar/<int:user_id>", methods=["POST"])
+@permission_required("usuarios", "aprobar")
 def activar(user_id):
+    require_company_record(get_by_id(user_id))
     set_activo(user_id, 1)
     log_audit(session, "activate", "usuarios", user_id)
     return redirect(url_for("usuarios.listado"))
 
 
-@usuarios_bp.route("/desactivar/<int:user_id>")
-@role_required("admin")
+@usuarios_bp.route("/desactivar/<int:user_id>", methods=["POST"])
+@permission_required("usuarios", "aprobar")
 def desactivar(user_id):
+    require_company_record(get_by_id(user_id))
     set_activo(user_id, 0)
     log_audit(session, "deactivate", "usuarios", user_id)
     return redirect(url_for("usuarios.listado"))

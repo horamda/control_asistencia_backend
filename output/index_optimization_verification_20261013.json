@@ -1,0 +1,45 @@
+{
+  "foreign_key_column_entries_unchanged": 184,
+  "indexes_after": [
+    {
+      "TABLE_NAME": "empleado_excepciones",
+      "INDEX_NAME": "idx_ee_tipo"
+    },
+    {
+      "TABLE_NAME": "empleado_excepciones",
+      "INDEX_NAME": "idx_ex_emp_empresa_fecha"
+    },
+    {
+      "TABLE_NAME": "empleado_excepciones",
+      "INDEX_NAME": "idx_ex_emp_fecha"
+    },
+    {
+      "TABLE_NAME": "empleado_excepciones",
+      "INDEX_NAME": "PRIMARY"
+    },
+    {
+      "TABLE_NAME": "empleado_excepciones",
+      "INDEX_NAME": "uk_ee_emp_fecha"
+    },
+    {
+      "TABLE_NAME": "empleado_horarios",
+      "INDEX_NAME": "idx_eh_actual"
+    },
+    {
+      "TABLE_NAME": "empleado_horarios",
+      "INDEX_NAME": "idx_eh_empleado_rango"
+    },
+    {
+      "TABLE_NAME": "empleado_horarios",
+      "INDEX_NAME": "idx_eh_empresa_empleado"
+    },
+    {
+      "TABLE_NAME": "empleado_horarios",
+      "INDEX_NAME": "idx_eh_horario"
+    },
+    {
+      "TABLE_NAME": "empleado_horarios",
+      "INDEX_NAME": "PRIMARY"
+    }
+  ]
+}

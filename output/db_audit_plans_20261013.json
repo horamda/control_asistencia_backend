@@ -1,0 +1,331 @@
+{
+  "started_utc": "2026-10-13 20:21:43.840034+00:00",
+  "queries": {
+    "tls_session": {
+      "sql": "SHOW SESSION STATUS LIKE 'Ssl_cipher'",
+      "rows": [
+        {
+          "Variable_name": "Ssl_cipher",
+          "Value": "TLS_AES_128_GCM_SHA256"
+        }
+      ],
+      "elapsed_ms": 644.01
+    },
+    "server_clock": {
+      "sql": "SELECT NOW() server_now,UTC_TIMESTAMP() utc_now,@@system_time_zone system_zone",
+      "rows": [
+        {
+          "server_now": "2026-10-13 20:21:45",
+          "utc_now": "2026-10-13 20:21:45",
+          "system_zone": "UTC"
+        }
+      ],
+      "elapsed_ms": 636.4
+    },
+    "justification_ranges": {
+      "sql": "SELECT COUNT(*) total,SUM(fecha_desde IS NULL) missing_start,SUM(fecha_hasta IS NULL) missing_end,SUM(fecha IS NULL AND fecha_desde IS NULL) undated FROM justificaciones",
+      "rows": [
+        {
+          "total": 13,
+          "missing_start": "0",
+          "missing_end": "0",
+          "undated": "0"
+        }
+      ],
+      "elapsed_ms": 642.89
+    },
+    "justification_states": {
+      "sql": "SELECT estado,COUNT(*) total FROM justificaciones GROUP BY estado",
+      "rows": [
+        {
+          "estado": "aprobada",
+          "total": 13
+        }
+      ],
+      "elapsed_ms": 669.89
+    },
+    "attendance_states": {
+      "sql": "SELECT estado,COUNT(*) total FROM asistencias GROUP BY estado",
+      "rows": [
+        {
+          "estado": "ausente",
+          "total": 342
+        },
+        {
+          "estado": "salida_anticipada",
+          "total": 606
+        },
+        {
+          "estado": "tarde",
+          "total": 600
+        },
+        {
+          "estado": "ok",
+          "total": 2755
+        }
+      ],
+      "elapsed_ms": 640.83
+    },
+    "mark_domains": {
+      "sql": "SELECT accion,tipo_marca,metodo,COUNT(*) total FROM asistencia_marcas GROUP BY accion,tipo_marca,metodo",
+      "rows": [
+        {
+          "accion": "ingreso",
+          "tipo_marca": "jornada",
+          "metodo": "qr",
+          "total": 3923
+        },
+        {
+          "accion": "ingreso",
+          "tipo_marca": "jornada",
+          "metodo": "manual",
+          "total": 46
+        },
+        {
+          "accion": "egreso",
+          "tipo_marca": "jornada",
+          "metodo": "qr",
+          "total": 2984
+        },
+        {
+          "accion": "egreso",
+          "tipo_marca": "jornada",
+          "metodo": "manual",
+          "total": 155
+        }
+      ],
+      "elapsed_ms": 641.66
+    },
+    "attendance_future": {
+      "sql": "SELECT COUNT(*) future_rows FROM asistencias WHERE fecha>DATE(UTC_TIMESTAMP()-INTERVAL 3 HOUR)",
+      "rows": [
+        {
+          "future_rows": 0
+        }
+      ],
+      "elapsed_ms": 647.89
+    },
+    "marks_future": {
+      "sql": "SELECT COUNT(*) future_rows FROM asistencia_marcas WHERE fecha>DATE(UTC_TIMESTAMP()-INTERVAL 3 HOUR)",
+      "rows": [
+        {
+          "future_rows": 0
+        }
+      ],
+      "elapsed_ms": 647.2
+    },
+    "mobile_freshness": {
+      "sql": "SELECT COUNT(*) total,MIN(fecha_login) first_login,MAX(fecha_ultimo_request) last_request FROM mobile_sesiones",
+      "rows": [
+        {
+          "total": 5948,
+          "first_login": "2026-05-25 03:15:58",
+          "last_request": "2026-10-13 20:12:59"
+        }
+      ],
+      "elapsed_ms": 654.22
+    },
+    "attendance_missing_pair": {
+      "sql": "SELECT COUNT(*) total,SUM(hora_entrada IS NULL AND hora_salida IS NOT NULL) exit_without_entry,SUM(hora_entrada IS NOT NULL AND hora_salida IS NULL) entry_without_exit,SUM(hora_salida<hora_entrada) reversed_times FROM asistencias WHERE fecha<DATE(UTC_TIMESTAMP()-INTERVAL 3 HOUR)",
+      "rows": [
+        {
+          "total": 4265,
+          "exit_without_entry": "7",
+          "entry_without_exit": "825",
+          "reversed_times": "0"
+        }
+      ],
+      "elapsed_ms": 646.95
+    },
+    "assignment_overlap": {
+      "sql": "SELECT COUNT(*) overlapping_pairs FROM empleado_horarios a JOIN empleado_horarios b ON a.empleado_id=b.empleado_id AND a.id<b.id AND a.fecha_desde<=COALESCE(b.fecha_hasta,'9999-12-31') AND b.fecha_desde<=COALESCE(a.fecha_hasta,'9999-12-31')",
+      "rows": [
+        {
+          "overlapping_pairs": 0
+        }
+      ],
+      "elapsed_ms": 644.25
+    },
+    "employee_org_scope": {
+      "sql": "SELECT COUNT(*) total,SUM(s.empresa_id<>e.empresa_id) branch_mismatches,SUM(sec.empresa_id<>e.empresa_id) sector_mismatches,SUM(p.empresa_id<>e.empresa_id) position_mismatches FROM empleados e LEFT JOIN sucursales s ON s.id=e.sucursal_id LEFT JOIN sectores sec ON sec.id=e.sector_id LEFT JOIN puestos p ON p.id=e.puesto_id",
+      "rows": [
+        {
+          "total": 96,
+          "branch_mismatches": "0",
+          "sector_mismatches": "0",
+          "position_mismatches": "0"
+        }
+      ],
+      "elapsed_ms": 643.77
+    },
+    "required_employee_fields": {
+      "sql": "SELECT COUNT(*) total,SUM(TRIM(COALESCE(nombre,''))='') missing_name,SUM(TRIM(COALESCE(apellido,''))='') missing_surname,SUM(TRIM(COALESCE(dni,''))='') missing_dni,SUM(TRIM(COALESCE(legajo,''))='') missing_employee_number,SUM(activo=1 AND sucursal_id IS NULL) active_without_branch,SUM(activo=1 AND sector_id IS NULL) active_without_sector FROM empleados",
+      "rows": [
+        {
+          "total": 96,
+          "missing_name": "0",
+          "missing_surname": "0",
+          "missing_dni": "0",
+          "missing_employee_number": "0",
+          "active_without_branch": "0",
+          "active_without_sector": "0"
+        }
+      ],
+      "elapsed_ms": 643.33
+    },
+    "view_presence": {
+      "sql": "SELECT TABLE_NAME FROM information_schema.VIEWS WHERE TABLE_SCHEMA=DATABASE()",
+      "rows": [
+        {
+          "TABLE_NAME": "asistencia_marcas_reporte"
+        }
+      ],
+      "elapsed_ms": 653.98
+    },
+    "explain:monthly_marks": {
+      "sql": "EXPLAIN SELECT am.id,am.empleado_id,am.fecha,am.hora,am.accion FROM asistencia_marcas_reporte am JOIN empleados e ON e.id=am.empleado_id WHERE am.empresa_id=1 AND am.fecha BETWEEN '2026-10-01' AND '2026-10-31' ORDER BY am.fecha,am.hora,am.id",
+      "rows": [
+        {
+          "EXPLAIN": "-> Nested loop inner join  (cost=3999 rows=2330)\n    -> Sort row IDs: am.fecha, am.hora, am.id  (cost=3359..3359 rows=2330)\n        -> Table scan on am  (cost=1681..1712 rows=2330)\n            -> Union all materialize  (cost=1681..1681 rows=2330)\n                -> Index range scan on m using idx_am_empresa_fecha over (empresa_id = 1 AND '2026-10-01' <= fecha <= '2026-10-31'), with index condition: ((m.empresa_id = 1) and (m.fecha between '2026-10-01' and '2026-10-31'))  (cost=352 rows=782)\n                -> Nested loop antijoin  (cost=396 rows=774)\n                    -> Filter: (a.hora_entrada is not null)  (cost=212 rows=424)\n                        -> Index range scan on a using idx_asistencias_empresa_fecha over (empresa_id = 1 AND '2026-10-01' <= fecha <= '2026-10-31'), with index condition: ((a.empresa_id = 1) and (a.fecha between '2026-10-01' and '2026-10-31'))  (cost=212 rows=471)\n                    -> Covering index lookup on m using idx_am_empleado_fecha_hora (empleado_id = a.empleado_id, fecha = a.fecha)  (cost=0.459 rows=1.83)\n                -> Nested loop antijoin  (cost=396 rows=774)\n                    -> Filter: (a.hora_salida is not null)  (cost=212 rows=424)\n                        -> Index range scan on a using idx_asistencias_empresa_fecha over (empresa_id = 1 AND '2026-10-01' <= fecha <= '2026-10-31'), with index condition: ((a.empresa_id = 1) and (a.fecha between '2026-10-01' and '2026-10-31'))  (cost=212 rows=471)\n                    -> Covering index lookup on m using idx_am_empleado_fecha_hora (empleado_id = a.empleado_id, fecha = a.fecha)  (cost=0.459 rows=1.83)\n    -> Single-row covering index lookup on e using PRIMARY (id = am.empleado_id)  (cost=0.25 rows=1)\n"
+        }
+      ],
+      "elapsed_ms": 650.37
+    },
+    "explain:justification_overlap": {
+      "sql": "EXPLAIN SELECT j.empleado_id,j.fecha_desde,j.fecha_hasta FROM justificaciones j JOIN empleados e ON e.id=j.empleado_id WHERE j.estado='aprobada' AND e.empresa_id=1 AND COALESCE(j.fecha_hasta,j.fecha)>='2026-10-01' AND COALESCE(j.fecha_desde,j.fecha)<='2026-10-31'",
+      "rows": [
+        {
+          "EXPLAIN": "-> Nested loop inner join  (cost=6.1 rows=13)\n    -> Filter: ((j.estado = 'aprobada') and (coalesce(j.fecha_hasta,j.fecha) >= '2026-10-01') and (coalesce(j.fecha_desde,j.fecha) <= '2026-10-31') and (j.empleado_id is not null))  (cost=1.55 rows=13)\n        -> Table scan on j  (cost=1.55 rows=13)\n    -> Filter: (e.empresa_id = 1)  (cost=0.258 rows=1)\n        -> Single-row index lookup on e using PRIMARY (id = j.empleado_id)  (cost=0.258 rows=1)\n"
+        }
+      ],
+      "elapsed_ms": 647.62
+    },
+    "explain:safety_page": {
+      "sql": "EXPLAIN SELECT id,tipo,fecha_evento FROM sh_eventos WHERE empresa_id=1 AND estado='aprobado' AND fecha_evento BETWEEN '2026-01-01' AND '2026-10-13' AND tipo='seguro' ORDER BY fecha_evento DESC,id DESC LIMIT 30",
+      "rows": [
+        {
+          "EXPLAIN": "-> Limit: 30 row(s)  (cost=20 rows=9.6)\n    -> Filter: ((sh_eventos.tipo = 'seguro') and (sh_eventos.estado = 'aprobado') and (sh_eventos.empresa_id = 1) and (sh_eventos.fecha_evento between '2026-01-01' and '2026-10-13'))  (cost=20 rows=9.6)\n        -> Covering index range scan on sh_eventos using ix_sh_estado_fecha over (empresa_id = 1 AND estado = 'aprobado' AND '2026-01-01' <= fecha_evento <= '2026-10-13') (reverse)  (cost=20 rows=96)\n"
+        }
+      ],
+      "elapsed_ms": 644.15
+    },
+    "explain:vacation_approved": {
+      "sql": "EXPLAIN SELECT empleado_id,fecha_desde,fecha_hasta FROM vacaciones_movimientos WHERE empresa_id=1 AND tipo='tomado' AND estado='aprobado' AND fecha_desde<='2026-10-31' AND fecha_hasta>='2026-10-01' AND revertido_por_movimiento_id IS NULL AND origen_movimiento_id IS NULL",
+      "rows": [
+        {
+          "EXPLAIN": "-> Filter: ((vacaciones_movimientos.empresa_id = 1) and (vacaciones_movimientos.fecha_desde <= DATE'2026-10-31') and (vacaciones_movimientos.fecha_hasta >= DATE'2026-10-01') and (vacaciones_movimientos.revertido_por_movimiento_id is null) and (vacaciones_movimientos.origen_movimiento_id is null))  (cost=1.22 rows=4.67)\n    -> Index lookup on vacaciones_movimientos using idx_vac_mov_tipo_estado (tipo = 'tomado', estado = 'aprobado')  (cost=1.22 rows=42)\n"
+        }
+      ],
+      "elapsed_ms": 656.59
+    },
+    "explain:attendance_page": {
+      "sql": "EXPLAIN SELECT id,empleado_id,fecha FROM asistencias WHERE empresa_id=1 AND fecha BETWEEN '2026-10-01' AND '2026-10-31' ORDER BY fecha DESC,id DESC LIMIT 50",
+      "rows": [
+        {
+          "EXPLAIN": "-> Limit: 50 row(s)  (cost=212 rows=50)\n    -> Index range scan on asistencias using idx_asistencias_empresa_fecha over (empresa_id = 1 AND '2026-10-01' <= fecha <= '2026-10-31') (reverse), with index condition: ((asistencias.empresa_id = 1) and (asistencias.fecha between '2026-10-01' and '2026-10-31'))  (cost=212 rows=471)\n"
+        }
+      ],
+      "elapsed_ms": 680.51
+    },
+    "roundtrip:0": {
+      "sql": "SELECT 1 AS ok",
+      "rows": [
+        {
+          "ok": 1
+        }
+      ],
+      "elapsed_ms": 641.75
+    },
+    "roundtrip:1": {
+      "sql": "SELECT 1 AS ok",
+      "rows": [
+        {
+          "ok": 1
+        }
+      ],
+      "elapsed_ms": 649.81
+    },
+    "roundtrip:2": {
+      "sql": "SELECT 1 AS ok",
+      "rows": [
+        {
+          "ok": 1
+        }
+      ],
+      "elapsed_ms": 641.88
+    },
+    "roundtrip:3": {
+      "sql": "SELECT 1 AS ok",
+      "rows": [
+        {
+          "ok": 1
+        }
+      ],
+      "elapsed_ms": 675.63
+    },
+    "roundtrip:4": {
+      "sql": "SELECT 1 AS ok",
+      "rows": [
+        {
+          "ok": 1
+        }
+      ],
+      "elapsed_ms": 685.53
+    },
+    "composite_fk:adelantos:fk_adelantos_empleado_empresa": {
+      "sql": "SELECT COUNT(*) orphan_rows FROM `adelantos` c LEFT JOIN `empleados` p ON c.`empleado_id`=p.`id` AND c.`empresa_id`=p.`empresa_id` WHERE c.`empleado_id` IS NOT NULL AND c.`empresa_id` IS NOT NULL AND p.`id` IS NULL",
+      "rows": [
+        {
+          "orphan_rows": 0
+        }
+      ],
+      "elapsed_ms": 700.62
+    },
+    "composite_fk:legajo_evento_adjuntos:fk_legajo_adjuntos_empleado_empresa": {
+      "sql": "SELECT COUNT(*) orphan_rows FROM `legajo_evento_adjuntos` c LEFT JOIN `empleados` p ON c.`empleado_id`=p.`id` AND c.`empresa_id`=p.`empresa_id` WHERE c.`empleado_id` IS NOT NULL AND c.`empresa_id` IS NOT NULL AND p.`id` IS NULL",
+      "rows": [
+        {
+          "orphan_rows": 0
+        }
+      ],
+      "elapsed_ms": 662.07
+    },
+    "composite_fk:legajo_eventos:fk_legajo_eventos_empleado_empresa": {
+      "sql": "SELECT COUNT(*) orphan_rows FROM `legajo_eventos` c LEFT JOIN `empleados` p ON c.`empleado_id`=p.`id` AND c.`empresa_id`=p.`empresa_id` WHERE c.`empleado_id` IS NOT NULL AND c.`empresa_id` IS NOT NULL AND p.`id` IS NULL",
+      "rows": [
+        {
+          "orphan_rows": 0
+        }
+      ],
+      "elapsed_ms": 699.06
+    },
+    "composite_fk:pedidos_mercaderia:fk_pedidos_mercaderia_empleado_empresa": {
+      "sql": "SELECT COUNT(*) orphan_rows FROM `pedidos_mercaderia` c LEFT JOIN `empleados` p ON c.`empleado_id`=p.`id` AND c.`empresa_id`=p.`empresa_id` WHERE c.`empleado_id` IS NOT NULL AND c.`empresa_id` IS NOT NULL AND p.`id` IS NULL",
+      "rows": [
+        {
+          "orphan_rows": 0
+        }
+      ],
+      "elapsed_ms": 671.19
+    },
+    "composite_fk:premios_resultados:fk_premios_resultados_empleado_empresa": {
+      "sql": "SELECT COUNT(*) orphan_rows FROM `premios_resultados` c LEFT JOIN `empleados` p ON c.`empleado_id`=p.`id` AND c.`empresa_id`=p.`empresa_id` WHERE c.`empleado_id` IS NOT NULL AND c.`empresa_id` IS NOT NULL AND p.`id` IS NULL",
+      "rows": [
+        {
+          "orphan_rows": 0
+        }
+      ],
+      "elapsed_ms": 667.19
+    },
+    "composite_fk:vacaciones_movimientos:fk_vac_mov_empleado_empresa": {
+      "sql": "SELECT COUNT(*) orphan_rows FROM `vacaciones_movimientos` c LEFT JOIN `empleados` p ON c.`empleado_id`=p.`id` AND c.`empresa_id`=p.`empresa_id` WHERE c.`empleado_id` IS NOT NULL AND c.`empresa_id` IS NOT NULL AND p.`id` IS NULL",
+      "rows": [
+        {
+          "orphan_rows": 0
+        }
+      ],
+      "elapsed_ms": 658.97
+    }
+  },
+  "finished_utc": "2026-10-13 20:22:10.203233+00:00"
+}

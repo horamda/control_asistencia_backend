@@ -92,6 +92,7 @@ def test_reportes_mensuales_renderiza_solapas(monkeypatch):
     )
     monkeypatch.setattr(asistencias_routes, "get_marcas_admin_export", lambda **kwargs: [])
     monkeypatch.setattr(asistencias_routes, "get_justificaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(asistencias_routes, "approved_justifications", lambda **kwargs: [])
     monkeypatch.setattr(asistencias_routes, "get_vacaciones_aprobadas_export", lambda **kwargs: [])
 
     resp = client.get("/asistencias/reportes?mes=2026-07&sucursal_id=2")
@@ -127,6 +128,7 @@ def test_reportes_mensuales_usa_dias_no_laborables_guardados(monkeypatch):
     )
     monkeypatch.setattr(asistencias_routes, "get_marcas_admin_export", lambda **kwargs: [])
     monkeypatch.setattr(asistencias_routes, "get_justificaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(asistencias_routes, "approved_justifications", lambda **kwargs: [])
     monkeypatch.setattr(asistencias_routes, "get_vacaciones_aprobadas_export", lambda **kwargs: [])
 
     resp = client.get("/asistencias/reportes?mes=2026-07&empresa_id=1&sucursal_id=2")
@@ -159,6 +161,7 @@ def test_reportes_mensuales_filtra_por_sector(monkeypatch):
     monkeypatch.setattr(asistencias_routes, "get_empleados", _fake_get_empleados)
     monkeypatch.setattr(asistencias_routes, "get_marcas_admin_export", lambda **kwargs: [])
     monkeypatch.setattr(asistencias_routes, "get_justificaciones_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(asistencias_routes, "approved_justifications", lambda **kwargs: [])
     monkeypatch.setattr(asistencias_routes, "get_vacaciones_aprobadas_export", lambda **kwargs: [])
 
     resp = client.get("/asistencias/reportes?mes=2026-07&empresa_id=1&sector_id=5")

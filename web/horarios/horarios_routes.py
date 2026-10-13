@@ -1,4 +1,5 @@
-﻿import json
+from web.auth.decorators import permission_required, require_company_record
+import json
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session, url_for
 from utils.forms import parse_int as _parse_int
@@ -179,23 +180,25 @@ def editar(horario_id):
     )
 
 
-@horarios_bp.route("/activar/<int:horario_id>")
-@role_required("admin", "rrhh")
+@horarios_bp.route("/activar/<int:horario_id>", methods=["POST"])
+@permission_required("horarios", "aprobar")
 def activar(horario_id):
     row = get_by_id(horario_id)
     if not row:
         return redirect(url_for("horarios.listado", error="Horario no encontrado."))
+    require_company_record(row)
     set_activo(horario_id, 1)
     log_audit(session, "activate", "horarios", horario_id)
     return redirect(url_for("horarios.listado"))
 
 
-@horarios_bp.route("/desactivar/<int:horario_id>")
-@role_required("admin", "rrhh")
+@horarios_bp.route("/desactivar/<int:horario_id>", methods=["POST"])
+@permission_required("horarios", "aprobar")
 def desactivar(horario_id):
     row = get_by_id(horario_id)
     if not row:
         return redirect(url_for("horarios.listado", error="Horario no encontrado."))
+    require_company_record(row)
     set_activo(horario_id, 0)
     log_audit(session, "deactivate", "horarios", horario_id)
     return redirect(url_for("horarios.listado"))

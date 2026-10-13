@@ -133,7 +133,7 @@ function accept(payload) {
   render();
 }
 async function refresh() {
-  if (busy) return;
+  if (busy || document.hidden) return;
   clearTimeout(timer); busy = true; $('#actualizar').disabled = true; updateStatus();
   const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 12000);
   try {
@@ -144,7 +144,9 @@ async function refresh() {
     failure = error.name === 'AbortError' ? 'El sistema no respondió a tiempo.' : error.message;
   } finally {
     clearTimeout(timeout); busy = false; $('#actualizar').disabled = false;
-    nextPoll = Date.now() + 30000; timer = setTimeout(refresh, 30000); updateStatus();
+    nextPoll = Date.now() + 30000;
+    if (!document.hidden) timer = setTimeout(refresh, 30000);
+    updateStatus();
   }
 }
 $('.filters').addEventListener('submit', event => event.preventDefault());
@@ -182,7 +184,10 @@ $('#sucursal').addEventListener('change', () => {
 document.addEventListener('encuentro-sucursales', event => { encounterBranches = event.detail; updateBranchOptions(); });
 $('#limpiar').addEventListener('click', () => { $('#buscar').value = ''; render(); $('#buscar').focus(); });
 $('#imprimir').addEventListener('click', () => { updateStatus(); window.print(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { updateStatus(); refresh(); } });
+document.addEventListener('visibilitychange', () => {
+  clearTimeout(timer);
+  if (!document.hidden) { updateStatus(); refresh(); }
+});
 window.addEventListener('offline', () => { failure = 'Este dispositivo no tiene conexión.'; updateStatus(); });
 window.addEventListener('online', refresh);
 setInterval(updateStatus, 1000);

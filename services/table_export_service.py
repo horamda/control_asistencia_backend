@@ -5,6 +5,8 @@ import json
 from dataclasses import dataclass
 from decimal import Decimal
 from io import BytesIO
+from itertools import islice
+from xml.sax.saxutils import escape
 from typing import Any, Iterable, Mapping, Sequence
 
 from flask import send_file
@@ -20,6 +22,11 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 _XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 _PDF_MIME = "application/pdf"
+EXPORT_ROW_LIMITS = {"xlsx": 10000, "pdf": 2000}
+
+
+class ExportLimitError(ValueError):
+    pass
 
 _TITLE_FILL = PatternFill("solid", fgColor="1F4E79")
 _TITLE_FONT = Font(bold=True, color="FFFFFF", size=12)
@@ -178,6 +185,7 @@ def _build_xlsx(title: str, rows: list[dict[str, Any]]) -> bytes:
     end_col = max(1, len(columns))
     sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=end_col)
     title_cell = sheet.cell(row=1, column=1, value=title or "Exportacion")
+    title_cell.data_type = "s"
     title_cell.fill = _TITLE_FILL
     title_cell.font = _TITLE_FONT
     title_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -185,6 +193,7 @@ def _build_xlsx(title: str, rows: list[dict[str, Any]]) -> bytes:
     header_row = 3
     for col_idx, column_name in enumerate(columns, start=1):
         cell = sheet.cell(row=header_row, column=col_idx, value=_pretty_label(column_name))
+        cell.data_type = "s"
         cell.fill = _HEADER_FILL
         cell.font = _HEADER_FONT
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -194,6 +203,8 @@ def _build_xlsx(title: str, rows: list[dict[str, Any]]) -> bytes:
         mapping = _coerce_row_mapping(row)
         for col_idx, column_name in enumerate(columns, start=1):
             cell = sheet.cell(row=data_row, column=col_idx, value=_normalize_excel_value(mapping.get(column_name)))
+            if isinstance(cell.value, str):
+                cell.data_type = "s"
             cell.alignment = Alignment(vertical="top", wrap_text=True)
             if index % 2 == 1:
                 cell.fill = _ALT_FILL
@@ -287,7 +298,7 @@ def _build_pdf(title: str, rows: list[dict[str, Any]]) -> bytes:
     )
 
     elements = [
-        Paragraph(title or "Exportacion", title_style),
+        Paragraph(escape(title or "Exportacion"), title_style),
         Paragraph(f"Total de registros: {len(rows)}", meta_style),
         Spacer(1, 3 * mm),
     ]
@@ -301,12 +312,12 @@ def _build_pdf(title: str, rows: list[dict[str, Any]]) -> bytes:
     available_width = landscape(A4)[0] - doc.leftMargin - doc.rightMargin
     col_widths = _estimate_pdf_widths(columns, rows, available_width)
     table_rows: list[list[Paragraph]] = [
-        [Paragraph(_pretty_label(column_name), header_style) for column_name in columns]
+        [Paragraph(escape(_pretty_label(column_name)), header_style) for column_name in columns]
     ]
     for row in rows:
         mapping = _coerce_row_mapping(row)
         table_rows.append(
-            [Paragraph(_normalize_pdf_value(mapping.get(column_name)) or "&nbsp;", cell_style) for column_name in columns]
+            [Paragraph(escape(_normalize_pdf_value(mapping.get(column_name))) or "&nbsp;", cell_style) for column_name in columns]
         )
 
     table = Table(table_rows, colWidths=col_widths, repeatRows=1)
@@ -337,7 +348,10 @@ def _build_pdf(title: str, rows: list[dict[str, Any]]) -> bytes:
 
 def build_table_export(title: str, rows: Iterable[Any], export_format: str) -> ExportFile:
     fmt = normalize_export_format(export_format)
-    normalized_rows = [_coerce_row_mapping(row) for row in rows]
+    limit = EXPORT_ROW_LIMITS.get(fmt, 10000)
+    normalized_rows = [_coerce_row_mapping(row) for row in islice(rows, limit + 1)]
+    if len(normalized_rows) > limit:
+        raise ExportLimitError(f"La exportacion supera {limit} registros. Reduzca el periodo o aplique filtros; no se exportaron datos parciales.")
 
     if fmt == "xlsx":
         data = _build_xlsx(title, normalized_rows)

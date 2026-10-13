@@ -106,9 +106,9 @@
                 <div class="inline-actions">
                   <a href="{{ url_for('legajo_tipos_evento.editar', tipo_id=t.id) }}" class="btn btn-secondary">Editar</a>
                   {% if t.activo %}
-                    <a class="btn btn-secondary" href="{{ url_for('legajo_tipos_evento.desactivar', tipo_id=t.id) }}">Desactivar</a>
+                    <form method="post" action="{{ url_for('legajo_tipos_evento.desactivar', tipo_id=t.id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-secondary" >Desactivar</button></form>
                   {% else %}
-                    <a class="btn btn-secondary" href="{{ url_for('legajo_tipos_evento.activar', tipo_id=t.id) }}">Activar</a>
+                    <form method="post" action="{{ url_for('legajo_tipos_evento.activar', tipo_id=t.id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-secondary" >Activar</button></form>
                   {% endif %}
                 </div>
               </td>

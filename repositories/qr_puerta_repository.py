@@ -111,11 +111,11 @@ def get_by_token(qr_token: str):
         db.close()
 
 
-def get_recent(limit: int = 30, empresa_id: int | None = None):
+def get_recent(limit: int = 30, empresa_id: int | None = None, *, export=False):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
-        lim = max(1, min(int(limit), 200))
+        lim = max(1, min(int(limit), 10001 if export else 200))
         if empresa_id:
             cursor.execute(
                 """

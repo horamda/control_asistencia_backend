@@ -1,3 +1,4 @@
+from web.auth.decorators import permission_required, require_company_record
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from web.auth.decorators import role_required
 from repositories.puesto_repository import get_page, get_by_id, create, update, set_activo
@@ -85,17 +86,19 @@ def editar(puesto_id):
     return render_template("puestos/form.html", mode="edit", data=puesto, empresas=empresas)
 
 
-@puestos_bp.route("/activar/<int:puesto_id>")
-@role_required("admin")
+@puestos_bp.route("/activar/<int:puesto_id>", methods=["POST"])
+@permission_required("puestos", "aprobar")
 def activar(puesto_id):
+    require_company_record(get_by_id(puesto_id))
     set_activo(puesto_id, 1)
     log_audit(session, "activate", "puestos", puesto_id)
     return redirect(url_for("puestos.listado"))
 
 
-@puestos_bp.route("/desactivar/<int:puesto_id>")
-@role_required("admin")
+@puestos_bp.route("/desactivar/<int:puesto_id>", methods=["POST"])
+@permission_required("puestos", "aprobar")
 def desactivar(puesto_id):
+    require_company_record(get_by_id(puesto_id))
     set_activo(puesto_id, 0)
     log_audit(session, "deactivate", "puestos", puesto_id)
     return redirect(url_for("puestos.listado"))

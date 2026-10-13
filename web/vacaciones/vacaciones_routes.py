@@ -1,3 +1,4 @@
+from utils.export_safety import SafeCsvWriter
 import csv
 import datetime
 import io
@@ -22,6 +23,7 @@ from services.vacaciones_service import (
     VacacionesSaldoInsuficienteError,
     aprobar_movimiento_vacaciones,
     calcular_resumen_vacaciones,
+    calcular_resumenes_vacaciones,
     cancelar_movimiento_vacaciones,
     crear_compensatorios_bulk,
     crear_movimiento_vacaciones_admin,
@@ -208,6 +210,7 @@ def _build_reporte_vacaciones(filters: dict):
         "dias_disponibles_con_pendientes": 0.0,
     }
 
+    resumenes = calcular_resumenes_vacaciones(empleados, int(filters["anio"]), include_errors=True)
     for empleado in empleados:
         row = {
             "empleado_id": empleado.get("id"),
@@ -224,7 +227,11 @@ def _build_reporte_vacaciones(filters: dict):
             "error": None,
         }
         try:
-            resumen = calcular_resumen_vacaciones(int(empleado["id"]), int(filters["anio"]))
+            resumen = resumenes.get(int(empleado["id"]))
+            if not resumen:
+                raise VacacionesError("Empleado no encontrado o inactivo." if not empleado.get("activo") else "El empleado no tiene una empresa valida.")
+            if resumen.get("error"):
+                raise VacacionesError(resumen["error"])
         except VacacionesError as exc:
             row["error"] = str(exc)
             totals["con_error"] += 1
@@ -284,7 +291,6 @@ def listado():
     empleados = get_empleados(include_inactive=True)
     sectores = get_sectores(include_inactive=True)
     sucursales = get_sucursales(include_inactive=True)
-    vacaciones = get_all()
     saldo = None
     if filters["empleado_id"]:
         try:
@@ -294,7 +300,6 @@ def listado():
 
     return render_template(
         "vacaciones/listado.html",
-        vacaciones=vacaciones,
         movimientos=movimientos,
         total=total,
         summary=summary,
@@ -339,7 +344,7 @@ def movimientos_export_csv():
     )
 
     out = io.StringIO()
-    writer = csv.writer(out)
+    writer = SafeCsvWriter(out)
     writer.writerow([
         "id",
         "empresa",
@@ -415,7 +420,7 @@ def reporte_export_csv():
     rows, totals = _build_reporte_vacaciones(filters)
 
     out = io.StringIO()
-    writer = csv.writer(out)
+    writer = SafeCsvWriter(out)
     writer.writerow([
         "empresa",
         "area",

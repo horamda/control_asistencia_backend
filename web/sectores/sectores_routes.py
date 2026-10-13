@@ -1,3 +1,4 @@
+from web.auth.decorators import permission_required, require_company_record
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from web.auth.decorators import role_required
 from repositories.empleado_repository import get_all as get_empleados
@@ -155,17 +156,19 @@ def editar(sector_id):
     return render_template("sectores/form.html", mode="edit", data=sector, prefill={}, **catalogos)
 
 
-@sectores_bp.route("/activar/<int:sector_id>")
-@role_required("admin")
+@sectores_bp.route("/activar/<int:sector_id>", methods=["POST"])
+@permission_required("sectores", "aprobar")
 def activar(sector_id):
+    require_company_record(get_by_id(sector_id))
     set_activo(sector_id, 1)
     log_audit(session, "activate", "sectores", sector_id)
     return redirect(url_for("sectores.listado"))
 
 
-@sectores_bp.route("/desactivar/<int:sector_id>")
-@role_required("admin")
+@sectores_bp.route("/desactivar/<int:sector_id>", methods=["POST"])
+@permission_required("sectores", "aprobar")
 def desactivar(sector_id):
+    require_company_record(get_by_id(sector_id))
     set_activo(sector_id, 0)
     log_audit(session, "deactivate", "sectores", sector_id)
     return redirect(url_for("sectores.listado"))

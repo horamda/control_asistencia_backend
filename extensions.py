@@ -212,6 +212,11 @@ def _ensure_web_permissions_schema():
 
 def init_db():
     init_orm()
+
+
+def bootstrap_schema():
+    """Deployment-only compatibility migration, never executed by web workers."""
+    init_orm()
     _ensure_justificaciones_schema()
     _ensure_pedidos_mercaderia_schema()
     _ensure_system_config_schema()
@@ -220,4 +225,7 @@ def init_db():
 
 
 def get_db():
-    return get_raw_connection()
+    from flask import has_request_context
+    from utils.query_metrics import MeasuredConnection
+    connection = get_raw_connection()
+    return MeasuredConnection(connection) if has_request_context() else connection

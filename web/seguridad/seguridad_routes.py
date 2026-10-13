@@ -1,3 +1,4 @@
+from utils.export_safety import SafeCsvWriter
 import csv
 import io
 from uuid import uuid4
@@ -221,7 +222,7 @@ def ranking():
 @permission_required('seguridad_higiene','ver')
 @permission_required('seguridad_higiene','exportar')
 def export():
-    empresa,_=scope(); buffer=io.StringIO(); writer=csv.writer(buffer,delimiter=';')
+    empresa,_=scope(); buffer=io.StringIO(); writer=SafeCsvWriter(buffer,delimiter=';')
     with s.db.transaction() as c:
         max_id=s.db.one(c,'SELECT COALESCE(MAX(id),0) id FROM sh_eventos WHERE empresa_id=%s',(empresa,))['id']
     writer.writerow(['id','fecha_evento','tipo','estado','categoria','descripcion','legajos','personas','sucursales','sectores','puestos','ids_externos','nombres_externos','empresas_externas'])

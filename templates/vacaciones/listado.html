@@ -286,35 +286,10 @@
     <span class="summary">Pagina {{ page }}</span>
   </div>
 
-  <details>
-    <summary>Periodos aprobados que impactan asistencia</summary>
-    {% if vacaciones %}
-      <div class="table-responsive table-cards">
-        <table>
-          <thead>
-            <tr>
-              <th>Empleado</th>
-              <th>Desde</th>
-              <th>Hasta</th>
-              <th>Observaciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for v in vacaciones %}
-              <tr>
-                <td data-label="Empleado">{{ v.apellido }} {{ v.nombre }}</td>
-                <td data-label="Desde">{{ v.fecha_desde }}</td>
-                <td data-label="Hasta">{{ v.fecha_hasta }}</td>
-                <td data-label="Observaciones">{{ v.observaciones or "-" }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      <div class="empty-state">No hay periodos aprobados que impacten asistencia.</div>
-    {% endif %}
-  </details>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{{ url_for('vacaciones.listado', estado='aprobado', tipo='tomado', empleado_id=empleado_id or None, sector_id=sector_id or None, sucursal_id=sucursal_id or None, anio=anio, mes=mes or None, q=q or None) }}">Ver períodos aprobados que impactan asistencia</a>
+    <span class="summary">Consulta paginada con los filtros seleccionados.</span>
+  </div>
 
   <div class="actions">
     <a class="btn btn-secondary" href="/dashboard">Volver</a>

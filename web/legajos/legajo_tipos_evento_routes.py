@@ -1,3 +1,4 @@
+from web.auth.decorators import permission_required, require_company_record
 import re
 
 from flask import Blueprint, abort, redirect, render_template, request, session, url_for
@@ -135,8 +136,8 @@ def editar(tipo_id):
     return render_template("legajos_tipos_evento/form.html", mode="edit", data=tipo)
 
 
-@legajo_tipos_evento_bp.route("/activar/<int:tipo_id>")
-@role_required("admin", "rrhh")
+@legajo_tipos_evento_bp.route("/activar/<int:tipo_id>", methods=["POST"])
+@permission_required("legajos", "aprobar")
 def activar(tipo_id):
     tipo = get_tipo_evento_by_id(tipo_id)
     if not tipo:
@@ -146,8 +147,8 @@ def activar(tipo_id):
     return redirect(url_for("legajo_tipos_evento.listado"))
 
 
-@legajo_tipos_evento_bp.route("/desactivar/<int:tipo_id>")
-@role_required("admin", "rrhh")
+@legajo_tipos_evento_bp.route("/desactivar/<int:tipo_id>", methods=["POST"])
+@permission_required("legajos", "aprobar")
 def desactivar(tipo_id):
     tipo = get_tipo_evento_by_id(tipo_id)
     if not tipo:

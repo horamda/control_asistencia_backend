@@ -1,0 +1,176 @@
+{
+  "started_utc": "20261013_203306",
+  "apply": false,
+  "changes": [
+    {
+      "table": "empleado_excepciones",
+      "drop": "idx_ee_empresa_fecha",
+      "keep": "idx_ex_emp_empresa_fecha",
+      "definition": [
+        [
+          "empresa_id",
+          null,
+          "A",
+          "BTREE",
+          "YES",
+          null,
+          1
+        ],
+        [
+          "fecha",
+          null,
+          "A",
+          "BTREE",
+          "YES",
+          null,
+          1
+        ]
+      ],
+      "sql": "ALTER TABLE `empleado_excepciones` DROP INDEX `idx_ee_empresa_fecha`, ALGORITHM=INPLACE, LOCK=NONE",
+      "rollback_sql": "ALTER TABLE `empleado_excepciones` ADD INDEX `idx_ee_empresa_fecha` (`empresa_id`, `fecha`), ALGORITHM=INPLACE, LOCK=NONE",
+      "status": "verified"
+    },
+    {
+      "table": "empleado_horarios",
+      "drop": "idx_empleado_horarios_vigente",
+      "keep": "idx_eh_actual",
+      "definition": [
+        [
+          "empleado_id",
+          null,
+          "A",
+          "BTREE",
+          "YES",
+          null,
+          1
+        ],
+        [
+          "fecha_hasta",
+          null,
+          "A",
+          "BTREE",
+          "YES",
+          null,
+          1
+        ]
+      ],
+      "sql": "ALTER TABLE `empleado_horarios` DROP INDEX `idx_empleado_horarios_vigente`, ALGORITHM=INPLACE, LOCK=NONE",
+      "rollback_sql": "ALTER TABLE `empleado_horarios` ADD INDEX `idx_empleado_horarios_vigente` (`empleado_id`, `fecha_hasta`), ALGORITHM=INPLACE, LOCK=NONE",
+      "status": "verified"
+    },
+    {
+      "table": "empleado_horarios",
+      "drop": "idx_empleado_fechas",
+      "keep": "idx_eh_empleado_rango",
+      "definition": [
+        [
+          "empleado_id",
+          null,
+          "A",
+          "BTREE",
+          "YES",
+          null,
+          1
+        ],
+        [
+          "fecha_desde",
+          null,
+          "A",
+          "BTREE",
+          "YES",
+          null,
+          1
+        ],
+        [
+          "fecha_hasta",
+          null,
+          "A",
+          "BTREE",
+          "YES",
+          null,
+          1
+        ]
+      ],
+      "sql": "ALTER TABLE `empleado_horarios` DROP INDEX `idx_empleado_fechas`, ALGORITHM=INPLACE, LOCK=NONE",
+      "rollback_sql": "ALTER TABLE `empleado_horarios` ADD INDEX `idx_empleado_fechas` (`empleado_id`, `fecha_desde`, `fecha_hasta`), ALGORITHM=INPLACE, LOCK=NONE",
+      "status": "verified"
+    }
+  ],
+  "measurements": {
+    "before": {
+      "explain:monthly_marks": {
+        "sql": "SELECT am.id,am.empleado_id,am.fecha,am.hora,am.accion FROM asistencia_marcas_reporte am JOIN empleados e ON e.id=am.empleado_id WHERE am.empresa_id=1 AND am.fecha BETWEEN '2026-10-01' AND '2026-10-31' ORDER BY am.fecha,am.hora,am.id",
+        "plan": [
+          {
+            "EXPLAIN": "-> Nested loop inner join  (cost=3999 rows=2330) (actual time=6.02..6.89 rows=782 loops=1)\n    -> Sort row IDs: am.fecha, am.hora, am.id  (cost=3359..3359 rows=2330) (actual time=5.38..5.48 rows=782 loops=1)\n        -> Table scan on am  (cost=1681..1712 rows=2330) (actual time=4.36..4.5 rows=782 loops=1)\n            -> Union all materialize  (cost=1681..1681 rows=2330) (actual time=4.36..4.36 rows=782 loops=1)\n                -> Index range scan on m using idx_am_empresa_fecha over (empresa_id = 1 AND '2026-10-01' <= fecha <= '2026-10-31'), with index condition: ((m.empresa_id = 1) and (m.fecha between '2026-10-01' and '2026-10-31'))  (cost=352 rows=782) (actual time=0.0299..1.11 rows=782 loops=1)\n                -> Nested loop antijoin  (cost=396 rows=774) (actual time=1.93..1.93 rows=0 loops=1)\n                    -> Filter: (a.hora_entrada is not null)  (cost=212 rows=424) (actual time=0.0135..1.43 rows=428 loops=1)\n                        -> Index range scan on a using idx_asistencias_empresa_fecha over (empresa_id = 1 AND '2026-10-01' <= fecha <= '2026-10-31'), with index condition: ((a.empresa_id = 1) and (a.fecha between '2026-10-01' and '2026-10-31'))  (cost=212 rows=471) (actual time=0.0123..0.529 rows=471 loops=1)\n                    -> Covering index lookup on m using idx_am_empleado_fecha_hora (empleado_id = a.empleado_id, fecha = a.fecha)  (cost=0.459 rows=1.83) (actual time=0.00107..0.00107 rows=1 loops=428)\n                -> Nested loop antijoin  (cost=396 rows=774) (actual time=0.863..0.863 rows=0 loops=1)\n                    -> Filter: (a.hora_salida is not null)  (cost=212 rows=424) (actual time=0.0104..0.523 rows=354 loops=1)\n                        -> Index range scan on a using idx_asistencias_empresa_fecha over (empresa_id = 1 AND '2026-10-01' <= fecha <= '2026-10-31'), with index condition: ((a.empresa_id = 1) and (a.fecha between '2026-10-01' and '2026-10-31'))  (cost=212 rows=471) (actual time=0.00993..0.49 rows=471 loops=1)\n                    -> Covering index lookup on m using idx_am_empleado_fecha_hora (empleado_id = a.empleado_id, fecha = a.fecha)  (cost=0.459 rows=1.83) (actual time=875e-6..875e-6 rows=1 loops=354)\n    -> Single-row covering index lookup on e using PRIMARY (id = am.empleado_id)  (cost=0.25 rows=1) (actual time=849e-6..874e-6 rows=1 loops=782)\n"
+          }
+        ],
+        "client_ms": 234.47
+      },
+      "explain:justification_overlap": {
+        "sql": "SELECT j.empleado_id,j.fecha_desde,j.fecha_hasta FROM justificaciones j JOIN empleados e ON e.id=j.empleado_id WHERE j.estado='aprobada' AND e.empresa_id=1 AND COALESCE(j.fecha_hasta,j.fecha)>='2026-10-01' AND COALESCE(j.fecha_desde,j.fecha)<='2026-10-31'",
+        "plan": [
+          {
+            "EXPLAIN": "-> Nested loop inner join  (cost=6.1 rows=13) (actual time=0.0358..0.0399 rows=2 loops=1)\n    -> Filter: ((j.estado = 'aprobada') and (coalesce(j.fecha_hasta,j.fecha) >= '2026-10-01') and (coalesce(j.fecha_desde,j.fecha) <= '2026-10-31') and (j.empleado_id is not null))  (cost=1.55 rows=13) (actual time=0.0249..0.0258 rows=2 loops=1)\n        -> Table scan on j  (cost=1.55 rows=13) (actual time=0.0106..0.0158 rows=13 loops=1)\n    -> Filter: (e.empresa_id = 1)  (cost=0.258 rows=1) (actual time=0.00543..0.00556 rows=1 loops=2)\n        -> Single-row index lookup on e using PRIMARY (id = j.empleado_id)  (cost=0.258 rows=1) (actual time=0.0049..0.00495 rows=1 loops=2)\n"
+          }
+        ],
+        "client_ms": 253.83
+      },
+      "explain:safety_page": {
+        "sql": "SELECT id,tipo,fecha_evento FROM sh_eventos WHERE empresa_id=1 AND estado='aprobado' AND fecha_evento BETWEEN '2026-01-01' AND '2026-10-13' AND tipo='seguro' ORDER BY fecha_evento DESC,id DESC LIMIT 30",
+        "plan": [
+          {
+            "EXPLAIN": "-> Limit: 30 row(s)  (cost=20 rows=9.6) (actual time=0.0434..0.0845 rows=21 loops=1)\n    -> Filter: ((sh_eventos.tipo = 'seguro') and (sh_eventos.estado = 'aprobado') and (sh_eventos.empresa_id = 1) and (sh_eventos.fecha_evento between '2026-01-01' and '2026-10-13'))  (cost=20 rows=9.6) (actual time=0.0418..0.0815 rows=21 loops=1)\n        -> Covering index range scan on sh_eventos using ix_sh_estado_fecha over (empresa_id = 1 AND estado = 'aprobado' AND '2026-01-01' <= fecha_evento <= '2026-10-13') (reverse)  (cost=20 rows=96) (actual time=0.02..0.0506 rows=96 loops=1)\n"
+          }
+        ],
+        "client_ms": 242.68
+      },
+      "explain:vacation_approved": {
+        "sql": "SELECT empleado_id,fecha_desde,fecha_hasta FROM vacaciones_movimientos WHERE empresa_id=1 AND tipo='tomado' AND estado='aprobado' AND fecha_desde<='2026-10-31' AND fecha_hasta>='2026-10-01' AND revertido_por_movimiento_id IS NULL AND origen_movimiento_id IS NULL",
+        "plan": [
+          {
+            "EXPLAIN": "-> Filter: ((vacaciones_movimientos.empresa_id = 1) and (vacaciones_movimientos.fecha_desde <= DATE'2026-10-31') and (vacaciones_movimientos.fecha_hasta >= DATE'2026-10-01') and (vacaciones_movimientos.revertido_por_movimiento_id is null) and (vacaciones_movimientos.origen_movimiento_id is null))  (cost=1.22 rows=4.67) (actual time=1.09..1.09 rows=0 loops=1)\n    -> Index lookup on vacaciones_movimientos using idx_vac_mov_tipo_estado (tipo = 'tomado', estado = 'aprobado')  (cost=1.22 rows=42) (actual time=0.0251..0.0547 rows=42 loops=1)\n"
+          }
+        ],
+        "client_ms": 248.76
+      },
+      "explain:attendance_page": {
+        "sql": "SELECT id,empleado_id,fecha FROM asistencias WHERE empresa_id=1 AND fecha BETWEEN '2026-10-01' AND '2026-10-31' ORDER BY fecha DESC,id DESC LIMIT 50",
+        "plan": [
+          {
+            "EXPLAIN": "-> Limit: 50 row(s)  (cost=212 rows=50) (actual time=0.237..0.243 rows=50 loops=1)\n    -> Index range scan on asistencias using idx_asistencias_empresa_fecha over (empresa_id = 1 AND '2026-10-01' <= fecha <= '2026-10-31') (reverse), with index condition: ((asistencias.empresa_id = 1) and (asistencias.fecha between '2026-10-01' and '2026-10-31'))  (cost=212 rows=471) (actual time=0.236..0.239 rows=50 loops=1)\n"
+          }
+        ],
+        "client_ms": 229.56
+      },
+      "schedule": {
+        "sql": "SELECT empleado_id,fecha_desde,fecha_hasta FROM empleado_horarios WHERE empleado_id=1 AND fecha_desde<='2026-10-31' AND (fecha_hasta IS NULL OR fecha_hasta>='2026-10-01')",
+        "plan": [
+          {
+            "EXPLAIN": "-> Filter: ((empleado_horarios.empleado_id = 1) and (empleado_horarios.fecha_desde <= DATE'2026-10-31') and ((empleado_horarios.fecha_hasta is null) or (empleado_horarios.fecha_hasta >= DATE'2026-10-01')))  (cost=0.46 rows=0.4) (actual time=0.0212..0.0212 rows=0 loops=1)\n    -> Covering index range scan on empleado_horarios using idx_empleado_fechas over (empleado_id = 1 AND fecha_desde <= '2026-10-31')  (cost=0.46 rows=1) (actual time=0.0196..0.0196 rows=0 loops=1)\n"
+          }
+        ],
+        "client_ms": 260.69
+      },
+      "exceptions": {
+        "sql": "SELECT fecha FROM empleado_excepciones WHERE empresa_id=1 AND fecha BETWEEN '2026-10-01' AND '2026-10-31'",
+        "plan": [
+          {
+            "EXPLAIN": "-> Filter: (empleado_excepciones.fecha between '2026-10-01' and '2026-10-31')  (cost=0.35 rows=1) (actual time=0.0481..0.0481 rows=0 loops=1)\n    -> Covering index lookup on empleado_excepciones using uk_ee_emp_fecha (empresa_id = 1)  (cost=0.35 rows=2) (actual time=0.0173..0.0366 rows=2 loops=1)\n"
+          }
+        ],
+        "client_ms": 235.79
+      },
+      "mobile_recent": {
+        "sql": "SELECT id,empleado_id,fecha_login FROM mobile_sesiones ORDER BY fecha_login DESC LIMIT 50",
+        "plan": [
+          {
+            "EXPLAIN": "-> Limit: 50 row(s)  (cost=0.246 rows=50) (actual time=0.0389..0.0778 rows=50 loops=1)\n    -> Index scan on mobile_sesiones using idx_ms_fecha (reverse)  (cost=0.246 rows=50) (actual time=0.0368..0.0732 rows=50 loops=1)\n"
+          }
+        ],
+        "client_ms": 225.76
+      }
+    }
+  },
+  "finished_utc": "2026-10-13 20:33:09.881298+00:00"
+}

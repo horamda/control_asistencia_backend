@@ -424,7 +424,7 @@ def test_generar_notificaciones_trivia_no_activa(monkeypatch):
         lambda tid: {**_TRIVIA_ACTIVA, "estado": "programada"},
     )
     guardadas = []
-    monkeypatch.setattr(trivia_repo, "save_notificacion", lambda d: guardadas.append(d))
+    monkeypatch.setattr(trivia_repo, "save_notificaciones_batch", lambda rows: guardadas.extend(rows))
 
     svc.generar_notificaciones(3)
 
@@ -440,7 +440,7 @@ def test_generar_notificaciones_ya_vencida_no_envia(monkeypatch):
     monkeypatch.setattr(trivia_repo, "get_trivia_by_id", lambda tid: trivia_vencida)
     monkeypatch.setattr(svc, "_now", lambda: _NOW)
     guardadas = []
-    monkeypatch.setattr(trivia_repo, "save_notificacion", lambda d: guardadas.append(d))
+    monkeypatch.setattr(trivia_repo, "save_notificaciones_batch", lambda rows: guardadas.extend(rows))
 
     svc.generar_notificaciones(3)
 
@@ -464,7 +464,7 @@ def test_generar_notificaciones_recordatorio_2h(monkeypatch):
     )
     monkeypatch.setattr(trivia_repo, "exists_notificacion", lambda tid, eid, tipo: False)
     guardadas = []
-    monkeypatch.setattr(trivia_repo, "save_notificacion", lambda d: guardadas.append(d))
+    monkeypatch.setattr(trivia_repo, "save_notificaciones_batch", lambda rows: guardadas.extend(rows))
 
     svc.generar_notificaciones(3)
 
@@ -490,7 +490,7 @@ def test_generar_notificaciones_recordatorio_24h_no_2h(monkeypatch):
     )
     monkeypatch.setattr(trivia_repo, "exists_notificacion", lambda tid, eid, tipo: False)
     guardadas = []
-    monkeypatch.setattr(trivia_repo, "save_notificacion", lambda d: guardadas.append(d))
+    monkeypatch.setattr(trivia_repo, "save_notificaciones_batch", lambda rows: guardadas.extend(rows))
 
     svc.generar_notificaciones(3)
 
@@ -499,7 +499,7 @@ def test_generar_notificaciones_recordatorio_24h_no_2h(monkeypatch):
     assert "recordatorio_2h" not in tipos
 
 
-def test_generar_notificaciones_no_duplica(monkeypatch):
+def test_generar_notificaciones_delega_deduplicacion_al_lote(monkeypatch):
     # Trivia vence en 1 hora, pero la notificación ya fue enviada
     trivia = {
         **_TRIVIA_ACTIVA,
@@ -517,11 +517,12 @@ def test_generar_notificaciones_no_duplica(monkeypatch):
     # Simula que ya existe la notificación para todos los tipos
     monkeypatch.setattr(trivia_repo, "exists_notificacion", lambda tid, eid, tipo: True)
     guardadas = []
-    monkeypatch.setattr(trivia_repo, "save_notificacion", lambda d: guardadas.append(d))
+    monkeypatch.setattr(trivia_repo, "save_notificaciones_batch", lambda rows: guardadas.extend(rows))
 
     svc.generar_notificaciones(3)
 
-    assert guardadas == []
+    assert len(guardadas) == 2
+    assert {r["tipo"] for r in guardadas} == {"recordatorio_2h", "recordatorio_24h"}
 
 
 def test_generar_notificaciones_sin_empleados_sin_participar(monkeypatch):
@@ -536,7 +537,7 @@ def test_generar_notificaciones_sin_empleados_sin_participar(monkeypatch):
         trivia_repo, "get_empleados_sin_participar", lambda tid: []
     )
     guardadas = []
-    monkeypatch.setattr(trivia_repo, "save_notificacion", lambda d: guardadas.append(d))
+    monkeypatch.setattr(trivia_repo, "save_notificaciones_batch", lambda rows: guardadas.extend(rows))
 
     svc.generar_notificaciones(3)
 
@@ -553,7 +554,7 @@ def test_generar_notificaciones_trivia_lejos_no_genera(monkeypatch):
     monkeypatch.setattr(trivia_repo, "get_trivia_by_id", lambda tid: trivia)
     monkeypatch.setattr(svc, "_now", lambda: _NOW)
     guardadas = []
-    monkeypatch.setattr(trivia_repo, "save_notificacion", lambda d: guardadas.append(d))
+    monkeypatch.setattr(trivia_repo, "save_notificaciones_batch", lambda rows: guardadas.extend(rows))
 
     svc.generar_notificaciones(3)
 

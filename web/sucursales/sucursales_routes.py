@@ -1,3 +1,4 @@
+from web.auth.decorators import permission_required, require_company_record
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from web.auth.decorators import role_required
 from utils.forms import parse_float as _parse_float, parse_int as _parse_int
@@ -126,17 +127,19 @@ def editar(sucursal_id):
     )
 
 
-@sucursales_bp.route("/activar/<int:sucursal_id>")
-@role_required("admin")
+@sucursales_bp.route("/activar/<int:sucursal_id>", methods=["POST"])
+@permission_required("sucursales", "aprobar")
 def activar(sucursal_id):
+    require_company_record(get_by_id(sucursal_id))
     set_activa(sucursal_id, 1)
     log_audit(session, "activate", "sucursales", sucursal_id)
     return redirect(url_for("sucursales.listado"))
 
 
-@sucursales_bp.route("/desactivar/<int:sucursal_id>")
-@role_required("admin")
+@sucursales_bp.route("/desactivar/<int:sucursal_id>", methods=["POST"])
+@permission_required("sucursales", "aprobar")
 def desactivar(sucursal_id):
+    require_company_record(get_by_id(sucursal_id))
     set_activa(sucursal_id, 0)
     log_audit(session, "deactivate", "sucursales", sucursal_id)
     return redirect(url_for("sucursales.listado"))

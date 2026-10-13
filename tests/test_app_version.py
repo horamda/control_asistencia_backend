@@ -233,6 +233,7 @@ class TestAppVersionPanelAcceso:
             sess["user_id"] = 2
             sess["user_role"] = "rrhh"
         monkeypatch.setattr(auth_decorators, "has_role", lambda uid, role: role == "rrhh")
+        monkeypatch.setattr(auth_decorators, "can_access_module", lambda *args: False)
         resp = client.get("/app-version/")
         assert resp.status_code == 403
 

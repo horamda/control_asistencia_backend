@@ -1,3 +1,4 @@
+from utils.export_safety import SafeCsvWriter
 import csv
 import datetime
 import io
@@ -99,7 +100,7 @@ def build_asistencia_reporte_row(row: dict) -> list:
 
 def build_asistencia_reporte_csv(rows) -> str:
     out = io.StringIO(newline="")
-    writer = csv.writer(out)
+    writer = SafeCsvWriter(out)
     writer.writerow(ASISTENCIA_REPORTE_HEADERS)
     for row in rows:
         writer.writerow(build_asistencia_reporte_row(row))

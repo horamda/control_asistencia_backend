@@ -10,6 +10,7 @@ Genera el mismo layout que el template de importacion:
 import io
 import datetime
 
+from utils.export_safety import text_only_workbook
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -322,6 +323,7 @@ def exportar_empleados_excel(
     _build_valores_validos(wb)
 
     buf = io.BytesIO()
+    text_only_workbook(wb)
     wb.save(buf)
     buf.seek(0)
     return buf.read()

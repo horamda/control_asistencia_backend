@@ -5,20 +5,6 @@ from extensions import get_db
 _ADMIN_ROLES = {"admin", "rrhh"}
 
 
-def _safe_count(cursor, query: str, params: tuple = ()) -> int:
-    try:
-        cursor.execute(query, params)
-        row = cursor.fetchone() or {}
-        if isinstance(row, dict):
-            value = next(iter(row.values()), 0)
-        else:
-            value = row[0] if row else 0
-        return int(value or 0)
-    except Exception:
-        current_app.logger.warning("panel_notifications_count_error", exc_info=True)
-        return 0
-
-
 def _build_item(*, key: str, label: str, description: str, count: int, href: str, tone: str) -> dict:
     return {
         "key": key,
@@ -38,17 +24,27 @@ def build_panel_notifications(role: str | None) -> dict:
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
-        items = []
-
-        justificaciones = _safe_count(
-            cursor,
-            """
-            SELECT COUNT(*) AS total
+        cursor.execute("""SELECT (SELECT COUNT(*) AS total
             FROM justificaciones
             WHERE estado = 'pendiente'
-               OR estado IS NULL
-            """,
-        )
+               OR estado IS NULL) AS justificaciones,
+(SELECT COUNT(*) AS total
+            FROM vacaciones_movimientos vm
+            WHERE vm.estado = 'pendiente'
+              AND vm.revertido_por_movimiento_id IS NULL
+              AND vm.origen_movimiento_id IS NULL) AS vacaciones,
+(SELECT COUNT(*) AS total
+            FROM adelantos
+            WHERE estado = 'pendiente'
+               OR estado IS NULL) AS adelantos,
+(SELECT COUNT(*) AS total
+            FROM pedidos_mercaderia
+            WHERE estado = 'pendiente'
+               OR estado IS NULL) AS pedidos""")
+        counts = cursor.fetchone()
+        items = []
+
+        justificaciones = int(counts.get("justificaciones") or 0)
         if justificaciones:
             items.append(
                 _build_item(
@@ -61,16 +57,7 @@ def build_panel_notifications(role: str | None) -> dict:
                 )
             )
 
-        vacaciones = _safe_count(
-            cursor,
-            """
-            SELECT COUNT(*) AS total
-            FROM vacaciones_movimientos vm
-            WHERE vm.estado = 'pendiente'
-              AND vm.revertido_por_movimiento_id IS NULL
-              AND vm.origen_movimiento_id IS NULL
-            """,
-        )
+        vacaciones = int(counts.get("vacaciones") or 0)
         if vacaciones:
             items.append(
                 _build_item(
@@ -83,15 +70,7 @@ def build_panel_notifications(role: str | None) -> dict:
                 )
             )
 
-        adelantos = _safe_count(
-            cursor,
-            """
-            SELECT COUNT(*) AS total
-            FROM adelantos
-            WHERE estado = 'pendiente'
-               OR estado IS NULL
-            """,
-        )
+        adelantos = int(counts.get("adelantos") or 0)
         if adelantos:
             items.append(
                 _build_item(
@@ -104,15 +83,7 @@ def build_panel_notifications(role: str | None) -> dict:
                 )
             )
 
-        pedidos = _safe_count(
-            cursor,
-            """
-            SELECT COUNT(*) AS total
-            FROM pedidos_mercaderia
-            WHERE estado = 'pendiente'
-               OR estado IS NULL
-            """,
-        )
+        pedidos = int(counts.get("pedidos") or 0)
         if pedidos:
             items.append(
                 _build_item(

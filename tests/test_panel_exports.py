@@ -7,6 +7,8 @@ import services.panel_export_service as panel_export_service
 
 
 def _build_client(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "can_access_module", lambda *args: True)
+    monkeypatch.setattr(auth_decorators, "_cached_web_user", lambda uid: {'id': uid, 'activo': 1, 'rol': 'admin', 'empresa_id': 1})
     monkeypatch.setattr(app_module, "init_db", lambda: None)
     app = app_module.create_app()
     app.config["TESTING"] = True

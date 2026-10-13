@@ -4,6 +4,7 @@ import datetime
 from decimal import Decimal
 from io import BytesIO
 
+from utils.export_safety import text_only_workbook
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -220,6 +221,7 @@ def generar_planilla_fichadas_excel(
     _autofit(ws, max_width=34)
 
     buf = BytesIO()
+    text_only_workbook(wb)
     wb.save(buf)
     buf.seek(0)
     return buf.read()
@@ -460,6 +462,7 @@ def generar_dashboard_empleado_excel(
     _autofit(ws, max_width=32)
 
     buf = BytesIO()
+    text_only_workbook(wb)
     wb.save(buf)
     buf.seek(0)
     return buf.read()
@@ -537,6 +540,7 @@ def generar_historial_marcas_excel(*, rows: list[dict], filtros: dict) -> bytes:
     _autofit(ws, max_width=34)
 
     buf = BytesIO()
+    text_only_workbook(wb)
     wb.save(buf)
     buf.seek(0)
     return buf.read()
@@ -634,6 +638,7 @@ def generar_vacaciones_reporte_excel(*, rows: list[dict], totals: dict, filters:
     _autofit(ws, max_width=34)
 
     buf = BytesIO()
+    text_only_workbook(wb)
     wb.save(buf)
     buf.seek(0)
     return buf.read()
@@ -742,6 +747,7 @@ def generar_kpis_resultados_excel(
     _autofit(ws, max_width=34)
 
     buf = BytesIO()
+    text_only_workbook(wb)
     wb.save(buf)
     buf.seek(0)
     return buf.read()
@@ -833,6 +839,7 @@ def generar_premios_concursos_resultados_excel(
     _autofit(ws, max_width=34)
 
     buf = BytesIO()
+    text_only_workbook(wb)
     wb.save(buf)
     buf.seek(0)
     return buf.read()
@@ -925,6 +932,7 @@ def generar_trivia_resultados_excel(
     _autofit(ws, max_width=34)
 
     buf = BytesIO()
+    text_only_workbook(wb)
     wb.save(buf)
     buf.seek(0)
     return buf.read()

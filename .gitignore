@@ -4,3 +4,5 @@ __pycache__/
 instance/
 *.pyc
 .vscode/
+/output/audit_fix_mariadb/
+/output/*.log

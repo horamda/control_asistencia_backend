@@ -1,4 +1,6 @@
-﻿import csv
+from utils.export_safety import SafeCsvWriter
+from repositories.attendance_report_repository import approved_justifications
+import csv
 import datetime
 import io
 
@@ -568,6 +570,8 @@ def reportes_mensuales():
         empleados = [e for e in empleados if int(e.get("empresa_id") or 0) == int(empresa_id)]
 
     marcas = get_marcas_admin_export(
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
         empresa_id=empresa_id,
         fecha_desde=first.isoformat(),
         fecha_hasta=last.isoformat(),
@@ -578,12 +582,12 @@ def reportes_mensuales():
         empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
         marcas = [m for m in marcas if int(m.get("empleado_id") or 0) in empleado_ids]
 
-    justificaciones, _ = get_justificaciones_page(
-        1,
-        20000,
+    justificaciones = approved_justifications(
         fecha_desde=first.isoformat(),
         fecha_hasta=last.isoformat(),
         sucursal_id=sucursal_id,
+        empresa_id=empresa_id,
+        sector_id=sector_id,
     )
     if empresa_id:
         empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
@@ -610,61 +614,64 @@ def reportes_mensuales():
     )
     prev_month = first - datetime.timedelta(days=1)
     next_month = last + datetime.timedelta(days=1)
-    prev_first, prev_last = month_bounds(prev_month.year, prev_month.month)
-    prev_marcas = get_marcas_admin_export(
-        empresa_id=empresa_id,
-        fecha_desde=prev_first.isoformat(),
-        fecha_hasta=prev_last.isoformat(),
-        limit=None,
-        order_asc=True,
-    )
-    if sucursal_id:
-        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
-        prev_marcas = [m for m in prev_marcas if int(m.get("empleado_id") or 0) in empleado_ids]
-    if sector_id:
-        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
-        prev_marcas = [m for m in prev_marcas if int(m.get("empleado_id") or 0) in empleado_ids]
-    prev_justificaciones, _ = get_justificaciones_page(
-        1,
-        20000,
-        fecha_desde=prev_first.isoformat(),
-        fecha_hasta=prev_last.isoformat(),
-        sucursal_id=sucursal_id,
-    )
-    if empresa_id:
-        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
-        prev_justificaciones = [j for j in prev_justificaciones if int(j.get("empleado_id") or 0) in empleado_ids]
-    if sector_id:
-        empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
-        prev_justificaciones = [j for j in prev_justificaciones if int(j.get("empleado_id") or 0) in empleado_ids]
-    prev_vacaciones = get_vacaciones_aprobadas_export(
-        fecha_desde=prev_first.isoformat(),
-        fecha_hasta=prev_last.isoformat(),
-        empresa_id=empresa_id,
-        sucursal_id=sucursal_id,
-        sector_id=sector_id,
-    )
-    prev_non_laborable_days = get_dias_no_laborables(
-        year=prev_month.year,
-        month=prev_month.month,
-        empresa_id=empresa_id,
-        sucursal_id=sucursal_id,
-        sector_id=sector_id,
-    )
-    prev_report = build_monthly_attendance_report(
-        year=prev_month.year,
-        month=prev_month.month,
-        empleados=empleados,
-        marcas=prev_marcas,
-        justificaciones=prev_justificaciones,
-        vacaciones=prev_vacaciones,
-        non_laborable_days=prev_non_laborable_days,
-    )
-    prev_ausentismo = float(prev_report["kpis"].get("ausentismo_pct") or 0)
-    current_ausentismo = float(report["kpis"].get("ausentismo_pct") or 0)
     ausentismo_delta_pct = None
-    if prev_ausentismo > 0:
-        ausentismo_delta_pct = round(((current_ausentismo - prev_ausentismo) * 100.0) / prev_ausentismo, 2)
+    if active_tab == "resumen":
+        prev_first, prev_last = month_bounds(prev_month.year, prev_month.month)
+        prev_marcas = get_marcas_admin_export(
+            sucursal_id=sucursal_id,
+            sector_id=sector_id,
+            empresa_id=empresa_id,
+            fecha_desde=prev_first.isoformat(),
+            fecha_hasta=prev_last.isoformat(),
+            limit=None,
+            order_asc=True,
+        )
+        if sucursal_id:
+            empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+            prev_marcas = [m for m in prev_marcas if int(m.get("empleado_id") or 0) in empleado_ids]
+        if sector_id:
+            empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+            prev_marcas = [m for m in prev_marcas if int(m.get("empleado_id") or 0) in empleado_ids]
+        prev_justificaciones = approved_justifications(
+            fecha_desde=prev_first.isoformat(),
+            fecha_hasta=prev_last.isoformat(),
+            sucursal_id=sucursal_id,
+            empresa_id=empresa_id,
+            sector_id=sector_id,
+        )
+        if empresa_id:
+            empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+            prev_justificaciones = [j for j in prev_justificaciones if int(j.get("empleado_id") or 0) in empleado_ids]
+        if sector_id:
+            empleado_ids = {int(e.get("id")) for e in empleados if e.get("id")}
+            prev_justificaciones = [j for j in prev_justificaciones if int(j.get("empleado_id") or 0) in empleado_ids]
+        prev_vacaciones = get_vacaciones_aprobadas_export(
+            fecha_desde=prev_first.isoformat(),
+            fecha_hasta=prev_last.isoformat(),
+            empresa_id=empresa_id,
+            sucursal_id=sucursal_id,
+            sector_id=sector_id,
+        )
+        prev_non_laborable_days = get_dias_no_laborables(
+            year=prev_month.year,
+            month=prev_month.month,
+            empresa_id=empresa_id,
+            sucursal_id=sucursal_id,
+            sector_id=sector_id,
+        )
+        prev_report = build_monthly_attendance_report(
+            year=prev_month.year,
+            month=prev_month.month,
+            empleados=empleados,
+            marcas=prev_marcas,
+            justificaciones=prev_justificaciones,
+            vacaciones=prev_vacaciones,
+            non_laborable_days=prev_non_laborable_days,
+        )
+        prev_ausentismo = float(prev_report["kpis"].get("ausentismo_pct") or 0)
+        current_ausentismo = float(report["kpis"].get("ausentismo_pct") or 0)
+        if prev_ausentismo > 0 and report["kpis"]["dias_posibles"]:
+            ausentismo_delta_pct = round(((current_ausentismo - prev_ausentismo) * 100.0) / prev_ausentismo, 2)
     empresa_sel = next((e for e in empresas if int(e.get("id") or 0) == int(empresa_id or 0)), None)
     sucursal_sel = next((s for s in all_sucursales if int(s.get("id") or 0) == int(sucursal_id or 0)), None)
     sector_sel = next((s for s in sectores if int(s.get("id") or 0) == int(sector_id or 0)), None)
@@ -1026,7 +1033,7 @@ def marcas_csv():
     )
 
     out = io.StringIO()
-    writer = csv.writer(out)
+    writer = SafeCsvWriter(out)
     writer.writerow(
         [
             "id",

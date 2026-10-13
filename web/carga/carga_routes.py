@@ -1,3 +1,4 @@
+from utils.export_safety import SafeCsvWriter
 import csv
 import io
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for, Response, stream_with_context
@@ -206,7 +207,7 @@ def export():
         'camion_patente', 'sucursal_camion_nombre', 'tipo', 'consolidado', 'valida', 'en_horario', 'observaciones', 'fotos_cantidad']
     def generate():
         buffer = io.StringIO()
-        writer = csv.writer(buffer, delimiter=';')
+        writer = SafeCsvWriter(buffer, delimiter=';')
         yield '\ufeff'
         writer.writerow(columns)
         yield buffer.getvalue()

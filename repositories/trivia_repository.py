@@ -1004,6 +1004,27 @@ def save_notificacion(data: dict):
         cur.close(); db.close()
 
 
+def save_notificaciones_batch(rows):
+    """One connection and transaction, with the existing unique key deduplicating."""
+    if not rows:
+        return
+    db = get_db()
+    cur = db.cursor()
+    try:
+        for offset in range(0, len(rows), 500):
+            cur.executemany(
+                "INSERT IGNORE INTO trivia_notificaciones (trivia_id,empleado_id,empleado_dni,tipo,mensaje) VALUES (%s,%s,%s,%s,%s)",
+                [(int(r['trivia_id']), int(r['empleado_id']), r['empleado_dni'], r['tipo'], r.get('mensaje')) for r in rows[offset:offset+500]],
+            )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cur.close()
+        db.close()
+
+
 def get_notificaciones_no_leidas(empleado_id: int) -> list[dict]:
     db = get_db()
     cur = db.cursor(dictionary=True)

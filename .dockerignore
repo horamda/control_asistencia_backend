@@ -12,3 +12,8 @@ testtmp
 ptmp2
 docs
 tests
+instance
+output
+tmp
+*.log
+**/__pycache__

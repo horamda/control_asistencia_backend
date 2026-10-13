@@ -4,6 +4,7 @@ Prefix: /admin/trivias
 Auth:   @role_required("admin", "rrhh")
 """
 
+from utils.export_safety import SafeCsvWriter
 import csv
 import datetime
 import io
@@ -286,7 +287,7 @@ def resultados_export_csv(trivia_id: int):
     _build_resultados_summary(rows)
 
     out = io.StringIO()
-    writer = csv.writer(out)
+    writer = SafeCsvWriter(out)
     writer.writerow([
         "trivia_id", "trivia", "estado_trivia", "empleado_id", "legajo", "dni",
         "apellido", "nombre", "sector", "sucursal", "estado", "posicion", "puntos",

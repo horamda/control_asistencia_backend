@@ -1,3 +1,4 @@
+from web.auth.decorators import permission_required, require_company_record
 import datetime
 
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session, current_app, Response
@@ -436,17 +437,19 @@ def editar(emp_id):
     )
 
 
-@empleados_bp.route("/activar/<int:emp_id>")
-@role_required("admin", "rrhh")
+@empleados_bp.route("/activar/<int:emp_id>", methods=["POST"])
+@permission_required("empleados", "aprobar")
 def activar(emp_id):
+    require_company_record(get_by_id(emp_id))
     set_activo(emp_id, 1)
     log_audit(session, "activate", "empleados", emp_id)
     return redirect(_safe_next_url(request.args.get("next")) or url_for("empleados.listado"))
 
 
-@empleados_bp.route("/desactivar/<int:emp_id>")
-@role_required("admin", "rrhh")
+@empleados_bp.route("/desactivar/<int:emp_id>", methods=["POST"])
+@permission_required("empleados", "aprobar")
 def desactivar(emp_id):
+    require_company_record(get_by_id(emp_id))
     set_activo(emp_id, 0)
     log_audit(session, "deactivate", "empleados", emp_id)
     return redirect(_safe_next_url(request.args.get("next")) or url_for("empleados.listado"))

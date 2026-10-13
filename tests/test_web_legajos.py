@@ -888,6 +888,7 @@ def test_legajo_tipos_evento_editar(monkeypatch):
 
 
 def test_legajo_tipos_evento_activar_desactivar(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "can_access_module", lambda *args: True)
     client = _build_client(monkeypatch)
     _login_session(client)
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
@@ -902,8 +903,8 @@ def test_legajo_tipos_evento_activar_desactivar(monkeypatch):
         lambda tipo_id, activo: captured.append((tipo_id, activo)),
     )
 
-    resp_1 = client.get("/legajos/tipos-evento/desactivar/9", follow_redirects=False)
-    resp_2 = client.get("/legajos/tipos-evento/activar/9", follow_redirects=False)
+    resp_1 = client.post("/legajos/tipos-evento/desactivar/9", follow_redirects=False)
+    resp_2 = client.post("/legajos/tipos-evento/activar/9", follow_redirects=False)
 
     assert resp_1.status_code == 302
     assert resp_2.status_code == 302
@@ -988,6 +989,7 @@ def test_legajos_permisos_mobile_desactiva(monkeypatch):
 
 
 def test_legajo_tipos_evento_no_desactiva_con_eventos_vigentes(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "can_access_module", lambda uid, module, action: module == 'legajos')
     client = _build_client(monkeypatch)
     _login_session(client)
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
@@ -1001,7 +1003,7 @@ def test_legajo_tipos_evento_no_desactiva_con_eventos_vigentes(monkeypatch):
         lambda tipo_id, activo: called.update({"set": True}),
     )
 
-    resp = client.get("/legajos/tipos-evento/desactivar/9", follow_redirects=False)
+    resp = client.post("/legajos/tipos-evento/desactivar/9", follow_redirects=False)
     assert resp.status_code == 400
     assert b"eventos vigentes asociados" in resp.data
     assert called["set"] is False

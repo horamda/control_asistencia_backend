@@ -204,6 +204,20 @@ def is_strict_admin():
     return bool(user and user.get("activo") and str(user.get("rol") or "").lower() == "admin")
 
 
+def require_company_record(record, *, company_key="empresa_id"):
+    """Check tenant ownership before modifying a legacy organization record."""
+    if not record:
+        abort(404)
+    user = _cached_web_user(_current_web_user_id())
+    if not user or not user.get("activo"):
+        abort(403)
+    if str(user.get("rol") or "").lower() == "admin":
+        return record
+    if not user.get("empresa_id") or int(record.get(company_key) or 0) != int(user["empresa_id"]):
+        abort(403)
+    return record
+
+
 def strict_admin_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):

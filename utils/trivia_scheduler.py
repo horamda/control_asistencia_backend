@@ -109,8 +109,8 @@ def init_trivia_scheduler(app):
     app.logger.info("[trivia_scheduler] Scheduler de trivia iniciado.")
 
 
-def shutdown_trivia_scheduler():
+def shutdown_trivia_scheduler(*, wait=False):
     global _scheduler
     if _scheduler and _scheduler.running:
-        _scheduler.shutdown(wait=False)
+        _scheduler.shutdown(wait=wait)
         _scheduler = None

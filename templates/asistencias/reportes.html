@@ -117,12 +117,15 @@
         <small>Excluidas del indice</small>
       </article>
       <article>
-        <span>Dias laborables</span>
+        <span>Días laborables evaluados</span>
         <strong>{{ kpis.dias_laborables }}</strong>
-        <small>{{ kpis.empleados_activos }} empleados activos</small>
+        <small>{{ kpis.empleados_activos }} empleados del período. Hasta ayer.</small>
       </article>
     </section>
 
+    {% if not kpis.dias_posibles %}
+      <p class="summary" role="status">Este período todavía no tiene días para evaluar. Los días futuros y el día en curso no generan ausencias.</p>
+    {% endif %}
     <section class="attendance-calendar-panel">
       <h3>
         Dias no laborables del mes

@@ -317,6 +317,8 @@ def get_export(
     periodo_year: int | None = None,
     periodo_month: int | None = None,
     limit: int = 10000,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
 ):
     db = get_db()
     cursor = db.cursor(dictionary=True)
@@ -329,6 +331,10 @@ def get_export(
             periodo_year=periodo_year,
             periodo_month=periodo_month,
         )
+        for column, value in [('sucursal_id', sucursal_id), ('sector_id', sector_id)]:
+            if value:
+                where_sql += (" AND " if where_sql else "WHERE ") + f"e.{column} = %s"
+                params.append(value)
         extra_select = ["NULL AS resuelto_by_usuario"] if not has_resolved_by else ["u.usuario AS resuelto_by_usuario"]
         if not has_resolved_at:
             extra_select.append("NULL AS resuelto_at")

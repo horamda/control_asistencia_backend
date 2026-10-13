@@ -218,17 +218,17 @@
               <a class="btn btn-secondary btn-sm" href="{{ url_for('empleados.editar', emp_id=e.id, next=return_to) }}">Editar</a>
               <a class="btn btn-secondary btn-sm" href="{{ url_for('legajos.empleado', emp_id=e.id) }}">Legajo</a>
               {% if e.activo %}
-                <a
+                <form method="post" action="{{ url_for('empleados.desactivar', emp_id=e.id, next=return_to) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit"
                   class="btn btn-secondary btn-sm"
-                  href="{{ url_for('empleados.desactivar', emp_id=e.id, next=return_to) }}"
+
                   data-confirm="Confirma desactivar este empleado?"
-                >Desactivar</a>
+                >Desactivar</button></form>
               {% else %}
-                <a
+                <form method="post" action="{{ url_for('empleados.activar', emp_id=e.id, next=return_to) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit"
                   class="btn btn-secondary btn-sm"
-                  href="{{ url_for('empleados.activar', emp_id=e.id, next=return_to) }}"
+
                   data-confirm="Confirma activar este empleado?"
-                >Activar</a>
+                >Activar</button></form>
               {% endif %}
             </div>
           </td>

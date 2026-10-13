@@ -1,3 +1,4 @@
+from utils.export_safety import SafeCsvWriter
 import csv
 import datetime
 import io
@@ -1646,7 +1647,7 @@ def dashboard_empleado_export_csv():
     eventos = legajo["recientes_periodo"]
 
     out = io.StringIO()
-    writer = csv.writer(out)
+    writer = SafeCsvWriter(out)
 
     writer.writerow(["Resumen empleado"])
     writer.writerow(["Empleado", f"{empleado.get('apellido')} {empleado.get('nombre')}"])

@@ -3,6 +3,7 @@ from __future__ import annotations
 import calendar
 import datetime as dt
 from collections import defaultdict
+from zoneinfo import ZoneInfo
 
 
 def _date_iso(value) -> str:
@@ -14,6 +15,8 @@ def _date_iso(value) -> str:
 def _time_to_minutes(value) -> int | None:
     if value is None:
         return None
+    if isinstance(value, dt.timedelta):
+        return int(value.total_seconds() // 60)
     if hasattr(value, "hour"):
         return int(value.hour) * 60 + int(value.minute)
     parts = str(value).split(":")
@@ -23,6 +26,36 @@ def _time_to_minutes(value) -> int | None:
         return int(parts[0]) * 60 + int(parts[1])
     except (TypeError, ValueError):
         return None
+
+
+def _worked_day(marks):
+    """Sum closed pairs; duplicates and unmatched punches remain incomplete."""
+    ordered = sorted(marks, key=lambda m: (_time_to_minutes(m.get("hora")) or 0, int(m.get("id") or 0)))
+    entry = None
+    minutes = 0
+    pairs = 0
+    incomplete = False
+    for mark in ordered:
+        value = _time_to_minutes(mark.get("hora"))
+        action = str(mark.get("accion") or "").lower()
+        if value is None or action not in {"ingreso", "egreso"}:
+            incomplete = True
+        elif action == "ingreso":
+            if entry is not None:
+                incomplete = True
+            else:
+                entry = value
+        elif entry is None:
+            incomplete = True
+        else:
+            minutes += value - entry
+            pairs += 1
+            entry = None
+    return (round(minutes / 60, 2) if pairs else None, incomplete or entry is not None, entry is not None)
+
+
+def _employment_date(value):
+    return dt.date.fromisoformat(str(value)[:10]) if value else None
 
 
 def _employee_name(row: dict) -> str:
@@ -76,7 +109,9 @@ def build_monthly_attendance_report(
     justificaciones: list[dict],
     vacaciones: list[dict] | None = None,
     non_laborable_days: set[str] | None = None,
+    today: dt.date | None = None,
 ) -> dict:
+    today = today or dt.datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).date()
     first, last = month_bounds(year, month)
     month_dates = [first + dt.timedelta(days=i) for i in range((last - first).days + 1)]
     non_laborable_days = set(non_laborable_days or set())
@@ -84,12 +119,15 @@ def build_monthly_attendance_report(
         if day.weekday() == 6:
             non_laborable_days.add(day.isoformat())
 
-    laborable_dates = [day for day in month_dates if day.isoformat() not in non_laborable_days]
+    # Today's absence cannot be decided until the day has ended.
+    laborable_dates = [day for day in month_dates if day < today and day.isoformat() not in non_laborable_days]
     laborable_set = {d.isoformat() for d in laborable_dates}
     empleados_activos = [
         e
         for e in empleados
-        if int(e.get("activo") or 0) == 1
+        if (int(e.get("activo") or 0) == 1 or _employment_date(e.get("fecha_baja")) is not None)
+        and (_employment_date(e.get("fecha_ingreso")) or first) <= last
+        and (_employment_date(e.get("fecha_baja")) or last) >= first
         and int(e.get("requiere_control_asistencia", 1) or 0) == 1
     ]
     empleado_ids = {int(e["id"]) for e in empleados_activos if e.get("id")}
@@ -100,7 +138,7 @@ def build_monthly_attendance_report(
     for marca in marcas or []:
         empleado_id = int(marca.get("empleado_id") or 0)
         fecha = _date_iso(marca.get("fecha"))
-        if empleado_id not in empleado_ids or not fecha:
+        if empleado_id not in empleado_ids or not (first.isoformat() <= fecha <= min(last, today).isoformat()):
             continue
         registros_mes += 1
         marcas_by_emp_day[(empleado_id, fecha)].append(marca)
@@ -142,7 +180,7 @@ def build_monthly_attendance_report(
 
     resumen_rows = []
     ausencias_rows = []
-    analisis_sector = defaultdict(lambda: {"sector": None, "empleados": 0, "ausencias": 0, "justificadas": 0})
+    analisis_sector = defaultdict(lambda: {"sector": None, "empleados": 0, "ausencias": 0, "justificadas": 0, "posibles": 0})
     total_ausencias = 0
     total_justificadas = 0
     total_presentes = 0
@@ -167,23 +205,35 @@ def build_monthly_attendance_report(
         incompletos_count = 0
         horas_count = 0.0
         cells = []
+        start = _employment_date(emp.get("fecha_ingreso")) or first
+        end = _employment_date(emp.get("fecha_baja")) or last
+        posible = sum(start <= day <= end for day in laborable_dates)
+        analisis_sector[sector]["posibles"] += posible
         for day in month_dates:
             fecha = day.isoformat()
-            day_marcas = sorted(marcas_by_emp_day.get((empleado_id, fecha), []), key=lambda m: (_time_to_minutes(m.get("hora")) or 0, int(m.get("id") or 0)))
+            day_marcas = marcas_by_emp_day.get((empleado_id, fecha), [])
             justificada = bool(just_by_emp_day.get((empleado_id, fecha)))
             en_vacaciones = bool(vacation_by_emp_day.get((empleado_id, fecha)))
             is_laborable = fecha in laborable_set
-            ingresos = [m for m in day_marcas if str(m.get("accion") or "").lower() == "ingreso"]
-            egresos = [m for m in day_marcas if str(m.get("accion") or "").lower() == "egreso"]
-            first_in = _time_to_minutes(ingresos[0].get("hora")) if ingresos else None
-            last_out = _time_to_minutes(egresos[-1].get("hora")) if egresos else None
-            hours = None
-            incomplete = bool(day_marcas) and (not ingresos or not egresos or first_in is None or last_out is None or last_out < first_in)
-            if first_in is not None and last_out is not None and last_out >= first_in:
-                hours = round((last_out - first_in) / 60, 2)
+            hours, incomplete, missing_exit = _worked_day(day_marcas)
+            if not start <= day <= end:
+                cells.append({"iso": fecha, "day": day.day, "status": "outside", "label": "—", "title": "Fuera del periodo laboral", "hours": None})
+                continue
+            if hours is not None:
                 total_horas_trabajadas += hours
                 horas_count += hours
-
+            if day_marcas:
+                estado = "Fichaje incompleto" if incomplete else "Normal"
+                if missing_exit:
+                    sin_egreso += 1
+                    estado = "Sin egreso"
+                elif hours is not None and hours > 12:
+                    jornadas_mayores_12 += 1
+                    estado = "> 12 hs"
+                jornada_rows.append({"fecha": fecha, "empleado": nombre, "sector": sector, "horas": hours, "estado": estado})
+            if day >= today:
+                cells.append({"iso": fecha, "day": day.day, "status": "pending", "label": "Hoy" if day == today else "—", "title": "Dia en curso, excluido del indice" if day == today else "Dia futuro, sin evaluar", "hours": hours})
+                continue
             if not is_laborable:
                 cell = {"iso": fecha, "day": day.day, "status": "non_laborable", "label": "NL", "title": "No laborable", "hours": hours}
             elif day_marcas:
@@ -220,32 +270,7 @@ def build_monthly_attendance_report(
                 cell = {"iso": fecha, "day": day.day, "status": "unjustified", "label": "X", "title": "Falta injustificada", "hours": None}
             cells.append(cell)
 
-        for fecha in sorted({k[1] for k in marcas_by_emp_day.keys() if k[0] == empleado_id}):
-            day_marcas = sorted(marcas_by_emp_day[(empleado_id, fecha)], key=lambda m: (_time_to_minutes(m.get("hora")) or 0, int(m.get("id") or 0)))
-            ingresos = [m for m in day_marcas if str(m.get("accion") or "").lower() == "ingreso"]
-            egresos = [m for m in day_marcas if str(m.get("accion") or "").lower() == "egreso"]
-            first_in = _time_to_minutes(ingresos[0].get("hora")) if ingresos else None
-            last_out = _time_to_minutes(egresos[-1].get("hora")) if egresos else None
-            hours = None
-            estado = "Normal"
-            if first_in is not None and last_out is not None and last_out >= first_in:
-                hours = round((last_out - first_in) / 60, 2)
-                if hours > 12:
-                    jornadas_mayores_12 += 1
-                    estado = "> 12 hs"
-            elif ingresos and not egresos:
-                sin_egreso += 1
-                estado = "Sin egreso"
-            jornada_rows.append({
-                "fecha": fecha,
-                "empleado": nombre,
-                "sector": sector,
-                "horas": hours,
-                "estado": estado,
-            })
-
         total_presentes += presentes
-        posible = len(laborable_dates)
         resumen_rows.append({
             "empleado": nombre,
             "sector": sector,
@@ -268,7 +293,7 @@ def build_monthly_attendance_report(
             "horas_trabajadas": round(horas_count, 2),
         })
 
-    dias_posibles = len(laborable_dates) * len(empleados_activos)
+    dias_posibles = sum(row["dias_laborables"] for row in resumen_rows)
     ausentismo_pct = round((total_ausencias * 100.0) / dias_posibles, 2) if dias_posibles else 0.0
 
     resumen_rows.sort(key=lambda r: r["empleado"])
@@ -277,7 +302,7 @@ def build_monthly_attendance_report(
     jornada_rows.sort(key=lambda r: (r["fecha"], r["empleado"]))
     analisis_rows = []
     for row in analisis_sector.values():
-        posibles = row["empleados"] * len(laborable_dates)
+        posibles = row["posibles"]
         analisis_rows.append({
             **row,
             "posibles": posibles,

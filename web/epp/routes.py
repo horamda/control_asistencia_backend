@@ -1,5 +1,6 @@
 """EPP web and employee API. All authorization is checked again by the service."""
 
+from utils.export_safety import SafeCsvWriter
 import csv
 import io
 import json
@@ -368,7 +369,7 @@ def report():
         if not can_access_module(actor()["user_id"], "epp", "exportar"):
             abort(403)
         stream = io.StringIO()
-        writer = csv.writer(stream, delimiter=";")
+        writer = SafeCsvWriter(stream, delimiter=";")
         keys = [
             "legajo",
             "empleado_nombre",
