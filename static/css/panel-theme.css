@@ -17,11 +17,12 @@
   --danger-bg: #a92c43;
   --warning: #e1a230;
 }
-:is(.page-content,.embedded-layout,.concept-dialog) :is(button,.btn,input[type=submit]):not(.btn-secondary):not(.btn-ghost):not(.btn-danger):not(.concept-secondary) {
+/* Calendar days keep their laborable/non-laborable state colors. */
+:is(.page-content,.embedded-layout,.concept-dialog) :is(button,.btn,input[type=submit]):not(.btn-secondary):not(.btn-ghost):not(.btn-danger):not(.concept-secondary):not(.calendar-day) {
   background-color: var(--action-bg);
   color: #fff;
 }
-:is(.page-content,.embedded-layout,.concept-dialog) :is(button,.btn,input[type=submit]):not(.btn-secondary):not(.btn-ghost):not(.btn-danger):not(.concept-secondary):hover {
+:is(.page-content,.embedded-layout,.concept-dialog) :is(button,.btn,input[type=submit]):not(.btn-secondary):not(.btn-ghost):not(.btn-danger):not(.concept-secondary):not(.calendar-day):hover {
   background-color: var(--action-hover);
   color: #fff;
 }

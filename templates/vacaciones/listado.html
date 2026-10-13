@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% import "_filters.html" as filtros %}
 {% block title %}Vacaciones{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/vacaciones-listado.css') }}">{% endblock %}
 {% block content %}
-<div class="content-stack">
+<div class="content-stack vacation-page">
   <div class="section-head">
     <div>
       <div class="section-kicker">RRHH</div>
@@ -39,11 +40,11 @@
     </a>
   </div>
 
-  <form method="get" action="{{ url_for('vacaciones.listado') }}">
+  <form class="vacation-filters" method="get" action="{{ url_for('vacaciones.listado') }}">
     <div class="form-grid">
       <div class="row">
-        <label>Sector</label>
-        <select name="sector_id">
+        <label for="vac-filter-sector_id">Sector</label>
+        <select id="vac-filter-sector_id" name="sector_id">
           <option value="">Todos</option>
           {% for s in sectores %}
             <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>
@@ -54,13 +55,13 @@
       </div>
 
       <div class="row">
-        <label>Sucursal</label>
-        {{ filtros.sucursal_select(sucursales, sucursal_id) }}
+        <label>Sucursal
+        {{ filtros.sucursal_select(sucursales, sucursal_id) }}</label>
       </div>
 
       <div class="row">
-        <label>Empleado</label>
-        <select name="empleado_id">
+        <label for="vac-filter-empleado_id">Empleado</label>
+        <select id="vac-filter-empleado_id" name="empleado_id">
           <option value="">Todos</option>
           {% for e in empleados %}
             <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
@@ -71,8 +72,8 @@
       </div>
 
       <div class="row">
-        <label>Año</label>
-        <select name="anio">
+        <label for="vac-filter-anio">Año</label>
+        <select id="vac-filter-anio" name="anio">
           {% for year in years %}
             <option value="{{ year }}" {% if anio == year %}selected{% endif %}>{{ year }}</option>
           {% endfor %}
@@ -80,8 +81,8 @@
       </div>
 
       <div class="row">
-        <label>Mes</label>
-        <select name="mes">
+        <label for="vac-filter-mes">Mes</label>
+        <select id="vac-filter-mes" name="mes">
           <option value="">Todos</option>
           {% for month_id, month_name in months %}
             <option value="{{ month_id }}" {% if mes == month_id %}selected{% endif %}>{{ month_name }}</option>
@@ -90,8 +91,8 @@
       </div>
 
       <div class="row">
-        <label>Tipo</label>
-        <select name="tipo">
+        <label for="vac-filter-tipo">Tipo</label>
+        <select id="vac-filter-tipo" name="tipo">
           <option value="">Todos</option>
           <option value="tomado" {% if tipo == "tomado" %}selected{% endif %}>Tomado</option>
           <option value="compensatorio" {% if tipo == "compensatorio" %}selected{% endif %}>Compensatorio</option>
@@ -100,8 +101,8 @@
       </div>
 
       <div class="row">
-        <label>Estado</label>
-        <select name="estado">
+        <label for="vac-filter-estado">Estado</label>
+        <select id="vac-filter-estado" name="estado">
           <option value="">Todos</option>
           <option value="pendiente" {% if estado == "pendiente" %}selected{% endif %}>Pendiente</option>
           <option value="aprobado" {% if estado == "aprobado" %}selected{% endif %}>Aprobado</option>
@@ -110,8 +111,8 @@
       </div>
 
       <div class="row span-3">
-        <label>Buscar</label>
-        <input name="q" value="{{ q or '' }}" placeholder="Apellido, nombre o DNI">
+        <label for="vac-filter-q">Buscar</label>
+        <input id="vac-filter-q" name="q" value="{{ q or '' }}" placeholder="Apellido, nombre o DNI">
       </div>
     </div>
 
@@ -158,7 +159,7 @@
       <span>&nbsp;=&nbsp;<strong>{{ "%.2f"|format(vac.dias_corresponden) }} días totales</strong></span>
     </div>
 
-    <section class="grid-kpis dashboard-kpis">
+    <section class="grid-kpis dashboard-kpis vacation-summary">
       <article class="kpi-card tone-ok">
         <div class="kpi-label">Disponible neto</div>
         <div class="kpi-value">{{ "%.2f"|format(vac.dias_disponibles_con_pendientes) }}</div>
@@ -196,7 +197,7 @@
     <div class="empty-state">Seleccione un empleado para ver el saldo calculado del año.</div>
   {% endif %}
 
-  <section class="grid-kpis dashboard-kpis">
+  <section class="grid-kpis dashboard-kpis vacation-summary">
     <article class="kpi-card">
       <div class="kpi-label">Total filtrado</div>
       <div class="kpi-value">{{ summary.total }}</div>
@@ -229,103 +230,41 @@
     </article>
   </section>
 
+  <section class="vacation-results" aria-labelledby="vacation-results-title">
+    <header class="vacation-results-heading"><div><h3 id="vacation-results-title">{{ 'Solicitudes pendientes' if estado == 'pendiente' else 'Movimientos de vacaciones' }}</h3><p>{{ total }} resultado{{ '' if total == 1 else 's' }} · {{ movimientos|length }} en esta página</p></div>{% if estado == 'pendiente' %}<span class="badge warning">Requieren decisión</span>{% endif %}</header>
   {% if movimientos %}
-    <div class="table-responsive table-cards">
+    <div class="table-responsive vacation-table">
       <table>
-        <thead>
-          <tr>
-            <th>Empleado</th>
-            <th>Sector</th>
-            <th>Sucursal</th>
-            <th>Año</th>
-            <th>Tipo</th>
-            <th>Días</th>
-            <th>Rango</th>
-            <th>Estado</th>
-            <th>Observación</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Empleado</th><th>Ubicación</th><th>Período / tipo</th><th>Días</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody>
           {% for m in movimientos %}
             {% set estado_actual = (m.estado or "aprobado")|lower %}
             <tr>
-              <td data-label="Empleado">
-                <strong>{{ m.apellido }} {{ m.nombre }}</strong>
-                <div class="helper-text">{{ m.empresa_nombre or "-" }}{% if m.dni %} | DNI {{ m.dni }}{% endif %}</div>
+              <td data-label="Empleado" class="vacation-employee"><strong>{{ m.apellido }} {{ m.nombre }}</strong><div class="helper-text">{{ m.empresa_nombre or "-" }}</div>{% if m.dni %}<div class="helper-text">DNI {{ m.dni }}</div>{% endif %}
+                {% if m.observacion or m.motivo_resolucion %}<details class="vacation-note"><summary>Ver observaciones</summary>{% if m.observacion %}<p>{{ m.observacion }}</p>{% endif %}{% if m.motivo_resolucion %}<p><strong>Motivo:</strong> {{ m.motivo_resolucion }}</p>{% endif %}</details>{% endif %}
               </td>
-              <td data-label="Sector">{{ m.sector_nombre or "-" }}</td>
-              <td data-label="Sucursal">{{ m.sucursal_nombre or "-" }}</td>
-              <td data-label="Año">{{ m.anio }}</td>
-              <td data-label="Tipo">
-                {% if m.tipo == "tomado" %}
-                  <span class="badge">Tomado</span>
-                {% elif m.tipo == "compensatorio" %}
-                  <span class="badge ok">Compensatorio</span>
-                {% else %}
-                  <span class="badge warning">Ajuste</span>
-                {% endif %}
-              </td>
-              <td data-label="Días">{{ "%.2f"|format(m.dias) }}</td>
-              <td data-label="Rango">
-                {% if m.fecha_desde or m.fecha_hasta %}
-                  {{ m.fecha_desde or "-" }} al {{ m.fecha_hasta or "-" }}
-                {% else %}
-                  <span class="helper-text">Sin rango</span>
-                {% endif %}
-              </td>
-              <td data-label="Estado">
-                {% if estado_actual == "aprobado" %}
-                  <span class="badge ok">Aprobado</span>
-                  {% if m.revertido_por_movimiento_id %}
-                    <span class="badge warning">Revertido</span>
-                  {% elif m.origen_movimiento_id %}
-                    <span class="badge">Reversión</span>
-                  {% endif %}
-                {% elif estado_actual == "rechazado" %}
-                  <span class="badge danger">Rechazado</span>
-                {% else %}
-                  <span class="badge warning">Pendiente</span>
-                {% endif %}
-              </td>
-              <td data-label="Observación">
-                {{ m.observacion or "-" }}
-                {% if m.motivo_resolucion %}
-                  <div class="helper-text">Motivo: {{ m.motivo_resolucion }}</div>
-                {% endif %}
-              </td>
-              <td data-label="Acciones">
+              <td data-label="Ubicación"><span>{{ m.sector_nombre or "Sin sector" }}</span><div class="helper-text">{{ m.sucursal_nombre or "Sin sucursal" }}</div></td>
+              <td data-label="Período / tipo"><div class="vacation-dates">{% if m.fecha_desde or m.fecha_hasta %}<span>{{ m.fecha_desde or "-" }}</span><span class="helper-text">hasta {{ m.fecha_hasta or "-" }}</span>{% else %}<span class="helper-text">Sin rango</span>{% endif %}</div><div class="vacation-period-meta">{{ 'Tomado' if m.tipo == 'tomado' else 'Compensatorio' if m.tipo == 'compensatorio' else 'Ajuste' }} · {{ m.anio }}</div></td>
+              <td data-label="Días"><strong class="vacation-days">{{ "%g"|format(m.dias) }}</strong></td>
+              <td data-label="Estado"><div class="vacation-status">
+                {% if estado_actual == "aprobado" %}<span class="badge ok">Aprobado</span>{% if m.revertido_por_movimiento_id %}<span class="badge warning">Revertido</span>{% elif m.origen_movimiento_id %}<span class="badge">Reversión</span>{% endif %}
+                {% elif estado_actual == "rechazado" %}<span class="badge danger">Rechazado</span>{% else %}<span class="badge warning">Pendiente</span>{% endif %}
+              </div></td>
+              <td data-label="Acciones" class="vacation-actions-cell">
                 {% if estado_actual == "pendiente" %}
-                  <div class="inline-actions">
-                    <a class="btn btn-secondary" href="{{ url_for('vacaciones.movimiento_editar', movimiento_id=m.id) }}">Editar</a>
-                    <form method="post" action="{{ url_for('vacaciones.movimiento_aprobar', movimiento_id=m.id) }}">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <button class="btn" type="submit">Aprobar</button>
-                    </form>
-                    <form method="post" action="{{ url_for('vacaciones.movimiento_rechazar', movimiento_id=m.id) }}">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <input name="motivo" required placeholder="Motivo">
-                      <button class="btn-danger" type="submit">Rechazar</button>
-                    </form>
-                  </div>
+                  <div class="vacation-primary-actions"><a class="btn btn-secondary" href="{{ url_for('vacaciones.movimiento_editar', movimiento_id=m.id) }}" aria-label="Editar movimiento de {{ m.apellido }} {{ m.nombre }}">Editar</a><form method="post" action="{{ url_for('vacaciones.movimiento_aprobar', movimiento_id=m.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn" type="submit" aria-label="Aprobar movimiento de {{ m.apellido }} {{ m.nombre }}">Aprobar</button></form></div>
+                  <details class="vacation-reject"><summary>Rechazar solicitud</summary><form method="post" action="{{ url_for('vacaciones.movimiento_rechazar', movimiento_id=m.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="reject-{{ m.id }}">Motivo del rechazo</label><textarea id="reject-{{ m.id }}" name="motivo" required rows="3" placeholder="Explicá el motivo"></textarea><button class="btn btn-danger" type="submit">Confirmar rechazo</button></form></details>
                 {% elif estado_actual == "aprobado" and not m.revertido_por_movimiento_id and not m.origen_movimiento_id %}
-                  <form class="inline-actions" method="post" action="{{ url_for('vacaciones.movimiento_cancelar', movimiento_id=m.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input name="motivo" required placeholder="Motivo">
-                    <button class="btn-danger" type="submit">Revertir</button>
-                  </form>
-                {% else %}
-                  <span class="helper-text">Ya resuelto</span>
-                {% endif %}
+                  <details class="vacation-reject"><summary>Revertir movimiento</summary><form method="post" action="{{ url_for('vacaciones.movimiento_cancelar', movimiento_id=m.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="revert-{{ m.id }}">Motivo de la reversión</label><textarea id="revert-{{ m.id }}" name="motivo" required rows="3" placeholder="Explicá el motivo"></textarea><button class="btn btn-danger" type="submit">Confirmar reversión</button></form></details>
+                {% else %}<span class="helper-text">Ya resuelto</span>{% endif %}
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-  {% else %}
-    <div class="empty-state">No hay movimientos para los filtros seleccionados.</div>
-  {% endif %}
+  {% else %}<div class="empty-state">No hay movimientos para los filtros seleccionados.</div>{% endif %}
+  </section>
 
   <div class="pager">
     {% if page > 1 %}

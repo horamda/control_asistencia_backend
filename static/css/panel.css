@@ -5827,7 +5827,7 @@ input[type="submit"][data-loading="1"] {
   height: 32px;
 }
 
-.calendar-day {
+.attendance-calendar .calendar-day {
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
@@ -5836,7 +5836,7 @@ input[type="submit"][data-loading="1"] {
   font-weight: 700;
 }
 
-.calendar-day.non-laborable {
+.attendance-calendar .calendar-day.non-laborable {
   border-color: #f1c9c9;
   background: #fff1f1;
   color: #c83333;
