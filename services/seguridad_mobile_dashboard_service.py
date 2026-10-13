@@ -21,6 +21,7 @@ def indicators(employee,hasta=None):
     if cutoff>s.now_local().date() or cutoff.year<2000: raise s.Error('Fecha de corte inválida.')
     company=employee['empresa_id'];eid=employee['id'];branch=employee.get('sucursal_id')
     with s.db.transaction(read_only=True) as c:
+        branch_row=s.db.one(c,'SELECT nombre FROM sucursales WHERE id=%s',(branch,)) if branch else None
         config=s.db.one(c,'SELECT inicio FROM sh_dashboard_config WHERE empresa_id=%s',(company,))
         start=config['inicio'] if config else None
         rows=s.db.all_rows(c,f'''SELECT e.fecha_evento,
@@ -41,7 +42,7 @@ def indicators(employee,hasta=None):
         values=streaks(dates,baseline,cutoff) if not reason else dict(actual=None,record=None,ultimo=None)
         result[scope]=dict(disponible=reason is None,motivo=reason,inicio=baseline,dias_sin_accidentes=values['actual'],
             record_dias_sin_accidentes=values['record'],ultimo_accidente=values['ultimo'],accidentes_registrados=len(dates) if not reason else None)
-    return dict(hasta=cutoff,sucursal_id=branch,alcances=result,criterio='Último accidente por fecha del evento, pendiente o aprobado, de cada alcance; sucursal actual de los involucrados en FichaYa. Rechazados y anulados excluidos. Sin accidentes se usa el inicio confiable, si existe; el récord requiere ese inicio.')
+    return dict(hasta=cutoff,sucursal_id=branch,sucursal_nombre=branch_row['nombre'] if branch_row else None,alcances=result,criterio='Último accidente por fecha del evento, pendiente o aprobado, de cada alcance; sucursal actual de los involucrados en FichaYa. Rechazados y anulados excluidos. Sin accidentes se usa el inicio confiable, si existe; el récord requiere ese inicio.')
 
 
 def summary(employee,anio=None,mes=None):

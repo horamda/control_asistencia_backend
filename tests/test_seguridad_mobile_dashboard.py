@@ -32,6 +32,7 @@ def test_indicator_scopes_distinct_events_privacy_and_hire_date(client):
     assert response.status_code==200
     result=response.json
     assert result['sucursal_id']==1
+    assert result['sucursal_nombre']=='Central'
     assert result['alcances']['empresa']['dias_sin_accidentes']==5
     assert result['alcances']['sucursal']['dias_sin_accidentes']==10
     assert result['alcances']['propio']['dias_sin_accidentes']==10
@@ -41,6 +42,7 @@ def test_indicator_scopes_distinct_events_privacy_and_hire_date(client):
     own=mobile.indicators(newer,'2026-09-15')
     assert own['alcances']['propio']['dias_sin_accidentes']==3
     assert own['alcances']['sucursal']['motivo']=='sin_sucursal'
+    assert own['sucursal_nombre'] is None
 
 
 def test_ranking_branch_own_position_and_no_accident_rank(client):
