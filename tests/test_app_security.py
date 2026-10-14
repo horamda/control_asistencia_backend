@@ -3,6 +3,19 @@ import pytest
 import app as app_module
 
 
+@pytest.mark.parametrize("revision", ["release-test-123", None])
+def test_health_identifies_deployed_revision_without_database(monkeypatch, revision):
+    monkeypatch.setattr(app_module, "init_db", lambda: None)
+    monkeypatch.delenv("BUILD_REVISION", raising=False)
+    if revision:
+        monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", revision)
+    else:
+        monkeypatch.delenv("RAILWAY_GIT_COMMIT_SHA", raising=False)
+    response = app_module.create_app().test_client().get("/healthz")
+    assert response.status_code == 200
+    assert response.json == {"status": "ok", "revision": revision or "local"}
+
+
 def test_create_app_requires_secret_key(monkeypatch):
     monkeypatch.delenv("SECRET_KEY", raising=False)
     monkeypatch.setattr(app_module, "init_db", lambda: None)

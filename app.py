@@ -422,7 +422,10 @@ def create_app():
 
     @app.route("/healthz")
     def healthz():
-        return jsonify({"status": "ok"}), 200
+        return jsonify({
+            "status": "ok",
+            "revision": os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("BUILD_REVISION") or "local",
+        }), 200
 
     @app.errorhandler(CSRFError)
     def handle_csrf_error(err):

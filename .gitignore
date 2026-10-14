@@ -6,3 +6,6 @@ instance/
 .vscode/
 /output/audit_fix_mariadb/
 /output/*.log
+/stabilization_*.log
+/stabilization-*.xml
+/test-results.xml

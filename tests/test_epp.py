@@ -293,6 +293,32 @@ def test_http_ui_pdf_and_mobile_privacy(schema, client):
     )
 
 
+def test_mobile_saved_size_is_reused_and_order_keeps_its_snapshot(schema, client):
+    root = "/api/v1/mobile/epp"
+    headers = {"Authorization": "Bearer 10"}
+    saved = dict(articulo_id=schema, talle="XL", medidas="Pecho 110 cm")
+    response = client.put(root + "/talles", headers=headers, json=saved)
+    assert response.status_code == 200
+    for path, key in (("/talles", "items"), ("/config", "talles")):
+        rows = client.get(root + path, headers=headers).json[key]
+        row = next(row for row in rows if row["articulo_id"] == schema)
+        assert row["talle"] == "XL" and row["medidas"] == "Pecho 110 cm"
+    # Query parameters cannot impersonate another employee.
+    other = client.get(root + "/talles?empleado_id=10",
+                       headers={"Authorization": "Bearer 11"})
+    assert other.status_code == 200 and other.json["items"] == []
+    body = payload(schema)
+    body["items"][0].update(talle="XL", medidas="Pecho 110 cm")
+    created = client.post(root + "/pedidos", headers=headers, json=body)
+    assert created.status_code == 201
+    pid = created.json["pedido"]["id"]
+    assert client.put(root + "/talles", headers=headers,
+                      json={**saved, "talle": "M"}).status_code == 200
+    original = client.get(root + f"/pedidos/{pid}", headers=headers).json
+    assert original["items"][0]["talle"] == "XL"
+    assert original["items"][0]["medidas"] == "Pecho 110 cm"
+
+
 def test_categories_and_foreign_catalog(schema):
     with pytest.raises(s.Error):
         s.save_category(BOSS, dict(nombre="Otra"))
