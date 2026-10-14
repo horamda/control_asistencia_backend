@@ -149,6 +149,17 @@ def _period_overlaps(row: dict, start_date: datetime.date, end_date: datetime.da
     return bool(desde and hasta and desde <= end_date and hasta >= start_date)
 
 
+_UNIFIED_TOTAL_KEYS = (
+    "dias_laborables",
+    "dias_posibles",
+    "ausencias_computables",
+    "ausencias_justificadas",
+    "presentes",
+)
+# Celdas de la planilla mensual que cuentan como dia posible de trabajo.
+_POSSIBLE_DAY_STATUSES = {"present", "incomplete", "vacation", "justified", "unjustified"}
+
+
 def _build_unified_attendance_summary(
     db,
     start_date: datetime.date,
@@ -157,16 +168,35 @@ def _build_unified_attendance_summary(
     empresa_id: int | None = None,
     sucursal_id: int | None = None,
 ) -> dict:
+    months, empleados_activos = _unified_attendance_by_month(
+        db, start_date, end_date, empresa_id=empresa_id, sucursal_id=sucursal_id,
+    )
+    totals = {key: sum(month[key] for month in months) for key in _UNIFIED_TOTAL_KEYS}
+    totals["ausentismo_pct"] = (
+        round((totals["ausencias_computables"] * 100.0) / totals["dias_posibles"], 1)
+        if totals["dias_posibles"] > 0
+        else 0.0
+    )
+    totals["frecuencia_ausencias"] = (
+        round(totals["ausencias_computables"] / empleados_activos, 2)
+        if empleados_activos > 0
+        else 0.0
+    )
+    return totals
+
+
+def _unified_attendance_by_month(
+    db,
+    start_date: datetime.date,
+    end_date: datetime.date,
+    *,
+    empresa_id: int | None = None,
+    sucursal_id: int | None = None,
+):
+    """Desglose mensual del ausentismo unificado (misma regla que el reporte
+    mensual): devuelve ([{year, month, totales..., por_dia_semana}], activos)."""
     if start_date > end_date:
-        return {
-            "dias_laborables": 0,
-            "dias_posibles": 0,
-            "ausencias_computables": 0,
-            "ausencias_justificadas": 0,
-            "presentes": 0,
-            "ausentismo_pct": 0.0,
-            "frecuencia_ausencias": 0.0,
-        }
+        return [], 0
 
     dict_cursor = db.cursor(dictionary=True)
     try:
@@ -257,13 +287,7 @@ def _build_unified_attendance_summary(
     finally:
         dict_cursor.close()
 
-    totals = {
-        "dias_laborables": 0,
-        "dias_posibles": 0,
-        "ausencias_computables": 0,
-        "ausencias_justificadas": 0,
-        "presentes": 0,
-    }
+    months = []
     for year, month in _month_iter(start_date, end_date):
         first, last = month_bounds(year, month)
         range_first = max(first, start_date)
@@ -292,24 +316,24 @@ def _build_unified_attendance_summary(
             non_laborable_days=non_laborable_days,
         )
         kpis = report["kpis"]
-        totals["dias_laborables"] += _to_int(kpis.get("dias_laborables"))
-        totals["dias_posibles"] += _to_int(kpis.get("dias_posibles"))
-        totals["ausencias_computables"] += _to_int(kpis.get("ausencias_computables"))
-        totals["ausencias_justificadas"] += _to_int(kpis.get("ausencias_justificadas"))
-        totals["presentes"] += _to_int(kpis.get("presentes"))
+        # Lunes=0 ... domingo=6: dias posibles y faltas injustificadas.
+        por_dia_semana = [{"posibles": 0, "ausencias": 0} for _ in range(7)]
+        for row in report.get("planilla_rows") or []:
+            for cell in row.get("cells") or []:
+                status = cell.get("status")
+                if status not in _POSSIBLE_DAY_STATUSES:
+                    continue
+                day = _to_date(cell.get("iso"))
+                if day is None:
+                    continue
+                por_dia_semana[day.weekday()]["posibles"] += 1
+                if status == "unjustified":
+                    por_dia_semana[day.weekday()]["ausencias"] += 1
+        month_totals = {key: _to_int(kpis.get(key)) for key in _UNIFIED_TOTAL_KEYS}
+        months.append({"year": year, "month": month, **month_totals, "por_dia_semana": por_dia_semana})
 
     empleados_activos = len([e for e in empleados if _to_int(e.get("activo")) == 1])
-    totals["ausentismo_pct"] = (
-        round((totals["ausencias_computables"] * 100.0) / totals["dias_posibles"], 1)
-        if totals["dias_posibles"] > 0
-        else 0.0
-    )
-    totals["frecuencia_ausencias"] = (
-        round(totals["ausencias_computables"] / empleados_activos, 2)
-        if empleados_activos > 0
-        else 0.0
-    )
-    return totals
+    return months, empleados_activos
 
 
 def _calc_expected_minutes_from_planillas(
@@ -2562,3 +2586,105 @@ def _dashboard_metrics():
         db.close()
 
     return stats, recent_events, charts
+
+
+_MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto",
+          "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+_DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+
+def _pct(part: int, total: int):
+    return round(part * 100.0 / total, 1) if total > 0 else None
+
+
+def _punctuality_by_month(db, start_date, end_date, *, empresa_id=None, sucursal_id=None) -> dict:
+    """Misma regla que la tarjeta "Puntualidad mes": fichadas en estado ok sobre
+    fichadas con alguna marca, agrupadas por mes."""
+    filters, params = [], [start_date.isoformat(), end_date.isoformat()]
+    for column, value in (("empresa_id", empresa_id), ("sucursal_id", sucursal_id)):
+        if value:
+            filters.append(f"e.{column} = %s")
+            params.append(int(value))
+    join_sql = "JOIN empleados e ON e.id = a.empleado_id" if filters else ""
+    scope_sql = " AND " + " AND ".join(filters) if filters else ""
+    cursor = db.cursor(dictionary=True)
+    try:
+        rows = _safe_fetchall(
+            cursor,
+            f"""
+            SELECT YEAR(a.fecha) AS anio, MONTH(a.fecha) AS mes,
+                   COUNT(*) AS fichadas,
+                   COUNT(CASE WHEN a.estado = 'ok' THEN 1 END) AS en_horario
+            FROM asistencias a
+            {join_sql}
+            WHERE a.fecha BETWEEN %s AND %s
+              AND (a.hora_entrada IS NOT NULL OR a.hora_salida IS NOT NULL)
+              {scope_sql}
+            GROUP BY YEAR(a.fecha), MONTH(a.fecha)
+            """,
+            tuple(params),
+        )
+    finally:
+        cursor.close()
+    return {
+        (_to_int(r["anio"]), _to_int(r["mes"])): (_to_int(r["fichadas"]), _to_int(r["en_horario"]))
+        for r in rows
+    }
+
+
+def _dashboard_trends(*, months: int = 12, empresa_id=None, sucursal_id=None, today=None) -> dict:
+    """Evolucion mensual de ausentismo y puntualidad y faltas por dia de semana."""
+    today = today or datetime.date.today()
+    index = today.year * 12 + (today.month - 1) - (months - 1)
+    start = datetime.date(index // 12, index % 12 + 1, 1)
+
+    db = get_db()
+    try:
+        monthly, _ = _unified_attendance_by_month(
+            db, start, today, empresa_id=empresa_id, sucursal_id=sucursal_id,
+        )
+        punctuality = _punctuality_by_month(
+            db, start, today, empresa_id=empresa_id, sucursal_id=sucursal_id,
+        )
+    finally:
+        db.close()
+
+    rows = []
+    weekdays = [{"posibles": 0, "ausencias": 0} for _ in range(7)]
+    for item in monthly:
+        year, month = item["year"], item["month"]
+        fichadas, en_horario = punctuality.get((year, month), (0, 0))
+        rows.append({
+            "key": f"{year:04d}-{month:02d}",
+            "nombre": f"{_MESES[month - 1]} {year}",
+            "label": _MESES[month - 1][:3],
+            "sub": str(year) if month == 1 or not rows else "",
+            "parcial": (year, month) == (today.year, today.month),
+            "dias_posibles": item["dias_posibles"],
+            "ausencias": item["ausencias_computables"],
+            "justificadas": item["ausencias_justificadas"],
+            "ausentismo_pct": _pct(item["ausencias_computables"], item["dias_posibles"]),
+            "justificadas_pct": _pct(item["ausencias_justificadas"], item["dias_posibles"]),
+            "fichadas": fichadas,
+            "en_horario": en_horario,
+            "puntualidad_pct": _pct(en_horario, fichadas),
+        })
+        for weekday, counts in enumerate(item["por_dia_semana"]):
+            weekdays[weekday]["posibles"] += counts["posibles"]
+            weekdays[weekday]["ausencias"] += counts["ausencias"]
+
+    return {
+        "meses": rows,
+        "dias_semana": [
+            {
+                "nombre": _DIAS_SEMANA[weekday],
+                "label": _DIAS_SEMANA[weekday][:3],
+                "posibles": counts["posibles"],
+                "ausencias": counts["ausencias"],
+                "value": _pct(counts["ausencias"], counts["posibles"]),
+            }
+            # Los dias sin jornadas posibles (p. ej. domingos) no se grafican.
+            for weekday, counts in enumerate(weekdays)
+            if counts["posibles"] > 0
+        ],
+    }

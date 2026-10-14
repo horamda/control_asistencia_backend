@@ -221,7 +221,7 @@
                   <input type="hidden" name="estado" value="cancelado">
                   <button class="btn btn-secondary" type="submit">Cancelar</button>
                 </form>
-                <form method="post" action="{{ url_for('skap_web.plan_accion_eliminar', plan_id=plan.id, action_id=accion.id) }}" onsubmit="return confirm('Eliminar accion?')">
+                <form method="post" action="{{ url_for('skap_web.plan_accion_eliminar', plan_id=plan.id, action_id=accion.id) }}" data-confirm="Eliminar accion?">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button class="btn btn-danger" type="submit">Eliminar</button>
                 </form>

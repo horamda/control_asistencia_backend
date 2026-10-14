@@ -484,7 +484,7 @@
   </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   'use strict';
 
@@ -642,7 +642,7 @@
 
     if (!empOrder.length) {
       parts.push('<div class="g-empty">No hay periodos de vacaciones registrados para ' + year + '.<br>'
-               + '<button class="btn" onclick="openNewModal()" style="margin-top:14px">+ Agregar periodo</button></div>');
+               + '<button class="btn" data-open-new-modal style="margin-top:14px">+ Agregar periodo</button></div>');
     } else {
       for (const empId of empOrder) {
         const emp = byEmp.get(empId);
@@ -846,6 +846,10 @@
 
   window.openNewModal = openNewModal;
   document.getElementById('btn-add').addEventListener('click', openNewModal);
+  // Boton del estado vacio: se genera al renderizar, por eso se delega.
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('[data-open-new-modal]')) openNewModal();
+  });
   document.getElementById('btn-modal-cancel').addEventListener('click', closeModal);
   modalBg.addEventListener('click', e => { if (e.target === modalBg) closeModal(); });
   inpDesde.addEventListener('input', recalcDias);

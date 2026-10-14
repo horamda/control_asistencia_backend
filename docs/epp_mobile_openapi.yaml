@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "EPP y vestimenta FichaYa",
-    "version": "1.36.0"
+    "version": "1.37.0"
   },
   "servers": [
     {
@@ -28,7 +28,7 @@
                   "properties": {
                     "version_contrato": {
                       "type": "string",
-                      "example": "1.36.0"
+                      "example": "1.37.0"
                     },
                     "articulos": {
                       "type": "array",
@@ -45,6 +45,12 @@
                     "max_items": {
                       "type": "integer",
                       "example": 50
+                    },
+                    "conceptos_reposicion": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ReplacementConcept"
+                      }
                     }
                   }
                 }
@@ -1797,6 +1803,39 @@
           }
         ]
       }
+    },
+    "/epp/conceptos-reposicion": {
+      "get": {
+        "summary": "Conceptos activos de la empresa del empleado",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conceptos disponibles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ReplacementConcept"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesion invalida"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1916,6 +1955,12 @@
               "enviar"
             ],
             "default": "enviar"
+          },
+          "concepto_reposicion_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Concepto activo de la empresa. Opcional; null limpia la seleccion. Al editar, omitir conserva el valor anterior."
           }
         }
       },
@@ -1951,6 +1996,12 @@
               "enviar"
             ],
             "default": "enviar"
+          },
+          "concepto_reposicion_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Concepto activo de la empresa. Opcional; null limpia la seleccion. Al editar, omitir conserva el valor anterior."
           }
         }
       },
@@ -2149,6 +2200,41 @@
             "items": {
               "type": "object"
             }
+          },
+          "concepto_reposicion_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1,
+            "description": "Concepto activo de la empresa. Opcional; null limpia la seleccion. Al editar, omitir conserva el valor anterior."
+          },
+          "concepto_reposicion": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nombre historico al seleccionar el concepto."
+          }
+        }
+      },
+      "ReplacementConcept": {
+        "type": "object",
+        "required": [
+          "id",
+          "nombre",
+          "activo"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nombre": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "activo": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ]
           }
         }
       }

@@ -9,8 +9,26 @@ def test_bootstrap_version_runs_once(database, monkeypatch):
     monkeypatch.setattr(migration, 'get_db', database)
     monkeypatch.setattr(migration, 'bootstrap_schema', lambda: calls.append('migration'))
     migration.main()
+    db = database()
+    cur = db.cursor()
+    cur.execute("INSERT INTO epp_conceptos_reposicion(empresa_id,nombre) VALUES(1,'Desgaste')")
+    db.commit()
+    cur.close()
+    db.close()
     migration.main()
     assert calls == ['migration']
+    db = database()
+    cur = db.cursor()
+    try:
+        cur.execute("SELECT nombre FROM epp_conceptos_reposicion WHERE empresa_id=1")
+        assert cur.fetchall() == [('Desgaste',)]
+        cur.execute("SELECT concepto_reposicion_id,concepto_reposicion FROM epp_pedidos")
+        assert cur.fetchall() == []
+        cur.execute("SELECT COUNT(*) FROM app_schema_versions WHERE version='20261014_epp_concepts'")
+        assert cur.fetchone()[0] == 1
+    finally:
+        cur.close()
+        db.close()
 
 
 def test_trivia_batch_deduplicates_in_database(database, monkeypatch):

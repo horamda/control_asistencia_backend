@@ -30,6 +30,7 @@
         @page { size: A4 landscape; margin: 10mm; }
       }
     </style>
+    <script src="{{ url_for('static', filename='js/page-actions.js') }}" defer></script>
   </head>
   <body>
     {% set totales = asistencia.get("totales", {}) %}
@@ -52,7 +53,7 @@
     </p>
 
     <div class="toolbar">
-      <a class="btn" href="#" onclick="window.print(); return false;">Imprimir / Guardar PDF</a>
+      <a class="btn" href="#" data-print>Imprimir / Guardar PDF</a>
       <a class="btn" href="{{ url_for('legajos.dashboard_empleado', q=q, empleado_id=empleado_id, desde=desde, hasta=hasta, periodo=periodo, solo_activos=(1 if solo_activos else 0)) }}">Volver</a>
     </div>
 
@@ -238,7 +239,7 @@
 
     <p class="small">Generado desde FichaYa.</p>
     {% if auto_print %}
-      <script>
+      <script nonce="{{ csp_nonce() }}">
         window.addEventListener("load", function () {
           window.print();
         });

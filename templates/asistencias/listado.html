@@ -43,22 +43,22 @@
         </div>
       </section>
 
-      <section class="auto-action-card">
+      <section class="auto-action-card" data-date-range>
         <h4 class="section-title">Generar por rango</h4>
         <div class="form-grid auto-range-grid">
           <div class="row">
             <label>Rango desde</label>
-            <input id="ausentes-rango-desde" name="fecha_desde" type="date" value="" max="{{ today }}">
+            <input id="ausentes-rango-desde" data-range-from name="fecha_desde" type="date" value="" max="{{ today }}">
           </div>
           <div class="row">
             <label>Rango hasta</label>
-            <input id="ausentes-rango-hasta" name="fecha_hasta" type="date" value="" max="{{ today }}">
+            <input id="ausentes-rango-hasta" data-range-to name="fecha_hasta" type="date" value="" max="{{ today }}">
           </div>
         </div>
         <div class="actions">
-          <button id="ausentes-rango-btn" type="submit" name="modo" value="rango" disabled>Generar ausentes por rango</button>
+          <button id="ausentes-rango-btn" data-range-submit type="submit" name="modo" value="rango" disabled>Generar ausentes por rango</button>
         </div>
-        <div id="ausentes-rango-help" class="helper-text">Complete desde y hasta para habilitar la generacion por rango.</div>
+        <div id="ausentes-rango-help" data-range-help class="helper-text">Complete desde y hasta para habilitar la generacion por rango.</div>
       </section>
     </div>
   </form>
@@ -178,50 +178,4 @@
     <span>Pagina {{ page }} de {{ ((total + per_page - 1) // per_page) if per_page else 1 }}</span>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_scripts %}
-<script>
-  (function () {
-    const fromInput = document.getElementById("ausentes-rango-desde");
-    const toInput = document.getElementById("ausentes-rango-hasta");
-    const rangeBtn = document.getElementById("ausentes-rango-btn");
-    const help = document.getElementById("ausentes-rango-help");
-    if (!fromInput || !toInput || !rangeBtn || !help) return;
-
-    function refreshRangeState() {
-      const hasFrom = !!fromInput.value;
-      const hasTo = !!toInput.value;
-      const hasBoth = hasFrom && hasTo;
-      const fromDate = fromInput.value;
-      const toDate = toInput.value;
-      const today = toInput.max || fromInput.max || "";
-
-      if (!hasBoth) {
-        rangeBtn.disabled = true;
-        help.textContent = "Complete desde y hasta para habilitar la generacion por rango.";
-        return;
-      }
-
-      if (fromDate > toDate) {
-        rangeBtn.disabled = true;
-        help.textContent = "El rango es invalido: desde no puede ser mayor a hasta.";
-        return;
-      }
-
-      if ((today && fromDate > today) || (today && toDate > today)) {
-        rangeBtn.disabled = true;
-        help.textContent = "No se permite generar asistencia para fechas futuras.";
-        return;
-      }
-
-      rangeBtn.disabled = false;
-      help.textContent = "El sistema evaluara horario asignado y excepciones dia por dia.";
-    }
-
-    fromInput.addEventListener("input", refreshRangeState);
-    toInput.addEventListener("input", refreshRangeState);
-    refreshRangeState();
-  })();
-</script>
 {% endblock %}

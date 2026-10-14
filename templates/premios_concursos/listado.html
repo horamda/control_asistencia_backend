@@ -30,7 +30,7 @@
     <div class="form-grid">
       <div class="row">
         <label>Empresa</label>
-        <select name="empresa_id" onchange="this.form.submit()">
+        <select name="empresa_id" data-autosubmit>
           <option value="">Todas</option>
           {% for e in empresas %}
             <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>

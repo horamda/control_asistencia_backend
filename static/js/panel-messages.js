@@ -34,22 +34,64 @@
     }
     form.removeAttribute('aria-busy'); busy.delete(form);
   }
-  window.PanelUI = {notify, reset};
+  // Dialogo de confirmacion propio (reemplaza window.confirm): asincronico,
+  // con el estilo del panel y foco inicial en "Cancelar".
+  let dialog;
+  function askConfirmation(message, dangerous) {
+    if (!window.HTMLDialogElement || !HTMLDialogElement.prototype.showModal) {
+      return Promise.resolve(window.confirm(message));
+    }
+    // Dentro del contenido para heredar los estilos de botones del panel; htmx
+    // puede reemplazar ese contenido, por eso se recrea si quedo desconectado.
+    if (!dialog || !dialog.isConnected) {
+      dialog = document.createElement('dialog');
+      dialog.className = 'confirm-dialog';
+      dialog.setAttribute('aria-labelledby', 'confirm-dialog-text');
+      const form = document.createElement('form'); form.method = 'dialog';
+      const text = document.createElement('p'); text.id = 'confirm-dialog-text';
+      const actions = document.createElement('div'); actions.className = 'actions';
+      const cancel = document.createElement('button'); cancel.value = 'cancel';
+      cancel.className = 'btn btn-secondary'; cancel.textContent = 'Cancelar'; cancel.autofocus = true;
+      const accept = document.createElement('button'); accept.value = 'ok'; accept.className = 'btn';
+      actions.append(cancel, accept); form.append(text, actions); dialog.append(form);
+      (document.getElementById('page-content') || document.body).append(dialog);
+    }
+    dialog.querySelector('p').textContent = message;
+    const accept = dialog.querySelector('button[value="ok"]');
+    accept.textContent = dangerous ? 'Sí, continuar' : 'Confirmar';
+    accept.classList.toggle('btn-danger', !!dangerous);
+    dialog.returnValue = '';
+    dialog.showModal();
+    return new Promise(resolve => dialog.addEventListener('close', () => resolve(dialog.returnValue === 'ok'), {once: true}));
+  }
+  window.PanelUI = {notify, reset, confirm: askConfirmation};
   host.querySelectorAll('.panel-message').forEach(prepare);
+  const confirmed = new WeakSet();
   document.addEventListener('submit', event => {
     if (busy.has(event.target)) { event.preventDefault(); event.stopImmediatePropagation(); return; }
     const form = event.target, button = event.submitter;
-    // Existing inline confirmations already explain the specific operation.
-    if (form.hasAttribute('onsubmit') || button?.hasAttribute('onclick')) return;
+    // Los botones de un <dialog> (incluido el de confirmacion) solo lo cierran.
+    if (form.method === 'dialog') return;
+    // Reenvio tras aceptar el dialogo: ya fue confirmado.
+    if (confirmed.has(form)) { confirmed.delete(form); return; }
     const message = button?.dataset.confirm || form.dataset.confirm;
     const dangerous = button?.classList.contains('btn-danger') || /\/eliminar(?:\/|$)/.test(form.action);
-    if ((message || dangerous) && !window.confirm(message || `¿Confirmás la acción «${button?.textContent.trim() || 'Eliminar registro'}»?`)) {
-      event.preventDefault(); event.stopImmediatePropagation();
-    }
+    if (!message && !dangerous) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    askConfirmation(message || `¿Confirmás la acción «${button?.textContent.trim() || 'Eliminar registro'}»?`, dangerous)
+      .then(ok => {
+        if (!ok || !form.isConnected) return;
+        confirmed.add(form);
+        // requestSubmit con el mismo boton conserva su name/value en el envio.
+        if (form.requestSubmit) form.requestSubmit(button && button.form === form ? button : undefined);
+        else form.submit();
+      });
   }, true);
   document.addEventListener('click', event => {
     const link = event.target.closest('a[data-confirm]');
-    if (link && !window.confirm(link.dataset.confirm)) event.preventDefault();
+    if (!link) return;
+    event.preventDefault();
+    askConfirmation(link.dataset.confirm, false).then(ok => { if (ok) window.location.href = link.href; });
   });
   window.addEventListener('submit', event => {
     const form = event.target, button = event.submitter;

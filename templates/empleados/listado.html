@@ -5,20 +5,6 @@
 {% set default_foto_url = url_for('static', filename='img/empleado-default.svg') %}
 {% set from_idx = ((page - 1) * per_page) + 1 if total > 0 else 0 %}
 {% set to_idx = (page * per_page) if (page * per_page) < total else total %}
-{% set ns = namespace(activos=0, inactivos=0, con_foto=0, sin_control=0) %}
-{% for e in empleados %}
-  {% if e.activo %}
-    {% set ns.activos = ns.activos + 1 %}
-  {% else %}
-    {% set ns.inactivos = ns.inactivos + 1 %}
-  {% endif %}
-  {% if e.foto %}
-    {% set ns.con_foto = ns.con_foto + 1 %}
-  {% endif %}
-  {% if e.requiere_control_asistencia is defined and not e.requiere_control_asistencia %}
-    {% set ns.sin_control = ns.sin_control + 1 %}
-  {% endif %}
-{% endfor %}
 <div class="content-stack employee-directory">
   <div class="section-head">
     <div>
@@ -27,11 +13,6 @@
       <p class="module-intro">
         Consulte la nomina, mantenga datos laborales y controle quienes impactan asistencia y KPIs.
       </p>
-    </div>
-    <div class="chip-row">
-      <span class="chip">Multiempresa</span>
-      <span class="chip">Datos maestros</span>
-      <span class="chip">Estado activo</span>
     </div>
   </div>
 
@@ -42,19 +23,19 @@
       <div class="helper-text">Empleados encontrados</div>
     </div>
     <div class="kpi-card tone-ok">
-      <div class="kpi-label">Activos en pagina</div>
-      <div class="kpi-value">{{ ns.activos }}</div>
-      <div class="helper-text">Sobre {{ empleados|length }} visibles</div>
+      <div class="kpi-label">Activos</div>
+      <div class="kpi-value">{{ resumen.activos }}</div>
+      <div class="helper-text">De {{ resumen.total }} filtrados</div>
     </div>
     <div class="kpi-card tone-warn">
       <div class="kpi-label">Fuera de KPIs</div>
-      <div class="kpi-value">{{ ns.sin_control }}</div>
-      <div class="helper-text">En esta página · no controlan asistencia</div>
+      <div class="kpi-value">{{ resumen.sin_control }}</div>
+      <div class="helper-text">No controlan asistencia</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Con foto</div>
-      <div class="kpi-value">{{ ns.con_foto }}</div>
-      <div class="helper-text">En esta pagina</div>
+      <div class="kpi-value">{{ resumen.con_foto }}</div>
+      <div class="helper-text">De {{ resumen.total }} filtrados</div>
     </div>
   </div>
 
@@ -95,7 +76,7 @@
       </div>
       <div class="row">
         <label>Registros por pagina</label>
-        <select name="per" id="per-page">
+        <select name="per" id="per-page" data-autosubmit>
           {% for p in [10, 20, 50, 100] %}
             <option value="{{ p }}" {% if per_page == p %}selected{% endif %}>{{ p }}</option>
           {% endfor %}
@@ -152,7 +133,7 @@
                     alt="Foto {{ e.apellido }} {{ e.nombre }}"
                     loading="lazy" decoding="async"
                     data-fallback="{{ default_foto_url }}"
-                    onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
+                   
                   >
                 </a>
               {% else %}
@@ -267,15 +248,4 @@
     <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver</a>
   </div>
 </div>
-<script>
-  (function () {
-    var perPage = document.getElementById("per-page");
-    var filterForm = document.getElementById("empleados-filter-form");
-    if (!perPage || !filterForm) return;
-
-    perPage.addEventListener("change", function () {
-      filterForm.submit();
-    });
-  })();
-</script>
 {% endblock %}

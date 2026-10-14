@@ -39,7 +39,7 @@
 </div>
 {% endblock %}
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (() => {
   const form = document.getElementById('form-habilitacion');
   const rows = [...form.querySelectorAll('.empleado')];

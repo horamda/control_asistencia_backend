@@ -181,7 +181,7 @@ def test_iniciar_exito_devuelve_preguntas_sin_respuesta_correcta(monkeypatch):
 # finalizar_participacion
 # ===========================================================================
 
-def test_finalizar_trivia_no_encontrada_lanza_excepcion(monkeypatch):
+def test_finalizar_participacion_trivia_no_encontrada_lanza_excepcion(monkeypatch):
     monkeypatch.setattr(trivia_repo, "get_trivia_by_id", lambda tid: None)
 
     with pytest.raises(TriviaNoEncontradaError):

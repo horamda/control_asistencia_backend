@@ -1,6 +1,6 @@
-# EPP y vestimenta — API mobile 1.36.0
+# EPP y vestimenta — API mobile 1.37.0
 
-Base: `/api/v1/mobile/epp`. Bearer JWT del empleado en **todas** las rutas, incluidas imágenes y PDF. Empresa y empleado se obtienen del token. Respuestas privadas `Cache-Control: private, no-store`. Flutter todavía debe implementar las pantallas; este backend no modifica el proyecto Flutter.
+Base: `/api/v1/mobile/epp`. Bearer JWT del empleado en **todas** las rutas, incluidas imágenes y PDF. Empresa y empleado se obtienen del token. Respuestas privadas `Cache-Control: private, no-store`. Flutter implementa las pantallas de EPP y el selector opcional de concepto de reposición; desplegar ambas partes según su versión.
 
 ## Pantallas
 
@@ -66,3 +66,14 @@ Errores: 400 validación, 401 sesión, 403 alcance/permiso, 404 inexistente, 409
 ## Instalación
 
 Ejecutar `venv\\Scripts\\python.exe scripts/migrate_20261008_02_epp.py`, reiniciar backend y configurar artículos, imágenes, talles, sectores/puestos y responsables. La migración es aditiva e idempotente, crea ocho tablas y categorías iniciales EPP/Ropa/Calzado por empresa existente. No importa entregas ficticias ni altera empleados. Empresas nuevas pueden crear sus categorías en el panel.
+
+
+### Conceptos de reposicion (1.37.0)
+
+El arranque mediante `scripts/start_server.py` ejecuta las migraciones base EPP y conceptos, en ese orden y bajo el bloqueo de bootstrap, antes de iniciar los workers. También se pueden ejecutar manualmente: `python scripts/migrate_20261008_02_epp.py` y `python scripts/migrate_20261013_01_epp_conceptos.py`. Son idempotentes; los pedidos existentes quedan sin concepto.
+
+Administracion: `/epp/conceptos-reposicion`, con permiso `epp_responsables/editar`. Permite alta, consulta, edicion, baja logica y reactivacion. Los nombres son unicos por empresa. La baja y los cambios de nombre conservan el historial de pedidos.
+
+La API del empleado consulta `GET /api/v1/mobile/epp/conceptos-reposicion` (`{"items":[{"id":1,"nombre":"Desgaste","activo":1}]}`). `GET /epp/config` incluye la misma lista en `conceptos_reposicion`. El empleado solo consulta; la administracion requiere sesion web y CSRF.
+
+POST y PUT de pedidos aceptan `concepto_reposicion_id` opcional, por ejemplo `1`. Debe pertenecer a la empresa y estar activo. En PUT, omitirlo conserva el concepto anterior; `null` lo quita. Se puede conservar el concepto original aunque este inactivo. El detalle devuelve `concepto_reposicion_id` y `concepto_reposicion` (nombre historico). `motivo` sigue siendo obligatorio. Clientes anteriores pueden seguir enviando pedidos sin concepto.

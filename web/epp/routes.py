@@ -114,9 +114,9 @@ def invalid(error):
 @web.errorhandler(ProgrammingError)
 @mobile.errorhandler(ProgrammingError)
 def missing(error):
-    if error.errno != 1146:
+    if error.errno not in (1146, 1054):
         raise error
-    return invalid(s.Error("EPP requiere instalar la migración 20261008_02_epp.", 503))
+    return invalid(s.Error("EPP requiere instalar la migración 20261008_02_epp y 20261013_01_epp_conceptos.", 503))
 
 
 @web.errorhandler(IntegrityError)
@@ -213,6 +213,7 @@ def create():
         items=s.catalogs(who, eid) if eid else [],
         sizes=s.sizes(who, eid) if eid else [],
         token=str(uuid4()),
+        concepts=s.replacement_concepts(who, active_only=True),
     )
 
 
@@ -398,7 +399,8 @@ def config_mobile():
     return jsonify(
         serialize(
             dict(
-                version_contrato="1.36.0",
+                version_contrato="1.37.0",
+                conceptos_reposicion=s.replacement_concepts(who, active_only=True),
                 articulos=s.catalogs(who, who["empleado_id"]),
                 talles=s.sizes(who, who["empleado_id"]),
                 max_items=50,
@@ -480,6 +482,7 @@ def edit(pid):
         sizes=s.sizes(who, row["empleado_id"]),
         token=str(uuid4()),
         editing=row,
+        concepts=s.replacement_concepts(who, active_only=True),
     )
 
 
@@ -511,3 +514,24 @@ def too_large(error):
     return invalid(
         s.Error("Envío demasiado grande. Cada imagen admite hasta 5 MB.", 413)
     )
+
+
+@web.route("/conceptos-reposicion", methods=["GET", "POST"])
+@permission_required("epp_responsables", "editar")
+def replacement_concepts():
+    who = actor()
+    if request.method == "POST":
+        values = data()
+        if values.get("accion") == "eliminar":
+            s.delete_replacement_concept(who, values.get("id"))
+        else:
+            s.save_replacement_concept(who, values)
+        flash("Concepto de reposición actualizado.", "success")
+        return redirect(url_for("epp_web.replacement_concepts"))
+    return render("replacement_concepts", items=s.replacement_concepts(who))
+
+
+@mobile.get("/conceptos-reposicion")
+@mobile_auth_required
+def replacement_concepts_mobile():
+    return jsonify(items=s.replacement_concepts(actor(), active_only=True))

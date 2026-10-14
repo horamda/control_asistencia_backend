@@ -1,11 +1,29 @@
 venv/
+.venv/
 __pycache__/
+*.pyc
 .env
 instance/
-*.pyc
 .vscode/
-/output/audit_fix_mariadb/
-/output/*.log
+
+# Datos de ejecucion y archivos subidos (pueden contener datos personales)
+/uploads/
+/asistencia/
+/tmp/
+/*.log
+
+# Temporales de tests
+/.pytest_cache/
+/.pytest_tmp*/
+/ptmp*/
+/testtmp/
+/test-results.xml
 /stabilization_*.log
 /stabilization-*.xml
-/test-results.xml
+
+# output/: se versionan solo las evidencias de auditoria en la raiz
+/output/*/
+/output/*.log
+
+# Configuracion local de Claude Code
+/.claude/settings.local.json

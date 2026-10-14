@@ -38,7 +38,11 @@
       "Bash(find \"C:/Users/horac/Desktop\" -name \"*.png\" -o -name \"FichaYa*\" -o -name \"fichaya*\" -o -name \"logo*\" 2>/dev/null | head -30)",
       "Read(//c/Users/horac/Desktop/**)",
       "Bash(find \"C:/Users/horac\" -maxdepth 3 \\\\\\( -iname \"*ficha*\" -o -iname \"*icon*1024*\" -o -iname \"*icon*512*\" -o -iname \"*app_icon*\" \\\\\\) 2>/dev/null | head -20)",
-      "Read(//c/Users/horac/**)"
+      "Read(//c/Users/horac/**)",
+      "PowerShell(git ls-files | ForEach-Object { \\($_ -split '/'\\)[0] } | Group-Object | Sort-Object Count -Descending | Select-Object Count,Name | Format-Table -AutoSize; Get-ChildItem -File | Select-Object Name,Length | Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem static -Recurse -File | Select-Object @{n='Path';e={$_.FullName.Replace\\(\\(Get-Location\\).Path+'\\\\',''\\)}},Length | Format-Table -AutoSize; Get-ChildItem templates -Directory | Select-Object Name | Format-Wide -Column 6; Get-ChildItem templates -File | Select-Object Name,Length | Format-Table -AutoSize)",
+      "Bash(APP_ENV=test FLASK_SKIP_APP_BOOT=1 RUN_DB_INTEGRATION=0 SECRET_KEY=isolated-ci-secret-key-at-least-32-chars JWT_SECRET=isolated-ci-jwt-secret-at-least-32-chars python -m pytest tests -q --tb=line -p no:cacheprovider)",
+      "Bash(pip index *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\horac\\Desktop\\Proyectos WEB\\control_asistencia\\frontend_flutter\\lib\\src\\core\\network",

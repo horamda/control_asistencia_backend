@@ -8,6 +8,6 @@
       document.getElementById('epp-form-error').textContent = 'Seleccione entre 1 y 50 artículos indicando sus cantidades y talles.';
       return;
     }
-    document.getElementById('epp-payload').value = JSON.stringify({accion:event.submitter?.value || 'enviar',revision:form.dataset.revision || undefined,envio_id:form.elements.envio_id.value,motivo:form.elements.motivo.value,items});
+    document.getElementById('epp-payload').value = JSON.stringify({accion:event.submitter?.value || 'enviar',revision:form.dataset.revision || undefined,envio_id:form.elements.envio_id.value,motivo:form.elements.motivo.value,concepto_reposicion_id:form.elements.concepto_reposicion_id.value ? Number(form.elements.concepto_reposicion_id.value) : null,items});
   });
 })();

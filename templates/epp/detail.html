@@ -3,7 +3,7 @@
 <div class="epp-detail">
   <section class="epp-card epp-order-summary">
     <header class="epp-section-heading"><div><span class="epp-eyebrow">Solicitud de equipamiento</span><h3>Pedido #{{ row.id }}</h3><p>{{ row.empleado_nombre }}</p></div><span class="epp-status">{{ row.estado|capitalize }}</span></header>
-    <dl class="epp-order-facts"><div><dt>Legajo</dt><dd>{{ row.legajo }}</dd></div><div><dt>Sucursal</dt><dd>{{ row.sucursal_id }}</dd></div><div><dt>Motivo del pedido</dt><dd>{{ row.motivo or 'Sin motivo indicado' }}</dd></div></dl>
+    <dl class="epp-order-facts"><div><dt>Legajo</dt><dd>{{ row.legajo }}</dd></div><div><dt>Sucursal</dt><dd>{{ row.sucursal_id }}</dd></div><div><dt>Concepto de reposición</dt><dd>{{ row.concepto_reposicion or 'Sin concepto' }}</dd></div><div><dt>Motivo del pedido</dt><dd>{{ row.motivo or 'Sin motivo indicado' }}</dd></div></dl>
     {% if row.estado in ['borrador','pendiente'] and can_web('epp','editar') %}<a class="btn btn-secondary" href="{{ url_for('epp_web.edit',pid=row.id) }}">Editar pedido</a>{% endif %}
   </section>
   <section class="epp-card"><header class="epp-section-heading"><div><h3>Artículos solicitados</h3><p>Detalle de cantidades, talles y entregas.</p></div></header>

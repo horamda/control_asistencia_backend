@@ -29,7 +29,7 @@
     <div class="form-grid">
       <div class="row">
         <label>Empresa</label>
-        <select name="empresa_id" onchange="this.form.submit()">
+        <select name="empresa_id" data-autosubmit>
           <option value="">Seleccione empresa</option>
           {% for e in empresas %}
             <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
@@ -38,7 +38,7 @@
       </div>
       <div class="row">
         <label>Sector</label>
-        <select name="sector_id" onchange="this.form.submit()" {% if not empresa_id %}disabled{% endif %}>
+        <select name="sector_id" data-autosubmit {% if not empresa_id %}disabled{% endif %}>
           <option value="">{% if not empresa_id %}Seleccione empresa{% else %}Seleccione sector{% endif %}</option>
           {% for s in sectores %}
             <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
@@ -51,7 +51,7 @@
       </div>
       <div class="row">
         <label>Empleado</label>
-        <select name="empleado_id" onchange="this.form.submit()" {% if not sector_id %}disabled{% endif %}>
+        <select name="empleado_id" data-autosubmit {% if not sector_id %}disabled{% endif %}>
           <option value="">{% if not sector_id %}Seleccione sector{% else %}Seleccione empleado{% endif %}</option>
           {% for e in empleados %}
             <option value="{{ e.id }}" {% if empleado_id == e.id %}selected{% endif %}>
@@ -62,7 +62,7 @@
       </div>
       <div class="row">
         <label>KPI</label>
-        <select name="kpi_id" onchange="this.form.submit()" {% if not sector_id %}disabled{% endif %}>
+        <select name="kpi_id" data-autosubmit {% if not sector_id %}disabled{% endif %}>
           <option value="">Todos los KPIs activos</option>
           {% for k in kpis %}
             <option value="{{ k.id }}" {% if kpi_id == k.id %}selected{% endif %}>{{ k.nombre }}</option>
@@ -71,7 +71,7 @@
       </div>
       <div class="row">
         <label>Mes</label>
-        <select name="mes" onchange="this.form.submit()">
+        <select name="mes" data-autosubmit>
           {% for m in months %}
             <option value="{{ m.value }}" {% if mes == m.value %}selected{% endif %}>{{ m.label }}</option>
           {% endfor %}
@@ -79,7 +79,7 @@
       </div>
       <div class="row">
         <label>Ano</label>
-        <select name="anio" onchange="this.form.submit()">
+        <select name="anio" data-autosubmit>
           {% for y in years %}
             <option value="{{ y }}" {% if anio == y %}selected{% endif %}>{{ y }}</option>
           {% endfor %}
@@ -116,7 +116,7 @@
         </div>
         <form method="post" action="{{ url_for('kpis_sectoriales.eliminar_resultados_mes') }}"
               style="display:flex;gap:.5rem;align-items:end;flex-wrap:wrap"
-              onsubmit="return confirm('Eliminar resultados KPI de {{ bulk_delete_month_label }}? Esta accion no se puede deshacer.')">
+              data-confirm="Eliminar resultados KPI de {{ bulk_delete_month_label }}? Esta accion no se puede deshacer.">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
           <input type="hidden" name="sector_id" value="{{ sector_id }}">

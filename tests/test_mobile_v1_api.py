@@ -3603,6 +3603,25 @@ def test_mobile_horarios_asignaciones_actual_sin_asignacion(monkeypatch):
     assert data["dias"] == []
 
 
+def test_mobile_dashboard_incluye_horario_actual_con_dias(monkeypatch):
+    _setup_horario_auth(monkeypatch)
+    pedidos = []
+    monkeypatch.setattr(mobile_routes, "get_mobile_stats_by_empleado", lambda **kw: {"kpis": {}})
+    monkeypatch.setattr(mobile_routes, "_legajo_stats_for_mobile", lambda *a: {})
+    monkeypatch.setattr(mobile_routes, "get_vacaciones_page_by_empleado", lambda *a, **kw: ([], 0))
+    monkeypatch.setattr(mobile_routes, "get_francos_page_by_empleado", lambda *a, **kw: ([], 0))
+    monkeypatch.setattr(mobile_routes, "get_horario_actual_by_empleado", lambda eid: _FAKE_ASIGNACION)
+    monkeypatch.setattr(mobile_routes, "get_dias_by_horario", lambda hid: pedidos.append(hid) or _FAKE_DIAS)
+    client = _build_client(monkeypatch)
+    resp = client.get("/api/v1/mobile/me/dashboard", headers=_auth_headers())
+    assert resp.status_code == 200
+    horario = resp.get_json()["horario_actual"]
+    # Los dias salen del horario asignado, no del id de la asignacion.
+    assert pedidos == [_FAKE_ASIGNACION["horario_id"]]
+    assert horario["horario_nombre"] == "Turno Mañana"
+    assert [d["dia_semana"] for d in horario["dias"]] == [1, 2, 3, 4, 5]
+
+
 # ---------------------------------------------------------------------------
 # Francos
 # ---------------------------------------------------------------------------

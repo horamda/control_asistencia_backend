@@ -284,7 +284,7 @@
   {% endif %}
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   document.querySelectorAll('.org-toggle:not(.org-add-sub):not(.org-edit-btn)').forEach(function (btn) {
     btn.addEventListener('click', function (e) {

@@ -1,0 +1,69 @@
+{% import "_charts.html" as viz %}
+<section id="dash-evolucion" class="panel dashboard-block viz-root" aria-labelledby="dash-evolucion-title"
+         hx-target="this" hx-swap="outerHTML" hx-indicator="#dash-evolucion">
+  <div class="viz-head">
+    <div>
+      <h3 id="dash-evolucion-title">Evolución de la asistencia</h3>
+      <p class="helper-text">Mismos criterios que las tarjetas del mes, sobre la nómina activa. El mes en curso es parcial.</p>
+    </div>
+    <div class="viz-period" role="group" aria-label="Período de la evolución">
+      {% for p in periodos %}
+        <button type="button" class="btn btn-secondary btn-sm" aria-pressed="{{ 'true' if p == meses else 'false' }}"
+                hx-get="{{ url_for('web.dashboard_evolucion', meses=p, empresa_id=filtros.empresa_id, sucursal_id=filtros.sucursal_id) }}">{{ p }} meses</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if graficos is none %}
+    <p class="viz-message">No se pudieron calcular las tendencias.
+      <button type="button" class="btn btn-secondary btn-sm"
+              hx-get="{{ url_for('web.dashboard_evolucion', meses=meses, empresa_id=filtros.empresa_id, sucursal_id=filtros.sucursal_id) }}">Reintentar</button>
+    </p>
+  {% else %}
+    <div class="viz-layout">
+      <figure class="viz-card viz-card-wide" data-tooltips="{{ graficos.tooltips.ausentismo | tojson | forceescape }}">
+        <figcaption>
+          <h4 class="section-title">Ausentismo mensual</h4>
+          <p class="helper-text">Porcentaje de los días posibles de trabajo.</p>
+        </figcaption>
+        {% if graficos.ausentismo.empty %}
+          <p class="viz-message">Sin datos de asistencia en el período.</p>
+        {% else %}
+          {{ viz.legend(graficos.ausentismo.series) }}
+          {{ viz.line(graficos.ausentismo, "ausentismo", "Ausentismo mensual: faltas injustificadas y ausencias justificadas", graficos.tooltips.ausentismo) }}
+          {{ viz.data_table(["Mes", "Faltas injustificadas", "Ausencias justificadas", "Días posibles"],
+                            graficos.tablas.ausentismo) }}
+        {% endif %}
+        <div class="viz-tooltip" role="presentation" hidden></div>
+      </figure>
+
+      <figure class="viz-card" data-tooltips="{{ graficos.tooltips.puntualidad | tojson | forceescape }}">
+        <figcaption>
+          <h4 class="section-title">Puntualidad mensual</h4>
+          <p class="helper-text">Fichadas en horario sobre el total de fichadas.</p>
+        </figcaption>
+        {% if graficos.puntualidad.empty %}
+          <p class="viz-message">Sin fichadas en el período.</p>
+        {% else %}
+          {{ viz.line(graficos.puntualidad, "puntualidad", "Puntualidad mensual", graficos.tooltips.puntualidad) }}
+          {{ viz.data_table(["Mes", "Puntualidad", "Fichadas en horario", "Fichadas"], graficos.tablas.puntualidad) }}
+        {% endif %}
+        <div class="viz-tooltip" role="presentation" hidden></div>
+      </figure>
+
+      <figure class="viz-card" data-tooltips="{{ graficos.tooltips.semana | tojson | forceescape }}">
+        <figcaption>
+          <h4 class="section-title">Faltas injustificadas por día de la semana</h4>
+          <p class="helper-text">Tasa sobre los días posibles de cada día, en todo el período.</p>
+        </figcaption>
+        {% if graficos.semana.empty %}
+          <p class="viz-message">Sin días posibles en el período.</p>
+        {% else %}
+          {{ viz.columns(graficos.semana, "semana", "Faltas injustificadas por día de la semana", graficos.tooltips.semana) }}
+          {{ viz.data_table(["Día", "Tasa de faltas", "Faltas", "Días posibles"], graficos.tablas.semana) }}
+        {% endif %}
+        <div class="viz-tooltip" role="presentation" hidden></div>
+      </figure>
+    </div>
+  {% endif %}
+</section>

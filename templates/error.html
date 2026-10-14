@@ -3,6 +3,9 @@
 {% block content %}
 <h2>Error {{ code }}</h2>
 <p>{{ message }}</p>
+{% if request_id %}
+<p class="helper-text">Si el problema persiste, informe este codigo a soporte: <code>{{ request_id }}</code></p>
+{% endif %}
 <div class="actions">
   <a class="btn" href="/dashboard">Volver al panel</a>
 </div>

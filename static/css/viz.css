@@ -1,0 +1,137 @@
+/* Graficos SVG del dashboard (templates/_charts.html). Colores por rol,
+   validados contra la superficie del panel en claro (#fff) y oscuro (#162335). */
+.viz-root {
+  --viz-series-1: #2a78d6;
+  --viz-series-2: #eb6834;
+  --viz-grid: #e6ebf2;
+  --viz-axis: #c3cdda;
+  --viz-surface: var(--surface);
+}
+:root[data-theme="dark"] .viz-root {
+  --viz-series-1: #3987e5;
+  --viz-series-2: #d95926;
+  --viz-grid: #22344a;
+  --viz-axis: #3a4f69;
+}
+
+.viz-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.viz-head h3 { margin: 0 0 4px; }
+.viz-period { display: flex; gap: 6px; }
+.viz-root .viz-period .btn.btn-secondary[aria-pressed="true"] {
+  background: var(--action-bg);
+  border-color: var(--action-bg);
+  color: #fff;
+}
+
+.viz-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
+  margin-top: 14px;
+  transition: opacity 0.2s ease;
+}
+/* Mientras htmx recarga se conserva el grafico anterior atenuado. */
+#dash-evolucion.htmx-request .viz-layout { opacity: 0.5; }
+.viz-placeholder { min-height: 300px; }
+
+.viz-card {
+  position: relative;
+  margin: 0;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--viz-surface);
+}
+.viz-card-wide { grid-column: 1 / -1; }
+.viz-card figcaption .section-title { margin: 0; }
+.viz-card figcaption .helper-text { margin: 2px 0 8px; }
+
+/* En pantallas angostas el grafico conserva un ancho legible y se desplaza.
+   En series temporales, rtl hace que arranque mostrando el mes actual. */
+.viz-scroll { overflow-x: auto; }
+.viz-scroll-end { direction: rtl; }
+.viz-svg { display: block; width: 100%; min-width: 440px; height: auto; direction: ltr; }
+.viz-card-wide .viz-svg { min-width: 560px; }
+
+.viz-svg .viz-gridline { stroke: var(--viz-grid); stroke-width: 1; }
+.viz-svg .viz-axis { stroke: var(--viz-axis); stroke-width: 1; }
+.viz-svg .viz-crosshair { stroke: var(--viz-axis); stroke-width: 1; }
+/* Tamanos en unidades del viewBox: el grafico ancho (880) se ve casi 1:1 en
+   escritorio y los chicos (560) se reducen, por eso usan cuerpos distintos. */
+.viz-svg .viz-tick { fill: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.viz-svg .viz-end-label, .viz-svg .viz-value { fill: var(--text); font-size: 14px; font-weight: 600; }
+.viz-card-wide .viz-svg .viz-tick { font-size: 12px; }
+.viz-card-wide .viz-svg .viz-end-label { font-size: 13px; }
+@media (max-width: 760px) {
+  .viz-card-wide .viz-svg .viz-tick { font-size: 17px; }
+  .viz-card-wide .viz-svg .viz-end-label { font-size: 18px; }
+}
+
+.viz-svg .viz-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.viz-svg .viz-dot { stroke: var(--viz-surface); stroke-width: 2; }
+.viz-svg .viz-bar { fill: var(--viz-series-1); }
+.viz-ausentismo, .viz-puntualidad, .viz-semana { --viz-color: var(--viz-series-1); }
+.viz-justificadas { --viz-color: var(--viz-series-2); }
+.viz-svg .viz-line { stroke: var(--viz-color); }
+.viz-svg .viz-dot { fill: var(--viz-color); }
+
+.viz-svg .viz-hit { fill: transparent; cursor: crosshair; outline: none; }
+.viz-svg .viz-hit:focus-visible { stroke: var(--primary); stroke-width: 2; }
+.viz-svg .viz-hit.is-active { fill: rgba(127, 140, 160, 0.06); }
+
+.viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+.viz-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.viz-key {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--viz-color);
+  flex: none;
+}
+
+.viz-tooltip {
+  position: absolute;
+  z-index: 5;
+  min-width: 180px;
+  max-width: 260px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.16);
+  color: var(--text);
+  font-size: 0.82rem;
+  pointer-events: none;
+}
+.viz-tooltip-title { margin-bottom: 4px; color: var(--muted); font-weight: 600; }
+.viz-tooltip-row { display: flex; align-items: center; gap: 6px; }
+.viz-tooltip-row strong { font-size: 0.95rem; }
+.viz-tooltip-name { color: var(--muted); }
+.viz-tooltip-note { margin-top: 4px; color: var(--muted); font-size: 0.78rem; }
+
+.viz-table { margin-top: 8px; font-size: 0.85rem; }
+.viz-table summary { cursor: pointer; color: var(--primary); }
+.viz-table table { margin-top: 6px; font-variant-numeric: tabular-nums; }
+.viz-message { color: var(--muted); }
+
+@media (forced-colors: active) {
+  .viz-svg .viz-line, .viz-svg .viz-axis { stroke: CanvasText; }
+  .viz-svg .viz-bar, .viz-svg .viz-dot, .viz-key { fill: CanvasText; background: CanvasText; }
+}

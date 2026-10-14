@@ -60,6 +60,7 @@
         .sheet { border: none; }
       }
     </style>
+    <script src="{{ url_for('static', filename='js/page-actions.js') }}" defer></script>
   </head>
   <body>
     <div class="sheet">
@@ -81,7 +82,7 @@
         Abra la app de empleados, inicie sesion y escanee este codigo QR.
       </p>
 
-      <button class="print-hide" onclick="window.print()">Imprimir</button>
+      <button class="print-hide" data-print>Imprimir</button>
     </div>
   </body>
 </html>

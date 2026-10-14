@@ -35,7 +35,7 @@
     <div class="form-grid">
       <div class="row">
         <label>Empresa</label>
-        <select name="empresa_id" onchange="this.form.submit()">
+        <select name="empresa_id" data-autosubmit>
           <option value="">Seleccione empresa</option>
           {% for e in empresas %}
             <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
@@ -45,7 +45,7 @@
       {% if empresa_id %}
         <div class="row">
           <label>Sector</label>
-          <select name="sector_id" onchange="this.form.submit()">
+          <select name="sector_id" data-autosubmit>
             <option value="">Seleccione sector</option>
             {% for s in sectores %}
               <option value="{{ s.id }}" {% if sector_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
@@ -55,7 +55,7 @@
       {% endif %}
       <div class="row">
         <label>Año</label>
-        <select name="anio" onchange="this.form.submit()">
+        <select name="anio" data-autosubmit>
           {% for y in years %}
             <option value="{{ y }}" {% if anio == y %}selected{% endif %}>{{ y }}</option>
           {% endfor %}
@@ -75,7 +75,7 @@
       {% if puede_copiar_anio_anterior %}
         <div class="toolbar">
           <form method="post" action="{{ url_for('kpis_sectoriales.copiar_objetivos_anio_anterior') }}"
-                onsubmit="return confirm('Copiar todos los objetivos de {{ anio - 1 }} a {{ anio }}? Se sobreescriben los existentes.')">
+                data-confirm="Copiar todos los objetivos de {{ anio - 1 }} a {{ anio }}? Se sobreescriben los existentes.">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
             <input type="hidden" name="sector_id" value="{{ sector_id }}">
@@ -126,13 +126,13 @@
                 <td data-label="Objetivo {{ anio }}">
                   <form method="post" action="{{ url_for('kpis_sectoriales.guardar_objetivo') }}"
                         style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"
-                        onsubmit="prepararFormObjetivo(this)">
+                        data-form-objetivo>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
                     <input type="hidden" name="sector_id" value="{{ sector_id }}">
                     <input type="hidden" name="kpi_id" value="{{ k.kpi_id }}">
                     <input type="hidden" name="anio" value="{{ anio }}">
-                    <select name="condicion" style="width:80px;font-weight:700" onchange="toggleRangoInputs(this)">
+                    <select name="condicion" style="width:80px;font-weight:700">
                       <option value="gte" {% if condicion_actual == 'gte' %}selected{% endif %}>≥</option>
                       <option value="lte" {% if condicion_actual == 'lte' %}selected{% endif %}>≤</option>
                       <option value="eq"  {% if condicion_actual == 'eq'  %}selected{% endif %}>=</option>
@@ -172,7 +172,7 @@
                     <button class="btn" type="submit" name="action" value="guardar">Guardar</button>
                     {% if tiene_objetivo %}
                       <button class="btn-danger" type="submit" name="action" value="eliminar"
-                        onclick="return confirm('Quitar objetivo de {{ k.kpi_nombre }} para {{ anio }}?')">✕</button>
+                        data-confirm="Quitar objetivo de {{ k.kpi_nombre }} para {{ anio }}?">✕</button>
                     {% endif %}
                   </form>
                 </td>
@@ -203,7 +203,7 @@
     <a class="btn btn-secondary" href="{{ url_for('kpis_sectoriales.listado') }}">Volver</a>
   </div>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
 function toggleRangoInputs(select) {
   var form = select.closest('form');
   var esBetween = select.value === 'between';
@@ -222,5 +222,10 @@ function prepararFormObjetivo(form) {
     if (el) el.disabled = true;
   }
 }
+document.querySelectorAll('form[data-form-objetivo]').forEach(function (form) {
+  form.addEventListener('submit', function () { prepararFormObjetivo(form); });
+  var condicion = form.querySelector('[name=condicion]');
+  condicion.addEventListener('change', function () { toggleRangoInputs(condicion); });
+});
 </script>
 {% endblock %}

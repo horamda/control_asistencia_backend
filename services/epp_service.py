@@ -320,6 +320,7 @@ def create(who, eid, data):
                 legajo=str(emp["legajo"]),
                 estado="borrador" if data.get("accion") == "borrador" else "pendiente",
                 motivo=text_field(data, "motivo", 1000),
+                **order_concept(c, who, data),
                 envio_id=token,
                 envio_hash=digest,
                 creado_at=now_local(),
@@ -719,14 +720,15 @@ def edit_order(who, pid, data):
                 )
             )
         reason = text_field(data, "motivo", 1000)
+        concept = order_concept(c, who, data, row)
         audit(c, who, "editar_pedido", dict(anterior=row, nuevo=data), pid)
         c.execute("DELETE FROM epp_lineas WHERE pedido_id=%s", (pid,))
         for line in prepared:
             db.insert(c, "epp_lineas", line)
         state = "borrador" if data.get("accion") == "borrador" else "pendiente"
         c.execute(
-            "UPDATE epp_pedidos SET motivo=%s,estado=%s,revision=revision+1 WHERE id=%s",
-            (reason, state, pid),
+            "UPDATE epp_pedidos SET motivo=%s,estado=%s,concepto_reposicion_id=%s,concepto_reposicion=%s,revision=revision+1 WHERE id=%s",
+            (reason, state, concept["concepto_reposicion_id"], concept["concepto_reposicion"], pid),
         )
 
 
@@ -770,3 +772,55 @@ def save_category(who, data):
             )
         audit(c, who, "categoria", dict(id=rid, nombre=name, activo=active))
     return rid
+
+
+def replacement_concepts(who, active_only=False):
+    with db.transaction(read_only=True) as c:
+        return db.all_rows(c,
+            "SELECT id,nombre,activo FROM epp_conceptos_reposicion WHERE empresa_id=%s"
+            + (" AND activo=1" if active_only else "") + " ORDER BY nombre",
+            (who["empresa_id"],))
+
+
+def save_replacement_concept(who, data):
+    if not who.get("global"):
+        raise Error("Solo responsables de EPP administran conceptos de reposición.", 403)
+    name = text_field(data, "nombre", 120)
+    active = integer(data.get("activo", 1), "Activo", 1, True)
+    with db.transaction() as c:
+        rid = positive_int(data["id"], "Concepto") if data.get("id") else None
+        if rid:
+            if not db.one(c, "SELECT id FROM epp_conceptos_reposicion WHERE id=%s AND empresa_id=%s FOR UPDATE", (rid, who["empresa_id"])):
+                raise Error("Concepto no encontrado.", 404)
+            c.execute("UPDATE epp_conceptos_reposicion SET nombre=%s,activo=%s WHERE id=%s AND empresa_id=%s", (name, active, rid, who["empresa_id"]))
+        else:
+            rid = db.insert(c, "epp_conceptos_reposicion", dict(empresa_id=who["empresa_id"], nombre=name, activo=active))
+        audit(c, who, "concepto_reposicion", dict(id=rid, nombre=name, activo=active))
+    return rid
+
+
+def delete_replacement_concept(who, rid):
+    if not who.get("global"):
+        raise Error("Solo responsables de EPP administran conceptos de reposición.", 403)
+    rid = positive_int(rid, "Concepto")
+    with db.transaction() as c:
+        if not db.one(c, "SELECT id FROM epp_conceptos_reposicion WHERE id=%s AND empresa_id=%s FOR UPDATE", (rid, who["empresa_id"])):
+            raise Error("Concepto no encontrado.", 404)
+        # Logical deletion preserves references and allows reactivation.
+        c.execute("UPDATE epp_conceptos_reposicion SET activo=0 WHERE id=%s AND empresa_id=%s", (rid, who["empresa_id"]))
+        audit(c, who, "baja_concepto_reposicion", dict(id=rid))
+
+
+def order_concept(c, who, data, previous=None):
+    if previous and "concepto_reposicion_id" not in data:
+        return {k: previous.get(k) for k in ("concepto_reposicion_id", "concepto_reposicion")}
+    rid = data.get("concepto_reposicion_id")
+    if rid in (None, ""):
+        return dict(concepto_reposicion_id=None, concepto_reposicion=None)
+    rid = positive_int(rid, "Concepto de reposición")
+    if previous and rid == previous.get("concepto_reposicion_id"):
+        return {k: previous.get(k) for k in ("concepto_reposicion_id", "concepto_reposicion")}
+    concept = db.one(c, "SELECT nombre FROM epp_conceptos_reposicion WHERE id=%s AND empresa_id=%s AND activo=1 LOCK IN SHARE MODE", (rid, who["empresa_id"]))
+    if not concept:
+        raise Error("Seleccione un concepto de reposición activo de su empresa.")
+    return dict(concepto_reposicion_id=rid, concepto_reposicion=concept["nombre"])

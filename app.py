@@ -1,13 +1,16 @@
 from datetime import timedelta
 
-from flask import Flask, g, redirect, url_for, request, jsonify, render_template, session
+from flask import Flask, g, has_request_context, redirect, url_for, request, jsonify, render_template, session
 from flask_cors import CORS
 from dotenv import load_dotenv
 import hashlib
 import os
 import logging
 import json
+import re
+import secrets
 import time
+import uuid
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -65,6 +68,91 @@ from web.reintegros.reintegro_routes import reintegros_web_bp
 from routes.seguridad_routes import seguridad_mobile_bp
 from web.seguridad.seguridad_routes import seguridad_web_bp
 from web.carga.carga_routes import carga_web_bp
+from web.panel_notifications_routes import panel_notifications_bp
+
+# API: autentican por token, responden errores en JSON y quedan exentas de CSRF.
+API_BLUEPRINTS = (
+    auth_bp,
+    external_api_bp,
+    mobile_v1_bp,
+    feedback_bp,
+    skap_bp,
+    carga_mobile_bp,
+    reintegros_mobile_bp,
+    epp_mobile_bp,
+    seguridad_mobile_bp,
+    trivia_bp,
+)
+API_BLUEPRINT_NAMES = frozenset(bp.name for bp in API_BLUEPRINTS)
+
+# Orden de registro: Flask resuelve reglas duplicadas por orden de alta.
+BLUEPRINTS = (
+    auth_bp,
+    external_api_bp,
+    mobile_v1_bp,
+    feedback_bp,
+    skap_bp,
+    carga_mobile_bp,
+    reintegros_mobile_bp,
+    epp_mobile_bp,
+    epp_web_bp,
+    reintegros_web_bp,
+    seguridad_mobile_bp,
+    seguridad_web_bp,
+    carga_web_bp,
+    media_bp,
+    public_media_bp,
+    # Panel web
+    web_auth_bp,
+    web_bp,
+    presencia_bp,
+    empleados_bp,
+    empresas_bp,
+    sucursales_bp,
+    horarios_bp,
+    roles_bp,
+    empleado_roles_bp,
+    empleado_horarios_bp,
+    asistencias_bp,
+    justificaciones_bp,
+    auditoria_bp,
+    usuarios_bp,
+    configuracion_bp,
+    sectores_bp,
+    puestos_bp,
+    organigrama_bp,
+    localidades_bp,
+    francos_bp,
+    vacaciones_bp,
+    adelantos_bp,
+    pedidos_mercaderia_bp,
+    empleado_excepciones_bp,
+    qr_puerta_bp,
+    legajos_bp,
+    legajo_tipos_evento_bp,
+    kpis_sectoriales_bp,
+    premios_concursos_bp,
+    app_version_bp,
+    trivia_admin_bp,
+    calificaciones_app_bp,
+    mobile_stats_bp,
+    feedback_web_bp,
+    skap_web_bp,
+    skap_matriz_bp,
+    panel_notifications_bp,
+    trivia_bp,
+)
+
+# Módulos con carga de archivos: límite de cuerpo y de partes multipart.
+UPLOAD_MAX_BYTES = 27 * 1024 * 1024
+UPLOAD_MAX_FORM_PARTS = {
+    "reintegros_web": 700,
+    "reintegros_mobile": 200,
+    "seguridad_web": 150,
+    "seguridad_mobile": 150,
+    "epp_web": 150,
+    "epp_mobile": 150,
+}
 
 load_dotenv("/etc/secrets/.env", override=False)
 load_dotenv(override=False)
@@ -86,6 +174,20 @@ _VALID_SAMESITE_VALUES = {
 
 class AppConfigError(RuntimeError):
     pass
+
+
+_REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{8,64}$")
+
+
+def _request_id() -> str:
+    """Id del request para correlacionar logs, respuesta y reporte del usuario.
+    Reusa el X-Request-ID del proxy si es seguro; si no, genera uno."""
+    request_id = getattr(g, "request_id", None)
+    if not request_id:
+        incoming = str(request.headers.get("X-Request-ID") or "").strip()
+        request_id = incoming if _REQUEST_ID_PATTERN.match(incoming) else uuid.uuid4().hex[:16]
+        g.request_id = request_id
+    return request_id
 
 
 def _parse_bool_env(name: str, *, default: bool) -> bool:
@@ -201,6 +303,34 @@ def _check_jwt_secret_integrity(app) -> None:
         app.logger.exception("jwt_secret_integrity_check_failed")
 
 
+_CSP_BASE = "base-uri 'self'; object-src 'none'; frame-ancestors 'self'"
+_CSP_REPORT_MAX_BYTES = 16 * 1024
+
+
+def _csp_nonce() -> str:
+    """Nonce por request para los <script> inline de las plantillas."""
+    nonce = getattr(g, "csp_nonce", None)
+    if not nonce:
+        nonce = g.csp_nonce = secrets.token_urlsafe(16)
+    return nonce
+
+
+def _strict_csp(nonce: str) -> str:
+    return "; ".join((
+        _CSP_BASE,
+        "default-src 'self'",
+        f"script-src 'self' 'nonce-{nonce}'",
+        "script-src-attr 'none'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com data:",
+        # Las fotos pueden servirse desde un host externo (FTP/CDN).
+        "img-src 'self' data: blob: https:",
+        "connect-src 'self'",
+        "form-action 'self'",
+        "report-uri /csp-report",
+    ))
+
+
 def _session_cookie_samesite() -> str:
     raw = str(os.getenv("SESSION_COOKIE_SAMESITE") or "Lax").strip().lower()
     value = _VALID_SAMESITE_VALUES.get(raw)
@@ -249,6 +379,8 @@ def _build_security_config() -> dict:
         "SESSION_COOKIE_SECURE": session_cookie_secure,
         "PERMANENT_SESSION_LIFETIME": timedelta(minutes=session_lifetime_minutes),
         "SESSION_REFRESH_EACH_REQUEST": False,
+        # La CSP estricta se publica en modo Report-Only hasta activar esto.
+        "CSP_ENFORCE": _parse_bool_env("CSP_ENFORCE", default=False),
     }
 
 
@@ -300,6 +432,8 @@ def create_app():
                 "logger": record.name,
                 "time": self.formatTime(record, self.datefmt)
             }
+            if has_request_context():
+                payload["request_id"] = _request_id()
             if hasattr(record, "extra"):
                 payload.update(record.extra)
             if record.exc_info:
@@ -329,82 +463,16 @@ def create_app():
     @app.before_request
     def seguridad_upload_limits():
         # Antes de CSRF: el formulario multipart no debe analizarse sin límite.
-        if request.blueprint in ('seguridad_web', 'seguridad_mobile', 'reintegros_web', 'reintegros_mobile', 'epp_web', 'epp_mobile'):
-            request.max_content_length = 27 * 1024 * 1024
-            request.max_form_parts = 700 if request.blueprint == 'reintegros_web' else 200 if request.blueprint == 'reintegros_mobile' else 150
+        max_form_parts = UPLOAD_MAX_FORM_PARTS.get(request.blueprint)
+        if max_form_parts is not None:
+            request.max_content_length = UPLOAD_MAX_BYTES
+            request.max_form_parts = max_form_parts
 
     csrf = CSRFProtect(app)
-    csrf.exempt(auth_bp)
-    csrf.exempt(external_api_bp)
-    csrf.exempt(mobile_v1_bp)
-    csrf.exempt(feedback_bp)
-    csrf.exempt(skap_bp)
-    csrf.exempt(carga_mobile_bp)
-    csrf.exempt(reintegros_mobile_bp)
-    csrf.exempt(epp_mobile_bp)
-    csrf.exempt(seguridad_mobile_bp)
-
-    # API
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(external_api_bp)
-    app.register_blueprint(mobile_v1_bp)
-    app.register_blueprint(feedback_bp)
-    app.register_blueprint(skap_bp)
-    app.register_blueprint(carga_mobile_bp)
-    app.register_blueprint(reintegros_mobile_bp)
-    app.register_blueprint(epp_mobile_bp)
-    app.register_blueprint(epp_web_bp)
-    app.register_blueprint(reintegros_web_bp)
-    app.register_blueprint(seguridad_mobile_bp)
-    app.register_blueprint(seguridad_web_bp)
-    app.register_blueprint(carga_web_bp)
-    app.register_blueprint(media_bp)
-    app.register_blueprint(public_media_bp)
-
-    # PANEL WEB
-    app.register_blueprint(web_auth_bp)
-    app.register_blueprint(web_bp)
-    app.register_blueprint(presencia_bp)
-    
-    app.register_blueprint(empleados_bp)
-    app.register_blueprint(empresas_bp)
-    app.register_blueprint(sucursales_bp)
-    app.register_blueprint(horarios_bp)
-    app.register_blueprint(roles_bp)
-    app.register_blueprint(empleado_roles_bp)
-    app.register_blueprint(empleado_horarios_bp)
-    app.register_blueprint(asistencias_bp)
-    app.register_blueprint(justificaciones_bp)
-    app.register_blueprint(auditoria_bp)
-    app.register_blueprint(usuarios_bp)
-    app.register_blueprint(configuracion_bp)
-    app.register_blueprint(sectores_bp)
-    app.register_blueprint(puestos_bp)
-    app.register_blueprint(organigrama_bp)
-    app.register_blueprint(localidades_bp)
-    app.register_blueprint(francos_bp)
-    app.register_blueprint(vacaciones_bp)
-    app.register_blueprint(adelantos_bp)
-    app.register_blueprint(pedidos_mercaderia_bp)
-    app.register_blueprint(empleado_excepciones_bp)
-    app.register_blueprint(qr_puerta_bp)
-    app.register_blueprint(legajos_bp)
-    app.register_blueprint(legajo_tipos_evento_bp)
-    app.register_blueprint(kpis_sectoriales_bp)
-    app.register_blueprint(premios_concursos_bp)
-    app.register_blueprint(app_version_bp)
-    app.register_blueprint(trivia_admin_bp)
-    app.register_blueprint(calificaciones_app_bp)
-    app.register_blueprint(mobile_stats_bp)
-    app.register_blueprint(feedback_web_bp)
-    app.register_blueprint(skap_web_bp)
-    app.register_blueprint(skap_matriz_bp)
-    from web.panel_notifications_routes import panel_notifications_bp
-    app.register_blueprint(panel_notifications_bp)
-
-    # API móvil trivia (exento de CSRF como el resto de la API)
-    csrf.exempt(trivia_bp)
-    app.register_blueprint(trivia_bp)
+    for blueprint in API_BLUEPRINTS:
+        csrf.exempt(blueprint)
+    for blueprint in BLUEPRINTS:
+        app.register_blueprint(blueprint)
 
     from services.panel_export_service import build_export_toolbar, wrap_exportable_views
     wrap_exportable_views(app)
@@ -426,6 +494,34 @@ def create_app():
             "status": "ok",
             "revision": os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("BUILD_REVISION") or "local",
         }), 200
+
+    @app.route("/csp-report", methods=["POST"])
+    @csrf.exempt
+    @limiter.limit("60 per minute")
+    def csp_report():
+        if (request.content_length or 0) > _CSP_REPORT_MAX_BYTES:
+            return "", 413
+        payload = request.get_json(force=True, silent=True) or {}
+        reports = payload if isinstance(payload, list) else [payload]
+        for item in reports[:10]:
+            if not isinstance(item, dict):
+                continue
+            report = item.get("csp-report") or item.get("body") or {}
+            if not isinstance(report, dict):
+                continue
+            app.logger.warning(
+                "csp_violation",
+                extra={
+                    "extra": {
+                        key.replace("-", "_"): str(report.get(key) or "")[:300]
+                        for key in (
+                            "document-uri", "violated-directive", "effective-directive",
+                            "blocked-uri", "source-file", "line-number",
+                        )
+                    }
+                },
+            )
+        return "", 204
 
     @app.errorhandler(CSRFError)
     def handle_csrf_error(err):
@@ -461,26 +557,46 @@ def create_app():
         if code == 403:
             message = "Usuario no permitido."
 
-        if request.blueprint in {"auth", "external_api", "mobile_v1", "feedback", "skap", "trivia", "carga_mobile", "seguridad_mobile", "reintegros_mobile", "epp_mobile"}:
-            return jsonify({
-                "success": False,
-                "error": message
-            }), code
+        # En errores 500 el id permite ubicar el traceback en los logs.
+        request_id = _request_id() if code >= 500 else None
+        if request.blueprint in API_BLUEPRINT_NAMES:
+            body = {"success": False, "error": message}
+            if request_id:
+                body["request_id"] = request_id
+            return jsonify(body), code
 
-        return render_template("error.html", code=code, message=message), code
+        return render_template("error.html", code=code, message=message, request_id=request_id), code
 
     @app.before_request
     def _start_timer():
         request._start_time = time.time()
+        _request_id()
+
+    @app.after_request
+    def _htmx_login_redirect(response):
+        # Sin esto htmx seguiria la redireccion y pondria el login dentro del panel.
+        if request.headers.get("HX-Request") and response.status_code in (301, 302, 303, 307, 308):
+            location = response.headers.get("Location") or ""
+            if location.split("?")[0].rstrip("/").endswith("/login"):
+                response.status_code = 204
+                response.headers["HX-Redirect"] = location
+                del response.headers["Location"]
+                response.set_data(b"")
+        return response
 
     @app.after_request
     def _add_security_headers(response):
+        response.headers["X-Request-ID"] = _request_id()
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        response.headers.setdefault(
-            "Content-Security-Policy", "base-uri 'self'; object-src 'none'; frame-ancestors 'self'"
-        )
+        if response.mimetype == "text/html":
+            strict = _strict_csp(_csp_nonce())
+            if app.config["CSP_ENFORCE"]:
+                response.headers.setdefault("Content-Security-Policy", strict)
+            else:
+                response.headers.setdefault("Content-Security-Policy-Report-Only", strict)
+        response.headers.setdefault("Content-Security-Policy", _CSP_BASE)
         # Never let shared caches retain authenticated pages or API responses.
         # Static resources keep their conditional caching behaviour.
         if request.endpoint != 'static' and (
@@ -532,6 +648,10 @@ def create_app():
             }
         )
         return response
+
+    @app.context_processor
+    def _inject_csp_nonce():
+        return {"csp_nonce": _csp_nonce}
 
     @app.context_processor
     def _inject_panel_notifications():

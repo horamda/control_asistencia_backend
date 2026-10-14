@@ -145,7 +145,7 @@ def client(database, monkeypatch):
     app.secret_key='isolated-test'
     app.config['TESTING']=True
     app.register_blueprint(web.carga_web_bp)
-    app.jinja_env.globals.update(csrf_token=lambda:'test',can_web=lambda *args:False,export_toolbar={'enabled':False,'items':[]})
+    app.jinja_env.globals.update(csrf_token=lambda:'test',csp_nonce=lambda:'test',can_web=lambda *args:False,export_toolbar={'enabled':False,'items':[]})
     monkeypatch.setattr(auth,'can_access_module',lambda *args:True)
     monkeypatch.setattr(web,'get_user',lambda uid:{'id':uid,'empresa_id':1,'rol':'supervisor','activo':1})
     monkeypatch.setattr(repo,'catalogs',lambda empresa_id:{'sucursales':[{'id':1,'nombre':'Central','activa':1}]})

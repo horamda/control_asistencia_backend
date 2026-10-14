@@ -8,22 +8,22 @@
     <a class="attendance-icon-btn" href="{{ url_for('asistencias.reportes_mensuales', mes=next_mes, empresa_id=empresa_id or '', sucursal_id=sucursal_id or '', sector_id=sector_id or '', tab=active_tab) }}">&rsaquo;</a>
     <form method="get" class="attendance-report-filters">
       <input type="hidden" name="tab" value="{{ active_tab }}">
-      <select name="mes" onchange="this.form.submit()">
+      <select name="mes" data-autosubmit>
         <option value="{{ mes }}" selected>{{ month_label }}</option>
       </select>
-      <select name="empresa_id" onchange="this.form.submit()">
+      <select name="empresa_id" data-autosubmit>
         <option value="">Total distribuidor</option>
         {% for empresa in empresas %}
           <option value="{{ empresa.id }}" {% if empresa_id == empresa.id %}selected{% endif %}>{{ empresa.razon_social }}</option>
         {% endfor %}
       </select>
-      <select name="sucursal_id" onchange="this.form.submit()">
+      <select name="sucursal_id" data-autosubmit>
         <option value="">Todas las sucursales</option>
         {% for sucursal in sucursales %}
           <option value="{{ sucursal.id }}" {% if sucursal_id == sucursal.id %}selected{% endif %}>{{ sucursal.nombre }}</option>
         {% endfor %}
       </select>
-      <select name="sector_id" onchange="this.form.submit()">
+      <select name="sector_id" data-autosubmit>
         <option value="">Todos los sectores</option>
         {% for sector in sectores %}
           <option value="{{ sector.id }}" {% if sector_id == sector.id %}selected{% endif %}>{{ sector.nombre }}</option>
@@ -252,7 +252,7 @@
   {% endif %}
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var nlInput = document.getElementById("non-laborable-input");
   var saveNonLaborable = document.getElementById("save-non-laborable");

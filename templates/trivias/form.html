@@ -36,7 +36,7 @@
         <input type="text" name="titulo" class="form-control" required maxlength="200"
                value="{{ trivia.titulo if trivia else '' }}"
                placeholder="Ej: Trivia de seguridad e higiene — Mayo 2026"
-               oninput="document.getElementById('titulo-count').textContent=this.value.length">
+               data-count-target="titulo-count">
         <span id="titulo-count" style="font-size:.78rem;color:var(--muted);display:block;text-align:right;margin-top:.2rem">{{ (trivia.titulo|length) if trivia else 0 }}</span>/200
       </div>
 
@@ -109,7 +109,7 @@
           <label class="sector-pill {% if s.id in sector_ids %}selected{% endif %}">
             <input type="checkbox" name="sector_ids" value="{{ s.id }}"
                    {% if s.id in sector_ids %}checked{% endif %}
-                   onchange="actualizarContadorSectores()">
+>
             <span>{{ s.nombre }}</span>
           </label>
         {% endfor %}
@@ -149,7 +149,7 @@
   color: #fff;
 }
 </style>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   function pills()      { return document.querySelectorAll('#sector-checkboxes .sector-pill'); }
   function checkboxes() { return document.querySelectorAll('#sector-checkboxes input[type="checkbox"]'); }
@@ -157,6 +157,12 @@
   function syncPillState(cb) {
     cb.closest('.sector-pill').classList.toggle('selected', cb.checked);
   }
+
+  document.querySelectorAll('[data-count-target]').forEach(function (input) {
+    input.addEventListener('input', function () {
+      document.getElementById(input.dataset.countTarget).textContent = input.value.length;
+    });
+  });
 
   checkboxes().forEach(function (cb) {
     syncPillState(cb);

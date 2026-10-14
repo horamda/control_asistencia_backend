@@ -243,3 +243,8 @@ def test_dashboard_rrhh_render_ok(monkeypatch):
     assert b"Eventos de legajo" in resp.data
     assert b"Empresa A" in resp.data
     assert b"Perez Ana" in resp.data
+    # La evolucion mensual se carga en diferido con htmx.
+    assert b'hx-get="/dashboard/evolucion"' in resp.data
+    assert b"vendor/htmx-2.0.4.min.js" in resp.data
+    # El dashboard tiene JavaScript propio: su contenido no se reemplaza con htmx.
+    assert b'id="page-content" data-no-ajax' in resp.data

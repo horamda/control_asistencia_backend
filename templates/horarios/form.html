@@ -92,7 +92,7 @@
 </div>
 
 <script id="dias-seed" type="application/json">{{ (dias_seed or []) | tojson }}</script>
-<script>
+<script nonce="{{ csp_nonce() }}">
   const dayNames = {
     1: "Lunes",
     2: "Martes",

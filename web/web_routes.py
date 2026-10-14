@@ -7,7 +7,8 @@ from repositories.asistencia_dia_no_laborable_repository import get_dates as get
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.sucursal_repository import get_all as get_sucursales
 from web.auth.decorators import has_role, login_required
-from web.dashboard_metrics import _dashboard_metrics, _parse_optional_int, _to_int
+from services.svg_chart_service import column_chart, line_chart
+from web.dashboard_metrics import _dashboard_metrics, _dashboard_trends, _parse_optional_int, _to_int
 
 web_bp = Blueprint("web", __name__)
 
@@ -128,4 +129,94 @@ def dashboard():
         filtros={"empresa_id": empresa_id, "sucursal_id": sucursal_id},
         scope=scope,
         labor_calendar=labor_calendar,
+    )
+
+
+EVOLUCION_PERIODOS = (6, 12)
+
+
+def _num(value: int) -> str:
+    return f"{int(value):,}".replace(",", ".")
+
+
+def _pct_text(value) -> str:
+    return "s/d" if value is None else f"{value:.1f}%"
+
+
+def _evolucion_textos(meses: list[dict], dias_semana: list[dict]) -> tuple[dict, dict]:
+    """Tooltips (por punto) y filas de las tablas equivalentes de cada grafico."""
+    tooltips = {"ausentismo": [], "puntualidad": [], "semana": []}
+    tablas = {"ausentismo": [], "puntualidad": [], "semana": []}
+    for m in meses:
+        titulo = m["nombre"] + (" (parcial)" if m["parcial"] else "")
+        aus, just = _pct_text(m["ausentismo_pct"]), _pct_text(m["justificadas_pct"])
+        tooltips["ausentismo"].append({
+            "title": titulo,
+            "rows": [
+                {"key": "ausentismo", "name": "Faltas injustificadas", "value": aus},
+                {"key": "justificadas", "name": "Ausencias justificadas", "value": just},
+            ],
+            "note": f"{_num(m['ausencias'])} faltas y {_num(m['justificadas'])} justificadas en {_num(m['dias_posibles'])} días posibles",
+            "aria": f"{titulo}: faltas injustificadas {aus}, ausencias justificadas {just}",
+        })
+        tablas["ausentismo"].append([titulo, aus, just, _num(m["dias_posibles"])])
+        punt = _pct_text(m["puntualidad_pct"])
+        tooltips["puntualidad"].append({
+            "title": titulo,
+            "rows": [{"key": "puntualidad", "name": "Puntualidad", "value": punt}],
+            "note": f"{_num(m['en_horario'])} en horario de {_num(m['fichadas'])} fichadas",
+            "aria": f"{titulo}: puntualidad {punt}",
+        })
+        tablas["puntualidad"].append([titulo, punt, _num(m["en_horario"]), _num(m["fichadas"])])
+    for d in dias_semana:
+        tasa = _pct_text(d["value"])
+        tooltips["semana"].append({
+            "title": d["nombre"],
+            "rows": [{"key": "semana", "name": "Faltas injustificadas", "value": tasa}],
+            "note": f"{_num(d['ausencias'])} faltas en {_num(d['posibles'])} días posibles",
+            "aria": f"{d['nombre']}: {tasa} de faltas injustificadas",
+        })
+        tablas["semana"].append([d["nombre"], tasa, _num(d["ausencias"]), _num(d["posibles"])])
+    return tooltips, tablas
+
+
+@web_bp.route("/dashboard/evolucion")
+@login_required
+def dashboard_evolucion():
+    """Fragmento del dashboard (cargado con htmx): evolucion mensual."""
+    meses = request.args.get("meses", 12, type=int)
+    if meses not in EVOLUCION_PERIODOS:
+        meses = 12
+    filtros = {
+        "empresa_id": _parse_optional_int(request.args.get("empresa_id")),
+        "sucursal_id": _parse_optional_int(request.args.get("sucursal_id")),
+    }
+    graficos = None
+    try:
+        trends = _dashboard_trends(months=meses, **filtros)
+        labels = [{"label": m["label"], "sub": m["sub"]} for m in trends["meses"]]
+        graficos = {
+            "meses": trends["meses"],
+            "dias_semana": trends["dias_semana"],
+            "ausentismo": line_chart(labels, [
+                {"key": "ausentismo", "name": "Faltas injustificadas",
+                 "values": [m["ausentismo_pct"] for m in trends["meses"]]},
+                {"key": "justificadas", "name": "Ausencias justificadas",
+                 "values": [m["justificadas_pct"] for m in trends["meses"]]},
+            ], width=880, height=260),
+            "puntualidad": line_chart(labels, [
+                {"key": "puntualidad", "name": "Puntualidad",
+                 "values": [m["puntualidad_pct"] for m in trends["meses"]]},
+            ], y_min=None, y_max=100),
+            "semana": column_chart(trends["dias_semana"]),
+        }
+        graficos["tooltips"], graficos["tablas"] = _evolucion_textos(trends["meses"], trends["dias_semana"])
+    except Exception:
+        current_app.logger.exception("dashboard_evolucion_error")
+    return render_template(
+        "_dashboard_evolucion.html",
+        graficos=graficos,
+        meses=meses,
+        periodos=EVOLUCION_PERIODOS,
+        filtros=filtros,
     )

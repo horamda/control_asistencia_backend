@@ -57,6 +57,11 @@ def test_empleados_listado_muestra_foto_y_fallback(monkeypatch):
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
     monkeypatch.setattr(
         empleados_routes,
+        "get_listado_resumen",
+        lambda **kwargs: {"total": 1, "activos": 1, "sin_control": 0, "con_foto": 1},
+    )
+    monkeypatch.setattr(
+        empleados_routes,
         "get_page",
         lambda *args, **kwargs: (
             [
@@ -118,6 +123,11 @@ def test_empleados_listado_muestra_vacaciones_resumen(monkeypatch):
     client = _build_client(monkeypatch)
     _login_session(client)
     monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(
+        empleados_routes,
+        "get_listado_resumen",
+        lambda **kwargs: {"total": 1, "activos": 1, "sin_control": 0, "con_foto": 1},
+    )
     monkeypatch.setattr(
         empleados_routes,
         "get_page",
@@ -574,3 +584,49 @@ def test_empleados_editar_bloquea_next_externo(monkeypatch):
 
     assert resp.status_code == 302
     assert resp.headers["Location"].endswith("/empleados/")
+
+
+def test_empleados_listado_kpis_cubren_todo_el_filtro(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    filtros_resumen = []
+    monkeypatch.setattr(empleados_routes, "get_page", lambda *args, **kwargs: ([], 240))
+    monkeypatch.setattr(
+        empleados_routes,
+        "get_listado_resumen",
+        lambda **kwargs: filtros_resumen.append(kwargs) or {"total": 240, "activos": 231, "sin_control": 12, "con_foto": 87},
+    )
+    monkeypatch.setattr(empleados_routes, "get_empresas", lambda include_inactive=True: [])
+    monkeypatch.setattr(empleados_routes, "get_sucursales", lambda include_inactive=True: [])
+    monkeypatch.setattr(empleados_routes, "get_sectores", lambda include_inactive=True: [])
+
+    response = client.get("/empleados/?q=ana&sector_id=4&activo=1&page=3")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert ">231<" in html and ">12<" in html and ">87<" in html
+    assert "De 240 filtrados" in html
+    # Los totales usan los mismos filtros que el listado, sin paginar.
+    assert filtros_resumen == [{
+        "include_inactive": True, "search": "ana", "empresa_id": None,
+        "activo": 1, "sucursal_id": None, "sector_id": 4,
+    }]
+
+
+def test_empleados_listado_se_actualiza_con_htmx(monkeypatch):
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(empleados_routes, "get_page", lambda *args, **kwargs: ([], 0))
+    monkeypatch.setattr(empleados_routes, "get_listado_resumen", lambda **kw: {"total": 0, "activos": 0, "sin_control": 0, "con_foto": 0})
+    monkeypatch.setattr(empleados_routes, "get_empresas", lambda include_inactive=True: [])
+    monkeypatch.setattr(empleados_routes, "get_sucursales", lambda include_inactive=True: [])
+    monkeypatch.setattr(empleados_routes, "get_sectores", lambda include_inactive=True: [])
+
+    html = client.get("/empleados/").get_data(as_text=True)
+
+    # Sin JavaScript propio: ajax-nav.js puede reemplazar el contenido.
+    assert '<main class="page-content" id="page-content">' in html
+    assert 'id="per-page" data-autosubmit' in html
+    assert "js/ajax-nav.js" in html

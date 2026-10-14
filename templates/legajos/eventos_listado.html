@@ -147,7 +147,7 @@
                   alt="Foto {{ ev.empleado_apellido }} {{ ev.empleado_nombre }}"
                   loading="lazy" decoding="async"
                   data-fallback="{{ default_foto_url }}"
-                  onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
+                 
                 >
               {% else %}
                 <img class="employee-avatar sm" src="{{ default_foto_url }}" alt="Foto general" loading="lazy" decoding="async">

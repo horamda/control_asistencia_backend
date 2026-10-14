@@ -86,11 +86,11 @@
     var open = desktop ? !sidebarState.hidden : sidebarState.body.classList.contains("nav-open");
     var toggleText = sidebarState.toggle.querySelector(".nav-toggle-text");
     var label = desktop
-      ? (open ? "Ocultar menu" : "Mostrar menu")
-      : (open ? "Cerrar menu" : "Menu");
+      ? (open ? "Ocultar menú" : "Mostrar menú")
+      : (open ? "Cerrar menú" : "Menú");
     var ariaLabel = desktop
-      ? (open ? "Ocultar menu lateral" : "Mostrar menu lateral")
-      : (open ? "Cerrar menu lateral" : "Abrir menu lateral");
+      ? (open ? "Ocultar menú lateral" : "Mostrar menú lateral")
+      : (open ? "Cerrar menú lateral" : "Abrir menú lateral");
 
     if (toggleText) toggleText.textContent = label;
     sidebarState.toggle.setAttribute("aria-label", ariaLabel);
@@ -378,7 +378,150 @@
       } else {
         mobileQuery.addListener(function () { applyState(); });
       }
-      applyState(false);
+      applyState(form.hasAttribute("data-filters-open"));
+    });
+  }
+
+  function normalizeText(value) {
+    return String(value || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
+  function isEditable(el) {
+    if (!el) return false;
+    var tag = el.tagName;
+    return el.isContentEditable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  }
+
+  // Buscador del menu: filtra enlaces por texto (sin tildes), abre los grupos
+  // con coincidencias y Enter abre el primer resultado. Atajos: Ctrl/Cmd+K y "/".
+  function initNavSearch() {
+    var input = document.getElementById("nav-search");
+    if (!input) return;
+    var empty = document.getElementById("nav-search-empty");
+    var hint = document.querySelector(".nav-search-hint");
+    var groups = Array.prototype.slice.call(document.querySelectorAll(".nav-groups .nav-group"));
+    var savedOpen = null;
+    var firstMatch = null;
+
+    if (hint && /Mac|iPhone|iPad/.test(navigator.platform || "")) {
+      hint.textContent = "⌘ K";
+    }
+
+    function setGroupOpen(group, open) {
+      group.classList.toggle("open", open);
+      var toggle = group.querySelector(".nav-group-toggle");
+      if (toggle) toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    function applyFilter() {
+      var terms = normalizeText(input.value).split(/\s+/).filter(Boolean);
+      var searching = terms.length > 0;
+      if (searching && !savedOpen) {
+        savedOpen = groups.map(function (group) { return group.classList.contains("open"); });
+      }
+      firstMatch = null;
+
+      groups.forEach(function (group, index) {
+        var labelNode = group.querySelector(".nav-label");
+        var groupText = labelNode ? normalizeText(labelNode.textContent) : "";
+        var matches = 0;
+        group.querySelectorAll(".nav-link").forEach(function (link) {
+          var text = groupText + " " + normalizeText(link.textContent);
+          var match = !searching || terms.every(function (term) { return text.indexOf(term) !== -1; });
+          link.hidden = !match;
+          link.classList.remove("nav-search-first");
+          if (match) {
+            matches += 1;
+            if (searching && !firstMatch) firstMatch = link;
+          }
+        });
+        group.querySelectorAll(".nav-module-heading").forEach(function (heading) {
+          heading.hidden = searching;
+        });
+        group.hidden = searching && matches === 0;
+        if (group.getAttribute("data-collapsible") === "1") {
+          setGroupOpen(group, searching ? matches > 0 : !!(savedOpen && savedOpen[index]));
+        }
+      });
+
+      if (!searching) savedOpen = null;
+      if (firstMatch) firstMatch.classList.add("nav-search-first");
+      if (empty) empty.hidden = !searching || !!firstMatch;
+    }
+
+    function focusSearch() {
+      if (sidebarState.body) {
+        if (isDesktopViewport()) {
+          if (sidebarState.hidden) {
+            sidebarState.hidden = false;
+            storeSidebarPreference(false);
+          }
+        } else {
+          sidebarState.body.classList.add("nav-open");
+        }
+        syncSidebarState();
+      }
+      input.focus();
+      input.select();
+    }
+
+    input.addEventListener("input", applyFilter);
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter" && firstMatch) {
+        event.preventDefault();
+        window.location = firstMatch.href;
+      } else if (event.key === "ArrowDown" && firstMatch) {
+        event.preventDefault();
+        firstMatch.focus();
+      } else if (event.key === "Escape") {
+        // No cerrar el menu: primero se limpia la busqueda.
+        event.stopPropagation();
+        if (input.value) {
+          input.value = "";
+          applyFilter();
+        } else {
+          input.blur();
+        }
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      var key = (event.key || "").toLowerCase();
+      if ((event.ctrlKey || event.metaKey) && key === "k") {
+        event.preventDefault();
+        focusSearch();
+      } else if (key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(document.activeElement)) {
+        event.preventDefault();
+        focusSearch();
+      }
+    });
+  }
+
+  // Asocia cada <label> sin "for" con el campo de su misma fila, para que el
+  // click en la etiqueta enfoque el campo y los lectores de pantalla lo anuncien.
+  function initLabelAssociation() {
+    var counter = 0;
+    document.querySelectorAll("label:not([for])").forEach(function (label) {
+      if (label.querySelector("input, select, textarea")) return;
+      var container = label.parentElement;
+      if (!container) return;
+      var field = null;
+      var sibling = label.nextElementSibling;
+      while (sibling && !field) {
+        if (sibling.tagName === "LABEL") break;
+        if (/^(INPUT|SELECT|TEXTAREA)$/.test(sibling.tagName)) {
+          field = sibling;
+        } else {
+          field = sibling.querySelector("input:not([type='hidden']), select, textarea");
+        }
+        sibling = sibling.nextElementSibling;
+      }
+      if (!field || field.type === "hidden") return;
+      if (!field.id) {
+        counter += 1;
+        field.id = "auto-field-" + counter;
+      }
+      label.htmlFor = field.id;
     });
   }
 
@@ -398,11 +541,18 @@
     normalizeHeading();
     markActiveNav();
     initNavGroups();
-
-
-
-
+    initNavSearch();
+    initLabelAssociation();
     initEscapeKey();
+    initFilterToggle();
+    initPagerScroll();
+  });
+
+  // Contenido reemplazado por htmx (filtros/paginacion): mismas mejoras.
+  document.addEventListener("htmx:afterSettle", function (event) {
+    if (!event.target || event.target.id !== "page-content") return;
+    normalizeHeading();
+    initLabelAssociation();
     initFilterToggle();
     initPagerScroll();
   });

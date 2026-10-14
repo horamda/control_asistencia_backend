@@ -154,7 +154,7 @@
                   <a href="{{ url_for('qr_puerta.reimprimir', historial_id=h.id) }}" target="_blank" rel="noopener" class="btn btn-secondary ui-action-link">Reimprimir</a>
                   <form method="post" action="{{ url_for('qr_puerta.inactivar', historial_id=h.id) }}" style="display:inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-secondary" onclick="return confirm('Inactivar este QR? Los escaneos futuros seran rechazados.');">Inactivar</button>
+                    <button type="submit" class="btn btn-secondary" data-confirm="Inactivar este QR? Los escaneos futuros seran rechazados.">Inactivar</button>
                   </form>
                 {% else %}
                   <span class="muted">Sin acciones</span>

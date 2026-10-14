@@ -4,7 +4,10 @@ ARG PYTHON_VERSION=3.12.13
 
 FROM python:${PYTHON_VERSION}-slim
 
-LABEL fly_launch_runtime="flask"
+# Logs sin buffer (Railway los lee de stdout) y sin .pyc en la imagen.
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /code
 

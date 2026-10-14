@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Resumen por empleado{% endblock %}
-{% block extra_head %}{% if auto_print %}<script>window.addEventListener("load",function(){window.print();});</script>{% endif %}{% endblock %}
+{% block extra_head %}{% if auto_print %}<script nonce="{{ csp_nonce() }}">window.addEventListener("load",function(){window.print();});</script>{% endif %}{% endblock %}
 {% block content %}
 {% set totales = asistencia.get("totales", {}) %}
 {% set kpis = asistencia.get("kpis", {}) %}
@@ -740,7 +740,7 @@
       </div>
     </section>
 
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     (function () {
       var svg     = document.getElementById("hs-svg");
       var tooltip = document.getElementById("hs-tooltip");
@@ -993,7 +993,7 @@
       </div>
     </section>
 
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     (function () {
       var bars     = document.querySelectorAll(".est-bar");
       var tooltip  = document.getElementById("est-tooltip");
@@ -1194,7 +1194,7 @@
       </div>
     </section>
 
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     (function () {
       var bars    = document.querySelectorAll(".cq-bar");
       var tooltip = document.getElementById("cal-chart-tooltip");
@@ -1309,7 +1309,7 @@
       {% endif %}
     </section>
 
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     (function () {
       var blocks = document.querySelectorAll(".cal-month-block");
       if (!blocks.length) return;

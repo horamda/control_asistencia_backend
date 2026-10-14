@@ -19,7 +19,7 @@
     <a href="{{ url_for('trivia_admin.editar', trivia_id=trivia.id) }}" class="btn btn-secondary">Editar trivia</a>
     {% if trivia.estado in ('activa', 'programada') %}
     <form method="post" action="{{ url_for('trivia_admin.finalizar_manual', trivia_id=trivia.id) }}"
-          onsubmit="return confirm('¿Finalizar esta trivia y calcular el ranking definitivo?')">
+          data-confirm="¿Finalizar esta trivia y calcular el ranking definitivo?">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn btn-danger">Finalizar ahora</button>
     </form>
@@ -150,7 +150,7 @@
       <span style="font-weight:400;color:var(--muted);font-size:.9rem">({{ preguntas|length }})</span>
     </h3>
     {% if trivia.estado in ('programada', 'activa') %}
-    <button type="button" class="btn btn-primary btn-sm" onclick="toggleAgregarPregunta()">
+    <button type="button" class="btn btn-primary btn-sm" data-toggle-agregar>
       + Agregar
     </button>
     {% endif %}
@@ -193,7 +193,7 @@
       </div>
       <div style="display:flex;gap:.6rem">
         <button type="submit" class="btn btn-primary">Guardar pregunta</button>
-        <button type="button" class="btn btn-ghost btn-secondary" onclick="toggleAgregarPregunta()">Cancelar</button>
+        <button type="button" class="btn btn-ghost btn-secondary" data-toggle-agregar>Cancelar</button>
       </div>
     </form>
   </div>
@@ -248,7 +248,7 @@
               {% if trivia.estado == 'programada' %}
               <form method="post"
                     action="{{ url_for('trivia_admin.eliminar_pregunta', trivia_id=trivia.id, pregunta_id=p.id) }}"
-                    onsubmit="return confirm('¿Eliminar esta pregunta?')">
+                    data-confirm="¿Eliminar esta pregunta?">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-sm btn-danger" title="Eliminar pregunta">Eliminar</button>
               </form>
@@ -261,7 +261,7 @@
           <td colspan="9" style="text-align:center;padding:2.5rem;color:var(--muted)">
             Sin preguntas.
             {% if trivia.estado in ('programada', 'activa') %}
-              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleAgregarPregunta()" style="margin-left:.5rem">Agregar la primera</button>
+              <button type="button" class="btn btn-ghost btn-sm" data-toggle-agregar style="margin-left:.5rem">Agregar la primera</button>
             {% endif %}
           </td>
         </tr>
@@ -280,7 +280,7 @@
               box-shadow:0 12px 40px rgba(0,0,0,.25)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem">
       <h3 id="modal-ep-title" style="margin:0">Editar pregunta</h3>
-      <button type="button" onclick="cerrarModal()" aria-label="Cerrar"
+      <button type="button" data-cerrar-modal aria-label="Cerrar"
               style="background:none;border:none;font-size:1.4rem;cursor:pointer;
                      color:var(--muted);line-height:1;padding:.2rem .4rem">✕</button>
     </div>
@@ -315,7 +315,7 @@
         </div>
       </div>
       <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:1.2rem;flex-wrap:wrap">
-        <button type="button" class="btn btn-ghost btn-secondary" onclick="cerrarModal()">Cancelar</button>
+        <button type="button" class="btn btn-ghost btn-secondary" data-cerrar-modal>Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar cambios</button>
       </div>
     </form>
@@ -324,7 +324,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
   var _triviaId = {{ trivia.id }};
 
@@ -341,6 +341,13 @@
   window.cerrarModal = function () {
     document.getElementById('modal-editar-pregunta').style.display = 'none';
   };
+
+  document.querySelectorAll('[data-toggle-agregar]').forEach(function (btn) {
+    btn.addEventListener('click', toggleAgregarPregunta);
+  });
+  document.querySelectorAll('[data-cerrar-modal]').forEach(function (btn) {
+    btn.addEventListener('click', cerrarModal);
+  });
 
   document.getElementById('modal-editar-pregunta').addEventListener('click', function (e) {
     if (e.target === this) cerrarModal();

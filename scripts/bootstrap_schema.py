@@ -3,6 +3,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from extensions import bootstrap_schema, get_db, init_db
+from scripts.migrate_20261008_02_epp import migrate_cursor as migrate_epp
+from scripts.migrate_20261013_01_epp_conceptos import migrate_cursor as migrate_epp_concepts
 
 
 def main():
@@ -18,6 +20,14 @@ def main():
         cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
         if not cursor.fetchone():
             bootstrap_schema()
+            cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
+            db.commit()
+        version = '20261014_epp_concepts'
+        cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
+        if not cursor.fetchone():
+            cursor.execute('SET SESSION lock_wait_timeout=5')
+            migrate_epp(cursor)
+            migrate_epp_concepts(cursor)
             cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
             db.commit()
     finally:

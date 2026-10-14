@@ -76,7 +76,7 @@
     </div>
   </form>
 
-  <script>
+  <script nonce="{{ csp_nonce() }}">
     const tipoInput = document.getElementById("tipo");
     const bloquesRow = document.getElementById("bloques-row");
     const anulaInput = document.getElementById("anula_horario");

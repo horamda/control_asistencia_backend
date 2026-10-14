@@ -186,6 +186,68 @@ a:hover {
   padding-right: 4px;
 }
 
+.nav-search {
+  position: relative;
+}
+
+.nav-groups [hidden] {
+  display: none !important;
+}
+
+.nav-search-input {
+  width: 100%;
+  padding: 8px 52px 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.nav-search-input::-webkit-search-cancel-button {
+  filter: grayscale(1) brightness(1.8);
+  cursor: pointer;
+}
+
+.nav-search-input::placeholder {
+  color: #8ea2bd;
+}
+
+.nav-search-input:focus {
+  outline: 2px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 1px;
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.nav-search-hint {
+  position: absolute;
+  right: 8px;
+  top: 7px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #8ea2bd;
+  font: 600 0.7rem/1.5 inherit;
+  pointer-events: none;
+}
+
+.nav-search-input:focus + .nav-search-hint,
+.nav-search-input:not(:placeholder-shown) + .nav-search-hint {
+  display: none;
+}
+
+.nav-search-empty {
+  margin: 8px 2px 0;
+  font-size: 0.85rem;
+  color: #8ea2bd;
+}
+
+.nav-link.nav-search-first {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
 .nav-group {
   margin-bottom: 14px;
 }
@@ -5850,3 +5912,45 @@ input[type="submit"][data-loading="1"] {
 }
 
 .nav-submenu .nav-module-heading{padding:14px 10px 6px;font-size:11px;font-weight:700;line-height:1.5;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;white-space:normal}.nav-submenu .nav-module-heading:not(:first-child){border-top:1px solid var(--border);margin-top:10px}
+
+/* Mientras htmx actualiza filtros o pagina se conserva el contenido atenuado. */
+#page-content.htmx-request {
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+/* Dialogo de confirmacion (panel-messages.js). */
+.confirm-dialog {
+  width: min(92vw, 420px);
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+}
+.confirm-dialog form {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.confirm-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+.confirm-dialog p {
+  margin: 0 0 18px;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+.confirm-dialog .actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+}
+:root[data-theme="dark"] .confirm-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}

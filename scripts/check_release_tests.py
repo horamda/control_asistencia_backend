@@ -4,6 +4,8 @@ import xml.etree.ElementTree as ET
 
 REQUIRED = {
     "tests.test_epp",
+    "tests.test_epp_concepts",
+    "tests.test_audit_database",
     "tests.test_reintegros",
     "tests.test_reintegros_monthly",
     "tests.test_seguridad_mobile_dashboard",

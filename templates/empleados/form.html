@@ -234,7 +234,7 @@
           alt="Foto actual"
           style="margin-top:8px;"
           data-fallback="{{ default_foto_url }}"
-          onerror="if (this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; }"
+         
         >
       </div>
     </div>
@@ -336,7 +336,7 @@
     </div>
   </form>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
   (function () {
     var form = document.getElementById("empleado-form");
     if (!form) return;

@@ -7,6 +7,7 @@ import pytest
 from tests.test_seguridad import database, photo
 from services import epp_service as s
 from scripts.migrate_20261008_02_epp import migrate_cursor
+from scripts.migrate_20261013_01_epp_conceptos import migrate_cursor as migrate_concepts
 
 ADMIN = dict(
     mode="web",
@@ -39,6 +40,8 @@ def schema(database, monkeypatch):
         c.execute("ALTER TABLE puestos ADD empresa_id INT DEFAULT 1")
         migrate_cursor(c)
         migrate_cursor(c)
+        migrate_concepts(c)
+        migrate_concepts(c)
     aid = s.save_article(
         ADMIN,
         dict(
@@ -358,3 +361,21 @@ def test_actual_app_registration_and_csrf(monkeypatch):
     assert any(r.rule=='/api/v1/mobile/epp/config' for r in app.url_map.iter_rules())
     assert client.post('/epp/catalogo',data={'nombre':'test'}).status_code==400
     assert client.post('/api/v1/mobile/epp/pedidos',json={}).status_code==401
+
+
+def test_replacement_concepts_history_and_scope(schema):
+    cid = s.save_replacement_concept(ADMIN, dict(nombre="Desgaste"))
+    pid, _ = s.create(OWNER, 10, payload(schema, concepto_reposicion_id=cid))
+    s.save_replacement_concept(ADMIN, dict(id=cid, nombre="Rotura"))
+    assert s.detail(OWNER, pid)["concepto_reposicion"] == "Desgaste"
+    s.delete_replacement_concept(ADMIN, cid)
+    assert s.replacement_concepts(OWNER, active_only=True) == []
+    assert s.replacement_concepts(ADMIN)[0]["activo"] == 0
+    with pytest.raises(s.Error):
+        s.create(OWNER, 10, payload(schema, concepto_reposicion_id=cid))
+    with pytest.raises(s.Error):
+        s.save_replacement_concept(OWNER, dict(nombre="Otro"))
+    with pytest.raises(s.Error):
+        s.delete_replacement_concept(dict(ADMIN, empresa_id=2), cid)
+    s.save_replacement_concept(ADMIN, dict(id=cid, nombre="Rotura", activo=1))
+    assert len(s.replacement_concepts(OWNER, active_only=True)) == 1

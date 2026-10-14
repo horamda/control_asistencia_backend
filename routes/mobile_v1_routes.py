@@ -3214,11 +3214,12 @@ def me_dashboard():
     # Horario actual
     try:
         horario = get_horario_actual_by_empleado(emp_id)
-        dias = get_dias_by_horario(int(horario["id"])) if horario else []
+        dias = get_dias_by_horario(int(horario["horario_id"])) if horario else []
         horario_actual = _asignacion_to_dict(horario) if horario else None
         if horario_actual and dias:
-            horario_actual["dias"] = [_dia_to_dict(d) for d in dias]
+            horario_actual["dias"] = [{"dia_semana": d.get("dia_semana")} for d in dias]
     except Exception:
+        current_app.logger.exception("me_dashboard_horario_error", extra={"extra": {"empleado_id": emp_id}})
         horario_actual = None
 
     return jsonify({

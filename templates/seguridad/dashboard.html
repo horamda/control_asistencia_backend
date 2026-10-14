@@ -4,7 +4,7 @@
 {% block content %}
 {% set colors=['#2563eb','#14b8a6','#f59e0b','#8b5cf6','#ec4899','#64748b','#06b6d4','#a3a31b'] %}
 <div class="content-stack sh-page sh-dashboard sh-view-{{ vista }}">
-<div class="sh-heading"><div><h2>Seguridad e Higiene</h2><p class="sh-muted">Dashboard · Actualizado {{ updated.strftime('%d/%m/%Y %H:%M') }}</p></div><div class="actions"><button type="button" onclick="window.print()" class="btn btn-secondary">Imprimir / PDF</button><a class="btn btn-secondary" href="{{ url_for('seguridad_web.index',empresa_id=empresa_id) }}">Administrar reportes</a></div></div>
+<div class="sh-heading"><div><h2>Seguridad e Higiene</h2><p class="sh-muted">Dashboard · Actualizado {{ updated.strftime('%d/%m/%Y %H:%M') }}</p></div><div class="actions"><button type="button" data-print class="btn btn-secondary">Imprimir / PDF</button><a class="btn btn-secondary" href="{{ url_for('seguridad_web.index',empresa_id=empresa_id) }}">Administrar reportes</a></div></div>
 <nav class="sh-tabs" aria-label="Vistas del dashboard">{% for key,label in [('inseguro','Inseguros'),('seguro','Seguros'),('indicadores','Indicadores'),('resumen','Resumen')] %}<a class="btn btn-secondary" {% if vista==key %}aria-current="page"{% endif %} href="{{ url_for('seguridad_web.dashboard',**dict(filters,vista=key)) }}">{{ label }}</a>{% endfor %}</nav>
 <form method="get" class="sh-panel sh-grid sh-dashboard-filters"><input type="hidden" name="vista" value="{{ vista }}">
 {% if empresas %}<label>Empresa<select name="empresa_id">{% for e in empresas %}<option value="{{ e.id }}" {% if empresa_id==e.id %}selected{% endif %}>{{ e.razon_social }}</option>{% endfor %}</select></label>{% else %}<input type="hidden" name="empresa_id" value="{{ empresa_id }}">{% endif %}

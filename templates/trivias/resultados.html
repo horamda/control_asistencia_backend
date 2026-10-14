@@ -103,7 +103,7 @@
                 <td data-label="Acciones">
                   <form method="post"
                         action="{{ url_for('trivia_admin.eliminar_exclusion', trivia_id=trivia.id, empleado_id=ex.empleado_id) }}"
-                        onsubmit="return confirm('Quitar exclusion de este empleado?')">
+                        data-confirm="Quitar exclusion de este empleado?">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm btn-ghost">Quitar</button>
                   </form>

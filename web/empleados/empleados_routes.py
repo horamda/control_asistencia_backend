@@ -15,6 +15,7 @@ from repositories.empleado_repository import (
     exists_unique,
     get_all as get_empleados_all,
     get_by_id,
+    get_listado_resumen,
     get_page,
     set_activo,
     update,
@@ -226,9 +227,7 @@ def listado():
     else:
         activo = None
         activo_raw = "all"
-    empleados, total = get_page(
-        page,
-        per_page,
+    filtros = dict(
         include_inactive=True,
         search=search,
         empresa_id=empresa_id,
@@ -236,6 +235,8 @@ def listado():
         sucursal_id=sucursal_id,
         sector_id=sector_id,
     )
+    empleados, total = get_page(page, per_page, **filtros)
+    resumen = get_listado_resumen(**filtros)
     anio_vacaciones = datetime.date.today().year
     try:
         resumenes = calcular_resumenes_vacaciones(empleados, anio_vacaciones)
@@ -271,6 +272,7 @@ def listado():
         page=page,
         per_page=per_page,
         total=total,
+        resumen=resumen,
         activo=activo_raw,
         return_to=return_to,
         photo_cache_buster=int(time.time()),

@@ -17,3 +17,13 @@ output
 tmp
 *.log
 **/__pycache__
+.github
+.claude
+.kilo
+.vscode
+examples
+asistencia
+stabilization*
+test-results.xml
+requirements-dev.txt
+*.pyo

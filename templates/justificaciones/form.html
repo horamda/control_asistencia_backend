@@ -139,7 +139,7 @@
   </form>
 </div>
 {% block extra_scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
   (function () {
     const fromInput = document.getElementById("fecha-desde");
     const toInput = document.getElementById("fecha-hasta");

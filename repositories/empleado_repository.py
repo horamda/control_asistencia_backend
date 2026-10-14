@@ -81,6 +81,67 @@ def get_all(
         db.close()
 
 
+def _listado_where(
+    include_inactive: bool = True,
+    search: str | None = None,
+    empresa_id: int | None = None,
+    activo: int | None = None,
+    sucursal_id: int | None = None,
+    sector_id: int | None = None,
+    requiere_control_asistencia: int | None = None,
+    legajo_eventos: str | None = None,
+):
+    where = []
+    params = []
+    if not include_inactive:
+        where.append("e.activo = 1")
+    _append_search_filter(where, params, search)
+    if empresa_id:
+        where.append("e.empresa_id = %s")
+        params.append(empresa_id)
+    if activo in (0, 1):
+        where.append("e.activo = %s")
+        params.append(activo)
+    if sucursal_id:
+        where.append("e.sucursal_id = %s")
+        params.append(sucursal_id)
+    if sector_id:
+        where.append("e.sector_id = %s")
+        params.append(sector_id)
+    if requiere_control_asistencia in (0, 1):
+        where.append("COALESCE(e.requiere_control_asistencia, 1) = %s")
+        params.append(int(requiere_control_asistencia))
+    if legajo_eventos == "con_eventos":
+        where.append("EXISTS (SELECT 1 FROM legajo_eventos le WHERE le.empleado_id = e.id)")
+    elif legajo_eventos == "sin_eventos":
+        where.append("NOT EXISTS (SELECT 1 FROM legajo_eventos le WHERE le.empleado_id = e.id)")
+    elif legajo_eventos == "vigentes":
+        where.append("EXISTS (SELECT 1 FROM legajo_eventos le WHERE le.empleado_id = e.id AND le.estado = 'vigente')")
+    where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+    return where_sql, params
+
+
+def get_listado_resumen(**filters):
+    """Totales de todo el conjunto filtrado (no solo de la pagina visible)."""
+    where_sql, params = _listado_where(**filters)
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(f"""
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(e.activo = 1), 0) AS activos,
+                   COALESCE(SUM(COALESCE(e.requiere_control_asistencia, 1) = 0), 0) AS sin_control,
+                   COALESCE(SUM(e.foto IS NOT NULL AND e.foto <> ''), 0) AS con_foto
+            FROM empleados e
+            {where_sql}
+        """, params)
+        row = cursor.fetchone() or {}
+        return {key: int(row.get(key) or 0) for key in ("total", "activos", "sin_control", "con_foto")}
+    finally:
+        cursor.close()
+        db.close()
+
+
 def get_page(
     page: int,
     per_page: int,
@@ -93,37 +154,20 @@ def get_page(
     requiere_control_asistencia: int | None = None,
     legajo_eventos: str | None = None,
 ):
+    where_sql, params = _listado_where(
+        include_inactive=include_inactive,
+        search=search,
+        empresa_id=empresa_id,
+        activo=activo,
+        sucursal_id=sucursal_id,
+        sector_id=sector_id,
+        requiere_control_asistencia=requiere_control_asistencia,
+        legajo_eventos=legajo_eventos,
+    )
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
         offset = (page - 1) * per_page
-        where = []
-        params = []
-        if not include_inactive:
-            where.append("e.activo = 1")
-        _append_search_filter(where, params, search)
-        if empresa_id:
-            where.append("e.empresa_id = %s")
-            params.append(empresa_id)
-        if activo in (0, 1):
-            where.append("e.activo = %s")
-            params.append(activo)
-        if sucursal_id:
-            where.append("e.sucursal_id = %s")
-            params.append(sucursal_id)
-        if sector_id:
-            where.append("e.sector_id = %s")
-            params.append(sector_id)
-        if requiere_control_asistencia in (0, 1):
-            where.append("COALESCE(e.requiere_control_asistencia, 1) = %s")
-            params.append(int(requiere_control_asistencia))
-        if legajo_eventos == "con_eventos":
-            where.append("EXISTS (SELECT 1 FROM legajo_eventos le WHERE le.empleado_id = e.id)")
-        elif legajo_eventos == "sin_eventos":
-            where.append("NOT EXISTS (SELECT 1 FROM legajo_eventos le WHERE le.empleado_id = e.id)")
-        elif legajo_eventos == "vigentes":
-            where.append("EXISTS (SELECT 1 FROM legajo_eventos le WHERE le.empleado_id = e.id AND le.estado = 'vigente')")
-        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         cursor.execute(f"""
             SELECT e.*, emp.razon_social AS empresa_nombre, s.nombre AS sucursal_nombre,
                    sec.nombre AS sector_nombre, p.nombre AS puesto_nombre, l.localidad AS localidad_nombre,

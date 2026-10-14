@@ -146,24 +146,6 @@ def get_tipos_evento_page(
         db.close()
 
 
-def get_tipo_evento_by_codigo(codigo: str):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-    try:
-        cursor.execute(
-            """
-            SELECT id, codigo, nombre, requiere_rango_fechas, permite_adjuntos, activo
-            FROM legajo_tipos_evento
-            WHERE codigo = %s
-            """,
-            (codigo,),
-        )
-        return cursor.fetchone()
-    finally:
-        cursor.close()
-        db.close()
-
-
 def create_tipo_evento(data: dict):
     db = get_db()
     cursor = db.cursor()

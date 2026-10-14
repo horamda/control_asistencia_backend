@@ -18,7 +18,7 @@
       {% if not kpi %}
         <div class="row">
           <label>Empresa <span class="required">*</span></label>
-          <select name="empresa_id" id="select_empresa" required onchange="this.form.submit()">
+          <select name="empresa_id" id="select_empresa" required data-autosubmit>
             <option value="">Seleccione empresa</option>
             {% for e in empresas %}
               <option value="{{ e.id }}" {% if empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>

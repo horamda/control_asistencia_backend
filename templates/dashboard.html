@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Panel de asistencia{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/viz.css') }}">
+{% endblock %}
 {% block content %}
 <div class="content-stack">
   <div class="section-head">
@@ -119,7 +122,15 @@
       </article>
     </div>
   </section>
+  <section id="dash-evolucion" class="panel dashboard-block viz-root" aria-busy="true"
+           hx-get="{{ url_for('web.dashboard_evolucion', empresa_id=filtros.empresa_id, sucursal_id=filtros.sucursal_id) }}"
+           hx-trigger="load" hx-swap="outerHTML">
+    <h3>Evolución de la asistencia</h3>
+    <p class="helper-text">Cargando tendencias…</p>
+    <div class="viz-placeholder"></div>
+  </section>
   <nav class="dashboard-jump" aria-label="Navegacion rapida del panel de asistencia">
+    <a href="#dash-evolucion" class="btn btn-secondary ui-action-link">Evolución</a>
     <a href="#dash-reporte-mensual" class="btn btn-secondary ui-action-link">Reporte mensual</a>
     <a href="#dash-kpis" class="btn btn-secondary ui-action-link">KPIs</a>
     <a href="#dash-riesgo" class="btn btn-secondary ui-action-link">Riesgo</a>
@@ -1061,7 +1072,7 @@
     {% endif %}
   </section>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
   (function () {
     var form = document.querySelector(".dashboard-filter-form");
     var empresa = document.getElementById("dashboard-empresa");
@@ -1143,4 +1154,7 @@
     updateJumpActive();
   })();
 </script>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/viz.js') }}" defer></script>
 {% endblock %}

@@ -9,7 +9,7 @@
   </div>
   <div class="page-actions">
     <form method="get" style="display:flex;gap:.5rem;align-items:center">
-      <select name="anio" class="form-control" onchange="this.form.submit()" style="min-width:90px">
+      <select name="anio" class="form-control" data-autosubmit style="min-width:90px">
         {% for a in anios %}
           <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
         {% endfor %}
@@ -68,7 +68,7 @@
                 <td data-label="Acciones">
                   <form method="post"
                         action="{{ url_for('trivia_admin.eliminar_exclusion_ranking_anual', empleado_id=ex.empleado_id) }}"
-                        onsubmit="return confirm('Quitar exclusion anual de este empleado?')">
+                        data-confirm="Quitar exclusion anual de este empleado?">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="anio" value="{{ anio }}">
                     <button type="submit" class="btn btn-sm btn-ghost">Quitar</button>

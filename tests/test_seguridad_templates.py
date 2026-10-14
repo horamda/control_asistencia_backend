@@ -42,6 +42,7 @@ def render(name, *, allowed=True, endpoint='detail', **values):
     env.globals.update(
         url_for=lambda endpoint, **kwargs: '/' + endpoint,
         csrf_token=lambda: 'csrf-test',
+        csp_nonce=lambda: 'nonce-test',
         can_web=lambda *args: allowed,
         request=SimpleNamespace(endpoint='seguridad_web.' + endpoint),
     )
