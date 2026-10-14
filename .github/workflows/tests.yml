@@ -30,7 +30,7 @@ jobs:
       JWT_SECRET: isolated-ci-jwt-secret-at-least-32-chars
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12.13'
           cache: pip
