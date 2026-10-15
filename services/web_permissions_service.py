@@ -19,7 +19,7 @@ WEB_MODULES = [
     {"code": "asistencias", "label": "Asistencias", "group": "Asistencia", "roles": {"admin", "rrhh", "supervisor"}},
     {"code": "justificaciones", "label": "Justificaciones", "group": "Asistencia", "roles": {"admin", "rrhh", "supervisor"}},
     {"code": "qr_puerta", "label": "QR puerta", "group": "Asistencia", "roles": {"admin", "rrhh"}},
-    {"code": "reuniones", "label": "Reuniones", "group": "Asistencia", "roles": {"admin", "rrhh"}},
+    {"code": "reuniones", "label": "Reuniones", "group": "Reuniones", "roles": {"admin", "rrhh"}},
     {"code": "francos", "label": "Francos", "group": "Asistencia", "roles": {"admin", "rrhh"}},
     {"code": "vacaciones", "label": "Vacaciones", "group": "Asistencia", "roles": {"admin", "rrhh"}},
     {"code": "pedidos_empleados", "label": "Pedidos empleados", "group": "Operaciones", "roles": {"admin", "rrhh"}},
