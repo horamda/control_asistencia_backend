@@ -4902,10 +4902,14 @@ details[open] .org-team-arr { transform: rotate(180deg); }
 
   .table-responsive.table-cards tr,
   table.table-cards tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px 16px;
     border: 1px solid var(--border);
     border-radius: 12px;
     background: var(--surface);
-    padding: 8px 10px;
+    padding: 12px 14px;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
@@ -4916,19 +4920,34 @@ details[open] .org-team-arr { transform: rotate(180deg); }
     background: var(--surface);
   }
 
+  /* Etiqueta arriba y contenido con su flujo normal: con celdas en grilla
+     "etiqueta | valor" el contenido mixto (<strong>0</strong> vigentes) se
+     repartia en celdas separadas. Campos de a dos por fila si entran. */
   .table-responsive.table-cards td,
   table.table-cards td {
-    display: grid;
-    grid-template-columns: minmax(94px, 34%) 1fr;
-    align-items: start;
-    gap: 8px;
+    display: block;
+    flex: 1 1 140px;
+    min-width: 0;
     border: none;
-    padding: 6px 0;
+    padding: 0;
+    overflow-wrap: break-word;
+  }
+
+  .table-responsive.table-cards td[data-label="Foto"],
+  table.table-cards td[data-label="Foto"] {
+    flex: 0 0 auto;
+  }
+
+  .table-responsive.table-cards td[colspan],
+  table.table-cards td[colspan] {
+    flex-basis: 100%;
   }
 
   .table-responsive.table-cards td::before,
   table.table-cards td::before {
     content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
     font-size: 0.72rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;

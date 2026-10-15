@@ -321,8 +321,8 @@ def _strict_csp(nonce: str) -> str:
         "default-src 'self'",
         f"script-src 'self' 'nonce-{nonce}'",
         "script-src-attr 'none'",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.gstatic.com data:",
+        "style-src 'self' 'unsafe-inline'",
+        "font-src 'self' data:",
         # Las fotos pueden servirse desde un host externo (FTP/CDN).
         "img-src 'self' data: blob: https:",
         "connect-src 'self'",

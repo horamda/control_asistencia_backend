@@ -82,3 +82,34 @@
 .mini-label,.mini-row>strong,.status-label,.status-row>strong,.trend-label,.pie-legend li,.feedback-month-label{text-align:center}
 .sh-dashboard .sh-donut-layout{justify-content:center}
 .sh-dashboard .sh-legend{max-height:none;overflow:visible}
+
+/* Tablas que no entran en su panel: tarjetas con campos en columnas
+   (clase .is-cards, la pone static/js/table-fit.js segun el ancho real). */
+.table-responsive.is-cards{overflow:visible;border:0;border-radius:0;background:transparent}
+.table-responsive.is-cards>table{display:block;min-width:0;width:100%;margin:0;border:0;border-radius:0;overflow:visible;table-layout:auto}
+.table-responsive.is-cards>table>thead{display:none}
+.table-responsive.is-cards>table>tbody{display:grid;gap:10px}
+.table-responsive.is-cards>table>tbody>tr{display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px 20px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.table-responsive.is-cards>table>tbody>tr:hover{border-color:var(--primary);background:var(--surface)}
+.table-responsive.is-cards>table>tbody>tr>td{display:block;flex:1 1 150px;min-width:0;padding:0;border:0;white-space:normal;overflow-wrap:break-word;word-break:normal}
+/* La foto no ocupa una columna: queda compacta al lado del dato siguiente. */
+.table-responsive.is-cards>table>tbody>tr>td[data-label="Foto"]{flex:0 0 auto}
+/* El dato principal (el que sigue a la foto: nombre, etc.) tiene mas lugar. */
+.table-responsive:is(.is-cards,.table-cards) td[data-label="Foto"]+td{flex-basis:220px}
+.table-responsive.is-cards>table>tbody>tr>td::before{content:attr(data-label);display:block;margin-bottom:4px;font-family:"Manrope",sans-serif;font-size:.7rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.table-responsive.is-cards>table>tbody>tr>td:not([data-label])::before,
+.table-responsive.is-cards>table>tbody>tr>td[data-label="Foto"]::before{display:none}
+/* Filas "sin resultados" (una sola celda que ocupa toda la tabla). */
+.table-responsive.is-cards>table>tbody>tr>td[colspan]{flex-basis:100%}
+.table-responsive.is-cards>table>tbody>tr>td>*{max-width:100%}
+
+/* Tablas que se desplazan: sombra del lado donde hay mas columnas. */
+.table-responsive{--table-hint:rgba(15,23,42,.38)}
+:root[data-theme="dark"] .table-responsive{--table-hint:rgba(0,0,0,.7)}
+.table-responsive.has-more-right{box-shadow:inset -16px 0 14px -14px var(--table-hint)}
+.table-responsive.has-more-left{box-shadow:inset 16px 0 14px -14px var(--table-hint)}
+.table-responsive.has-more-left.has-more-right{box-shadow:inset 16px 0 14px -14px var(--table-hint),inset -16px 0 14px -14px var(--table-hint)}
+
+/* Formulario en linea: campos + boton; en pantallas angostas se apila. */
+.inline-form-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto;gap:.75rem;align-items:end}
+@media(max-width:640px){.inline-form-grid{grid-template-columns:minmax(0,1fr)}}

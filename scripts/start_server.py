@@ -17,6 +17,10 @@ def main():
     workers = int(os.getenv('WEB_CONCURRENCY', '2' if storage.startswith(('redis://', 'rediss://')) else '1'))
     if workers > 1 and storage == 'memory://':
         raise RuntimeError('Multiple web workers require RATELIMIT_STORAGE_URI pointing to a shared backend.')
+    # Hilos por proceso: un pedido lento (dashboard, exportacion) ya no deja en
+    # cola a los demas. Comparten memoria, asi que el rate limit en memoria sigue
+    # siendo correcto; el pool de MySQL (DB_POOL_SIZE + DB_MAX_OVERFLOW) los cubre.
+    threads = max(1, int(os.getenv('GUNICORN_THREADS', '8')))
     children = []
     stopping = False
     def stop(*_):
@@ -29,7 +33,7 @@ def main():
         signal.signal(sig, stop)
     try:
         children.append(subprocess.Popen([sys.executable, 'scripts/run_scheduler.py']))
-        children.append(subprocess.Popen([sys.executable, '-m', 'gunicorn', 'app:app', '--bind', '0.0.0.0:' + os.getenv('PORT', '8080'), '--workers', str(workers), '--timeout', os.getenv('GUNICORN_TIMEOUT', '120')]))
+        children.append(subprocess.Popen([sys.executable, '-m', 'gunicorn', 'app:app', '--bind', '0.0.0.0:' + os.getenv('PORT', '8080'), '--workers', str(workers), '--worker-class', 'gthread', '--threads', str(threads), '--timeout', os.getenv('GUNICORN_TIMEOUT', '120')]))
         while not stopping and all(child.poll() is None for child in children):
             time.sleep(1)
         return 0 if stopping else 1

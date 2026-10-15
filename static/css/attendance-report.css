@@ -319,7 +319,8 @@
 }
 
 .attendance-board-kpis {
-  grid-template-columns: repeat(8, minmax(112px, 1fr));
+  /* auto-fit: en pantallas angostas los 8 indicadores bajan de renglon. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 112px), 1fr));
 }
 
 .attendance-board-legend {
@@ -464,3 +465,29 @@
 
 .attendance-day-cell.status-pending,
 .attendance-day-cell.status-outside { background: var(--surface-muted); color: var(--muted); }
+
+/* La grilla del reporte del dashboard no debe crecer mas que la pantalla:
+   sin minmax(0, 1fr) la columna toma el ancho minimo de su contenido. */
+.dashboard-monthly-report {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dashboard-monthly-report > *,
+.dashboard-labor-calendar > * {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .dashboard-report-access {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .dashboard-report-access-metrics {
+    justify-content: flex-start;
+  }
+
+  .dashboard-report-access > .btn {
+    justify-self: start;
+  }
+}

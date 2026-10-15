@@ -77,8 +77,29 @@ def test_static_compression_and_cache_version(tmp_path):
     assert gzip.decompress(response.data) == asset.read_bytes()
     assert response.headers['Content-Encoding'] == 'gzip'
     assert response.cache_control.immutable
+    assert 'no-cache' not in response.headers['Cache-Control']
     assert app.test_client().get(url, headers={'Accept-Encoding': 'gzip;q=0'}).data == asset.read_bytes()
 
+
+
+def test_static_images_are_versioned_and_cached_without_gzip(tmp_path):
+    from flask import Flask, url_for
+    from utils.static_assets import init_static_assets
+    image = tmp_path / 'logo.png'
+    image.write_bytes(bytes([0x89]) + b'PNG' + b'0' * 500)
+    app = Flask(__name__, static_folder=str(tmp_path), static_url_path='/static')
+    init_static_assets(app)
+    with app.test_request_context():
+        url = url_for('static', filename='logo.png')
+    assert '?v=' in url
+    response = app.test_client().get(url, headers={'Accept-Encoding': 'gzip'})
+    # Ya comprimidas: no se recomprimen, pero se cachean un ano por version.
+    assert 'Content-Encoding' not in response.headers
+    assert response.data == image.read_bytes()
+    assert response.cache_control.immutable and response.cache_control.max_age == 31536000
+    assert 'no-cache' not in response.headers['Cache-Control']
+    # Sin la version correcta no se cachea como inmutable (evita servir una vieja).
+    assert not app.test_client().get('/static/logo.png?v=otra').cache_control.immutable
 
 def test_company_scope_rejects_cross_company_and_allows_admin(monkeypatch):
     from flask import Flask, session

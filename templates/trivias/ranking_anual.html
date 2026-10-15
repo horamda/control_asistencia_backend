@@ -27,7 +27,7 @@
   </div>
   <div class="card-body">
     <form method="post" action="{{ url_for('trivia_admin.agregar_exclusion_ranking_anual') }}"
-          style="display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,1fr) auto;gap:.75rem;align-items:end">
+          class="inline-form-grid">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="anio" value="{{ anio }}">
       <div>
