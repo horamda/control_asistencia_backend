@@ -65,6 +65,8 @@
 .reu-qr-sheets{display:grid;gap:24px}
 .reu-qr-sheets .reu-qr-print+.reu-qr-print{border-top:1px dashed var(--border);padding-top:24px}
 .reu-qr-sede{font-size:1.25rem;font-weight:700;color:var(--primary)}
+.reu-chip-feriado{border-color:var(--warning)}
+.reu-aviso{margin:8px 0 0;padding:8px 12px;border-left:3px solid var(--warning);background:var(--surface-soft);border-radius:6px}
 .chip.is-selected{background:var(--primary);color:#fff;border-color:var(--primary)}
 @media print{
   body *{visibility:hidden}

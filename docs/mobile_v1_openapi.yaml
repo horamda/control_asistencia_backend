@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.39.0
+  version: 1.40.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.40.0: Reuniones con feriados (fechas pospuestas u omitidas; fecha_original, motivo_cambio, feriado_accion).
     Version 1.39.0: Reuniones por sucursal (sedes con lugar, hora y QR propios; campos sucursal_id/sucursal_nombre).
     Version 1.38.0: modulo Reuniones (/reuniones): convocatorias, registro por QR, proximas fechas y estadisticas. Ver reuniones_mobile.md.
     Version 1.37.0: egreso automatico por olvido de fichada. `metodo`/`metodo_salida` pueden valer "automatico"; aditivos `es_automatica` (me/marcas), `egreso_automatico` (me/asistencias) y `fichaje` (me/dashboard).

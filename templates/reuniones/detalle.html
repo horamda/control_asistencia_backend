@@ -25,6 +25,7 @@
   </header>
   {% if r.descripcion %}<p>{{ r.descripcion }}</p>{% endif %}
   <dl class="epp-order-facts reu-detail-facts">
+    <div><dt>Feriados</dt><dd>{{ {'posponer': 'Se pospone al siguiente día hábil', 'omitir': 'No se hace ese día', 'mantener': 'Se hace igual'}[r.feriado_accion or 'posponer'] }}</dd></div>
     <div><dt>Registro</dt><dd>Desde {{ r.tolerancia_antes_min }} min antes · tarde después de {{ r.tarde_despues_min }} min · cierra {{ ('a los ' ~ r.cierre_despues_min ~ ' min') if r.cierre_despues_min is not none else 'al terminar' }}</dd></div>
     <div><dt>{{ 'Sucursales' if con_sedes else 'Código QR' }}</dt><dd>
       {% if con_sedes %}
@@ -34,7 +35,7 @@
       {% endif %}
     </dd></div>
     <div><dt>Próximas fechas</dt><dd>
-      {% for p in proximas %}<a class="chip" href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=p.fecha.isoformat(), sucursal=p.sucursal_id or None) }}">{{ 'Hoy' if p.fecha == hoy else (p.fecha|dia_semana)[:3] ~ ' ' ~ p.fecha.strftime('%d/%m') }}{% if p.sucursal_nombre %} · {{ p.sucursal_nombre }}{% endif %}</a> {% else %}—{% endfor %}
+      {% for p in proximas %}{% if p.omitida %}<span class="chip reu-chip-feriado" title="{{ p.motivo }}"><s>{{ (p.fecha|dia_semana)[:3] ~ ' ' ~ p.fecha.strftime('%d/%m') }}</s> feriado{% if p.sucursal_nombre %} · {{ p.sucursal_nombre }}{% endif %}</span>{% else %}<a class="chip {{ 'reu-chip-feriado' if p.original }}" title="{{ p.motivo or '' }}" href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=p.fecha.isoformat(), sucursal=p.sucursal_id or None) }}">{{ 'Hoy' if p.fecha == hoy else (p.fecha|dia_semana)[:3] ~ ' ' ~ p.fecha.strftime('%d/%m') }}{% if p.original %} (por feriado){% endif %}{% if p.sucursal_nombre %} · {{ p.sucursal_nombre }}{% endif %}</a>{% endif %} {% else %}—{% endfor %}
     </dd></div>
   </dl>
 </section>

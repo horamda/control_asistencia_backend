@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Feriados{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/epp.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reuniones.css') }}">
+{% endblock %}
+{% block content %}
+<div class="content-stack epp-page reu-page">
+  <header>
+    <h2>Feriados</h2>
+    <p>Calendario de feriados de la empresa. Las reuniones que caen en un feriado se posponen al siguiente día hábil (o se omiten, según cada reunión).</p>
+  </header>
+
+  <form method="get" class="epp-staff-search" action="{{ url_for('feriados.index') }}">
+    <label>Año<input type="number" name="anio" min="2000" max="2100" value="{{ anio }}"></label>
+    <button class="btn" type="submit">Ver</button>
+    {% if can_web('horarios', 'crear') %}
+      <button class="btn btn-secondary" type="submit" form="feriados-importar">Importar feriados nacionales {{ anio }}</button>
+    {% endif %}
+  </form>
+  {% if can_web('horarios', 'crear') %}
+    <form method="post" id="feriados-importar" action="{{ url_for('feriados.importar') }}" hidden>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="anio" value="{{ anio }}">
+    </form>
+  {% endif %}
+
+  {% if can_web('horarios', 'crear') %}
+  <section class="epp-card">
+    <h3>Agregar feriado</h3>
+    <p class="helper-text">Para feriados provinciales, municipales, días no laborables que la empresa respete (por ejemplo, un puente turístico) o el día de una sucursal.</p>
+    <form method="post" class="epp-staff-search" action="{{ url_for('feriados.nuevo') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Fecha<input type="date" name="fecha" required></label>
+      <label>Nombre<input name="nombre" required maxlength="150" placeholder="Ej.: Día del empleado de comercio"></label>
+      <label>Aplica a
+        <select name="sucursal_id">
+          <option value="">Todas las sucursales</option>
+          {% for su in sucursales %}<option value="{{ su.id }}">Solo {{ su.nombre }}</option>{% endfor %}
+        </select>
+      </label>
+      <button class="btn" type="submit">Agregar</button>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="epp-card">
+    <h3>Feriados {{ anio }}</h3>
+    {% if feriados %}
+      <div class="table-responsive table-cards">
+        <table>
+          <thead><tr><th>Fecha</th><th>Nombre</th><th>Aplica a</th><th>Origen</th>{% if can_web('horarios', 'eliminar') %}<th></th>{% endif %}</tr></thead>
+          <tbody>
+            {% for f in feriados %}
+              <tr>
+                <td data-label="Fecha">{{ (f.fecha|dia_semana)[:3] }} {{ f.fecha.strftime('%d/%m/%Y') }}{% if f.fecha == hoy %} <span class="chip">Hoy</span>{% endif %}</td>
+                <td data-label="Nombre">{{ f.nombre }}</td>
+                <td data-label="Aplica a">{{ f.sucursal_nombre or 'Todas las sucursales' }}</td>
+                <td data-label="Origen">{{ 'Calendario nacional' if f.origen == 'importado' else 'Cargado a mano' }}</td>
+                {% if can_web('horarios', 'eliminar') %}
+                  <td data-label="">
+                    <form method="post" class="reu-inline-form" action="{{ url_for('feriados.eliminar', feriado_id=f.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn btn-secondary" type="submit" data-confirm="¿Quitar el feriado {{ f.nombre }} del {{ f.fecha.strftime('%d/%m/%Y') }}? Las reuniones de ese día vuelven a su fecha normal.">Quitar</button>
+                    </form>
+                  </td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">No hay feriados cargados para {{ anio }}. Importá los nacionales con el botón de arriba.</div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

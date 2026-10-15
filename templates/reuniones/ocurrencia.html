@@ -15,6 +15,7 @@
         {% elif abierta %}<strong>Registro abierto ahora.</strong>
         {% elif futura %}Todavía no empezó.{% endif %}
       </p>
+      {% if cambio %}<p class="reu-aviso">{{ cambio }}</p>{% endif %}
       {% if otras_sedes %}
         <p class="reu-sede-list">Otras sucursales este día:
           {% for x in otras_sedes %}<a class="chip" href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=fecha.isoformat(), sucursal=x.sucursal_id) }}">{{ x.sucursal_nombre }}</a>{% endfor %}

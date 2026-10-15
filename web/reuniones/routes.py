@@ -165,7 +165,8 @@ def _valores(reunion=None, data=None):
         return v
     if not reunion:
         return dict(frecuencia="semanal", dias_semana=[0], hora_inicio="09:00", duracion_min=60, tolerancia_antes_min=15,
-                    tarde_despues_min=10, cierre_despues_min="", qr_modo="fijo", activa=1, mensual_tipo="dia", dia_mes=1,
+                    tarde_despues_min=10, cierre_despues_min="", qr_modo="fijo", feriado_accion="posponer", activa=1,
+                    mensual_tipo="dia", dia_mes=1,
                     semana_mes=1, dia_semana_mes=0, fecha_inicio=now_local().date().isoformat())
     dias = s._dias(reunion.get("dias_semana"))
     return dict(reunion, hora_inicio=s._hhmm(s._time(reunion["hora_inicio"])), dias_semana=dias,

@@ -109,10 +109,11 @@ def reuniones_db(database, monkeypatch):  # noqa: F811
         c.execute(sql)
     from scripts.migrate_20261016_01_reuniones import migrate_cursor
     from scripts.migrate_20261016_02_reuniones_sucursales import migrate_cursor as migrate_sedes
-    migrate_cursor(c)
-    migrate_sedes(c)
-    migrate_cursor(c)  # idempotentes
-    migrate_sedes(c)
+    from scripts.migrate_20261016_03_feriados import migrate_cursor as migrate_feriados
+    for _ in range(2):  # idempotentes
+        migrate_cursor(c)
+        migrate_sedes(c)
+        migrate_feriados(c)
     conn.commit()
     c.close()
     conn.close()
@@ -242,8 +243,10 @@ def client(reuniones_db, monkeypatch):
     app = Flask(__name__, template_folder=str(Path(__file__).resolve().parents[1] / "templates"))
     app.secret_key = "test"
     app.config["TESTING"] = True
+    from web.feriados.routes import feriados_bp
     app.register_blueprint(routes.web)
     app.register_blueprint(routes.mobile)
+    app.register_blueprint(feriados_bp)
     permisos = {"acciones": {"ver", "crear", "editar", "eliminar", "exportar"}}
     app.jinja_env.globals.update(csp_nonce=lambda: "n", csrf_token=lambda: "t",
                                  can_web=lambda code, action="ver": code == "reuniones" and action in permisos["acciones"],
@@ -428,3 +431,105 @@ def test_panel_sedes(client):
     assert "Sala Central" in client.get(f"/reuniones/{rid}").get_data(as_text=True)
     assert "10:30 a 11:30" in client.get(f"/reuniones/{rid}/qr/proyectar?sucursal=2").get_data(as_text=True)
     assert client.get(f"/reuniones/{rid}/fecha/2026-10-14?sucursal=3").status_code == 404
+
+
+# --- Feriados -------------------------------------------------------------------------------------
+# 12/10/2026 es lunes.
+
+LUNES = D(2026, 10, 12)
+
+
+def test_feriado_pospone_al_siguiente_dia_habil():
+    r = reunion(dias_semana="0", _feriados={LUNES: "Diversidad Cultural"})
+    assert list(svc.fechas(r, D(2026, 10, 5), D(2026, 10, 19))) == [D(2026, 10, 5), D(2026, 10, 13), D(2026, 10, 19)]
+    item = svc.info_fecha(r, D(2026, 10, 13))
+    assert item["original"] == LUNES and not svc.ocurre_en(r, LUNES)
+    assert svc.motivo_cambio(item) == "Pospuesta del lunes 12/10 por feriado: Diversidad Cultural."
+    # La fecha pospuesta aparece aunque el rango empiece despues del feriado.
+    assert list(svc.fechas(r, D(2026, 10, 13), D(2026, 10, 13))) == [D(2026, 10, 13)]
+
+
+def test_feriado_salta_fines_de_semana_y_feriados_seguidos():
+    viernes = D(2026, 10, 16)
+    r = reunion(dias_semana="4", _feriados={viernes: "Local", D(2026, 10, 19): "Otro"})
+    assert svc.info_fecha(r, viernes)["fecha"] == D(2026, 10, 20)  # sabado, domingo y lunes feriado
+    sabado = reunion(dias_semana="5", _feriados={D(2026, 10, 17): "X"})
+    assert svc.info_fecha(sabado, D(2026, 10, 17))["fecha"] == D(2026, 10, 19)  # siguiente dia habil
+
+
+def test_feriado_omitir_mantener_y_sin_duplicar_diarias():
+    feriado = {LUNES: "Diversidad Cultural"}
+    diaria = reunion(frecuencia="diaria", dias_semana="0,1,2,3,4", _feriados=feriado)
+    assert list(svc.fechas(diaria, LUNES, D(2026, 10, 13))) == [D(2026, 10, 13)]  # el martes ya tenia la suya
+    assert svc.info_fecha(diaria, LUNES)["omitida"]
+    assert not list(svc.fechas(reunion(dias_semana="0", feriado_accion="omitir", _feriados=feriado), LUNES, LUNES))
+    assert list(svc.fechas(reunion(dias_semana="0", feriado_accion="mantener", _feriados=feriado), LUNES, LUNES)) == [LUNES]
+    fin = reunion(dias_semana="0", fecha_fin=LUNES, _feriados=feriado)
+    assert not list(svc.fechas(fin, LUNES, D(2026, 10, 20)))  # no se pospone mas alla de la vigencia
+
+
+def test_feriados_en_reuniones_y_sucursales(reuniones_db):
+    from services import feriado_service as fer
+    datos = [{"fecha": "2026-10-12", "tipo": "trasladable", "nombre": "Diversidad Cultural"},
+             {"fecha": "2026-03-23", "tipo": "puente", "nombre": "Puente turístico"},
+             {"fecha": "2027-01-01", "tipo": "inamovible", "nombre": "Otro año"}]
+    assert fer.importar_nacionales(ADMIN, 2026, fetch=lambda anio: datos) == {"nuevos": 1, "existentes": 0, "omitidos": 2}
+    assert fer.importar_nacionales(ADMIN, 2026, fetch=lambda anio: datos)["existentes"] == 1
+    with pytest.raises(svc.Error, match="calendario oficial"):
+        fer.importar_nacionales(ADMIN, 2026, fetch=lambda anio: (_ for _ in ()).throw(OSError("sin red")))
+    fer.guardar(ADMIN, dict(fecha="2026-10-19", nombre="Aniversario Norte", sucursal_id="2"))
+    with pytest.raises(svc.Error, match="Ya hay un feriado"):
+        fer.guardar(ADMIN, dict(fecha="2026-10-19", nombre="Repetido", sucursal_id="2"))
+    assert [f["nombre"] for f in fer.listar(ADMIN, 2026)] == ["Diversidad Cultural", "Aniversario Norte"]
+
+    AHORA["valor"] = dt.datetime(2026, 10, 1, 8, 0)
+    rid = crear(dias_semana=["0"], reglas=["todos"], empleados=[], qr_modo="fijo",
+                sedes=[dict(sucursal_id=1), dict(sucursal_id=2)])
+    # Central: el 12 pasa al 13; el 19 sigue igual. Norte: ademas su feriado propio del 19 pasa al 20.
+    central = [(p["fecha"], p["fecha_original"]) for p in svc.proximas(emp(10), 21)["items"]]
+    assert central == [("2026-10-05", None), ("2026-10-13", "2026-10-12"), ("2026-10-19", None)]
+    norte = svc.proximas(emp(12), 21)["items"]
+    assert [(p["fecha"], p["fecha_original"]) for p in norte] == [
+        ("2026-10-05", None), ("2026-10-13", "2026-10-12"), ("2026-10-20", "2026-10-19")]
+    assert norte[2]["motivo_cambio"] == "Pospuesta del lunes 19/10 por feriado: Aniversario Norte."
+
+    with svc.db.transaction(read_only=True) as c:
+        qr = svc.qr_fijo(svc.sede(c, svc.obtener(c, ADMIN, rid), 1))
+    AHORA["valor"] = dt.datetime(2026, 10, 12, 9, 0)
+    with pytest.raises(svc.Error, match=r"Hoy es feriado \(Diversidad Cultural\): la reunión se pasó al martes 13/10"):
+        svc.registrar_qr(emp(10), qr)
+    AHORA["valor"] = dt.datetime(2026, 10, 13, 9, 0)
+    assert svc.registrar_qr(emp(10), qr)["fecha"] == "2026-10-13"
+    occ = svc.ocurrencia_detalle(ADMIN, rid, D(2026, 10, 13), 1)
+    assert occ["ocurrencia"]["fecha_original"] == LUNES and "Diversidad Cultural" in occ["cambio"]
+    with pytest.raises(svc.Error, match="Pospuesta del lunes 12/10"):
+        svc.ocurrencia_detalle(ADMIN, rid, LUNES, 1)
+    assert svc.historial_empleado(emp(10))["items"][0]["fecha_original"] == "2026-10-12"
+
+    # Quitar un feriado reprograma las fechas futuras sin registros.
+    with svc.db.transaction() as c:
+        norte_sede = svc.sede(c, svc.obtener(c, ADMIN, rid), 2)
+        assert svc.ocurrencia(c, norte_sede, D(2026, 10, 20))["fecha_original"] == D(2026, 10, 19)
+        feriado_id = svc.db.one(c, "SELECT id FROM feriados WHERE nombre='Aniversario Norte'")["id"]
+    fer.eliminar(ADMIN, feriado_id)
+    assert [p["fecha"] for p in svc.proximas(emp(12), 10)["items"]][-1] == "2026-10-19"
+    with svc.db.transaction(read_only=True) as c:
+        assert not svc.db.one(c, "SELECT id FROM reunion_ocurrencias WHERE fecha='2026-10-20'")
+
+
+def test_pantalla_feriados(client, monkeypatch):
+    from services import feriado_service as fer
+    import web.auth.decorators as auth
+    monkeypatch.setattr(auth, "can_access_module", lambda uid, module, action="ver": module in {"reuniones", "horarios"})
+    monkeypatch.setattr("web.feriados.routes._cached_web_user", lambda uid: dict(id=99, empresa_id=1, activo=1))
+    monkeypatch.setattr("web.feriados.routes.log_audit", lambda *a, **kw: None)
+    monkeypatch.setattr(fer, "descargar_nacionales", lambda anio: [{"fecha": f"{anio}-05-25", "tipo": "inamovible",
+                                                                     "nombre": "Revolución de Mayo"}])
+    client.application.jinja_env.globals["can_web"] = lambda code, action="ver": code in {"reuniones", "horarios"}
+    assert client.post("/feriados/importar", data={"anio": "2026"}).status_code == 302
+    assert client.post("/feriados/nuevo", data={"fecha": "2026-11-09", "nombre": "Comercio", "sucursal_id": ""}).status_code == 302
+    html = client.get("/feriados/?anio=2026").get_data(as_text=True)
+    assert "Revolución de Mayo" in html and "Comercio" in html and "Calendario nacional" in html
+    r = client.post("/feriados/nuevo", data={"fecha": "mal", "nombre": "X"})
+    assert r.status_code == 302 and client.get(r.headers["Location"]).status_code == 200
+    assert 'name="feriado_accion"' in client.get("/reuniones/nueva").get_data(as_text=True)

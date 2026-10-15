@@ -74,6 +74,14 @@
         <span></span>
         <label>Vigente desde<input type="date" name="fecha_inicio" required value="{{ v.fecha_inicio }}"></label>
         <label>Vigente hasta<input type="date" name="fecha_fin" value="{{ v.fecha_fin or '' }}" aria-describedby="reu-fin-help"><small id="reu-fin-help">Vacío: sin fecha de fin.</small></label>
+        <label class="epp-full">Si cae en feriado
+          <select name="feriado_accion" aria-describedby="reu-feriado-help">
+            <option value="posponer" {{ 'selected' if (v.feriado_accion or 'posponer') == 'posponer' }}>Posponer al siguiente día hábil</option>
+            <option value="omitir" {{ 'selected' if v.feriado_accion == 'omitir' }}>No hacerla ese día</option>
+            <option value="mantener" {{ 'selected' if v.feriado_accion == 'mantener' }}>Hacerla igual</option>
+          </select>
+          <small id="reu-feriado-help">Según el calendario de <a href="{{ url_for('feriados.index') }}">Feriados</a> (nacionales y de cada sucursal). Si el día hábil siguiente ya tiene esta reunión, no se duplica.</small>
+        </label>
       </div>
     </fieldset>
 

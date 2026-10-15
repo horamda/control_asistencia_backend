@@ -162,6 +162,7 @@
                   <a class="nav-link" href="/horarios/">Plantillas</a>
                   <a class="nav-link" href="/empleado-horarios/">Asignaciones</a>
                   <a class="nav-link" href="/empleado-excepciones/">Excepciones</a>
+                  <a class="nav-link" href="/feriados/">Feriados</a>
                 </div>
               </div>
             {% endif %}
@@ -210,6 +211,7 @@
                 <a class="nav-link" href="/reuniones/">Reuniones</a>
                 {% if can_web("reuniones", "crear") %}<a class="nav-link" href="/reuniones/nueva">Nueva reunión</a>{% endif %}
                 <a class="nav-link" href="/reuniones/estadisticas">Estadísticas de asistencia</a>
+                {% if can_web("horarios") %}<a class="nav-link" href="/feriados/">Feriados</a>{% endif %}
               </div>
             </div>
             {% endif %}

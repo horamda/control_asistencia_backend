@@ -72,6 +72,7 @@ from web.carga.carga_routes import carga_web_bp
 from web.panel_notifications_routes import panel_notifications_bp
 from web.rendimiento.rendimiento_routes import rendimiento_bp
 from web.reuniones.routes import web as reuniones_web_bp, mobile as reuniones_mobile_bp
+from web.feriados.routes import feriados_bp
 from utils import request_metrics
 
 # API: autentican por token, responden errores en JSON y quedan exentas de CSRF.
@@ -103,6 +104,7 @@ BLUEPRINTS = (
     epp_web_bp,
     reuniones_mobile_bp,
     reuniones_web_bp,
+    feriados_bp,
     reintegros_web_bp,
     seguridad_mobile_bp,
     seguridad_web_bp,

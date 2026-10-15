@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.39.0
+Version de contrato: 1.40.0
+
+- **Reuniones y feriados (1.40.0):** las fechas que caen en feriado se posponen al siguiente día hábil (u omiten, según la reunión); `/reuniones/proximas` trae `fecha_original` y `motivo_cambio`. Ver [contrato](reuniones_mobile.md#feriados-1400).
 
 - **Reuniones por sucursal (1.39.0):** una reunión puede hacerse en varias sucursales con lugar, hora y QR propios; las respuestas traen `sucursal_id`/`sucursal_nombre`. Ver [contrato](reuniones_mobile.md#sucursales-1390).
 

@@ -15,6 +15,7 @@ import jwt
 from mysql.connector import IntegrityError
 
 from repositories import carga_repository as db
+from services import feriado_service
 from services.carga_service import CargaError as Error, now_local
 from utils.jwt import _get_secret
 
@@ -31,6 +32,8 @@ DIAS = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Doming
 SEMANAS = {1: "primer", 2: "segundo", 3: "tercer", 4: "cuarto", 5: "último"}
 MAX_RANGO_DIAS = 366
 SIN_SEDE = 0
+FERIADO_ACCIONES = ("posponer", "omitir", "mantener")
+MAX_POSPONER_DIAS = 14
 
 
 # --- Utilidades ----------------------------------------------------------------------
@@ -91,8 +94,8 @@ def pct(parte, total):
 
 # --- Recurrencia ---------------------------------------------------------------------
 
-def ocurre_en(r, fecha):
-    """True si la reunion r (dict de la tabla) ocurre en la fecha dada."""
+def _ocurre_regla(r, fecha):
+    """True si la regla de recurrencia de r cae en la fecha (sin mirar feriados)."""
     if fecha < _date(r["fecha_inicio"]) or (r.get("fecha_fin") and fecha > _date(r["fecha_fin"])):
         return False
     dias = _dias(r.get("dias_semana"))
@@ -109,14 +112,81 @@ def ocurre_en(r, fecha):
     return fecha.day == min(int(r.get("dia_mes") or 1), ultimo)
 
 
-def fechas(r, desde, hasta):
+def _dia_habil_siguiente(fecha, feriados):
+    dia = fecha + dt.timedelta(days=1)
+    for _ in range(MAX_POSPONER_DIAS):
+        if dia.weekday() < 5 and dia not in feriados:
+            return dia
+        dia += dt.timedelta(days=1)
+    return None
+
+
+def calendario(r, desde, hasta):
+    """Fechas de r entre desde y hasta aplicando los feriados de su sede (r["_feriados"]).
+
+    Cada item: fecha (efectiva), original (si se pospuso), feriado (nombre) y omitida. Si cae en
+    feriado se pospone al siguiente dia habil, se omite o se mantiene segun r["feriado_accion"]; si el
+    dia habil siguiente ya tiene esa misma reunion, no se duplica: se omite."""
     if (hasta - desde).days > MAX_RANGO_DIAS:
         hasta = desde + dt.timedelta(days=MAX_RANGO_DIAS)
-    dia = desde
+    feriados = r.get("_feriados") or {}
+    accion = r.get("feriado_accion") or "posponer"
+    # Una fecha anterior al rango puede posponerse hacia dentro del rango.
+    inicio = desde - dt.timedelta(days=MAX_POSPONER_DIAS if feriados else 0)
+    reglas = []
+    dia = inicio
     while dia <= hasta:
-        if ocurre_en(r, dia):
-            yield dia
+        if _ocurre_regla(r, dia):
+            reglas.append(dia)
         dia += dt.timedelta(days=1)
+    regulares = {d for d in reglas if d not in feriados}
+    salida = []
+    for dia in reglas:
+        nombre = feriados.get(dia)
+        if nombre is None or accion == "mantener":
+            item = dict(fecha=dia, original=None, feriado=nombre, omitida=False)
+        else:
+            nueva = _dia_habil_siguiente(dia, feriados) if accion == "posponer" else None
+            if nueva and nueva not in regulares and (not r.get("fecha_fin") or nueva <= _date(r["fecha_fin"])):
+                item = dict(fecha=nueva, original=dia, feriado=nombre, omitida=False)
+            else:
+                item = dict(fecha=dia, original=None, feriado=nombre, omitida=True)
+        if desde <= item["fecha"] <= hasta:
+            salida.append(item)
+    salida.sort(key=lambda x: x["fecha"])
+    return salida
+
+
+def fechas(r, desde, hasta):
+    """Fechas efectivas en que se hace la reunion (con feriados aplicados)."""
+    vistas = set()
+    for item in calendario(r, desde, hasta):
+        if not item["omitida"] and item["fecha"] not in vistas:
+            vistas.add(item["fecha"])
+            yield item["fecha"]
+
+
+def ocurre_en(r, fecha):
+    """True si la reunion r (en su sede, con sus feriados) se hace en la fecha dada."""
+    return fecha in set(fechas(r, fecha, fecha))
+
+
+def info_fecha(r, fecha):
+    """Item del calendario de esa fecha (efectiva u original omitida/pospuesta), o None."""
+    for item in calendario(r, fecha - dt.timedelta(days=MAX_POSPONER_DIAS), fecha + dt.timedelta(days=MAX_POSPONER_DIAS)):
+        if item["fecha"] == fecha or item["original"] == fecha:
+            return item
+    return None
+
+
+def motivo_cambio(item):
+    if not item or not item.get("feriado"):
+        return None
+    if item["omitida"]:
+        return f"No se hace por feriado: {item['feriado']}."
+    if item["original"]:
+        return f"Pospuesta del {DIAS[item['original'].weekday()].lower()} {item['original'].strftime('%d/%m')} por feriado: {item['feriado']}."
+    return None
 
 
 def proxima_fecha(r, desde=None, dias=MAX_RANGO_DIAS):
@@ -172,9 +242,14 @@ def en_sede(r, sede=None):
                 hora_inicio=sede.get("hora_inicio") or r["hora_inicio"], lugar=sede.get("lugar") or r.get("lugar"))
 
 
-def sedes_efectivas(c, r, lista=None):
+def sedes_efectivas(c, r, lista=None, feriados=None):
+    """La reunion en cada sede, con los feriados que aplican a esa sucursal (r["_feriados"])."""
     lista = sedes(c, r["id"]) if lista is None else lista
-    return [en_sede(r, s) for s in lista] or [en_sede(r)]
+    feriados = feriado_service.mapa(c, r["empresa_id"]) if feriados is None else feriados
+    salida = [en_sede(r, s) for s in lista] or [en_sede(r)]
+    for item in salida:
+        item["_feriados"] = feriado_service.de_sucursal(feriados, item["sucursal_id"])
+    return salida
 
 
 def sede(c, r, sucursal_id):
@@ -275,12 +350,15 @@ def ocurrencia(c, r, fecha, crear=True, lock=False):
     if row or not crear:
         return row
     h = horarios(r, fecha)
+    item = info_fecha(r, fecha) if r.get("_feriados") else None
+    original = item["original"] if item and item["fecha"] == fecha else None
     c.execute(
         """INSERT IGNORE INTO reunion_ocurrencias
-           (empresa_id, reunion_id, sucursal_id, fecha, inicio, fin, ventana_desde, ventana_hasta, tarde_desde, estado)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'programada')""",
-        (r["empresa_id"], r["id"], r["sucursal_id"], fecha, h["inicio"], h["fin"], h["ventana_desde"],
-         h["ventana_hasta"], h["tarde_desde"]),
+           (empresa_id, reunion_id, sucursal_id, fecha, fecha_original, inicio, fin, ventana_desde, ventana_hasta,
+            tarde_desde, estado, motivo_cambio)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'programada',%s)""",
+        (r["empresa_id"], r["id"], r["sucursal_id"], fecha, original, h["inicio"], h["fin"], h["ventana_desde"],
+         h["ventana_hasta"], h["tarde_desde"], motivo_cambio(item) if original else None),
     )
     return db.one(c, sql, args)
 
@@ -428,6 +506,12 @@ def registrar_qr(empleado, contenido, *, lat=None, lon=None, ahora=None):
             raise Error("El QR corresponde a otra fecha.", 409)
         existente = ocurrencia(c, r, fecha, crear=False, lock=True)
         if not existente and not ocurre_en(r, fecha):
+            movida = info_fecha(r, fecha)
+            if movida and movida["feriado"] and movida["original"] == fecha:
+                raise Error(f"Hoy es feriado ({movida['feriado']}): la reunión se pasó al "
+                            f"{DIAS[movida['fecha'].weekday()].lower()} {movida['fecha'].strftime('%d/%m')}.", 409)
+            if movida and movida["feriado"] and movida["omitida"]:
+                raise Error(f"Hoy es feriado ({movida['feriado']}): esta reunión no se hace.", 409)
             proxima = proxima_fecha(r, fecha)
             detalle = f" La próxima es el {proxima.strftime('%d/%m')}." if proxima else ""
             raise Error(f"Hoy no hay {r['nombre']}.{detalle}", 409)
@@ -580,6 +664,7 @@ def _validar(data):
     if out["fecha_fin"] and out["fecha_fin"] < out["fecha_inicio"]:
         raise Error("La fecha de fin no puede ser anterior a la de inicio.")
     out["qr_modo"] = data.get("qr_modo") if data.get("qr_modo") in QR_MODOS else "fijo"
+    out["feriado_accion"] = data.get("feriado_accion") if data.get("feriado_accion") in FERIADO_ACCIONES else "posponer"
     out["activa"] = 0 if str(data.get("activa", "1")) == "0" else 1
     return out
 
@@ -755,16 +840,18 @@ def listado(who, *, q=None, estado=None, sucursal_id=None, desde=None, hasta=Non
         hoy = db.all_rows(c, "SELECT reunion_id, sucursal_id, estado FROM reunion_ocurrencias WHERE empresa_id=%s AND fecha=%s",
                           (who["empresa_id"], ahora.date()))
         por_reunion = {r["id"]: sedes(c, r["id"]) for r in rows}
+        feriados = feriado_service.mapa(c, who["empresa_id"])
+        efectivas = {r["id"]: sedes_efectivas(c, r, por_reunion[r["id"]], feriados) for r in rows}
     canceladas_hoy = {(row["reunion_id"], row["sucursal_id"]) for row in hoy if row["estado"] == "cancelada"}
     for r in rows:
         r["sedes"] = por_reunion[r["id"]]
         r["descripcion_frecuencia"] = describir(r)
         r["convocados"] = cantidades.get(r["id"], 0)
-        r["proxima"] = proxima_fecha(r) if r["activa"] else None
+        proximas_sedes = [f for f in (proxima_fecha(x, ahora.date()) for x in efectivas[r["id"]]) if f]
+        r["proxima"] = min(proximas_sedes) if r["activa"] and proximas_sedes else None
         r["stats"] = stats.get(r["id"])
-        ids = [s["sucursal_id"] for s in r["sedes"]] or [SIN_SEDE]
-        r["hoy"] = bool(r["activa"] and ocurre_en(r, ahora.date())
-                        and any((r["id"], sid) not in canceladas_hoy for sid in ids))
+        r["hoy"] = bool(r["activa"] and any(ocurre_en(x, ahora.date()) and (r["id"], x["sucursal_id"]) not in canceladas_hoy
+                                            for x in efectivas[r["id"]]))
     return dict(reuniones=rows, total=_suma(list(stats.values())), desde=desde, hasta=hasta)
 
 
@@ -806,9 +893,10 @@ def detalle(who, reunion_id, *, desde=None, hasta=None, sucursal_id=None):
     proximas = []
     if r["activa"]:
         for item in efectivas:
-            proximas += [dict(fecha=f, sucursal_id=item["sucursal_id"], sucursal_nombre=item["sucursal_nombre"],
-                              hora=_hhmm(_time(item["hora_inicio"])))
-                         for f in list(fechas(item, ahora.date(), ahora.date() + dt.timedelta(days=60)))[:6]]
+            proximas += [dict(fecha=x["fecha"], sucursal_id=item["sucursal_id"], sucursal_nombre=item["sucursal_nombre"],
+                              hora=_hhmm(_time(item["hora_inicio"])), original=x["original"], omitida=x["omitida"],
+                              motivo=motivo_cambio(x))
+                         for x in calendario(item, ahora.date(), ahora.date() + dt.timedelta(days=60))[:6]]
         proximas.sort(key=lambda x: (x["fecha"], x["sucursal_nombre"] or ""))
     return dict(reunion=r, sedes_efectivas=efectivas, convocados=lista, ocurrencias=ocurrencias, ranking=ranking,
                 por_sede=por_sede, total=_suma(por_sede), proximas=proximas[:12], desde=desde, hasta=hasta,
@@ -823,6 +911,9 @@ def ocurrencia_detalle(who, reunion_id, fecha, sucursal_id=SIN_SEDE):
         r = sede(c, base, sucursal_id)
         occ = ocurrencia(c, r, fecha, crear=False)
         if not occ and not ocurre_en(r, fecha):
+            movida = info_fecha(r, fecha)
+            if movida and movida["feriado"]:
+                raise Error(motivo_cambio(movida) or f"Feriado: {movida['feriado']}.", 404)
             raise Error("La reunión no ocurre en esa fecha.", 404)
         registros = {row["empleado_id"]: row for row in db.all_rows(
             c, "SELECT * FROM reunion_asistencias WHERE ocurrencia_id=%s", (occ["id"],))} if occ else {}
@@ -840,7 +931,8 @@ def ocurrencia_detalle(who, reunion_id, fecha, sucursal_id=SIN_SEDE):
         filas.append(dict(e, estado=reg["estado"] if reg else "pendiente", registrado_at=reg["registrado_at"] if reg else None,
                           metodo=reg["metodo"] if reg else None, observaciones=reg["observaciones"] if reg else None))
     conteo = {k: sum(1 for f in filas if f["estado"] == k) for k in ESTADOS + ("pendiente",)}
-    return dict(reunion=r, fecha=fecha, ocurrencia=occ, horario=h, filas=filas, conteo=conteo, otras_sedes=otras,
+    cambio = (occ or {}).get("motivo_cambio") or motivo_cambio(info_fecha(r, fecha))
+    return dict(reunion=r, fecha=fecha, ocurrencia=occ, horario=h, filas=filas, conteo=conteo, otras_sedes=otras, cambio=cambio,
                 abierta=h["ventana_desde"] <= ahora <= h["ventana_hasta"], futura=fecha > ahora.date())
 
 
@@ -881,6 +973,7 @@ def reunion_publica(r):
         tolerancia_antes_min=int(r["tolerancia_antes_min"]), tarde_despues_min=int(r["tarde_despues_min"]),
         cierre_despues_min=r.get("cierre_despues_min"), fecha_inicio=_iso(_date(r["fecha_inicio"])),
         fecha_fin=_iso(_date(r["fecha_fin"])) if r.get("fecha_fin") else None,
+        feriado_accion=r.get("feriado_accion") or "posponer",
     )
 
 
@@ -915,12 +1008,18 @@ def proximas(empleado, dias=7, *, ahora=None):
             (empleado["id"], desde, hasta))}
     items = []
     for r in rows:
-        for fecha in fechas(r, desde, hasta):
+        for dia in calendario(r, desde, hasta):
+            fecha = dia["fecha"]
             occ = guardadas.get((r["id"], r["sucursal_id"], fecha))
+            if dia["omitida"] and occ:
+                continue  # el panel la registro igual: manda la ocurrencia guardada
             h = occ or horarios(r, fecha)
             reg = mias.get(occ["id"]) if occ else None
+            cambio = (occ or {}).get("motivo_cambio") or motivo_cambio(dia)
             if reg:
                 estado = reg["estado"]
+            elif dia["omitida"]:
+                estado = "cancelada"
             elif occ and occ["estado"] == "cancelada":
                 estado = "cancelada"
             elif ahora > h["ventana_hasta"]:
@@ -935,8 +1034,10 @@ def proximas(empleado, dias=7, *, ahora=None):
                 fecha=fecha.isoformat(), inicio=_iso(h["inicio"]), fin=_iso(h["fin"]),
                 ventana_desde=_iso(h["ventana_desde"]), ventana_hasta=_iso(h["ventana_hasta"]),
                 tarde_desde=_iso(h["tarde_desde"]), estado=estado,
-                cancelada=bool(occ and occ["estado"] == "cancelada"),
-                motivo_cancelacion=occ.get("motivo_cancelacion") if occ else None,
+                cancelada=bool(dia["omitida"] or (occ and occ["estado"] == "cancelada")),
+                motivo_cancelacion=(occ.get("motivo_cancelacion") if occ else None) or (cambio if dia["omitida"] else None),
+                fecha_original=_iso((occ or {}).get("fecha_original") or dia["original"]),
+                motivo_cambio=cambio,
                 registrado_at=_iso(reg["registrado_at"]) if reg else None, qr_modo=r["qr_modo"],
             ))
     items.sort(key=lambda x: (x["inicio"], x["nombre"]))
@@ -958,7 +1059,7 @@ def historial_empleado(empleado, *, desde=None, hasta=None, reunion_id=None, pag
     with db.transaction(read_only=True) as c:
         total = db.one(c, f"SELECT COUNT(*) AS n FROM reunion_asistencias a WHERE {clause}", tuple(args))["n"]
         rows = db.all_rows(c, f"""SELECT a.id, a.reunion_id, r.nombre, COALESCE(rs.lugar, r.lugar) AS lugar,
-                                         a.sucursal_id, su.nombre AS sucursal_nombre, a.fecha, o.inicio, o.fin,
+                                         a.sucursal_id, su.nombre AS sucursal_nombre, a.fecha, o.fecha_original, o.inicio, o.fin,
                                          o.estado AS estado_ocurrencia, a.estado, a.registrado_at, a.metodo, a.observaciones
                                   FROM reunion_asistencias a JOIN reuniones r ON r.id=a.reunion_id
                                   JOIN reunion_ocurrencias o ON o.id=a.ocurrencia_id
@@ -968,7 +1069,8 @@ def historial_empleado(empleado, *, desde=None, hasta=None, reunion_id=None, pag
                            (*args, per_page, (page - 1) * per_page))
     items = [dict(id=row["id"], reunion_id=row["reunion_id"], nombre=row["nombre"], lugar=row["lugar"],
                   sucursal_id=row["sucursal_id"] or None, sucursal_nombre=row["sucursal_nombre"],
-                  fecha=_iso(row["fecha"]), inicio=_hhmm(row["inicio"]), fin=_hhmm(row["fin"]),
+                  fecha=_iso(row["fecha"]), fecha_original=_iso(row["fecha_original"]),
+                  inicio=_hhmm(row["inicio"]), fin=_hhmm(row["fin"]),
                   estado="cancelada" if row["estado_ocurrencia"] == "cancelada" else row["estado"],
                   registrado_at=_iso(row["registrado_at"]), metodo=row["metodo"], observaciones=row["observaciones"])
              for row in rows]

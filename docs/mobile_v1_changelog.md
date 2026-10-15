@@ -1,3 +1,10 @@
+## 1.40.0 — 2026-10-16
+
+- Calendario de feriados en el panel (Horarios → Feriados): importa los nacionales del año desde argentinadatos.com (sin puentes turísticos) y permite cargar feriados propios o de una sucursal.
+- Reuniones: si una fecha cae en feriado se pospone al siguiente día hábil (por defecto), se omite o se mantiene (`feriado_accion`). Sin duplicar si el día siguiente ya tiene la misma reunión.
+- API: `fecha_original` y `motivo_cambio` en `/reuniones/proximas`; `fecha_original` en `/historial`; `feriado_accion` en las reuniones; 409 con la fecha nueva al escanear en un feriado. Cambios aditivos.
+- Migración `20261016_03_feriados` (se aplica sola al iniciar).
+
 ## 1.39.0 — 2026-10-16
 
 - Reuniones por sucursal: una reunión puede hacerse en varias sucursales (sedes), cada una con lugar y hora opcionales y su propio QR. Cada empleado va a la sede de su sucursal; sin sedes sigue siendo una sola reunión.

@@ -1,11 +1,12 @@
 openapi: 3.0.3
 info:
   title: Reuniones FichaYa
-  version: 1.39.0
+  version: 1.40.0
   description: |
     Reuniones recurrentes con convocados obligatorios y asistencia por QR.
     Guia con ejemplos, estados y recordatorios locales: reuniones_mobile.md.
     1.39.0: sedes por sucursal; hora, lugar y QR son los de la sucursal del empleado.
+    1.40.0: feriados; las fechas ya vienen pospuestas u omitidas (fecha_original, motivo_cambio, feriado_accion).
 servers:
   - url: /api/v1/mobile
 security:
@@ -227,6 +228,7 @@ components:
         cierre_despues_min: {type: integer, nullable: true, description: null = cierra al terminar la reunion}
         fecha_inicio: {type: string, format: date}
         fecha_fin: {type: string, format: date, nullable: true}
+        feriado_accion: {type: string, enum: [posponer, omitir, mantener], description: Que pasa si cae en feriado (1.40.0)}
         proxima_fecha: {type: string, format: date, nullable: true}
         mis_estadisticas: {$ref: '#/components/schemas/EstadisticaReunion'}
     ReunionProxima:
@@ -249,6 +251,8 @@ components:
         motivo_cancelacion: {type: string, nullable: true}
         registrado_at: {type: string, format: date-time, nullable: true}
         qr_modo: {type: string, enum: [fijo, dinamico, ambos]}
+        fecha_original: {type: string, format: date, nullable: true, description: Fecha antes de posponerse por feriado}
+        motivo_cambio: {type: string, nullable: true, description: Texto listo para mostrar (feriado)}
     RegistroReunion:
       type: object
       properties:
@@ -273,6 +277,7 @@ components:
         sucursal_id: {type: integer, nullable: true, description: Sede del empleado; null si la reunion no tiene sedes (1.39.0)}
         sucursal_nombre: {type: string, nullable: true}
         fecha: {type: string, format: date}
+        fecha_original: {type: string, format: date, nullable: true}
         inicio: {type: string, example: '09:00'}
         fin: {type: string, example: '09:45'}
         estado: {type: string, enum: [presente, tarde, ausente, justificado, cancelada]}
