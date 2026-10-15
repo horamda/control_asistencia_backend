@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.36.0
+Version de contrato: 1.37.0
+
+- **Egreso automatico y efectividad de fichaje (1.37.0):** campos aditivos en `me/marcas`, `me/asistencias` y `me/dashboard`. Ver [seccion](#asistencias-egreso-automatico-y-efectividad-de-fichaje-1370).
 
 Actualización documental del 08/10/2026: [selector de conceptos de viáticos](reintegros_mobile.md#catálogo-de-conceptos-integración-del-selector), manejo de conceptos desactivados e históricos. El CRUD es administrativo; mobile consume `/reintegros/config`. Sin cambios incompatibles ni nuevas rutas.
 
@@ -371,7 +373,8 @@ final body = {'dni': dni, 'password': password, ...extras};
       "gps_distancia_entrada_m":12.4,
       "gps_distancia_salida_m":9.8,
       "gps_tolerancia_entrada_m":80.0,
-      "gps_tolerancia_salida_m":80.0
+      "gps_tolerancia_salida_m":80.0,
+      "egreso_automatico":false
     }
   ],
   "page":1,
@@ -401,7 +404,8 @@ final body = {'dni': dni, 'password': password, ...extras};
       "gps_ok":true,
       "gps_distancia_m":12.4,
       "gps_tolerancia_m":80.0,
-      "fecha_creacion":"2026-02-14T08:03:10"
+      "fecha_creacion":"2026-02-14T08:03:10",
+      "es_automatica":false
     }
   ],
   "page":1,
@@ -3255,6 +3259,68 @@ que modifican marcas. Los IDs de marcas reales siguen siendo positivos.
 Las correcciones recalculan los horarios y estado del resumen, por lo que
 `me/asistencias` y `me/estadisticas` reflejan el cambio al volver a consultar.
 Las paginas abiertas y archivos ya descargados deben refrescarse o regenerarse.
+
+
+### Asistencias: egreso automatico y efectividad de fichaje (1.37.0)
+
+Cuando un empleado ficha el ingreso y olvida el egreso, el backend cierra la jornada
+de forma automatica (todas las noches a las 03:30, hora Argentina, y a demanda desde el
+panel en Asistencia > Egresos automaticos). Solo se cierran jornadas de dias anteriores:
+la del dia en curso sigue abierta y el empleado puede fichar el egreso normalmente.
+
+- Hora de egreso: fin del bloque del horario asignado que contiene el ingreso; si no hay
+  horario, ingreso + horas configuradas por empresa (por defecto 8). Nunca pasa de las 23:59.
+- Las horas cargadas cuentan para `horas_totales` y `horas_promedio` como cualquier jornada.
+- La jornada cerrada queda marcada como automatica y baja la efectividad de fichaje.
+
+Cambios aditivos (no rompen clientes anteriores):
+
+| Endpoint | Campo | Tipo | Descripcion |
+|---|---|---|---|
+| `GET /me/marcas` | `metodo` | string | Puede valer `"automatico"` en marcas de egreso generadas por el sistema. |
+| `GET /me/marcas` | `es_automatica` | boolean | `true` si la marca la genero el sistema por olvido de fichada. |
+| `GET /me/asistencias` | `metodo_salida` | string | Puede valer `"automatico"`. |
+| `GET /me/asistencias` | `egreso_automatico` | boolean | `true` si el egreso lo cargo el sistema. |
+| `GET /me/dashboard` | `fichaje` | object | Efectividad de fichaje del periodo consultado. |
+
+Ejemplo de marca automatica en `GET /me/marcas`:
+```json
+{
+  "id":5310,
+  "asistencia_id":812,
+  "fecha":"2026-10-13",
+  "hora":"16:00",
+  "accion":"egreso",
+  "metodo":"automatico",
+  "tipo_marca":"jornada",
+  "estado":null,
+  "observaciones":"Egreso automatico por olvido de fichada (segun horario asignado).",
+  "lat":null,
+  "lon":null,
+  "gps_ok":null,
+  "corregida_manualmente":false,
+  "es_resumen":false,
+  "es_automatica":true
+}
+```
+
+Objeto `fichaje` en `GET /me/dashboard` (mismo periodo que el resto del dashboard):
+```json
+"fichaje":{"jornadas":21,"olvidos":2,"efectividad_pct":90.5}
+```
+- `jornadas`: jornadas cerradas del periodo (con ingreso y egreso).
+- `olvidos`: cuantas de ellas tuvieron egreso automatico.
+- `efectividad_pct`: `(jornadas - olvidos) / jornadas * 100`, un decimal. `null` si no hay jornadas.
+- Si el calculo falla, el dashboard responde igual con `{"jornadas":0,"olvidos":0,"efectividad_pct":null}`.
+
+Indicaciones para Flutter / web:
+- Leer `es_automatica` y `egreso_automatico` con default `false` (backends anteriores no los envian).
+- Tratar `metodo: "automatico"` como valor conocido (no como metodo invalido ni "desconocido").
+- En el historial, mostrar la marca automatica diferenciada (por ejemplo, color de advertencia
+  y titulo "Egreso automatico") y aclarar que fue cargada por olvido de fichada.
+- En el home, mostrar la efectividad (`fichaje.efectividad_pct`) solo si no es `null`;
+  sugerido: verde desde 95 %, amarillo desde 80 %, rojo por debajo de 80 %.
+- Las marcas automaticas no se editan desde la app; las corrige RR. HH. desde el panel.
 
 
 ## Viáticos y reintegros mensuales — API 1.35.0

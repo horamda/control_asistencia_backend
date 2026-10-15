@@ -1,3 +1,10 @@
+## 1.37.0 — 2026-10-15
+
+- Egreso automático por olvido de fichada: el backend cierra cada noche (03:30) las jornadas de días anteriores sin egreso, con la hora del horario asignado o ingreso + horas configuradas (tope 23:59). Las horas cuentan.
+- `me/marcas`: `metodo` puede valer `"automatico"` y se agrega `es_automatica`. `me/asistencias`: `metodo_salida` puede valer `"automatico"` y se agrega `egreso_automatico`. `me/dashboard`: nuevo objeto `fichaje` con `jornadas`, `olvidos` y `efectividad_pct`.
+- Cambios aditivos: los clientes anteriores siguen funcionando. Flutter debe leer los booleanos con default `false` y mostrar la efectividad solo si no es `null`.
+- Panel: Asistencia > Egresos automáticos (simulación, ejecución manual, historial). Migraciones `20261015_egreso_automatico`, `20261016_egreso_automatico_metodo` y `20261016_egreso_automatico_ejecuciones` (se aplican solas al iniciar; ya aplicadas en producción).
+
 ## 1.36.0 — 2026-10-08
 
 - EPP: catálogo con imágenes, talles, pedidos, edición/cancelación y resumen anual. Panel con aprobación por jefe directo o Seguridad e Higiene, entregas parciales, PDF y firma adjunta. Requiere migración 20261008_02_epp y configuración de permisos/artículos.

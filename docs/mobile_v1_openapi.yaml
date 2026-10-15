@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.36.0
+  version: 1.37.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.37.0: egreso automatico por olvido de fichada. `metodo`/`metodo_salida` pueden valer "automatico"; aditivos `es_automatica` (me/marcas), `egreso_automatico` (me/asistencias) y `fichaje` (me/dashboard).
     Version 1.35.0: viáticos mensuales por sector, kilómetros informativos, odómetro opcional, cierre y reaperturas, comprobantes y avisos del día 5. Nuevas altas requieren período. Ver reintegros_mobile.md.
     Version 1.34.1: selección múltiple de externos en Seguridad e Higiene y contrato de Viáticos y reintegros. Actualización documental.
     Version 1.34.0: reintegros ARS con gastos y fotos; guia docs/reintegros_mobile.md.
@@ -834,6 +835,7 @@ components:
         metodo_salida:
           type: string
           nullable: true
+          description: Incluye "automatico" cuando el sistema cerro la jornada por olvido de fichada.
         estado:
           type: string
           nullable: true
@@ -859,6 +861,10 @@ components:
         gps_tolerancia_salida_m:
           type: number
           nullable: true
+        egreso_automatico:
+          type: boolean
+          default: false
+          description: true si el egreso lo cargo el sistema por olvido de fichada (1.37.0).
 
     PaginatedAsistencias:
       type: object
@@ -2186,6 +2192,26 @@ components:
           allOf:
             - $ref: '#/components/schemas/AsignacionHorarioConDias'
           nullable: true
+        fichaje:
+          $ref: '#/components/schemas/FichajeEfectividad'
+
+    FichajeEfectividad:
+      type: object
+      description: Efectividad de fichaje del periodo (1.37.0). Los egresos automaticos cuentan como olvidos.
+      properties:
+        jornadas:
+          type: integer
+          description: Jornadas con ingreso y egreso en el periodo.
+          example: 21
+        olvidos:
+          type: integer
+          description: Jornadas cerradas automaticamente por olvido de fichada.
+          example: 2
+        efectividad_pct:
+          type: number
+          nullable: true
+          description: (jornadas - olvidos) / jornadas * 100, un decimal; null sin jornadas.
+          example: 90.5
 
     # --- Comunes ---
     OkResponse:
@@ -4446,6 +4472,13 @@ paths:
                         es_resumen:
                           type: boolean
                           default: false
+                        metodo:
+                          type: string
+                          description: Incluye "automatico" para egresos generados por el sistema.
+                        es_automatica:
+                          type: boolean
+                          default: false
+                          description: Marca de egreso generada por olvido de fichada (1.37.0).
                   total:
                     type: integer
                   page:
