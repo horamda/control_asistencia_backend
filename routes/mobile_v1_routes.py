@@ -50,6 +50,7 @@ from repositories.empleado_horario_repository import (
     get_historial as get_horario_historial_by_empleado,
 )
 from repositories.horario_dia_repository import get_by_horario as get_dias_by_horario
+from services.egreso_automatico_service import efectividad_empleado
 from repositories.adelanto_repository import (
     get_by_id as get_adelanto_by_id,
     get_page_by_empleado as get_adelantos_page_by_empleado,
@@ -862,6 +863,8 @@ def me_marcas():
                 "hora": _to_hhmm(row.get("hora")),
                 "accion": row.get("accion"),
                 "metodo": row.get("metodo"),
+                # Egreso cargado por el sistema porque el empleado olvido fichar.
+                "es_automatica": row.get("metodo") == "automatico",
                 "tipo_marca": row.get("tipo_marca") or "jornada",
                 "estado": row.get("estado"),
                 "observaciones": row.get("observaciones"),
@@ -940,6 +943,7 @@ def me_asistencias():
                 "hora_salida": _to_hhmm(r.get("hora_salida")),
                 "metodo_entrada": r.get("metodo_entrada"),
                 "metodo_salida": r.get("metodo_salida"),
+                "egreso_automatico": r.get("metodo_salida") == "automatico",
                 "estado": r.get("estado"),
                 "observaciones": r.get("observaciones"),
                 "gps_ok_entrada": bool(r.get("gps_ok_entrada")) if r.get("gps_ok_entrada") is not None else None,
@@ -3211,6 +3215,13 @@ def me_dashboard():
     except Exception:
         francos_proximos = []
 
+    # Efectividad de fichaje: jornadas cerradas por el empleado vs. egresos automaticos
+    try:
+        fichaje = efectividad_empleado(emp_id, fecha_desde, fecha_hasta)
+    except Exception:
+        current_app.logger.exception("me_dashboard_fichaje_error", extra={"extra": {"empleado_id": emp_id}})
+        fichaje = {"jornadas": 0, "olvidos": 0, "efectividad_pct": None}
+
     # Horario actual
     try:
         horario = get_horario_actual_by_empleado(emp_id)
@@ -3234,6 +3245,7 @@ def me_dashboard():
         "vacaciones_activas": vacaciones_activas,
         "francos_proximos": francos_proximos,
         "horario_actual": horario_actual,
+        "fichaje": fichaje,
     })
 
 

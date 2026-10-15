@@ -52,6 +52,28 @@
       </div>
     </div>
 
+    <h3>Egreso automático por olvido de fichada</h3>
+    <p class="helper-text">
+      Cada noche se cierran las jornadas de días anteriores que tienen ingreso y no tienen egreso.
+      El egreso se toma del horario asignado del empleado; si no tiene horario ese día, se suman las horas indicadas
+      (con tope a las 23:59). Esas fichadas quedan marcadas como automáticas y bajan la efectividad de fichaje del empleado.
+    </p>
+    <div class="form-grid">
+      <div class="row">
+        <label for="egreso-automatico-activo">Cerrar jornadas sin egreso</label>
+        <select name="egreso_automatico_activo" id="egreso-automatico-activo">
+          <option value="1" {% if data.egreso_automatico_activo is none or data.egreso_automatico_activo|string == '1' %}selected{% endif %}>Activado</option>
+          <option value="0" {% if data.egreso_automatico_activo is not none and data.egreso_automatico_activo|string == '0' %}selected{% endif %}>Desactivado</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="egreso-automatico-horas">Horas a sumar sin horario asignado</label>
+        <input type="number" min="1" max="16" step="0.25" name="egreso_automatico_horas" id="egreso-automatico-horas"
+               value="{{ data.egreso_automatico_horas if data.egreso_automatico_horas is not none else 8 }}">
+        <div class="helper-text">Ejemplo: ingreso 07:00 + 8 h = egreso 15:00.</div>
+      </div>
+    </div>
+
     <div class="actions">
       <button type="submit" class="btn">Guardar</button>
       <a class="btn btn-secondary" href="{{ url_for('configuracion_empresa.listado') }}">Volver</a>

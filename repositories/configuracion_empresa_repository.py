@@ -58,24 +58,28 @@ def get_by_empresa_id(empresa_id: int):
         db.close()
 
 
+# Columnas agregadas por migraciones posteriores: se guardan solo si existen.
+OPTIONAL_COLUMNS = {
+    "intervalo_minimo_fichadas_minutos": "20260310_01_configuracion_empresa_intervalo_fichadas.sql",
+    "egreso_automatico_activo": "scripts/migrate_20261015_03_egreso_automatico.py",
+    "egreso_automatico_horas": "scripts/migrate_20261015_03_egreso_automatico.py",
+}
+
+
 def upsert(data: dict):
     db = get_db()
     cursor = db.cursor()
     try:
         columns = _get_columns(cursor)
-        has_intervalo = "intervalo_minimo_fichadas_minutos" in columns
-        if "intervalo_minimo_fichadas_minutos" in data and not has_intervalo:
-            raise RuntimeError(
-                "Falta la columna configuracion_empresa.intervalo_minimo_fichadas_minutos. "
-                "Ejecute la migracion 20260310_01_configuracion_empresa_intervalo_fichadas.sql."
-            )
-        optional_insert_column = ", intervalo_minimo_fichadas_minutos" if has_intervalo else ""
-        optional_insert_placeholder = ", %s" if has_intervalo else ""
-        optional_update_column = (
-            ", intervalo_minimo_fichadas_minutos = VALUES(intervalo_minimo_fichadas_minutos)"
-            if has_intervalo
-            else ""
-        )
+        optional = []
+        for column, migration in OPTIONAL_COLUMNS.items():
+            if column not in data:
+                continue
+            if column not in columns:
+                raise RuntimeError(
+                    f"Falta la columna configuracion_empresa.{column}. Ejecute la migracion {migration}."
+                )
+            optional.append(column)
         params = [
             data.get("empresa_id"),
             1 if data.get("requiere_qr") else 0,
@@ -83,9 +87,11 @@ def upsert(data: dict):
             1 if data.get("requiere_geo") else 0,
             data.get("tolerancia_global"),
             data.get("cooldown_scan_segundos"),
+            *[data.get(column) for column in optional],
         ]
-        if has_intervalo:
-            params.append(data.get("intervalo_minimo_fichadas_minutos"))
+        optional_insert_column = "".join(f", {c}" for c in optional)
+        optional_insert_placeholder = ", %s" * len(optional)
+        optional_update_column = "".join(f", {c} = VALUES({c})" for c in optional)
 
         cursor.execute("""
             INSERT INTO configuracion_empresa

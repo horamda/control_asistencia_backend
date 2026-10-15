@@ -13,6 +13,7 @@ from repositories.empleado_repository import get_all as get_empleados
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.empleado_repository import get_page as _get_empleados_page
 from repositories.asistencia_repository import get_page as _get_asistencias_page
+from services.egreso_automatico_service import efectividad_empleado
 from repositories.justificacion_repository import get_page as _get_justificaciones_page
 from repositories.justificacion_repository import get_by_id as get_justificacion_by_id
 from repositories.vacaciones_repository import get_periodos_aprobados_page_by_empleado as _get_vacaciones_page
@@ -1191,7 +1192,7 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
                 if cur.weekday() in teo_wd and ds not in skip:
                     dr = date_rows_map.get(ds, [])
                     he = any(r.get("hora_entrada") for r in dr)
-                    hs = any(r.get("hora_salida") for r in dr)
+                    hs = any(r.get("hora_salida") and r.get("metodo_salida") != "automatico" for r in dr)
                     score += 100 if (he and hs) else (50 if (he or hs) else 0)
                     n += 1
                 cur += datetime.timedelta(days=1)
@@ -1200,7 +1201,7 @@ def _compute_asistencia_stats(empleado_id, desde, hasta):
             for ds, dr in date_rows_map.items():
                 if d0 <= ds <= d1 and ds not in skip:
                     he = any(r.get("hora_entrada") for r in dr)
-                    hs = any(r.get("hora_salida") for r in dr)
+                    hs = any(r.get("hora_salida") and r.get("metodo_salida") != "automatico" for r in dr)
                     score += 100 if (he and hs) else (50 if (he or hs) else 0)
                     n += 1
         return score, n
@@ -1545,6 +1546,7 @@ def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos
     calidad_por_mes = []
     alertas = []
     antiguedad = None
+    fichaje = {"jornadas": 0, "olvidos": 0, "efectividad_pct": None}
 
     if empleado_id:
         empleado = get_empleado_by_id(empleado_id)
@@ -1565,6 +1567,16 @@ def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos
             diaria_rows = stats.get("diaria_rows", [])
             asistencia_rows = stats["_rows"]
             legajo = _compute_legajo_stats(empleado_id, desde, hasta)
+            try:
+                fichaje = efectividad_empleado(empleado_id, desde, hasta)
+            except Exception:
+                current_app.logger.warning("legajo_efectividad_fichaje_error", exc_info=True)
+            if fichaje["efectividad_pct"] is not None and fichaje["efectividad_pct"] < 80:
+                alertas.append({
+                    "tipo": "warn",
+                    "msg": f"Efectividad de fichaje baja: {fichaje['efectividad_pct']:.1f}% "
+                           f"({fichaje['olvidos']} egresos olvidados de {fichaje['jornadas']} jornadas).",
+                })
             antiguedad = _compute_antiguedad(empleado.get("fecha_ingreso"), hasta)
 
     return {
@@ -1584,6 +1596,7 @@ def _build_dashboard_context(empleado_id, q, desde, hasta, periodo, solo_activos
         "horario_desc": horario_desc,
         "estados_por_mes": estados_por_mes,
         "calidad_fichada_pct": calidad_fichada_pct,
+        "fichaje": fichaje,
         "calidad_fichada_n": calidad_fichada_n,
         "calidad_por_mes": calidad_por_mes,
         "alertas": alertas,

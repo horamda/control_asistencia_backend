@@ -3967,3 +3967,22 @@ def test_mobile_marcas_includes_correction_and_legacy_flags(monkeypatch):
     assert real['corregida_manualmente'] is True and real['es_resumen'] is False
     assert legacy['es_resumen'] is True and legacy['id']==-23
     assert legacy['asistencia_id']==11
+
+
+
+def test_mobile_dashboard_incluye_efectividad_de_fichaje(monkeypatch):
+    _setup_horario_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_mobile_stats_by_empleado", lambda **kw: {"kpis": {}})
+    monkeypatch.setattr(mobile_routes, "_legajo_stats_for_mobile", lambda *a: {})
+    monkeypatch.setattr(mobile_routes, "get_vacaciones_page_by_empleado", lambda *a, **kw: ([], 0))
+    monkeypatch.setattr(mobile_routes, "get_francos_page_by_empleado", lambda *a, **kw: ([], 0))
+    monkeypatch.setattr(mobile_routes, "get_horario_actual_by_empleado", lambda eid: None)
+    pedidos = []
+    monkeypatch.setattr(
+        mobile_routes, "efectividad_empleado",
+        lambda eid, desde, hasta: pedidos.append((eid, desde, hasta)) or {"jornadas": 20, "olvidos": 3, "efectividad_pct": 85.0},
+    )
+    resp = _build_client(monkeypatch).get("/api/v1/mobile/me/dashboard?desde=2026-09-01&hasta=2026-09-30", headers=_auth_headers())
+    assert resp.status_code == 200
+    assert resp.get_json()["fichaje"] == {"jornadas": 20, "olvidos": 3, "efectividad_pct": 85.0}
+    assert pedidos == [(10, "2026-09-01", "2026-09-30")]

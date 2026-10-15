@@ -17,6 +17,19 @@ def _parse_non_negative_int(raw, field_label: str, *, default: int | None = None
     return value
 
 
+def _parse_horas_egreso(raw):
+    text = str(raw or "").strip().replace(",", ".")
+    if not text:
+        return 8
+    try:
+        value = round(float(text), 2)
+    except ValueError:
+        raise ValueError("Horas para el egreso automatico: ingrese un numero.")
+    if not 1 <= value <= 16:
+        raise ValueError("Horas para el egreso automatico: use un valor entre 1 y 16.")
+    return value
+
+
 @configuracion_bp.route("/")
 @role_required("admin")
 def listado():
@@ -61,6 +74,8 @@ def editar(empresa_id):
                     "Intervalo minimo entre fichadas",
                     default=60,
                 ),
+                "egreso_automatico_activo": 1 if request.form.get("egreso_automatico_activo") == "1" else 0,
+                "egreso_automatico_horas": _parse_horas_egreso(request.form.get("egreso_automatico_horas")),
             }
         except ValueError as exc:
             merged = dict(config)

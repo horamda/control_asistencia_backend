@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from extensions import get_db, init_db
 from utils.trivia_scheduler import init_trivia_scheduler, shutdown_trivia_scheduler
 from utils.reintegro_scheduler import init_reintegro_scheduler
+from utils.egreso_automatico_scheduler import init_egreso_automatico_scheduler, shutdown_egreso_automatico_scheduler
 from types import SimpleNamespace
 
 
@@ -31,6 +32,7 @@ def main():
         app = SimpleNamespace(logger=logging.getLogger('scheduler'))
         init_trivia_scheduler(app)
         init_reintegro_scheduler(app)
+        init_egreso_automatico_scheduler(app)
         started = True
         while not stop.wait(15):
             # Do not reconnect: losing the owning connection must stop this process.
@@ -43,6 +45,7 @@ def main():
             from utils import reintegro_scheduler
             if reintegro_scheduler._scheduler:
                 reintegro_scheduler._scheduler.shutdown(wait=True)
+            shutdown_egreso_automatico_scheduler(wait=True)
         cursor.close()
         db.close()
 

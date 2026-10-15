@@ -7,6 +7,7 @@ from scripts.migrate_20261008_02_epp import migrate_cursor as migrate_epp
 from scripts.migrate_20261013_01_epp_conceptos import migrate_cursor as migrate_epp_concepts
 from scripts.migrate_20261015_01_request_metrics import migrate_cursor as migrate_request_metrics
 from scripts.migrate_20261015_02_epp_habilitaciones import migrate_cursor as migrate_epp_rules
+from scripts.migrate_20261015_03_egreso_automatico import migrate_cursor as migrate_auto_exit
 
 
 def main():
@@ -44,6 +45,13 @@ def main():
         if not cursor.fetchone():
             cursor.execute('SET SESSION lock_wait_timeout=5')
             migrate_epp_rules(cursor)
+            cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
+            db.commit()
+        version = '20261015_egreso_automatico'
+        cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
+        if not cursor.fetchone():
+            cursor.execute('SET SESSION lock_wait_timeout=5')
+            migrate_auto_exit(cursor)
             cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
             db.commit()
     finally:

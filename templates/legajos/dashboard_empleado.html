@@ -296,6 +296,16 @@
         </div>
         <div class="kpi-desc">{{ calidad_fichada_n }} dias evaluados</div>
       </article>
+
+      {% set fe = fichaje.efectividad_pct if fichaje is defined else none %}
+      <article class="kpi-card {% if fe is not none %}{% if fe >= 95 %}tone-ok{% elif fe >= 80 %}tone-warn{% else %}tone-bad{% endif %}{% endif %}">
+        <div class="kpi-label kpi-label-inline">
+          Efectividad de fichaje
+          <span class="kpi-help" tabindex="0" data-tooltip="Jornadas en las que el empleado fichó su egreso. Las que cerró el sistema por olvido (egreso automático) cuentan como error.">?</span>
+        </div>
+        <div class="kpi-value">{% if fe is not none %}{{ "%.1f"|format(fe) }}%{% else %}—{% endif %}</div>
+        <div class="kpi-desc">{{ fichaje.olvidos if fichaje is defined else 0 }} egresos olvidados de {{ fichaje.jornadas if fichaje is defined else 0 }} jornadas</div>
+      </article>
     </section>
 
     {# ---- Fila 2 KPIs: legajo ---- #}
