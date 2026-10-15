@@ -1,6 +1,6 @@
 # Reuniones — contrato para Flutter y web de empleados
 
-Versión de contrato: 1.38.0 · Definición formal: [reuniones_mobile_openapi.yaml](reuniones_mobile_openapi.yaml)
+Versión de contrato: 1.39.0 · Definición formal: [reuniones_mobile_openapi.yaml](reuniones_mobile_openapi.yaml)
 
 Las reuniones se crean en el panel (Asistencia → Reuniones). Cada una tiene una recurrencia
 (diaria, semanal o mensual), un horario, una ventana de registro y una lista de **convocados
@@ -11,6 +11,17 @@ escaneando el QR de la reunión con la app.
 - Fechas `AAAA-MM-DD`; fechas y horas `AAAA-MM-DDTHH:MM:SS-03:00` (hora Argentina). Horas sueltas `HH:MM`.
 - Errores: `{"error": "mensaje para mostrar"}` con 400, 401, 403, 404 o 409. El mensaje está listo para el usuario.
 - El empleado solo ve las reuniones a las que está convocado.
+
+### Sucursales (1.39.0)
+
+Una misma reunión puede hacerse en varias sucursales (sedes). Cada empleado va a la de **su** sucursal, con
+lugar y hora propios de esa sede, y cada sede tiene su propio QR. La API ya devuelve todo resuelto para la
+sede del empleado: `hora_inicio`, `lugar`, `inicio`/`fin` y ventanas son los de su sucursal.
+- Campos nuevos en reuniones, próximas, registro e historial: `sucursal_id` y `sucursal_nombre`
+  (`null` si la reunión es única para todos, sin sedes). Mostrar `sucursal_nombre` junto al lugar si viene.
+- Si el empleado escanea el QR de la sede de otra sucursal: `409` con
+  `"Este QR es de la reunión en <sucursal>. La tuya es en <sucursal>."`.
+- Si cambia de sucursal, desde ese momento ve la reunión (y el QR válido) de la nueva sede.
 
 ## Resumen de rutas
 
@@ -50,6 +61,8 @@ servidor cierra la reunión (cada 10 minutos); el historial muestra el estado de
       "nombre": "Reunión de seguridad semanal",
       "descripcion": "Repaso de incidentes, EPP y orden y limpieza.",
       "lugar": "Sala de capacitación",
+      "sucursal_id": 1,
+      "sucursal_nombre": "Casa central",
       "frecuencia": "semanal",
       "dias_semana": [2],
       "mensual_tipo": null,
@@ -97,6 +110,8 @@ Orden cronológico.
       "nombre": "Daily de almacén",
       "lugar": "Dock 2",
       "descripcion": null,
+      "sucursal_id": null,
+      "sucursal_nombre": null,
       "fecha": "2026-10-15",
       "inicio": "2026-10-15T07:30:00-03:00",
       "fin": "2026-10-15T07:45:00-03:00",
@@ -140,6 +155,8 @@ Body:
   "reunion_id": 3,
   "reunion": "Reunión de seguridad semanal",
   "lugar": "Sala de capacitación",
+  "sucursal_id": 1,
+  "sucursal_nombre": "Casa central",
   "fecha": "2026-10-21",
   "inicio": "09:00",
   "fin": "09:45",
@@ -156,7 +173,7 @@ Errores habituales (mostrar `error` tal cual):
 | 400 | El texto no es un QR de reunión, QR vencido (el dinámico dura 45 s) o coordenadas inválidas. |
 | 403 | No estás convocado a la reunión, o el QR es de otra empresa. |
 | 404 | La reunión no existe o está desactivada. |
-| 409 | Hoy no hay reunión, todavía no abrió el registro, ya cerró, fecha cancelada, QR impreso reemplazado o QR dinámico de otra fecha. |
+| 409 | Hoy no hay reunión, todavía no abrió el registro, ya cerró, fecha cancelada, QR impreso reemplazado, QR dinámico de otra fecha o QR de la sede de otra sucursal. |
 
 ### Detección del QR en el escáner
 
@@ -174,7 +191,7 @@ Parámetros opcionales: `desde`, `hasta` (por defecto, el último año), `reunio
 {
   "items": [
     {"id": 812, "reunion_id": 3, "nombre": "Reunión de seguridad semanal", "lugar": "Sala de capacitación",
-     "fecha": "2026-10-14", "inicio": "09:00", "fin": "09:45", "estado": "tarde",
+     "sucursal_id": 1, "sucursal_nombre": "Casa central", "fecha": "2026-10-14", "inicio": "09:00", "fin": "09:45", "estado": "tarde",
      "registrado_at": "2026-10-14T09:12:00-03:00", "metodo": "qr_fijo", "observaciones": null}
   ],
   "page": 1, "per_page": 20, "total": 1

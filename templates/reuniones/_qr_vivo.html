@@ -1,6 +1,7 @@
 <div class="reu-qr-print reu-qr-live" id="reu-qr-live"
-     {% if imagen %}hx-get="{{ url_for('reuniones.qr_vivo', reunion_id=reunion.id) }}" hx-trigger="every 20s" hx-swap="outerHTML"{% endif %}>
+     {% if imagen %}hx-get="{{ url_for('reuniones.qr_vivo', reunion_id=reunion.id, sucursal=reunion.sucursal_id or None) }}" hx-trigger="every 20s" hx-swap="outerHTML"{% endif %}>
   <h2>{{ reunion.nombre }}</h2>
+  {% if reunion.sucursal_nombre %}<p class="reu-qr-sede">{{ reunion.sucursal_nombre }}</p>{% endif %}
   {% if imagen %}
     <p>{{ horario.inicio.strftime('%H:%M') }} a {{ horario.fin.strftime('%H:%M') }}{% if reunion.lugar %} · {{ reunion.lugar }}{% endif %}</p>
     <img class="reu-qr-img" src="{{ imagen }}" alt="Código QR dinámico de {{ reunion.nombre }}">

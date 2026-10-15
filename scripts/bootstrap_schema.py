@@ -11,6 +11,7 @@ from scripts.migrate_20261015_03_egreso_automatico import migrate_cursor as migr
 from scripts.migrate_20261015_03_egreso_automatico import migrate_metodo_salida as migrate_auto_exit_method
 from scripts.migrate_20261015_03_egreso_automatico import migrate_ejecuciones as migrate_auto_exit_runs
 from scripts.migrate_20261016_01_reuniones import migrate_cursor as migrate_meetings
+from scripts.migrate_20261016_02_reuniones_sucursales import migrate_cursor as migrate_meeting_branches
 
 
 def main():
@@ -76,6 +77,13 @@ def main():
         if not cursor.fetchone():
             cursor.execute('SET SESSION lock_wait_timeout=5')
             migrate_meetings(cursor)
+            cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
+            db.commit()
+        version = '20261016_reuniones_sucursales'
+        cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
+        if not cursor.fetchone():
+            cursor.execute('SET SESSION lock_wait_timeout=5')
+            migrate_meeting_branches(cursor)
             cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
             db.commit()
     finally:

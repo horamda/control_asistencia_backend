@@ -1,9 +1,10 @@
-"""Reuniones: recurrencia, convocados, QR fijo/dinamico, asistencia y estadisticas.
+"""Reuniones: recurrencia, sedes por sucursal, convocados, QR fijo/dinamico, asistencia y estadisticas.
 
-Cada fecha en que ocurre una reunion se guarda en reunion_ocurrencias con su horario
-congelado: editar la reunion no altera el historial. Al terminar la ventana de registro,
-el cierre (scheduler) marca ausentes a los convocados sin registro y justifica a quienes
-estaban de vacaciones o franco."""
+Una reunion puede hacerse en varias sucursales (sedes), cada una con lugar y hora propios
+opcionales. Cada empleado va a la sede de su sucursal; sin sedes hay una sola sesion para todos
+(sucursal_id = 0). Cada fecha de cada sede se guarda en reunion_ocurrencias con su horario
+congelado: editar la reunion no altera el historial. Al terminar la ventana de registro, el
+cierre (scheduler) marca ausentes a los convocados sin registro y justifica vacaciones/francos."""
 
 import calendar
 import datetime as dt
@@ -29,6 +30,7 @@ QR_FIJO_TTL = 10 * 365 * 24 * 3600
 DIAS = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
 SEMANAS = {1: "primer", 2: "segundo", 3: "tercer", 4: "cuarto", 5: "último"}
 MAX_RANGO_DIAS = 366
+SIN_SEDE = 0
 
 
 # --- Utilidades ----------------------------------------------------------------------
@@ -79,6 +81,10 @@ def _int(value, nombre, minimo, maximo, default=None):
     return int(raw)
 
 
+def _marcas(valores):
+    return ", ".join(["%s"] * len(valores)) or "NULL"
+
+
 def pct(parte, total):
     return round(parte * 100.0 / total, 1) if total else None
 
@@ -119,7 +125,7 @@ def proxima_fecha(r, desde=None, dias=MAX_RANGO_DIAS):
 
 
 def horarios(r, fecha):
-    """Momentos de la ocurrencia: inicio, fin y ventana de registro."""
+    """Momentos de la ocurrencia: inicio, fin y ventana de registro (r con la hora de su sede)."""
     inicio = dt.datetime.combine(fecha, _time(r["hora_inicio"]))
     fin = inicio + dt.timedelta(minutes=int(r["duracion_min"]))
     cierre = r.get("cierre_despues_min")
@@ -132,8 +138,8 @@ def horarios(r, fecha):
     )
 
 
-def describir(r):
-    hora = _hhmm(_time(r["hora_inicio"]))
+def describir(r, hora=None):
+    hora = hora or _hhmm(_time(r["hora_inicio"]))
     dias = _dias(r.get("dias_semana"))
     if r["frecuencia"] == "diaria":
         cuando = "Todos los días" if len(dias) == 7 else (
@@ -147,6 +153,43 @@ def describir(r):
     else:
         cuando = f"El día {int(r.get('dia_mes') or 1)} de cada mes"
     return f"{cuando} a las {hora} ({int(r['duracion_min'])} min)"
+
+
+# --- Sedes (sucursales) -----------------------------------------------------------------
+
+def sedes(c, reunion_id):
+    return db.all_rows(
+        c, """SELECT rs.sucursal_id, rs.lugar, rs.hora_inicio, su.nombre AS sucursal_nombre
+              FROM reunion_sedes rs LEFT JOIN sucursales su ON su.id = rs.sucursal_id
+              WHERE rs.reunion_id = %s ORDER BY su.nombre, rs.sucursal_id""", (reunion_id,))
+
+
+def en_sede(r, sede=None):
+    """La reunion tal como se hace en una sede: hora y lugar propios si los tiene."""
+    if not sede or not sede.get("sucursal_id"):
+        return dict(r, sucursal_id=SIN_SEDE, sucursal_nombre=None)
+    return dict(r, sucursal_id=int(sede["sucursal_id"]), sucursal_nombre=sede.get("sucursal_nombre"),
+                hora_inicio=sede.get("hora_inicio") or r["hora_inicio"], lugar=sede.get("lugar") or r.get("lugar"))
+
+
+def sedes_efectivas(c, r, lista=None):
+    lista = sedes(c, r["id"]) if lista is None else lista
+    return [en_sede(r, s) for s in lista] or [en_sede(r)]
+
+
+def sede(c, r, sucursal_id):
+    """La reunion en la sede indicada (0 = sesion unica). Error si no se hace en esa sucursal."""
+    for item in sedes_efectivas(c, r):
+        if item["sucursal_id"] == int(sucursal_id or 0):
+            return item
+    raise Error("La reunión no se hace en esa sucursal.", 404)
+
+
+def sede_de_empleado(c, r, empleado):
+    for item in sedes_efectivas(c, r):
+        if item["sucursal_id"] in (SIN_SEDE, empleado.get("sucursal_id")):
+            return item
+    return None
 
 
 # --- Convocados ----------------------------------------------------------------------
@@ -163,17 +206,24 @@ _REGLA_EMPLEADO = """(
     ))
 )"""
 
+# Con sedes, solo cuentan los empleados de esas sucursales.
+_SEDE_EMPLEADO = """(NOT EXISTS (SELECT 1 FROM reunion_sedes rs WHERE rs.reunion_id = {rid})
+    OR e.sucursal_id IN (SELECT rs.sucursal_id FROM reunion_sedes rs WHERE rs.reunion_id = {rid}))"""
 
-def convocados(c, reunion):
-    return db.all_rows(
-        c,
-        f"""SELECT e.id, e.apellido, e.nombre, e.legajo, s.nombre AS sector_nombre
-            FROM empleados e LEFT JOIN sectores s ON s.id = e.sector_id
-            WHERE e.empresa_id = %s AND e.activo = 1
-              AND EXISTS (SELECT 1 FROM reunion_participantes p WHERE p.reunion_id = %s AND {_REGLA_EMPLEADO})
-            ORDER BY e.apellido, e.nombre""",
-        (reunion["empresa_id"], reunion["id"]),
-    )
+
+def convocados(c, reunion, sucursal_id=None):
+    sql = f"""SELECT e.id, e.apellido, e.nombre, e.legajo, e.sucursal_id, s.nombre AS sector_nombre,
+                     su.nombre AS sucursal_nombre
+              FROM empleados e LEFT JOIN sectores s ON s.id = e.sector_id
+              LEFT JOIN sucursales su ON su.id = e.sucursal_id
+              WHERE e.empresa_id = %s AND e.activo = 1
+                AND EXISTS (SELECT 1 FROM reunion_participantes p WHERE p.reunion_id = %s AND {_REGLA_EMPLEADO})
+                AND {_SEDE_EMPLEADO.format(rid="%s")}"""
+    args = [reunion["empresa_id"], reunion["id"], reunion["id"], reunion["id"]]
+    if sucursal_id:
+        sql += " AND e.sucursal_id = %s"
+        args.append(int(sucursal_id))
+    return db.all_rows(c, sql + " ORDER BY e.apellido, e.nombre", tuple(args))
 
 
 def contar_convocados(c, empresa_id):
@@ -183,6 +233,7 @@ def contar_convocados(c, empresa_id):
             JOIN empleados e ON e.empresa_id = r.empresa_id AND e.activo = 1
             WHERE r.empresa_id = %s
               AND EXISTS (SELECT 1 FROM reunion_participantes p WHERE p.reunion_id = r.id AND {_REGLA_EMPLEADO})
+              AND {_SEDE_EMPLEADO.format(rid="r.id")}
             GROUP BY r.id""",
         (empresa_id,),
     )
@@ -192,7 +243,8 @@ def contar_convocados(c, empresa_id):
 def reuniones_de_empleado(c, empleado, reunion_id=None, solo_activas=True):
     sql = f"""SELECT r.* FROM reuniones r JOIN empleados e ON e.id = %s
               WHERE r.empresa_id = e.empresa_id
-                AND EXISTS (SELECT 1 FROM reunion_participantes p WHERE p.reunion_id = r.id AND {_REGLA_EMPLEADO})"""
+                AND EXISTS (SELECT 1 FROM reunion_participantes p WHERE p.reunion_id = r.id AND {_REGLA_EMPLEADO})
+                AND {_SEDE_EMPLEADO.format(rid="r.id")}"""
     args = [empleado["id"]]
     if solo_activas:
         sql += " AND r.activa = 1"
@@ -202,28 +254,41 @@ def reuniones_de_empleado(c, empleado, reunion_id=None, solo_activas=True):
     return db.all_rows(c, sql + " ORDER BY r.hora_inicio, r.nombre", tuple(args))
 
 
+def _de_empleado_en_sede(c, empleado, **kw):
+    """Reuniones del empleado ya ubicadas en su sede (hora y lugar efectivos)."""
+    salida = []
+    for r in reuniones_de_empleado(c, empleado, **kw):
+        item = sede_de_empleado(c, r, empleado)
+        if item:
+            salida.append(item)
+    return salida
+
+
 # --- Ocurrencias -----------------------------------------------------------------------
 
 def ocurrencia(c, r, fecha, crear=True, lock=False):
-    """Fila de la ocurrencia (creandola con el horario actual si no existe)."""
-    sql = "SELECT * FROM reunion_ocurrencias WHERE reunion_id = %s AND fecha = %s" + (" FOR UPDATE" if lock else "")
-    row = db.one(c, sql, (r["id"], fecha))
+    """Fila de la ocurrencia de r (reunion en una sede) en la fecha; la crea con el horario actual."""
+    sql = ("SELECT * FROM reunion_ocurrencias WHERE reunion_id = %s AND sucursal_id = %s AND fecha = %s"
+           + (" FOR UPDATE" if lock else ""))
+    args = (r["id"], r["sucursal_id"], fecha)
+    row = db.one(c, sql, args)
     if row or not crear:
         return row
     h = horarios(r, fecha)
     c.execute(
         """INSERT IGNORE INTO reunion_ocurrencias
-           (empresa_id, reunion_id, fecha, inicio, fin, ventana_desde, ventana_hasta, tarde_desde, estado)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'programada')""",
-        (r["empresa_id"], r["id"], fecha, h["inicio"], h["fin"], h["ventana_desde"], h["ventana_hasta"], h["tarde_desde"]),
+           (empresa_id, reunion_id, sucursal_id, fecha, inicio, fin, ventana_desde, ventana_hasta, tarde_desde, estado)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'programada')""",
+        (r["empresa_id"], r["id"], r["sucursal_id"], fecha, h["inicio"], h["fin"], h["ventana_desde"],
+         h["ventana_hasta"], h["tarde_desde"]),
     )
-    return db.one(c, sql, (r["id"], fecha))
+    return db.one(c, sql, args)
 
 
 def _justificacion_automatica(c, empleado_ids, fecha):
     if not empleado_ids:
         return {}
-    marcas = ", ".join(["%s"] * len(empleado_ids))
+    marcas = _marcas(empleado_ids)
     motivos = {}
     for row in db.all_rows(c, f"SELECT empleado_id FROM vacaciones WHERE empleado_id IN ({marcas})"
                               " AND fecha_desde <= %s AND fecha_hasta >= %s", (*empleado_ids, fecha, fecha)):
@@ -235,10 +300,11 @@ def _justificacion_automatica(c, empleado_ids, fecha):
 
 
 def cerrar_ocurrencias(*, ahora=None, dias_atras=7):
-    """Cierra las ocurrencias cuya ventana de registro termino. Idempotente."""
+    """Cierra las ocurrencias (de cada sede) cuya ventana de registro termino. Idempotente."""
     ahora = ahora or now_local()
     with db.transaction(read_only=True) as c:
-        reuniones = db.all_rows(c, "SELECT * FROM reuniones WHERE activa = 1")
+        reuniones = [item for r in db.all_rows(c, "SELECT * FROM reuniones WHERE activa = 1")
+                     for item in sedes_efectivas(c, r)]
     resumen = dict(cerradas=0, ausentes=0, justificados=0, errores=0)
     for r in reuniones:
         creada = r.get("created_at")
@@ -251,7 +317,7 @@ def cerrar_ocurrencias(*, ahora=None, dias_atras=7):
                     occ = ocurrencia(c, r, fecha, lock=True)
                     if occ["estado"] != "programada" or occ["ventana_hasta"] > ahora:
                         continue
-                    lista = convocados(c, r)
+                    lista = convocados(c, r, r["sucursal_id"])
                     registrados = {row["empleado_id"] for row in db.all_rows(
                         c, "SELECT empleado_id FROM reunion_asistencias WHERE ocurrencia_id = %s", (occ["id"],))}
                     faltan = [e["id"] for e in lista if e["id"] not in registrados]
@@ -259,16 +325,18 @@ def cerrar_ocurrencias(*, ahora=None, dias_atras=7):
                     for empleado_id in faltan:
                         motivo = motivos.get(empleado_id)
                         db.insert(c, "reunion_asistencias", dict(
-                            empresa_id=r["empresa_id"], reunion_id=r["id"], ocurrencia_id=occ["id"],
-                            empleado_id=empleado_id, fecha=fecha, estado="justificado" if motivo else "ausente",
-                            metodo="sistema", observaciones=motivo, updated_at=ahora))
+                            empresa_id=r["empresa_id"], reunion_id=r["id"], sucursal_id=r["sucursal_id"],
+                            ocurrencia_id=occ["id"], empleado_id=empleado_id, fecha=fecha,
+                            estado="justificado" if motivo else "ausente", metodo="sistema",
+                            observaciones=motivo, updated_at=ahora))
                         resumen["justificados" if motivo else "ausentes"] += 1
                     total = len(registrados | {e["id"] for e in lista})
                     c.execute("UPDATE reunion_ocurrencias SET estado='cerrada', convocados=%s, cerrada_at=%s WHERE id=%s",
                               (total, ahora, occ["id"]))
                     resumen["cerradas"] += 1
             except Exception:
-                logger.exception("reunion_cierre_error", extra={"extra": {"reunion_id": r["id"], "fecha": str(fecha)}})
+                logger.exception("reunion_cierre_error", extra={"extra": {
+                    "reunion_id": r["id"], "sucursal_id": r["sucursal_id"], "fecha": str(fecha)}})
                 resumen["errores"] += 1
     if resumen["cerradas"] or resumen["errores"]:
         logger.info("reuniones_cierre", extra={"extra": resumen})
@@ -283,12 +351,14 @@ def _token(payload, ttl):
 
 
 def qr_fijo(r):
-    return QR_PREFIX + _token({"rid": r["id"], "emp": r["empresa_id"], "m": "fijo", "v": int(r["qr_version"])}, QR_FIJO_TTL)
+    """QR impreso de la reunion en una sede (r = en_sede(...))."""
+    return QR_PREFIX + _token({"rid": r["id"], "emp": r["empresa_id"], "s": int(r.get("sucursal_id") or 0),
+                               "m": "fijo", "v": int(r["qr_version"])}, QR_FIJO_TTL)
 
 
 def qr_dinamico(r, fecha):
-    return QR_PREFIX + _token({"rid": r["id"], "emp": r["empresa_id"], "m": "dinamico", "f": fecha.isoformat()},
-                              QR_DINAMICO_TTL)
+    return QR_PREFIX + _token({"rid": r["id"], "emp": r["empresa_id"], "s": int(r.get("sucursal_id") or 0),
+                               "m": "dinamico", "f": fecha.isoformat()}, QR_DINAMICO_TTL)
 
 
 def es_qr_reunion(contenido):
@@ -320,9 +390,10 @@ def _leer_qr(contenido):
 
 def _registro_dict(r, occ, row, ya_registrado):
     return dict(
-        reunion_id=r["id"], reunion=r["nombre"], lugar=r.get("lugar"), fecha=_iso(occ["fecha"]),
-        inicio=_hhmm(occ["inicio"]), fin=_hhmm(occ["fin"]), estado=row["estado"],
-        registrado_at=_iso(row.get("registrado_at")), ya_registrado=ya_registrado,
+        reunion_id=r["id"], reunion=r["nombre"], lugar=r.get("lugar"), sucursal_id=r["sucursal_id"],
+        sucursal_nombre=r.get("sucursal_nombre"), fecha=_iso(occ["fecha"]), inicio=_hhmm(occ["inicio"]),
+        fin=_hhmm(occ["fin"]), estado=row["estado"], registrado_at=_iso(row.get("registrado_at")),
+        ya_registrado=ya_registrado,
     )
 
 
@@ -333,16 +404,25 @@ def registrar_qr(empleado, contenido, *, lat=None, lon=None, ahora=None):
     if int(payload.get("emp") or 0) != int(empleado["empresa_id"]):
         raise Error("Este QR pertenece a otra empresa.", 403)
     with db.transaction() as c:
-        r = db.one(c, "SELECT * FROM reuniones WHERE id = %s AND empresa_id = %s", (payload["rid"], empleado["empresa_id"]))
-        if not r or not r["activa"]:
+        base = db.one(c, "SELECT * FROM reuniones WHERE id = %s AND empresa_id = %s",
+                      (payload["rid"], empleado["empresa_id"]))
+        if not base or not base["activa"]:
             raise Error("La reunión no existe o está desactivada.", 404)
         modo = payload.get("m")
-        if modo == "fijo" and (r["qr_modo"] == "dinamico" or int(payload.get("v") or 0) != int(r["qr_version"])):
+        if modo == "fijo" and (base["qr_modo"] == "dinamico" or int(payload.get("v") or 0) != int(base["qr_version"])):
             raise Error("Este QR impreso ya no es válido. Pedí el QR actualizado al organizador.", 409)
-        if modo == "dinamico" and r["qr_modo"] == "fijo":
+        if modo == "dinamico" and base["qr_modo"] == "fijo":
             raise Error("Esta reunión se registra con el QR impreso.", 409)
-        if not reuniones_de_empleado(c, empleado, r["id"]):
+        if not reuniones_de_empleado(c, empleado, base["id"]):
             raise Error("No estás convocado a esta reunión.", 403)
+        r = sede_de_empleado(c, base, empleado)
+        if r is None:
+            raise Error("No estás convocado a esta reunión.", 403)
+        # QR anteriores a las sedes no traen "s": valen para la sede del empleado.
+        if "s" in payload and int(payload["s"] or 0) != r["sucursal_id"]:
+            otra = next((x for x in sedes_efectivas(c, base) if x["sucursal_id"] == int(payload["s"] or 0)), None)
+            nombre = otra["sucursal_nombre"] if otra and otra.get("sucursal_nombre") else "otra sucursal"
+            raise Error(f"Este QR es de la reunión en {nombre}. La tuya es en {r.get('sucursal_nombre') or 'tu sucursal'}.", 409)
         fecha = ahora.date()
         if modo == "dinamico" and payload.get("f") != fecha.isoformat():
             raise Error("El QR corresponde a otra fecha.", 409)
@@ -370,8 +450,8 @@ def registrar_qr(empleado, contenido, *, lat=None, lon=None, ahora=None):
         else:
             try:
                 db.insert(c, "reunion_asistencias", dict(
-                    empresa_id=r["empresa_id"], reunion_id=r["id"], ocurrencia_id=occ["id"], empleado_id=empleado["id"],
-                    fecha=fecha, **datos))
+                    empresa_id=r["empresa_id"], reunion_id=r["id"], sucursal_id=r["sucursal_id"],
+                    ocurrencia_id=occ["id"], empleado_id=empleado["id"], fecha=fecha, **datos))
             except IntegrityError:  # doble escaneo simultaneo
                 previo = db.one(c, "SELECT * FROM reunion_asistencias WHERE ocurrencia_id = %s AND empleado_id = %s",
                                 (occ["id"], empleado["id"]))
@@ -379,7 +459,7 @@ def registrar_qr(empleado, contenido, *, lat=None, lon=None, ahora=None):
         return _registro_dict(r, occ, dict(estado=estado, registrado_at=ahora), False)
 
 
-def marcar_manual(who, reunion_id, fecha, empleado_id, estado, observaciones=None, *, ahora=None):
+def marcar_manual(who, reunion_id, fecha, empleado_id, estado, observaciones=None, *, sucursal_id=SIN_SEDE, ahora=None):
     """Carga o corrige la asistencia desde el panel (presente, tarde, ausente o justificado)."""
     if estado not in ESTADOS:
         raise Error("Estado inválido.")
@@ -388,7 +468,7 @@ def marcar_manual(who, reunion_id, fecha, empleado_id, estado, observaciones=Non
     if fecha > ahora.date():
         raise Error("No se puede cargar asistencia de una fecha futura.")
     with db.transaction() as c:
-        r = obtener(c, who, reunion_id)
+        r = sede(c, obtener(c, who, reunion_id), sucursal_id)
         if not ocurre_en(r, fecha) and not ocurrencia(c, r, fecha, crear=False):
             raise Error("La reunión no ocurre en esa fecha.")
         empleado = db.one(c, "SELECT id, empresa_id FROM empleados WHERE id = %s AND empresa_id = %s",
@@ -408,29 +488,32 @@ def marcar_manual(who, reunion_id, fecha, empleado_id, estado, observaciones=Non
                       (estado, who.get("user_id"), obs, registrado, ahora, previo["id"]))
         else:
             db.insert(c, "reunion_asistencias", dict(
-                empresa_id=r["empresa_id"], reunion_id=r["id"], ocurrencia_id=occ["id"], empleado_id=empleado["id"],
-                fecha=fecha, estado=estado, registrado_at=registrado, metodo="manual", usuario_id=who.get("user_id"),
-                observaciones=obs, updated_at=ahora))
+                empresa_id=r["empresa_id"], reunion_id=r["id"], sucursal_id=r["sucursal_id"], ocurrencia_id=occ["id"],
+                empleado_id=empleado["id"], fecha=fecha, estado=estado, registrado_at=registrado, metodo="manual",
+                usuario_id=who.get("user_id"), observaciones=obs, updated_at=ahora))
 
 
-def cancelar_ocurrencia(who, reunion_id, fecha, motivo, *, cancelar=True):
+def cancelar_ocurrencia(who, reunion_id, fecha, motivo, *, cancelar=True, sucursal_id=None):
+    """Cancela (o reactiva) la fecha en una sede; sucursal_id None = en todas las sedes."""
     fecha = _date(fecha)
     with db.transaction() as c:
-        r = obtener(c, who, reunion_id)
-        if not ocurre_en(r, fecha) and not ocurrencia(c, r, fecha, crear=False):
+        base = obtener(c, who, reunion_id)
+        objetivo = sedes_efectivas(c, base) if sucursal_id is None else [sede(c, base, sucursal_id)]
+        if not any(ocurre_en(r, fecha) or ocurrencia(c, r, fecha, crear=False) for r in objetivo):
             raise Error("La reunión no ocurre en esa fecha.")
-        occ = ocurrencia(c, r, fecha, lock=True)
-        if cancelar:
-            motivo = (motivo or "").strip()[:255]
-            if not motivo:
-                raise Error("Indicá el motivo de la cancelación.")
-            # Los ausentes generados por el cierre dejan de contar: la fecha no se tiene en cuenta.
-            c.execute("UPDATE reunion_ocurrencias SET estado='cancelada', motivo_cancelacion=%s WHERE id=%s",
-                      (motivo, occ["id"]))
-        else:
-            c.execute("UPDATE reunion_ocurrencias SET estado='programada', motivo_cancelacion=NULL, cerrada_at=NULL"
-                      " WHERE id=%s", (occ["id"],))
-            c.execute("DELETE FROM reunion_asistencias WHERE ocurrencia_id=%s AND metodo='sistema'", (occ["id"],))
+        motivo = (motivo or "").strip()[:255]
+        if cancelar and not motivo:
+            raise Error("Indicá el motivo de la cancelación.")
+        for r in objetivo:
+            occ = ocurrencia(c, r, fecha, lock=True)
+            if cancelar:
+                # Los ausentes generados por el cierre dejan de contar: la fecha no se tiene en cuenta.
+                c.execute("UPDATE reunion_ocurrencias SET estado='cancelada', motivo_cancelacion=%s WHERE id=%s",
+                          (motivo, occ["id"]))
+            else:
+                c.execute("UPDATE reunion_ocurrencias SET estado='programada', motivo_cancelacion=NULL, cerrada_at=NULL"
+                          " WHERE id=%s", (occ["id"],))
+                c.execute("DELETE FROM reunion_asistencias WHERE ocurrencia_id=%s AND metodo='sistema'", (occ["id"],))
 
 
 # --- CRUD -------------------------------------------------------------------------------
@@ -446,6 +529,13 @@ def obtener(c, who, reunion_id, lock=False):
 def reglas(c, reunion_id):
     return db.all_rows(c, "SELECT empleado_id, sector_id, puesto_id FROM reunion_participantes WHERE reunion_id = %s",
                        (reunion_id,))
+
+
+def _hora(raw, nombre):
+    try:
+        return _time(str(raw or ""))
+    except (ValueError, TypeError):
+        raise Error(f"{nombre}: hora inválida (HH:MM).")
 
 
 def _validar(data):
@@ -471,10 +561,7 @@ def _validar(data):
         else:
             out["semana_mes"] = _int(data.get("semana_mes"), "Semana del mes", 1, 5)
             out["dias_semana"] = str(_int(data.get("dia_semana_mes"), "Día de la semana", 0, 6))
-    try:
-        hora = _time(str(data.get("hora_inicio") or ""))
-    except (ValueError, TypeError):
-        raise Error("Hora de inicio inválida (HH:MM).")
+    hora = _hora(data.get("hora_inicio"), "Hora de inicio")
     out["hora_inicio"] = hora.strftime("%H:%M:00")
     out["duracion_min"] = _int(data.get("duracion_min"), "Duración (minutos)", 5, 720, 60)
     if hora.hour * 60 + hora.minute + out["duracion_min"] > 23 * 60 + 59:
@@ -497,6 +584,29 @@ def _validar(data):
     return out
 
 
+def _sedes_validas(c, empresa_id, data, duracion):
+    """[{sucursal_id, lugar, hora_inicio}] del formulario; vacio = sesion unica para todos."""
+    salida = []
+    pedidas = data.get("sedes") or []
+    if not pedidas:
+        return salida
+    ids = {int(s["sucursal_id"]) for s in pedidas if str(s.get("sucursal_id", "")).isdigit()}
+    validas = {row["id"]: row["nombre"] for row in db.all_rows(
+        c, f"SELECT id, nombre FROM sucursales WHERE empresa_id = %s AND id IN ({_marcas(ids)})", (empresa_id, *ids))}
+    for s in pedidas:
+        sid = int(s["sucursal_id"]) if str(s.get("sucursal_id", "")).isdigit() else None
+        if sid not in validas:
+            raise Error("Sucursal inválida.")
+        hora = None
+        if str(s.get("hora_inicio") or "").strip():
+            hora = _hora(s["hora_inicio"], f"Hora en {validas[sid]}")
+            if hora.hour * 60 + hora.minute + duracion > 23 * 60 + 59:
+                raise Error(f"En {validas[sid]} la reunión debe terminar el mismo día.")
+        salida.append(dict(sucursal_id=sid, lugar=(str(s.get("lugar") or "").strip()[:150] or None),
+                           hora_inicio=hora.strftime("%H:%M:00") if hora else None))
+    return salida
+
+
 def _participantes(c, empresa_id, data):
     """Reglas del formulario: 'todos', '<sector>', '<sector>:<puesto>', ':<puesto>' y empleados por ID."""
     sectores = {row["id"] for row in db.all_rows(c, "SELECT id FROM sectores WHERE empresa_id=%s", (empresa_id,))}
@@ -516,8 +626,7 @@ def _participantes(c, empresa_id, data):
     ids = {int(x) for x in data.get("empleados") or [] if str(x).isdigit()}
     if ids:
         validos = {row["id"] for row in db.all_rows(
-            c, f"SELECT id FROM empleados WHERE empresa_id=%s AND id IN ({', '.join(['%s'] * len(ids))})",
-            (empresa_id, *ids))}
+            c, f"SELECT id FROM empleados WHERE empresa_id=%s AND id IN ({_marcas(ids)})", (empresa_id, *ids))}
         if validos != ids:
             raise Error("Hay empleados que no pertenecen a la empresa.")
         salida |= {(i, None, None) for i in ids}
@@ -533,11 +642,13 @@ def guardar(who, data, reunion_id=None):
     ahora = now_local()
     with db.transaction() as c:
         reglas_nuevas = _participantes(c, who["empresa_id"], data)
+        sedes_nuevas = _sedes_validas(c, who["empresa_id"], data, valores["duracion_min"])
         if reunion_id:
             obtener(c, who, reunion_id, lock=True)
             sets = ", ".join(f"{k}=%s" for k in valores)
             c.execute(f"UPDATE reuniones SET {sets}, updated_at=%s WHERE id=%s", (*valores.values(), ahora, reunion_id))
             c.execute("DELETE FROM reunion_participantes WHERE reunion_id=%s", (reunion_id,))
+            c.execute("DELETE FROM reunion_sedes WHERE reunion_id=%s", (reunion_id,))
             # Las ocurrencias futuras sin registros toman el horario nuevo.
             c.execute("""DELETE o FROM reunion_ocurrencias o WHERE o.reunion_id=%s AND o.estado='programada'
                          AND o.inicio > %s AND NOT EXISTS (SELECT 1 FROM reunion_asistencias a WHERE a.ocurrencia_id=o.id)""",
@@ -548,6 +659,8 @@ def guardar(who, data, reunion_id=None):
         for empleado_id, sector_id, puesto_id in sorted(reglas_nuevas, key=str):
             db.insert(c, "reunion_participantes", dict(reunion_id=reunion_id, empleado_id=empleado_id,
                                                         sector_id=sector_id, puesto_id=puesto_id))
+        for item in sedes_nuevas:
+            db.insert(c, "reunion_sedes", dict(item, reunion_id=reunion_id))
     return reunion_id
 
 
@@ -561,12 +674,21 @@ def eliminar(who, reunion_id):
 
 
 def regenerar_qr(who, reunion_id):
+    """Nueva version de los QR impresos (de todas las sedes): los anteriores dejan de funcionar."""
     with db.transaction() as c:
         obtener(c, who, reunion_id, lock=True)
         c.execute("UPDATE reuniones SET qr_version = qr_version + 1, updated_at=%s WHERE id=%s", (now_local(), reunion_id))
 
 
+def sucursales(who):
+    with db.transaction(read_only=True) as c:
+        return db.all_rows(c, "SELECT id, nombre FROM sucursales WHERE empresa_id=%s ORDER BY nombre", (who["empresa_id"],))
+
+
 # --- Consultas del panel -------------------------------------------------------------------
+
+_CONTEOS = ("convocatorias", "presentes", "tarde", "ausentes", "justificados")
+
 
 def _agregado(where, args):
     return f"""SELECT COUNT(*) AS convocatorias,
@@ -578,9 +700,18 @@ def _agregado(where, args):
                WHERE o.estado <> 'cancelada' AND {where}""", args
 
 
+def _agrupado(c, where, args, campos, joins=""):
+    """Agregado agrupado por campos ('a.reunion_id, r.nombre AS nombre') con joins extra."""
+    grupo = ", ".join(campo.split(" AS ")[0] for campo in campos.split(", "))
+    sql, params = _agregado(f"{where} GROUP BY {grupo}", args)
+    sql = sql.replace("SELECT COUNT(*)", f"SELECT {campos}, COUNT(*)")
+    if joins:
+        sql = sql.replace("JOIN reunion_ocurrencias o", f"{joins} JOIN reunion_ocurrencias o")
+    return [_tasas(row) for row in db.all_rows(c, sql, params)]
+
+
 def _tasas(row):
-    row = {k: int(v or 0) if k in ("convocatorias", "presentes", "tarde", "ausentes", "justificados") else v
-           for k, v in row.items()}
+    row = {k: int(v or 0) if k in _CONTEOS else v for k, v in row.items()}
     asistidas = row["presentes"] + row["tarde"]
     row["asistidas"] = asistidas
     row["asistencia_pct"] = pct(asistidas, row["convocatorias"] - row["justificados"])
@@ -588,7 +719,17 @@ def _tasas(row):
     return row
 
 
-def listado(who, *, q=None, estado=None, desde=None, hasta=None):
+def _suma(filas):
+    return _tasas({k: sum(x[k] for x in filas) for k in _CONTEOS})
+
+
+def _filtro_sucursal(sucursal_id, alias="a"):
+    if sucursal_id is None or sucursal_id == "":
+        return "", ()
+    return f" AND {alias}.sucursal_id = %s", (int(sucursal_id),)
+
+
+def listado(who, *, q=None, estado=None, sucursal_id=None, desde=None, hasta=None):
     ahora = now_local()
     hasta = hasta or ahora.date()
     desde = desde or hasta - dt.timedelta(days=29)
@@ -599,90 +740,99 @@ def listado(who, *, q=None, estado=None, desde=None, hasta=None):
     if estado in ("activas", "inactivas"):
         where.append("r.activa=%s")
         args.append(1 if estado == "activas" else 0)
+    if sucursal_id:
+        where.append("(NOT EXISTS (SELECT 1 FROM reunion_sedes rs WHERE rs.reunion_id=r.id)"
+                     " OR EXISTS (SELECT 1 FROM reunion_sedes rs WHERE rs.reunion_id=r.id AND rs.sucursal_id=%s))")
+        args.append(int(sucursal_id))
+    filtro, extra = _filtro_sucursal(sucursal_id)
     with db.transaction(read_only=True) as c:
         rows = db.all_rows(c, f"SELECT r.* FROM reuniones r WHERE {' AND '.join(where)} ORDER BY r.activa DESC, r.nombre",
                            tuple(args))
         cantidades = contar_convocados(c, who["empresa_id"])
-        sql, params = _agregado("a.empresa_id=%s AND a.fecha BETWEEN %s AND %s GROUP BY a.reunion_id",
-                                (who["empresa_id"], desde, hasta))
-        stats = {row["reunion_id"]: _tasas(row) for row in db.all_rows(
-            c, sql.replace("SELECT COUNT(*)", "SELECT a.reunion_id, COUNT(*)"), params)}
-        hoy = db.all_rows(c, "SELECT reunion_id, estado FROM reunion_ocurrencias WHERE empresa_id=%s AND fecha=%s",
+        stats = {row["reunion_id"]: row for row in _agrupado(
+            c, "a.empresa_id=%s AND a.fecha BETWEEN %s AND %s" + filtro, (who["empresa_id"], desde, hasta, *extra),
+            "a.reunion_id")}
+        hoy = db.all_rows(c, "SELECT reunion_id, sucursal_id, estado FROM reunion_ocurrencias WHERE empresa_id=%s AND fecha=%s",
                           (who["empresa_id"], ahora.date()))
-    canceladas_hoy = {row["reunion_id"] for row in hoy if row["estado"] == "cancelada"}
+        por_reunion = {r["id"]: sedes(c, r["id"]) for r in rows}
+    canceladas_hoy = {(row["reunion_id"], row["sucursal_id"]) for row in hoy if row["estado"] == "cancelada"}
     for r in rows:
+        r["sedes"] = por_reunion[r["id"]]
         r["descripcion_frecuencia"] = describir(r)
         r["convocados"] = cantidades.get(r["id"], 0)
         r["proxima"] = proxima_fecha(r) if r["activa"] else None
         r["stats"] = stats.get(r["id"])
-        r["hoy"] = r["activa"] and ocurre_en(r, ahora.date()) and r["id"] not in canceladas_hoy
-    total = _tasas(dict(convocatorias=sum(s["convocatorias"] for s in stats.values()),
-                        presentes=sum(s["presentes"] for s in stats.values()),
-                        tarde=sum(s["tarde"] for s in stats.values()),
-                        ausentes=sum(s["ausentes"] for s in stats.values()),
-                        justificados=sum(s["justificados"] for s in stats.values())))
-    return dict(reuniones=rows, total=total, desde=desde, hasta=hasta)
+        ids = [s["sucursal_id"] for s in r["sedes"]] or [SIN_SEDE]
+        r["hoy"] = bool(r["activa"] and ocurre_en(r, ahora.date())
+                        and any((r["id"], sid) not in canceladas_hoy for sid in ids))
+    return dict(reuniones=rows, total=_suma(list(stats.values())), desde=desde, hasta=hasta)
 
 
-def detalle(who, reunion_id, *, desde=None, hasta=None):
+def detalle(who, reunion_id, *, desde=None, hasta=None, sucursal_id=None):
     ahora = now_local()
     hasta = hasta or ahora.date()
     desde = desde or hasta - dt.timedelta(days=89)
+    filtro_o, extra = _filtro_sucursal(sucursal_id, "o")
+    filtro_a, _ = _filtro_sucursal(sucursal_id, "a")
     with db.transaction(read_only=True) as c:
         r = obtener(c, who, reunion_id)
-        lista = convocados(c, r)
+        r["sedes"] = sedes(c, r["id"])
+        efectivas = sedes_efectivas(c, r, r["sedes"])
+        lista = convocados(c, r, sucursal_id or None)
         r["reglas"] = reglas(c, r["id"])
-        ocurrencias = db.all_rows(c, """
-            SELECT o.*, COUNT(a.id) AS convocatorias,
+        ocurrencias = db.all_rows(c, f"""
+            SELECT o.*, su.nombre AS sucursal_nombre, COUNT(a.id) AS convocatorias,
                    COALESCE(SUM(a.estado='presente'),0) AS presentes, COALESCE(SUM(a.estado='tarde'),0) AS tarde,
                    COALESCE(SUM(a.estado='ausente'),0) AS ausentes, COALESCE(SUM(a.estado='justificado'),0) AS justificados
             FROM reunion_ocurrencias o LEFT JOIN reunion_asistencias a ON a.ocurrencia_id = o.id
-            WHERE o.reunion_id=%s AND o.fecha BETWEEN %s AND %s
-            GROUP BY o.id ORDER BY o.fecha DESC""", (r["id"], desde, hasta))
-        sql, params = _agregado("a.reunion_id=%s AND a.fecha BETWEEN %s AND %s GROUP BY a.empleado_id",
-                                (r["id"], desde, hasta))
-        por_empleado = {row["empleado_id"]: _tasas(row) for row in db.all_rows(
-            c, sql.replace("SELECT COUNT(*)", "SELECT a.empleado_id, COUNT(*)"), params)}
-        nombres = {row["id"]: row for row in db.all_rows(
-            c, f"SELECT e.id, e.apellido, e.nombre, e.legajo, s.nombre AS sector_nombre FROM empleados e"
-               f" LEFT JOIN sectores s ON s.id=e.sector_id WHERE e.id IN ({', '.join(['%s'] * len(por_empleado)) or 'NULL'})",
-            tuple(por_empleado))} if por_empleado else {}
+            LEFT JOIN sucursales su ON su.id = o.sucursal_id
+            WHERE o.reunion_id=%s AND o.fecha BETWEEN %s AND %s{filtro_o}
+            GROUP BY o.id ORDER BY o.fecha DESC, su.nombre""", (r["id"], desde, hasta, *extra))
+        args = (r["id"], desde, hasta, *extra)
+        ranking = _agrupado(c, "a.reunion_id=%s AND a.fecha BETWEEN %s AND %s" + filtro_a, args,
+                            "a.empleado_id, e.apellido, e.nombre, e.legajo, s.nombre AS sector_nombre,"
+                            " su.nombre AS sucursal_nombre",
+                            "JOIN empleados e ON e.id = a.empleado_id LEFT JOIN sectores s ON s.id = e.sector_id"
+                            " LEFT JOIN sucursales su ON su.id = a.sucursal_id")
+        por_sede = _agrupado(c, "a.reunion_id=%s AND a.fecha BETWEEN %s AND %s" + filtro_a, args,
+                             "a.sucursal_id, su.nombre AS sucursal_nombre",
+                             "LEFT JOIN sucursales su ON su.id = a.sucursal_id")
     for o in ocurrencias:
-        o.update(_tasas({k: o[k] for k in ("convocatorias", "presentes", "tarde", "ausentes", "justificados")}))
-        if o["estado"] == "programada" and o["convocados"] is None:
-            o["convocados"] = len(lista)
-    ranking = []
-    for empleado_id, s in por_empleado.items():
-        e = nombres.get(empleado_id) or {"apellido": f"#{empleado_id}", "nombre": "", "legajo": None, "sector_nombre": None}
-        ranking.append(dict(s, empleado_id=empleado_id, **{k: e.get(k) for k in ("apellido", "nombre", "legajo", "sector_nombre")}))
+        o.update(_tasas({k: o[k] for k in _CONTEOS}))
     ranking.sort(key=lambda x: (x["asistencia_pct"] is None, x["asistencia_pct"] or 0, x["apellido"] or ""))
     r["descripcion_frecuencia"] = describir(r)
-    total = _tasas(dict(convocatorias=sum(s["convocatorias"] for s in por_empleado.values()),
-                        presentes=sum(s["presentes"] for s in por_empleado.values()),
-                        tarde=sum(s["tarde"] for s in por_empleado.values()),
-                        ausentes=sum(s["ausentes"] for s in por_empleado.values()),
-                        justificados=sum(s["justificados"] for s in por_empleado.values())))
-    proximas = list(fechas(r, ahora.date(), ahora.date() + dt.timedelta(days=60)))[:6] if r["activa"] else []
-    return dict(reunion=r, convocados=lista, ocurrencias=ocurrencias, ranking=ranking, total=total,
-                proximas=proximas, desde=desde, hasta=hasta)
+    if sucursal_id not in (None, ""):
+        efectivas = [x for x in efectivas if x["sucursal_id"] == int(sucursal_id)]
+    proximas = []
+    if r["activa"]:
+        for item in efectivas:
+            proximas += [dict(fecha=f, sucursal_id=item["sucursal_id"], sucursal_nombre=item["sucursal_nombre"],
+                              hora=_hhmm(_time(item["hora_inicio"])))
+                         for f in list(fechas(item, ahora.date(), ahora.date() + dt.timedelta(days=60)))[:6]]
+        proximas.sort(key=lambda x: (x["fecha"], x["sucursal_nombre"] or ""))
+    return dict(reunion=r, sedes_efectivas=efectivas, convocados=lista, ocurrencias=ocurrencias, ranking=ranking,
+                por_sede=por_sede, total=_suma(por_sede), proximas=proximas[:12], desde=desde, hasta=hasta,
+                sucursal_id=sucursal_id)
 
 
-def ocurrencia_detalle(who, reunion_id, fecha):
+def ocurrencia_detalle(who, reunion_id, fecha, sucursal_id=SIN_SEDE):
     fecha = _date(fecha)
     ahora = now_local()
     with db.transaction(read_only=True) as c:
-        r = obtener(c, who, reunion_id)
+        base = obtener(c, who, reunion_id)
+        r = sede(c, base, sucursal_id)
         occ = ocurrencia(c, r, fecha, crear=False)
         if not occ and not ocurre_en(r, fecha):
             raise Error("La reunión no ocurre en esa fecha.", 404)
         registros = {row["empleado_id"]: row for row in db.all_rows(
             c, "SELECT * FROM reunion_asistencias WHERE ocurrencia_id=%s", (occ["id"],))} if occ else {}
-        lista = convocados(c, r)
+        lista = convocados(c, r, r["sucursal_id"])
         extra = set(registros) - {e["id"] for e in lista}
         if extra:  # registrados que ya no estan convocados (o inactivos): se muestran igual
             lista += db.all_rows(c, f"SELECT e.id, e.apellido, e.nombre, e.legajo, s.nombre AS sector_nombre FROM empleados e"
-                                    f" LEFT JOIN sectores s ON s.id=e.sector_id WHERE e.id IN ({', '.join(['%s'] * len(extra))})",
+                                    f" LEFT JOIN sectores s ON s.id=e.sector_id WHERE e.id IN ({_marcas(extra)})",
                                  tuple(extra))
+        otras = [x for x in sedes_efectivas(c, base) if x["sucursal_id"] != r["sucursal_id"] and ocurre_en(x, fecha)]
     h = occ or horarios(r, fecha)
     filas = []
     for e in lista:
@@ -690,42 +840,41 @@ def ocurrencia_detalle(who, reunion_id, fecha):
         filas.append(dict(e, estado=reg["estado"] if reg else "pendiente", registrado_at=reg["registrado_at"] if reg else None,
                           metodo=reg["metodo"] if reg else None, observaciones=reg["observaciones"] if reg else None))
     conteo = {k: sum(1 for f in filas if f["estado"] == k) for k in ESTADOS + ("pendiente",)}
-    return dict(reunion=r, fecha=fecha, ocurrencia=occ, horario=h, filas=filas, conteo=conteo,
+    return dict(reunion=r, fecha=fecha, ocurrencia=occ, horario=h, filas=filas, conteo=conteo, otras_sedes=otras,
                 abierta=h["ventana_desde"] <= ahora <= h["ventana_hasta"], futura=fecha > ahora.date())
 
 
-def estadisticas_empresa(who, desde, hasta):
-    """Resumen por reunion y por empleado (los de menor asistencia primero)."""
+def estadisticas_empresa(who, desde, hasta, sucursal_id=None):
+    """Resumen por reunion, por sucursal y por empleado (los de menor asistencia primero)."""
+    filtro, extra = _filtro_sucursal(sucursal_id)
+    base = "a.empresa_id=%s AND a.fecha BETWEEN %s AND %s" + filtro
+    args = (who["empresa_id"], desde, hasta, *extra)
     with db.transaction(read_only=True) as c:
-        sql, params = _agregado("a.empresa_id=%s AND a.fecha BETWEEN %s AND %s GROUP BY a.reunion_id, r.nombre",
-                                (who["empresa_id"], desde, hasta))
-        sql = sql.replace("SELECT COUNT(*)", "SELECT a.reunion_id, r.nombre, COUNT(*)").replace(
-            "JOIN reunion_ocurrencias o", "JOIN reuniones r ON r.id = a.reunion_id JOIN reunion_ocurrencias o")
-        por_reunion = [_tasas(row) for row in db.all_rows(c, sql, params)]
-        sql, params = _agregado("a.empresa_id=%s AND a.fecha BETWEEN %s AND %s"
-                                " GROUP BY a.empleado_id, e.apellido, e.nombre, e.legajo",
-                                (who["empresa_id"], desde, hasta))
-        sql = sql.replace("SELECT COUNT(*)", "SELECT a.empleado_id, e.apellido, e.nombre, e.legajo, COUNT(*)").replace(
-            "JOIN reunion_ocurrencias o", "JOIN empleados e ON e.id = a.empleado_id JOIN reunion_ocurrencias o")
-        por_empleado = [_tasas(row) for row in db.all_rows(c, sql, params)]
-        serie = db.all_rows(c, """SELECT a.fecha, COUNT(*) AS convocatorias,
+        por_reunion = _agrupado(c, base, args, "a.reunion_id, r.nombre AS nombre", "JOIN reuniones r ON r.id = a.reunion_id")
+        por_sucursal = _agrupado(c, base, args, "a.sucursal_id, su.nombre AS sucursal_nombre",
+                                 "LEFT JOIN sucursales su ON su.id = a.sucursal_id")
+        por_empleado = _agrupado(c, base, args, "a.empleado_id, e.apellido, e.nombre, e.legajo, su.nombre AS sucursal_nombre",
+                                 "JOIN empleados e ON e.id = a.empleado_id LEFT JOIN sucursales su ON su.id = e.sucursal_id")
+        serie = db.all_rows(c, f"""SELECT a.fecha, COUNT(*) AS convocatorias,
                 COALESCE(SUM(a.estado IN ('presente','tarde')),0) AS asistidas, COALESCE(SUM(a.estado='justificado'),0) AS justificados
             FROM reunion_asistencias a JOIN reunion_ocurrencias o ON o.id=a.ocurrencia_id
-            WHERE o.estado<>'cancelada' AND a.empresa_id=%s AND a.fecha BETWEEN %s AND %s GROUP BY a.fecha ORDER BY a.fecha""",
-                            (who["empresa_id"], desde, hasta))
+            WHERE o.estado<>'cancelada' AND {base} GROUP BY a.fecha ORDER BY a.fecha""", args)
     por_reunion.sort(key=lambda x: (x["asistencia_pct"] is None, x["asistencia_pct"] or 0))
+    por_sucursal.sort(key=lambda x: (x["sucursal_nombre"] is None, x["sucursal_nombre"] or ""))
     por_empleado.sort(key=lambda x: (x["asistencia_pct"] is None, x["asistencia_pct"] or 0, x["apellido"] or ""))
     for row in serie:
         row["asistencia_pct"] = pct(int(row["asistidas"]), int(row["convocatorias"]) - int(row["justificados"]))
-    total = _tasas({k: sum(x[k] for x in por_reunion) for k in ("convocatorias", "presentes", "tarde", "ausentes", "justificados")})
-    return dict(por_reunion=por_reunion, por_empleado=por_empleado, serie=serie, total=total)
+    return dict(por_reunion=por_reunion, por_sucursal=por_sucursal, por_empleado=por_empleado, serie=serie,
+                total=_suma(por_reunion))
 
 
 # --- API del empleado ------------------------------------------------------------------------
 
 def reunion_publica(r):
+    """r = reunion en la sede del empleado (en_sede)."""
     return dict(
         id=r["id"], nombre=r["nombre"], descripcion=r.get("descripcion"), lugar=r.get("lugar"),
+        sucursal_id=r.get("sucursal_id") or None, sucursal_nombre=r.get("sucursal_nombre"),
         frecuencia=r["frecuencia"], dias_semana=_dias(r.get("dias_semana")), mensual_tipo=r.get("mensual_tipo"),
         dia_mes=r.get("dia_mes"), semana_mes=r.get("semana_mes"), hora_inicio=_hhmm(_time(r["hora_inicio"])),
         duracion_min=int(r["duracion_min"]), descripcion_frecuencia=describir(r), qr_modo=r["qr_modo"],
@@ -738,17 +887,14 @@ def reunion_publica(r):
 def mis_reuniones(empleado, *, ahora=None):
     ahora = ahora or now_local()
     with db.transaction(read_only=True) as c:
-        rows = reuniones_de_empleado(c, empleado)
-        sql, params = _agregado("a.empleado_id=%s GROUP BY a.reunion_id", (empleado["id"],))
-        sql = sql.replace("SELECT COUNT(*)", "SELECT a.reunion_id, COUNT(*)")
-        stats = {row["reunion_id"]: _tasas(row) for row in db.all_rows(c, sql, params)}
+        rows = _de_empleado_en_sede(c, empleado)
+        stats = {row["reunion_id"]: row for row in _agrupado(c, "a.empleado_id=%s", (empleado["id"],), "a.reunion_id")}
     items = []
     for r in rows:
-        proxima = proxima_fecha(r, ahora.date())
         item = reunion_publica(r)
-        item["proxima_fecha"] = _iso(proxima)
-        item["mis_estadisticas"] = stats.get(r["id"]) or _tasas(dict(convocatorias=0, presentes=0, tarde=0, ausentes=0,
-                                                                   justificados=0))
+        item["proxima_fecha"] = _iso(proxima_fecha(r, ahora.date()))
+        item["mis_estadisticas"] = stats.get(r["id"]) or _tasas(dict.fromkeys(_CONTEOS, 0))
+        item["mis_estadisticas"].pop("reunion_id", None)
         items.append(item)
     return items
 
@@ -759,17 +905,18 @@ def proximas(empleado, dias=7, *, ahora=None):
     dias = max(1, min(int(dias or 7), 31))
     desde, hasta = ahora.date(), ahora.date() + dt.timedelta(days=dias - 1)
     with db.transaction(read_only=True) as c:
-        rows = reuniones_de_empleado(c, empleado)
-        guardadas = {(o["reunion_id"], o["fecha"]): o for o in db.all_rows(
-            c, f"SELECT * FROM reunion_ocurrencias WHERE fecha BETWEEN %s AND %s AND reunion_id IN "
-               f"({', '.join(['%s'] * len(rows)) or 'NULL'})", (desde, hasta, *[r["id"] for r in rows]))} if rows else {}
+        rows = _de_empleado_en_sede(c, empleado)
+        ids = [r["id"] for r in rows]
+        guardadas = {(o["reunion_id"], o["sucursal_id"], o["fecha"]): o for o in db.all_rows(
+            c, f"SELECT * FROM reunion_ocurrencias WHERE fecha BETWEEN %s AND %s AND reunion_id IN ({_marcas(ids)})",
+            (desde, hasta, *ids))} if ids else {}
         mias = {row["ocurrencia_id"]: row for row in db.all_rows(
             c, "SELECT * FROM reunion_asistencias WHERE empleado_id=%s AND fecha BETWEEN %s AND %s",
             (empleado["id"], desde, hasta))}
     items = []
     for r in rows:
         for fecha in fechas(r, desde, hasta):
-            occ = guardadas.get((r["id"], fecha))
+            occ = guardadas.get((r["id"], r["sucursal_id"], fecha))
             h = occ or horarios(r, fecha)
             reg = mias.get(occ["id"]) if occ else None
             if reg:
@@ -784,6 +931,7 @@ def proximas(empleado, dias=7, *, ahora=None):
                 estado = "pendiente"
             items.append(dict(
                 reunion_id=r["id"], nombre=r["nombre"], lugar=r.get("lugar"), descripcion=r.get("descripcion"),
+                sucursal_id=r["sucursal_id"] or None, sucursal_nombre=r.get("sucursal_nombre"),
                 fecha=fecha.isoformat(), inicio=_iso(h["inicio"]), fin=_iso(h["fin"]),
                 ventana_desde=_iso(h["ventana_desde"]), ventana_hasta=_iso(h["ventana_hasta"]),
                 tarde_desde=_iso(h["tarde_desde"]), estado=estado,
@@ -809,13 +957,17 @@ def historial_empleado(empleado, *, desde=None, hasta=None, reunion_id=None, pag
     clause = " AND ".join(where)
     with db.transaction(read_only=True) as c:
         total = db.one(c, f"SELECT COUNT(*) AS n FROM reunion_asistencias a WHERE {clause}", tuple(args))["n"]
-        rows = db.all_rows(c, f"""SELECT a.id, a.reunion_id, r.nombre, r.lugar, a.fecha, o.inicio, o.fin, o.estado AS estado_ocurrencia,
-                                         a.estado, a.registrado_at, a.metodo, a.observaciones
+        rows = db.all_rows(c, f"""SELECT a.id, a.reunion_id, r.nombre, COALESCE(rs.lugar, r.lugar) AS lugar,
+                                         a.sucursal_id, su.nombre AS sucursal_nombre, a.fecha, o.inicio, o.fin,
+                                         o.estado AS estado_ocurrencia, a.estado, a.registrado_at, a.metodo, a.observaciones
                                   FROM reunion_asistencias a JOIN reuniones r ON r.id=a.reunion_id
                                   JOIN reunion_ocurrencias o ON o.id=a.ocurrencia_id
+                                  LEFT JOIN reunion_sedes rs ON rs.reunion_id=a.reunion_id AND rs.sucursal_id=a.sucursal_id
+                                  LEFT JOIN sucursales su ON su.id=a.sucursal_id
                                   WHERE {clause} ORDER BY a.fecha DESC, o.inicio DESC LIMIT %s OFFSET %s""",
                            (*args, per_page, (page - 1) * per_page))
     items = [dict(id=row["id"], reunion_id=row["reunion_id"], nombre=row["nombre"], lugar=row["lugar"],
+                  sucursal_id=row["sucursal_id"] or None, sucursal_nombre=row["sucursal_nombre"],
                   fecha=_iso(row["fecha"]), inicio=_hhmm(row["inicio"]), fin=_hhmm(row["fin"]),
                   estado="cancelada" if row["estado_ocurrencia"] == "cancelada" else row["estado"],
                   registrado_at=_iso(row["registrado_at"]), metodo=row["metodo"], observaciones=row["observaciones"])
@@ -827,10 +979,7 @@ def estadisticas_empleado(empleado, desde, hasta):
     with db.transaction(read_only=True) as c:
         sql, params = _agregado("a.empleado_id=%s AND a.fecha BETWEEN %s AND %s", (empleado["id"], desde, hasta))
         total = _tasas(db.one(c, sql, params))
-        sql, params = _agregado("a.empleado_id=%s AND a.fecha BETWEEN %s AND %s GROUP BY a.reunion_id, r.nombre",
-                                (empleado["id"], desde, hasta))
-        sql = sql.replace("SELECT COUNT(*)", "SELECT a.reunion_id, r.nombre, COUNT(*)").replace(
-            "JOIN reunion_ocurrencias o", "JOIN reuniones r ON r.id = a.reunion_id JOIN reunion_ocurrencias o")
-        por_reunion = [_tasas(row) for row in db.all_rows(c, sql, params)]
+        por_reunion = _agrupado(c, "a.empleado_id=%s AND a.fecha BETWEEN %s AND %s", (empleado["id"], desde, hasta),
+                                "a.reunion_id, r.nombre AS nombre", "JOIN reuniones r ON r.id = a.reunion_id")
     por_reunion.sort(key=lambda x: x["nombre"])
     return dict(periodo=dict(desde=_iso(desde), hasta=_iso(hasta)), totales=total, por_reunion=por_reunion)

@@ -1,10 +1,11 @@
 openapi: 3.0.3
 info:
   title: Reuniones FichaYa
-  version: 1.38.0
+  version: 1.39.0
   description: |
     Reuniones recurrentes con convocados obligatorios y asistencia por QR.
     Guia con ejemplos, estados y recordatorios locales: reuniones_mobile.md.
+    1.39.0: sedes por sucursal; hora, lugar y QR son los de la sucursal del empleado.
 servers:
   - url: /api/v1/mobile
 security:
@@ -207,6 +208,8 @@ components:
         nombre: {type: string}
         descripcion: {type: string, nullable: true}
         lugar: {type: string, nullable: true}
+        sucursal_id: {type: integer, nullable: true, description: Sede del empleado; null si la reunion no tiene sedes (1.39.0)}
+        sucursal_nombre: {type: string, nullable: true}
         frecuencia: {type: string, enum: [diaria, semanal, mensual]}
         dias_semana:
           type: array
@@ -233,6 +236,8 @@ components:
         nombre: {type: string}
         lugar: {type: string, nullable: true}
         descripcion: {type: string, nullable: true}
+        sucursal_id: {type: integer, nullable: true, description: Sede del empleado; null si la reunion no tiene sedes (1.39.0)}
+        sucursal_nombre: {type: string, nullable: true}
         fecha: {type: string, format: date}
         inicio: {type: string, format: date-time}
         fin: {type: string, format: date-time}
@@ -250,6 +255,8 @@ components:
         reunion_id: {type: integer}
         reunion: {type: string}
         lugar: {type: string, nullable: true}
+        sucursal_id: {type: integer, nullable: true, description: Sede del empleado; null si la reunion no tiene sedes (1.39.0)}
+        sucursal_nombre: {type: string, nullable: true}
         fecha: {type: string, format: date}
         inicio: {type: string, example: '09:00'}
         fin: {type: string, example: '09:45'}
@@ -263,6 +270,8 @@ components:
         reunion_id: {type: integer}
         nombre: {type: string}
         lugar: {type: string, nullable: true}
+        sucursal_id: {type: integer, nullable: true, description: Sede del empleado; null si la reunion no tiene sedes (1.39.0)}
+        sucursal_nombre: {type: string, nullable: true}
         fecha: {type: string, format: date}
         inicio: {type: string, example: '09:00'}
         fin: {type: string, example: '09:45'}

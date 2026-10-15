@@ -3,6 +3,7 @@
 {% block reuniones_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/viz.css') }}">{% endblock %}
 {% block reuniones_content %}
 {% set r = reunion %}
+{% set con_sedes = r.sedes|length > 0 %}
 <section class="epp-card">
   <header class="epp-section-heading">
     <div>
@@ -13,7 +14,7 @@
     <div class="reu-card-actions">
       {% if can_web('reuniones', 'editar') %}<a class="btn btn-secondary" href="{{ url_for('reuniones.editar', reunion_id=r.id) }}">Editar</a>{% endif %}
       <a class="btn btn-secondary" href="{{ url_for('reuniones.qr', reunion_id=r.id) }}">QR impreso</a>
-      {% if r.qr_modo != 'fijo' %}<a class="btn btn-secondary" href="{{ url_for('reuniones.proyectar', reunion_id=r.id) }}" data-no-ajax>Proyectar QR</a>{% endif %}
+      {% if r.qr_modo != 'fijo' %}<a class="btn btn-secondary" href="{{ url_for('reuniones.proyectar', reunion_id=r.id, sucursal=sucursal_id) }}" data-no-ajax>Proyectar QR</a>{% endif %}
       {% if can_web('reuniones', 'eliminar') %}
         <form method="post" action="{{ url_for('reuniones.eliminar', reunion_id=r.id) }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -25,9 +26,15 @@
   {% if r.descripcion %}<p>{{ r.descripcion }}</p>{% endif %}
   <dl class="epp-order-facts reu-detail-facts">
     <div><dt>Registro</dt><dd>Desde {{ r.tolerancia_antes_min }} min antes · tarde después de {{ r.tarde_despues_min }} min · cierra {{ ('a los ' ~ r.cierre_despues_min ~ ' min') if r.cierre_despues_min is not none else 'al terminar' }}</dd></div>
-    <div><dt>Código QR</dt><dd>{{ {'fijo': 'Fijo impreso', 'dinamico': 'Dinámico en pantalla', 'ambos': 'Fijo y dinámico'}[r.qr_modo] }}</dd></div>
+    <div><dt>{{ 'Sucursales' if con_sedes else 'Código QR' }}</dt><dd>
+      {% if con_sedes %}
+        {% for sd in r.sedes %}<span class="chip">{{ sd.sucursal_nombre }}{% if sd.hora_inicio %} · {{ sd.hora_inicio|hora }}{% endif %}{% if sd.lugar %} · {{ sd.lugar }}{% endif %}</span> {% endfor %}
+      {% else %}
+        {{ {'fijo': 'Fijo impreso', 'dinamico': 'Dinámico en pantalla', 'ambos': 'Fijo y dinámico'}[r.qr_modo] }} · una sola reunión para todos
+      {% endif %}
+    </dd></div>
     <div><dt>Próximas fechas</dt><dd>
-      {% for f in proximas %}<a class="chip" href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=f.isoformat()) }}">{{ 'Hoy' if f == hoy else (f|dia_semana)[:3] ~ ' ' ~ f.strftime('%d/%m') }}</a> {% else %}—{% endfor %}
+      {% for p in proximas %}<a class="chip" href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=p.fecha.isoformat(), sucursal=p.sucursal_id or None) }}">{{ 'Hoy' if p.fecha == hoy else (p.fecha|dia_semana)[:3] ~ ' ' ~ p.fecha.strftime('%d/%m') }}{% if p.sucursal_nombre %} · {{ p.sucursal_nombre }}{% endif %}</a> {% else %}—{% endfor %}
     </dd></div>
   </dl>
 </section>
@@ -35,8 +42,16 @@
 <form method="get" class="epp-staff-search" action="{{ url_for('reuniones.detalle', reunion_id=r.id) }}">
   <label>Desde<input type="date" name="desde" value="{{ desde.isoformat() }}"></label>
   <label>Hasta<input type="date" name="hasta" value="{{ hasta.isoformat() }}"></label>
-  <button class="btn" type="submit">Aplicar período</button>
-  {% if can_web('reuniones', 'exportar') %}<a class="btn btn-secondary" data-no-ajax href="{{ url_for('reuniones.exportar', reunion_id=r.id, desde=desde.isoformat(), hasta=hasta.isoformat()) }}">Exportar CSV</a>{% endif %}
+  {% if con_sedes %}
+  <label>Sucursal
+    <select name="sucursal">
+      <option value="">Todas</option>
+      {% for sd in r.sedes %}<option value="{{ sd.sucursal_id }}" {{ 'selected' if sucursal_id == sd.sucursal_id }}>{{ sd.sucursal_nombre }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <button class="btn" type="submit">Aplicar</button>
+  {% if can_web('reuniones', 'exportar') %}<a class="btn btn-secondary" data-no-ajax href="{{ url_for('reuniones.exportar', reunion_id=r.id, desde=desde.isoformat(), hasta=hasta.isoformat(), sucursal=sucursal_id) }}">Exportar CSV</a>{% endif %}
 </form>
 
 {% set p = total.asistencia_pct %}
@@ -67,7 +82,7 @@
   <figure class="viz-card viz-card-wide" data-tooltips="{{ tips | tojson | forceescape }}">
     <figcaption>
       <h4 class="section-title">Asistencia por fecha</h4>
-      <p class="helper-text">Porcentaje de convocados que asistieron (presentes y tarde), sin contar justificados.</p>
+      <p class="helper-text">Porcentaje de convocados que asistieron (presentes y tarde), sin contar justificados{% if con_sedes and not sucursal_id %}; suma todas las sucursales{% endif %}.</p>
     </figcaption>
     {% if chart.empty %}<p class="viz-message">Todavía no hay fechas cerradas en el período.</p>{% else %}
       {{ viz.line(chart, "asistencia", "Asistencia por fecha", tips) }}
@@ -76,16 +91,42 @@
   </figure>
 </div>
 
+{% if con_sedes and por_sede %}
+<section class="epp-card">
+  <h3>Por sucursal</h3>
+  <div class="table-responsive table-cards">
+    <table>
+      <thead><tr><th>Sucursal</th><th>Convocatorias</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th><th>Puntualidad</th></tr></thead>
+      <tbody>
+        {% for x in por_sede %}
+          <tr>
+            <td data-label="Sucursal"><a href="{{ url_for('reuniones.detalle', reunion_id=r.id, desde=desde.isoformat(), hasta=hasta.isoformat(), sucursal=x.sucursal_id) }}">{{ x.sucursal_nombre or 'Sin sucursal' }}</a></td>
+            <td data-label="Convocatorias">{{ x.convocatorias }}</td>
+            <td data-label="Presentes">{{ x.presentes }}</td>
+            <td data-label="Tarde">{{ x.tarde }}</td>
+            <td data-label="Ausentes">{{ x.ausentes }}</td>
+            <td data-label="Justificados">{{ x.justificados }}</td>
+            <td data-label="Asistencia"><span class="reu-pct {% if x.asistencia_pct is none %}{% elif x.asistencia_pct >= 90 %}is-ok{% elif x.asistencia_pct >= 75 %}is-warn{% else %}is-bad{% endif %}">{{ '%g'|format(x.asistencia_pct) ~ '%' if x.asistencia_pct is not none else '—' }}</span></td>
+            <td data-label="Puntualidad">{{ '%g'|format(x.puntualidad_pct) ~ '%' if x.puntualidad_pct is not none else '—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
 <section class="epp-card">
   <h3>Fechas</h3>
   {% if ocurrencias %}
     <div class="table-responsive table-cards">
       <table>
-        <thead><tr><th>Fecha</th><th>Estado</th><th>Convocados</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th></tr></thead>
+        <thead><tr><th>Fecha</th>{% if con_sedes %}<th>Sucursal</th>{% endif %}<th>Estado</th><th>Convocados</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th></tr></thead>
         <tbody>
           {% for o in ocurrencias %}
             <tr>
-              <td data-label="Fecha"><a href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=o.fecha.isoformat()) }}">{{ o.fecha.strftime('%d/%m/%Y') }}</a></td>
+              <td data-label="Fecha"><a href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=o.fecha.isoformat(), sucursal=o.sucursal_id or None) }}">{{ o.fecha.strftime('%d/%m/%Y') }}</a></td>
+              {% if con_sedes %}<td data-label="Sucursal">{{ o.sucursal_nombre or '—' }}</td>{% endif %}
               <td data-label="Estado">{% if o.estado == 'cancelada' %}<span class="reu-badge reu-cancelada" title="{{ o.motivo_cancelacion or '' }}">Cancelada</span>{% elif o.estado == 'cerrada' %}Cerrada{% else %}En curso{% endif %}</td>
               <td data-label="Convocados">{{ o.convocados if o.convocados is not none else '—' }}</td>
               <td data-label="Presentes">{{ o.presentes }}</td>
@@ -109,12 +150,13 @@
   {% if ranking %}
     <div class="table-responsive table-cards">
       <table>
-        <thead><tr><th>Empleado</th><th>Sector</th><th>Convocatorias</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th></tr></thead>
+        <thead><tr><th>Empleado</th><th>Sector</th>{% if con_sedes %}<th>Sucursal</th>{% endif %}<th>Convocatorias</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th></tr></thead>
         <tbody>
           {% for e in ranking %}
             <tr>
               <td data-label="Empleado"><strong>{{ e.apellido }} {{ e.nombre }}</strong>{% if e.legajo %} <span class="chip">{{ e.legajo }}</span>{% endif %}</td>
               <td data-label="Sector">{{ e.sector_nombre or '—' }}</td>
+              {% if con_sedes %}<td data-label="Sucursal">{{ e.sucursal_nombre or '—' }}</td>{% endif %}
               <td data-label="Convocatorias">{{ e.convocatorias }}</td>
               <td data-label="Presentes">{{ e.presentes }}</td>
               <td data-label="Tarde">{{ e.tarde }}</td>
@@ -135,7 +177,7 @@
   <details>
     <summary>Convocados actuales ({{ convocados|length }})</summary>
     <ul class="reu-people-summary">
-      {% for e in convocados %}<li>{{ e.apellido }} {{ e.nombre }} <small>{{ e.legajo or '' }}{% if e.sector_nombre %} · {{ e.sector_nombre }}{% endif %}</small></li>{% else %}<li>Nadie: revisá los participantes de la reunión.</li>{% endfor %}
+      {% for e in convocados %}<li>{{ e.apellido }} {{ e.nombre }} <small>{{ e.legajo or '' }}{% if e.sector_nombre %} · {{ e.sector_nombre }}{% endif %}{% if con_sedes and e.sucursal_nombre %} · {{ e.sucursal_nombre }}{% endif %}</small></li>{% else %}<li>Nadie: revisá los participantes y las sucursales de la reunión.</li>{% endfor %}
     </ul>
   </details>
 </section>

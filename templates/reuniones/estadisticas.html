@@ -5,8 +5,16 @@
 <form method="get" class="epp-staff-search" action="{{ url_for('reuniones.estadisticas') }}">
   <label>Desde<input type="date" name="desde" value="{{ desde.isoformat() }}"></label>
   <label>Hasta<input type="date" name="hasta" value="{{ hasta.isoformat() }}"></label>
-  <button class="btn" type="submit">Aplicar período</button>
-  {% if can_web('reuniones', 'exportar') %}<a class="btn btn-secondary" data-no-ajax href="{{ url_for('reuniones.estadisticas_exportar', desde=desde.isoformat(), hasta=hasta.isoformat()) }}">Exportar CSV por empleado</a>{% endif %}
+  {% if sucursales %}
+  <label>Sucursal
+    <select name="sucursal">
+      <option value="">Todas</option>
+      {% for su in sucursales %}<option value="{{ su.id }}" {{ 'selected' if sucursal == su.id }}>{{ su.nombre }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <button class="btn" type="submit">Aplicar</button>
+  {% if can_web('reuniones', 'exportar') %}<a class="btn btn-secondary" data-no-ajax href="{{ url_for('reuniones.estadisticas_exportar', desde=desde.isoformat(), hasta=hasta.isoformat(), sucursal=sucursal) }}">Exportar CSV por empleado</a>{% endif %}
 </form>
 
 {% set p = total.asistencia_pct %}
@@ -41,6 +49,31 @@
   </figure>
 </div>
 
+{% if por_sucursal|length > 1 or (por_sucursal and por_sucursal[0].sucursal_id) %}
+<section class="epp-card">
+  <h3>Por sucursal</h3>
+  <div class="table-responsive table-cards">
+    <table>
+      <thead><tr><th>Sucursal</th><th>Convocatorias</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th><th>Puntualidad</th></tr></thead>
+      <tbody>
+        {% for x in por_sucursal %}
+          <tr>
+            <td data-label="Sucursal">{% if x.sucursal_id %}<a href="{{ url_for('reuniones.estadisticas', desde=desde.isoformat(), hasta=hasta.isoformat(), sucursal=x.sucursal_id) }}">{{ x.sucursal_nombre }}</a>{% else %}Reuniones sin sucursal{% endif %}</td>
+            <td data-label="Convocatorias">{{ x.convocatorias }}</td>
+            <td data-label="Presentes">{{ x.presentes }}</td>
+            <td data-label="Tarde">{{ x.tarde }}</td>
+            <td data-label="Ausentes">{{ x.ausentes }}</td>
+            <td data-label="Justificados">{{ x.justificados }}</td>
+            <td data-label="Asistencia"><span class="reu-pct {% if x.asistencia_pct is none %}{% elif x.asistencia_pct >= 90 %}is-ok{% elif x.asistencia_pct >= 75 %}is-warn{% else %}is-bad{% endif %}">{{ '%g'|format(x.asistencia_pct) ~ '%' if x.asistencia_pct is not none else '—' }}</span></td>
+            <td data-label="Puntualidad">{{ '%g'|format(x.puntualidad_pct) ~ '%' if x.puntualidad_pct is not none else '—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
 <section class="epp-card">
   <h3>Por reunión</h3>
   {% if por_reunion %}
@@ -50,7 +83,7 @@
         <tbody>
           {% for x in por_reunion %}
             <tr>
-              <td data-label="Reunión"><a href="{{ url_for('reuniones.detalle', reunion_id=x.reunion_id, desde=desde.isoformat(), hasta=hasta.isoformat()) }}">{{ x.nombre }}</a></td>
+              <td data-label="Reunión"><a href="{{ url_for('reuniones.detalle', reunion_id=x.reunion_id, desde=desde.isoformat(), hasta=hasta.isoformat(), sucursal=sucursal) }}">{{ x.nombre }}</a></td>
               <td data-label="Convocatorias">{{ x.convocatorias }}</td>
               <td data-label="Presentes">{{ x.presentes }}</td>
               <td data-label="Tarde">{{ x.tarde }}</td>
@@ -74,11 +107,12 @@
   {% if por_empleado %}
     <div class="table-responsive table-cards">
       <table>
-        <thead><tr><th>Empleado</th><th>Convocatorias</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th></tr></thead>
+        <thead><tr><th>Empleado</th><th>Sucursal</th><th>Convocatorias</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th></tr></thead>
         <tbody>
           {% for e in por_empleado %}
             <tr>
               <td data-label="Empleado"><strong>{{ e.apellido }} {{ e.nombre }}</strong>{% if e.legajo %} <span class="chip">{{ e.legajo }}</span>{% endif %}</td>
+              <td data-label="Sucursal">{{ e.sucursal_nombre or '—' }}</td>
               <td data-label="Convocatorias">{{ e.convocatorias }}</td>
               <td data-label="Presentes">{{ e.presentes }}</td>
               <td data-label="Tarde">{{ e.tarde }}</td>

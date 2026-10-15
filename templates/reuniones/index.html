@@ -29,6 +29,14 @@
       <option value="inactivas" {{ 'selected' if filtros.estado == 'inactivas' }}>Inactivas</option>
     </select>
   </label>
+  {% if sucursales %}
+  <label>Sucursal
+    <select name="sucursal">
+      <option value="">Todas</option>
+      {% for su in sucursales %}<option value="{{ su.id }}" {{ 'selected' if filtros.sucursal == su.id }}>{{ su.nombre }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
   <button class="btn" type="submit">Filtrar</button>
 </form>
 
@@ -42,6 +50,9 @@
         </div>
         <h3><a href="{{ url_for('reuniones.detalle', reunion_id=r.id) }}">{{ r.nombre }}</a></h3>
         <p class="reu-when">{{ r.descripcion_frecuencia }}</p>
+        {% if r.sedes %}
+          <p class="reu-sede-list">{% for sd in r.sedes %}<span class="chip" title="{{ sd.lugar or '' }}">{{ sd.sucursal_nombre }}{% if sd.hora_inicio %} · {{ sd.hora_inicio|hora }}{% endif %}</span>{% endfor %}</p>
+        {% endif %}
         <dl class="reu-facts">
           <div><dt>Convocados</dt><dd>{{ r.convocados }}</dd></div>
           <div><dt>Próxima</dt><dd>{% if r.hoy %}<strong>Hoy</strong>{% elif r.proxima %}{{ r.proxima.strftime('%d/%m') }}{% else %}—{% endif %}</dd></div>

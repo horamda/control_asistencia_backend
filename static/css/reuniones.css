@@ -14,6 +14,13 @@
 .reu-todos:has(input:checked){border-color:var(--primary);background:var(--primary-soft)}
 .reu-todos small{color:var(--muted);font-weight:400}
 [data-reu-reglas].is-disabled{opacity:.5}
+.reu-sede-fields{display:grid;grid-template-columns:minmax(0,1fr) 120px;gap:8px}
+.epp-page .reu-sede-fields label{display:grid;gap:4px;margin:0;font-size:.85rem}
+.epp-page .reu-form .reu-sede-fields input{min-height:38px}
+.reu-sede:not(.is-whole) .reu-sede-fields{opacity:.5}
+.reu-sede-list{display:flex;flex-wrap:wrap;gap:6px;margin:0;align-items:center}
+.epp-page .reu-check{display:flex;align-items:center;gap:8px;margin:0;align-self:center}
+.epp-page .reu-check input{width:16px;height:16px;min-height:0}
 
 .reu-people{margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--surface)}
 .reu-people-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px}
@@ -55,11 +62,17 @@
 .reu-qr-print small{color:var(--muted)}
 
 @media(max-width:700px){.reu-facts,.reu-detail-facts{grid-template-columns:minmax(0,1fr)}.reu-inline-form select,.reu-inline-form input{max-width:none;flex:1}}
+.reu-qr-sheets{display:grid;gap:24px}
+.reu-qr-sheets .reu-qr-print+.reu-qr-print{border-top:1px dashed var(--border);padding-top:24px}
+.reu-qr-sede{font-size:1.25rem;font-weight:700;color:var(--primary)}
+.chip.is-selected{background:var(--primary);color:#fff;border-color:var(--primary)}
 @media print{
   body *{visibility:hidden}
-  .reu-qr-print,.reu-qr-print *{visibility:visible}
-  .reu-qr-print{position:absolute;inset:0;padding-top:40px;color:#000}
-  .reu-qr-print h2{font-size:28pt}.reu-qr-print p{font-size:14pt}
+  .reu-qr-sheets,.reu-qr-sheets *,.reu-qr-live,.reu-qr-live *{visibility:visible}
+  .reu-qr-sheets,.reu-qr-live{position:absolute;left:0;top:0;width:100%}
+  .reu-qr-print{color:#000;padding-top:40px;break-after:page}
+  .reu-qr-sheets .reu-qr-print+.reu-qr-print{border:0}
+  .reu-qr-print h2{font-size:28pt}.reu-qr-print p{font-size:14pt}.reu-qr-sede{color:#000}
   .epp-page .reu-qr-img{width:12cm}
   .reu-no-print{display:none}
 }

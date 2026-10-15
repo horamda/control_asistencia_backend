@@ -54,6 +54,11 @@ def estado_reunion(value):
     return ESTADO_LABEL.get(value, value or "")
 
 
+@web.app_template_filter("hora")
+def hora(value):
+    return s._hhmm(s._time(value)) if value not in (None, "") else ""
+
+
 @web.app_template_filter("dia_semana")
 def dia_semana(value):
     return s.DIAS[value.weekday()] if value else ""
@@ -92,14 +97,19 @@ def private(response):
 def index():
     q = (request.args.get("q") or "").strip() or None
     estado = request.args.get("estado") or None
-    data = s.listado(who(), q=q, estado=estado)
-    return render_template("reuniones/index.html", **data, filtros=dict(q=q or "", estado=estado or ""))
+    sucursal = request.args.get("sucursal", type=int)
+    actor = who()
+    data = s.listado(actor, q=q, estado=estado, sucursal_id=sucursal)
+    return render_template("reuniones/index.html", **data, sucursales=s.sucursales(actor),
+                           filtros=dict(q=q or "", estado=estado or "", sucursal=sucursal))
 
 
 def _form_data():
     form = request.form
+    sedes = [dict(sucursal_id=sid, lugar=form.get(f"sede_lugar_{sid}"), hora_inicio=form.get(f"sede_hora_{sid}"))
+             for sid in form.getlist("sede")]
     return dict(form.to_dict(), dias_semana=form.getlist("dias_semana"), reglas=form.getlist("regla"),
-                empleados=form.getlist("empleado"))
+                empleados=form.getlist("empleado"), sedes=sedes)
 
 
 def _form_context(actor, reunion=None, data=None):
@@ -114,9 +124,14 @@ def _form_context(actor, reunion=None, data=None):
                 seleccion["habilitaciones"].append({"s": int(sector) if sector.isdigit() else None,
                                                     "p": int(puesto) if puesto.isdigit() else None})
     with db.transaction(read_only=True) as c:
-        empleados = db.all_rows(c, "SELECT e.id, e.legajo, e.apellido, e.nombre, s.nombre AS sector_nombre FROM empleados e"
-                                   " LEFT JOIN sectores s ON s.id=e.sector_id WHERE e.empresa_id=%s AND e.activo=1"
+        empleados = db.all_rows(c, "SELECT e.id, e.legajo, e.apellido, e.nombre, e.sucursal_id, s.nombre AS sector_nombre,"
+                                   " su.nombre AS sucursal_nombre FROM empleados e"
+                                   " LEFT JOIN sectores s ON s.id=e.sector_id LEFT JOIN sucursales su ON su.id=e.sucursal_id"
+                                   " WHERE e.empresa_id=%s AND e.activo=1"
                                    " ORDER BY e.apellido, e.nombre", (actor["empresa_id"],))
+        por_sucursal = {row["sucursal_id"]: int(row["n"]) for row in db.all_rows(
+            c, "SELECT sucursal_id, COUNT(*) AS n FROM empleados WHERE empresa_id=%s AND activo=1 GROUP BY sucursal_id",
+            (actor["empresa_id"],))}
         pares = db.all_rows(c, "SELECT id empleado_id, sector_id, puesto_id FROM empleados WHERE empresa_id=%s AND activo=1"
                                " UNION SELECT ep.empleado_id, ep.sector_id, ep.puesto_id FROM empleado_puestos ep"
                                " JOIN empleados e ON e.id=ep.empleado_id WHERE e.empresa_id=%s AND e.activo=1 AND ep.activo=1",
@@ -125,7 +140,14 @@ def _form_context(actor, reunion=None, data=None):
     for par in pares:
         combos.setdefault(par["empleado_id"], set()).add(f"{par['sector_id']}:{par['puesto_id']}")
     # Combinaciones sector:puesto por empleado (sin datos personales) para la cobertura en vivo.
-    cobertura = [{"id": eid, "c": sorted(valores)} for eid, valores in combos.items()]
+    sucursal_de = {e["id"]: e["sucursal_id"] for e in empleados}
+    cobertura = [{"id": eid, "c": sorted(valores), "s": sucursal_de.get(eid)} for eid, valores in combos.items()]
+    if data:
+        sedes = {int(x["sucursal_id"]): x for x in data.get("sedes") or [] if str(x.get("sucursal_id", "")).isdigit()}
+    else:
+        sedes = {x["sucursal_id"]: dict(x, hora_inicio=s._hhmm(s._time(x["hora_inicio"])) if x.get("hora_inicio") else "")
+                 for x in (reunion.get("sedes") or [] if reunion else [])}
+    sucursales = [dict(x, empleados=por_sucursal.get(x["id"], 0), sede=sedes.get(x["id"])) for x in s.sucursales(actor)]
     if data:
         marcados = {int(x) for x in data.get("empleados") or [] if str(x).isdigit()}
         todos = "todos" in (data.get("reglas") or [])
@@ -133,7 +155,7 @@ def _form_context(actor, reunion=None, data=None):
         marcados = {r["empleado_id"] for r in reglas if r["empleado_id"]}
         todos = any(r["empleado_id"] is None and r["sector_id"] is None and r["puesto_id"] is None for r in reglas)
     return dict(eligibility=eligibility(actor, seleccion), empleados=empleados, marcados=marcados, todos=todos,
-                cobertura=cobertura, dias=s.DIAS, semanas=s.SEMANAS)
+                cobertura=cobertura, sucursales=sucursales, dias=s.DIAS, semanas=s.SEMANAS)
 
 
 def _valores(reunion=None, data=None):
@@ -178,6 +200,7 @@ def editar(reunion_id):
     with db.transaction(read_only=True) as c:
         reunion = s.obtener(c, actor, reunion_id)
         reunion["reglas"] = s.reglas(c, reunion_id)
+        reunion["sedes"] = s.sedes(c, reunion_id)
     if request.method == "POST":
         data = _form_data()
         try:
@@ -204,7 +227,15 @@ def eliminar(reunion_id):
 # --- Panel: detalle, ocurrencias y QR ------------------------------------------------------
 
 def _grafico(ocurrencias):
-    puntos = [o for o in reversed(ocurrencias) if o["estado"] != "cancelada" and o["convocatorias"]][-30:]
+    # Una fecha puede tener varias sedes: se suman para un solo punto por fecha.
+    por_fecha = {}
+    for o in ocurrencias:
+        if o["estado"] == "cancelada" or not o["convocatorias"]:
+            continue
+        acumulado = por_fecha.setdefault(o["fecha"], dict.fromkeys(s._CONTEOS, 0))
+        for k in s._CONTEOS:
+            acumulado[k] += o[k]
+    puntos = [dict(s._tasas(v), fecha=f) for f, v in sorted(por_fecha.items())][-30:]
     salto = max(1, len(puntos) // 8)
     labels = [{"label": f"{o['fecha']:%d/%m}" if i % salto == 0 or i == len(puntos) - 1 else "", "sub": ""}
               for i, o in enumerate(puntos)]
@@ -222,7 +253,7 @@ def _grafico(ocurrencias):
 @permission_required("reuniones", "ver")
 def detalle(reunion_id):
     desde, hasta = _periodo(90)
-    data = s.detalle(who(), reunion_id, desde=desde, hasta=hasta)
+    data = s.detalle(who(), reunion_id, desde=desde, hasta=hasta, sucursal_id=request.args.get("sucursal", type=int))
     chart, tips = _grafico(data["ocurrencias"])
     return render_template("reuniones/detalle.html", **data, chart=chart, tips=tips, hoy=now_local().date())
 
@@ -231,13 +262,14 @@ def detalle(reunion_id):
 @permission_required("reuniones", "exportar")
 def exportar(reunion_id):
     desde, hasta = _periodo(90)
-    data = s.detalle(who(), reunion_id, desde=desde, hasta=hasta)
+    data = s.detalle(who(), reunion_id, desde=desde, hasta=hasta, sucursal_id=request.args.get("sucursal", type=int))
     out = io.StringIO()
     writer = csv.writer(out)
-    writer.writerow(["Apellido", "Nombre", "Legajo", "Sector", "Convocatorias", "Presentes", "Tarde", "Ausentes",
+    writer.writerow(["Apellido", "Nombre", "Legajo", "Sector", "Sucursal", "Convocatorias", "Presentes", "Tarde", "Ausentes",
                      "Justificados", "Asistencia %", "Puntualidad %"])
     for row in data["ranking"]:
-        writer.writerow([csv_safe(row[k]) for k in ("apellido", "nombre", "legajo", "sector_nombre", "convocatorias",
+        writer.writerow([csv_safe(row[k]) for k in ("apellido", "nombre", "legajo", "sector_nombre", "sucursal_nombre",
+                                                    "convocatorias",
                                                     "presentes", "tarde", "ausentes", "justificados", "asistencia_pct",
                                                     "puntualidad_pct")])
     nombre = f"reunion_{reunion_id}_{desde:%Y%m%d}_{hasta:%Y%m%d}.csv"
@@ -251,28 +283,37 @@ def ocurrencia(reunion_id, fecha):
     dia = _fecha(fecha)
     if not dia:
         abort(404)
-    return render_template("reuniones/ocurrencia.html", **s.ocurrencia_detalle(who(), reunion_id, dia),
+    return render_template("reuniones/ocurrencia.html",
+                           **s.ocurrencia_detalle(who(), reunion_id, dia, request.args.get("sucursal", 0, type=int)),
                            estados=s.ESTADOS)
 
 
 @web.post("/<int:reunion_id>/fecha/<fecha>/marcar")
 @permission_required("reuniones", "editar")
 def marcar(reunion_id, fecha):
+    sucursal = request.form.get("sucursal_id", 0, type=int)
     s.marcar_manual(who(), reunion_id, fecha, request.form.get("empleado_id", type=int), request.form.get("estado"),
-                    request.form.get("observaciones"))
+                    request.form.get("observaciones"), sucursal_id=sucursal)
     log_audit(session, "reunion_marcar_asistencia", "reuniones", reunion_id)
     flash("Asistencia actualizada.", "success")
-    return redirect(url_for("reuniones.ocurrencia", reunion_id=reunion_id, fecha=fecha))
+    return redirect(url_for("reuniones.ocurrencia", reunion_id=reunion_id, fecha=fecha, sucursal=sucursal or None))
 
 
 @web.post("/<int:reunion_id>/fecha/<fecha>/cancelar")
 @permission_required("reuniones", "editar")
 def cancelar(reunion_id, fecha):
     reactivar = request.form.get("accion") == "reactivar"
-    s.cancelar_ocurrencia(who(), reunion_id, fecha, request.form.get("motivo"), cancelar=not reactivar)
+    sucursal = request.form.get("sucursal_id", 0, type=int)
+    todas = request.form.get("todas") == "1"
+    s.cancelar_ocurrencia(who(), reunion_id, fecha, request.form.get("motivo"), cancelar=not reactivar,
+                          sucursal_id=None if todas else sucursal)
     log_audit(session, "reunion_reactivar_fecha" if reactivar else "reunion_cancelar_fecha", "reuniones", reunion_id)
-    flash("Fecha reactivada." if reactivar else "Fecha cancelada: no cuenta para las estadísticas.", "success")
-    return redirect(url_for("reuniones.ocurrencia", reunion_id=reunion_id, fecha=fecha))
+    if reactivar:
+        flash("Fecha reactivada.", "success")
+    else:
+        flash("Fecha cancelada" + (" en todas las sucursales" if todas else "") + ": no cuenta para las estadísticas.",
+              "success")
+    return redirect(url_for("reuniones.ocurrencia", reunion_id=reunion_id, fecha=fecha, sucursal=sucursal or None))
 
 
 @web.get("/<int:reunion_id>/qr")
@@ -280,9 +321,11 @@ def cancelar(reunion_id, fecha):
 def qr(reunion_id):
     with db.transaction(read_only=True) as c:
         reunion = s.obtener(c, who(), reunion_id)
-    imagen = build_qr_png_base64(s.qr_fijo(reunion)) if reunion["qr_modo"] != "dinamico" else None
-    return render_template("reuniones/qr.html", reunion=reunion, imagen=imagen,
-                           descripcion_frecuencia=s.describir(reunion))
+        sedes = s.sedes_efectivas(c, reunion)
+    hojas = [dict(sede=x, descripcion=s.describir(x),
+                  imagen=build_qr_png_base64(s.qr_fijo(x)) if reunion["qr_modo"] != "dinamico" else None)
+             for x in sedes]
+    return render_template("reuniones/qr.html", reunion=reunion, hojas=hojas)
 
 
 @web.post("/<int:reunion_id>/qr/regenerar")
@@ -297,10 +340,13 @@ def regenerar_qr(reunion_id):
 def _qr_vivo(reunion_id):
     ahora = now_local()
     with db.transaction(read_only=True) as c:
-        reunion = s.obtener(c, who(), reunion_id)
+        base = s.obtener(c, who(), reunion_id)
+        sedes = s.sedes_efectivas(c, base)
+        pedida = request.args.get("sucursal", type=int)
+        reunion = next((x for x in sedes if x["sucursal_id"] == pedida), sedes[0])
         occ = s.ocurrencia(c, reunion, ahora.date(), crear=False)
     hoy = reunion["activa"] and (occ or s.ocurre_en(reunion, ahora.date()))
-    data = dict(reunion=reunion, ahora=ahora, hoy=hoy, ttl=s.QR_DINAMICO_TTL, imagen=None, horario=None,
+    data = dict(reunion=reunion, sedes=sedes, ahora=ahora, hoy=hoy, ttl=s.QR_DINAMICO_TTL, imagen=None, horario=None,
                 cancelada=bool(occ and occ["estado"] == "cancelada"))
     if hoy and reunion["qr_modo"] != "fijo" and not data["cancelada"]:
         data["horario"] = occ or s.horarios(reunion, ahora.date())
@@ -326,7 +372,9 @@ def qr_vivo(reunion_id):
 @permission_required("reuniones", "ver")
 def estadisticas():
     desde, hasta = _periodo(30)
-    data = s.estadisticas_empresa(who(), desde, hasta)
+    actor = who()
+    sucursal = request.args.get("sucursal", type=int)
+    data = s.estadisticas_empresa(actor, desde, hasta, sucursal)
     puntos = data["serie"]
     salto = max(1, len(puntos) // 8)
     labels = [{"label": f"{p['fecha']:%d/%m}" if i % salto == 0 or i == len(puntos) - 1 else "", "sub": ""}
@@ -338,20 +386,22 @@ def estadisticas():
                        "value": "s/d" if p["asistencia_pct"] is None else f"{p['asistencia_pct']:g}%"}],
              "note": f"{p['asistidas']} de {int(p['convocatorias']) - int(p['justificados'])} convocatorias",
              "aria": f"{p['fecha']:%d/%m}: asistencia {p['asistencia_pct']}%"} for p in puntos]
-    return render_template("reuniones/estadisticas.html", **data, chart=chart, tips=tips, desde=desde, hasta=hasta)
+    return render_template("reuniones/estadisticas.html", **data, chart=chart, tips=tips, desde=desde, hasta=hasta,
+                           sucursales=s.sucursales(actor), sucursal=sucursal)
 
 
 @web.get("/estadisticas/exportar.csv")
 @permission_required("reuniones", "exportar")
 def estadisticas_exportar():
     desde, hasta = _periodo(30)
-    data = s.estadisticas_empresa(who(), desde, hasta)
+    data = s.estadisticas_empresa(who(), desde, hasta, request.args.get("sucursal", type=int))
     out = io.StringIO()
     writer = csv.writer(out)
-    writer.writerow(["Apellido", "Nombre", "Legajo", "Convocatorias", "Presentes", "Tarde", "Ausentes", "Justificados",
+    writer.writerow(["Apellido", "Nombre", "Legajo", "Sucursal", "Convocatorias", "Presentes", "Tarde", "Ausentes", "Justificados",
                      "Asistencia %", "Puntualidad %"])
     for row in data["por_empleado"]:
-        writer.writerow([csv_safe(row[k]) for k in ("apellido", "nombre", "legajo", "convocatorias", "presentes", "tarde",
+        writer.writerow([csv_safe(row[k]) for k in ("apellido", "nombre", "legajo", "sucursal_nombre", "convocatorias",
+                                                    "presentes", "tarde",
                                                     "ausentes", "justificados", "asistencia_pct", "puntualidad_pct")])
     return Response("﻿" + out.getvalue(), mimetype="text/csv",
                     headers={"Content-Disposition": f"attachment; filename=reuniones_{desde:%Y%m%d}_{hasta:%Y%m%d}.csv"})
@@ -431,7 +481,7 @@ def mobile_estadisticas():
 def mobile_detalle(reunion_id):
     emp = employee()
     with db.transaction(read_only=True) as c:
-        rows = s.reuniones_de_empleado(c, emp, reunion_id, solo_activas=False)
+        rows = s._de_empleado_en_sede(c, emp, reunion_id=reunion_id, solo_activas=False)
     if not rows:
         raise s.Error("Reunión no encontrada.", 404)
     hoy = now_local().date()

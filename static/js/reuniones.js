@@ -44,7 +44,22 @@
     return (sector === '' || sector === cSector) && puesto === cPuesto;
   }
 
+  // --- Sedes: lugar y hora solo para las sucursales marcadas ---------------------
+  const sedes = [...form.querySelectorAll('[data-reu-sede]')];
+  function sedesElegidas() {
+    sedes.forEach((sede) => {
+      const marcada = sede.querySelector('[data-reu-sede-check]').checked;
+      sede.classList.toggle('is-whole', marcada);
+      sede.querySelectorAll('.reu-sede-fields input').forEach((input) => { input.disabled = !marcada; });
+    });
+    return new Set(sedes.map((sede) => sede.querySelector('[data-reu-sede-check]'))
+      .filter((input) => input.checked).map((input) => Number(input.value)));
+  }
+  sedes.forEach((sede) => sede.addEventListener('change', update));
+
   function update() {
+    const sucursales = sedesElegidas();
+    const enSede = (e) => !sucursales.size || sucursales.has(e.s);
     const empresa = todos.checked;
     reglas.classList.toggle('is-disabled', empresa);
     box.querySelectorAll('[data-epp-sector]').forEach((sector) => {
@@ -57,19 +72,23 @@
     const rules = [...reglas.querySelectorAll('input[name="regla"]:checked:not(:disabled)')].map((i) => i.value);
     const personas = new Set([...box.querySelectorAll('input[name="empleado"]:checked')].map((i) => Number(i.value)));
     contador.textContent = personas.size ? `${personas.size} elegida${personas.size === 1 ? '' : 's'}` : '';
-    const total = empleados.length;
+    // Con sucursales elegidas solo cuentan sus empleados (cada uno va a la de su sucursal).
+    const base = empleados.filter(enSede);
+    const total = base.length;
     output.classList.remove('is-warning');
     if (empresa) {
-      output.textContent = `Convoca a toda la empresa: ${total} empleados.`;
+      output.textContent = sucursales.size
+        ? `Convoca a todos los empleados de las sucursales elegidas: ${total}.`
+        : `Convoca a toda la empresa: ${total} empleados.`;
       return;
     }
-    const alcance = empleados.filter((e) => personas.has(e.id)
+    const alcance = base.filter((e) => personas.has(e.id)
       || e.c.some((combo) => rules.some((rule) => matches(rule, combo)))).length;
     if (!alcance) {
       output.textContent = 'Todavía no hay convocados. Elegí toda la empresa, sectores, puestos o personas.';
       output.classList.add('is-warning');
     } else {
-      output.textContent = `Convoca a ${alcance} de ${total} empleados.`;
+      output.textContent = `Convoca a ${alcance} de ${total} empleados${sucursales.size ? ' de las sucursales elegidas' : ''}.`;
     }
   }
   box.addEventListener('change', update);

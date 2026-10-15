@@ -87,7 +87,8 @@ def reuniones_db(database, monkeypatch):  # noqa: F811
     c = conn.cursor()
     for sql in ("ALTER TABLE sectores ADD COLUMN empresa_id INT NOT NULL DEFAULT 1",
                 "ALTER TABLE puestos ADD COLUMN empresa_id INT NOT NULL DEFAULT 1",
-                "ALTER TABLE empleados ADD COLUMN dni VARCHAR(20) NULL"):
+                "ALTER TABLE empleados ADD COLUMN dni VARCHAR(20) NULL",
+                "ALTER TABLE sucursales ADD COLUMN empresa_id INT NOT NULL DEFAULT 1"):
         try:
             c.execute(sql)
         except Exception:
@@ -103,11 +104,15 @@ def reuniones_db(database, monkeypatch):  # noqa: F811
         "INSERT INTO empleados (id, empresa_id, sucursal_id, sector_id, puesto_id, activo, legajo, nombre, apellido)"
         " VALUES (14, 1, 1, 2, 2, 1, '0014', 'No', 'Convocado')",
         "INSERT INTO vacaciones (empleado_id, fecha_desde, fecha_hasta) VALUES (12, '2026-10-10', '2026-10-20')",
+        "UPDATE sucursales SET empresa_id=2 WHERE id=3",
     ]:
         c.execute(sql)
     from scripts.migrate_20261016_01_reuniones import migrate_cursor
+    from scripts.migrate_20261016_02_reuniones_sucursales import migrate_cursor as migrate_sedes
     migrate_cursor(c)
-    migrate_cursor(c)  # idempotente
+    migrate_sedes(c)
+    migrate_cursor(c)  # idempotentes
+    migrate_sedes(c)
     conn.commit()
     c.close()
     conn.close()
@@ -327,3 +332,99 @@ def test_qr_de_reunion_en_la_fichada_da_un_mensaje_claro():
     with pytest.raises(QRTokenValidationError) as exc:
         extract_qr_token(svc.QR_PREFIX + "eyJ.abc.def")
     assert exc.value.code == "qr_token_reunion"
+
+
+# --- Sedes por sucursal -------------------------------------------------------------------------
+# Empleados del fixture: 10, 11, 13 y 14 en Central (1); 12 en Otra (2); 20 es de otra empresa.
+
+def test_misma_reunion_en_varias_sucursales(reuniones_db):
+    import jwt as pyjwt
+    rid = crear(reglas=["todos"], empleados=[], qr_modo="ambos", sedes=[
+        dict(sucursal_id=1, lugar="Sala Central", hora_inicio="09:00"),
+        dict(sucursal_id=2, lugar="Sala Norte", hora_inicio="10:00")])
+    with svc.db.transaction(read_only=True) as c:
+        base = svc.obtener(c, ADMIN, rid)
+        central, norte = svc.sede(c, base, 1), svc.sede(c, base, 2)
+        assert {e["id"] for e in svc.convocados(c, base, 1)} == {10, 11, 13, 14}
+        assert [e["id"] for e in svc.convocados(c, base, 2)] == [12]
+        with pytest.raises(svc.Error, match="no se hace en esa sucursal"):
+            svc.sede(c, base, 3)
+    assert (central["lugar"], norte["lugar"], svc._hhmm(svc._time(norte["hora_inicio"]))) == ("Sala Central", "Sala Norte", "10:00")
+
+    # Cada empleado ve la reunion de su sucursal, con su hora y lugar.
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 8, 0)
+    item = svc.proximas(emp(12), 1)["items"][0]
+    assert (item["sucursal_nombre"], item["lugar"], item["inicio"]) == ("Otra", "Sala Norte", "2026-10-14T10:00:00-03:00")
+    assert svc.mis_reuniones(emp(10))[0]["hora_inicio"] == "09:00"
+
+    # El QR de otra sucursal se rechaza con un mensaje claro; el de la propia registra.
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 9, 55)
+    with pytest.raises(svc.Error, match="Este QR es de la reunión en Central. La tuya es en Otra"):
+        svc.registrar_qr(emp(12), svc.qr_fijo(central))
+    assert svc.registrar_qr(emp(12), svc.qr_dinamico(norte, D(2026, 10, 14)))["estado"] == "presente"
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 8, 50)
+    assert svc.registrar_qr(emp(10), svc.qr_fijo(central))["sucursal_nombre"] == "Central"
+    # QR impreso antes de las sedes (sin sucursal): vale para la sede del empleado.
+    legado = svc.QR_PREFIX + svc._token({"rid": rid, "emp": 1, "m": "fijo", "v": 1}, 600)
+    assert pyjwt.decode(legado.split("t=")[1], options={"verify_signature": False}).get("s") is None
+    assert svc.registrar_qr(emp(11), legado)["sucursal_nombre"] == "Central"
+
+    # El cierre respeta la ventana de cada sede.
+    assert svc.cerrar_ocurrencias(ahora=dt.datetime(2026, 10, 14, 10, 30))["cerradas"] == 1  # solo Central
+    resumen = svc.cerrar_ocurrencias(ahora=dt.datetime(2026, 10, 14, 11, 5))
+    assert (resumen["cerradas"], resumen["ausentes"]) == (1, 0)  # Norte: 12 ya estaba
+
+    d = svc.detalle(ADMIN, rid, desde=D(2026, 10, 1), hasta=D(2026, 10, 31))
+    assert {(x["sucursal_nombre"], x["convocatorias"]) for x in d["por_sede"]} == {("Central", 4), ("Otra", 1)}
+    assert len(d["ocurrencias"]) == 2 and d["total"]["convocatorias"] == 5
+    solo_norte = svc.detalle(ADMIN, rid, desde=D(2026, 10, 1), hasta=D(2026, 10, 31), sucursal_id=2)
+    assert solo_norte["total"]["asistencia_pct"] == 100.0 and [e["empleado_id"] for e in solo_norte["ranking"]] == [12]
+    occ = svc.ocurrencia_detalle(ADMIN, rid, D(2026, 10, 14), 2)
+    assert occ["conteo"]["presente"] == 1 and [x["sucursal_id"] for x in occ["otras_sedes"]] == [1]
+    stats = svc.estadisticas_empresa(ADMIN, D(2026, 10, 1), D(2026, 10, 31))
+    assert {x["sucursal_nombre"] for x in stats["por_sucursal"]} == {"Central", "Otra"}
+    assert svc.estadisticas_empresa(ADMIN, D(2026, 10, 1), D(2026, 10, 31), 2)["total"]["convocatorias"] == 1
+
+    # Corregir y cancelar por sede; "todas" cancela en cada sucursal.
+    svc.marcar_manual(ADMIN, rid, D(2026, 10, 14), 13, "justificado", "Médico", sucursal_id=1)
+    svc.cancelar_ocurrencia(ADMIN, rid, D(2026, 10, 21), "Feriado", sucursal_id=None)
+    AHORA["valor"] = dt.datetime(2026, 10, 15, 8, 0)
+    assert all(p["cancelada"] for p in svc.proximas(emp(12), 7)["items"] + svc.proximas(emp(10), 7)["items"])
+
+
+def test_empleado_de_otra_sucursal_no_esta_convocado(reuniones_db):
+    rid = crear(reglas=["todos"], empleados=[], sedes=[dict(sucursal_id=2)])
+    assert svc.mis_reuniones(emp(10)) == [] and len(svc.mis_reuniones(emp(12))) == 1
+    with svc.db.transaction(read_only=True) as c:
+        qr = svc.qr_fijo(svc.sede(c, svc.obtener(c, ADMIN, rid), 2))
+        assert svc.contar_convocados(c, 1)[rid] == 1
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 9, 0)
+    with pytest.raises(svc.Error, match="No estás convocado"):
+        svc.registrar_qr(emp(10), qr)
+    with pytest.raises(svc.Error, match="Sucursal inválida"):
+        crear(sedes=[dict(sucursal_id=3)])  # sucursal de otra empresa
+    with pytest.raises(svc.Error, match="mismo día"):
+        crear(duracion_min="60", sedes=[dict(sucursal_id=1, hora_inicio="23:30")])
+
+
+def test_panel_sedes(client):
+    response = client.post("/reuniones/nueva", data={
+        "nombre": "Semanal de ventas", "frecuencia": "semanal", "dias_semana": ["2"], "hora_inicio": "09:00",
+        "duracion_min": "60", "qr_modo": "ambos", "regla": ["todos"], "sede": ["1", "2"],
+        "sede_lugar_1": "Sala Central", "sede_hora_1": "", "sede_lugar_2": "", "sede_hora_2": "10:30"})
+    assert response.status_code == 302
+    rid = int(response.headers["Location"].rstrip("/").split("/")[-1])
+    with svc.db.transaction(read_only=True) as c:
+        assert [(x["sucursal_id"], x["lugar"], x["hora_inicio"]) for x in svc.sedes(c, rid)] == [
+            (1, "Sala Central", None), (2, None, dt.timedelta(hours=10, minutes=30))]
+    html = client.get(f"/reuniones/{rid}/qr").get_data(as_text=True)
+    assert html.count('class="reu-qr-print"') == 2 and "Central" in html and "Otra" in html
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 10, 20)
+    for path in [f"/reuniones/{rid}", f"/reuniones/{rid}?sucursal=2", f"/reuniones/{rid}/editar", "/reuniones/?sucursal=2",
+                 f"/reuniones/{rid}/fecha/2026-10-14?sucursal=2", f"/reuniones/{rid}/qr/proyectar?sucursal=2",
+                 "/reuniones/estadisticas?sucursal=1"]:
+        r = client.get(path)
+        assert r.status_code == 200, (path, r.get_data(as_text=True)[:300])
+    assert "Sala Central" in client.get(f"/reuniones/{rid}").get_data(as_text=True)
+    assert "10:30 a 11:30" in client.get(f"/reuniones/{rid}/qr/proyectar?sucursal=2").get_data(as_text=True)
+    assert client.get(f"/reuniones/{rid}/fecha/2026-10-14?sucursal=3").status_code == 404

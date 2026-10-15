@@ -77,6 +77,29 @@
       </div>
     </fieldset>
 
+    <fieldset class="epp-fieldset reu-section" data-reu-sedes>
+      <legend>Sucursales</legend>
+      <p class="helper-text">Marcá las sucursales donde se hace la reunión: cada empleado va a la de su sucursal y cada una tiene su propio QR. Lugar y hora son opcionales (si quedan vacíos, se usan los de arriba). Sin marcar ninguna: una sola reunión para todos.</p>
+      {% if sucursales %}
+        <div class="epp-sector-grid">
+          {% for su in sucursales %}
+            <div class="epp-sector reu-sede" data-reu-sede>
+              <label class="epp-sector-all">
+                <input type="checkbox" name="sede" value="{{ su.id }}" data-reu-sede-check {{ 'checked' if su.sede }}>
+                <span><strong>{{ su.nombre }}</strong> <small>{{ su.empleados }} empleado{{ '' if su.empleados == 1 else 's' }}</small></span>
+              </label>
+              <div class="reu-sede-fields">
+                <label>Lugar<input name="sede_lugar_{{ su.id }}" maxlength="150" value="{{ su.sede.lugar or '' if su.sede else '' }}" placeholder="{{ v.lugar or 'Igual que arriba' }}"></label>
+                <label>Hora<input type="time" name="sede_hora_{{ su.id }}" value="{{ su.sede.hora_inicio or '' if su.sede else '' }}"></label>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="helper-text">La empresa no tiene sucursales cargadas.</p>
+      {% endif %}
+    </fieldset>
+
     <fieldset class="epp-fieldset reu-section">
       <legend>Registro de asistencia</legend>
       <div class="epp-fields">

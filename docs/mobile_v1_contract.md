@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.38.0
+Version de contrato: 1.39.0
+
+- **Reuniones por sucursal (1.39.0):** una reunión puede hacerse en varias sucursales con lugar, hora y QR propios; las respuestas traen `sucursal_id`/`sucursal_nombre`. Ver [contrato](reuniones_mobile.md#sucursales-1390).
 
 - **Reuniones (1.38.0):** reuniones recurrentes (diarias, semanales, mensuales) con convocados obligatorios, asistencia por QR fijo o dinámico, próximas reuniones para recordatorios y estadísticas propias. [Contrato Flutter](reuniones_mobile.md), [OpenAPI](reuniones_mobile_openapi.yaml).
 

@@ -1,3 +1,10 @@
+## 1.39.0 — 2026-10-16
+
+- Reuniones por sucursal: una reunión puede hacerse en varias sucursales (sedes), cada una con lugar y hora opcionales y su propio QR. Cada empleado va a la sede de su sucursal; sin sedes sigue siendo una sola reunión.
+- API: `sucursal_id` y `sucursal_nombre` en `/reuniones`, `/proximas`, `/registrar`, `/historial` y el detalle. Hora, lugar y ventanas ya vienen resueltos para la sede del empleado. Nuevo 409 al escanear el QR de otra sede. Los QR impresos antes de este cambio siguen valiendo para la sede del empleado.
+- Panel: sección Sucursales en el formulario, filtros y tablas por sucursal, una hoja de QR por sede, QR dinámico por sede y cancelación de una fecha en una o en todas las sucursales.
+- Migración `20261016_02_reuniones_sucursales` (se aplica sola al iniciar). Cambios aditivos.
+
 ## 1.38.0 — 2026-10-16
 
 - Nuevo módulo Reuniones. Rutas `/api/v1/mobile/reuniones`: listado de mis reuniones, `proximas` (inicio y recordatorios locales), `registrar` (QR escaneado), `historial`, `estadisticas` y detalle `/{id}`. Guía: `reuniones_mobile.md`; definición: `reuniones_mobile_openapi.yaml`.

@@ -5,7 +5,7 @@
 <section class="epp-card">
   <header class="epp-section-heading">
     <div>
-      <span class="epp-eyebrow"><a href="{{ url_for('reuniones.detalle', reunion_id=r.id) }}">{{ r.nombre }}</a></span>
+      <span class="epp-eyebrow"><a href="{{ url_for('reuniones.detalle', reunion_id=r.id) }}">{{ r.nombre }}</a>{% if r.sucursal_nombre %} · {{ r.sucursal_nombre }}{% endif %}{% if r.lugar %} · {{ r.lugar }}{% endif %}</span>
       <h3>{{ fecha|dia_semana }} {{ fecha.strftime('%d/%m/%Y') }} · {{ horario.inicio.strftime('%H:%M') }} a {{ horario.fin.strftime('%H:%M') }}</h3>
       <p>
         Registro de {{ horario.ventana_desde.strftime('%H:%M') }} a {{ horario.ventana_hasta.strftime('%H:%M') }},
@@ -15,8 +15,13 @@
         {% elif abierta %}<strong>Registro abierto ahora.</strong>
         {% elif futura %}Todavía no empezó.{% endif %}
       </p>
+      {% if otras_sedes %}
+        <p class="reu-sede-list">Otras sucursales este día:
+          {% for x in otras_sedes %}<a class="chip" href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=fecha.isoformat(), sucursal=x.sucursal_id) }}">{{ x.sucursal_nombre }}</a>{% endfor %}
+        </p>
+      {% endif %}
     </div>
-    {% if abierta and r.qr_modo != 'fijo' and not cancelada %}<a class="btn" href="{{ url_for('reuniones.proyectar', reunion_id=r.id) }}" data-no-ajax>Proyectar QR</a>{% endif %}
+    {% if abierta and r.qr_modo != 'fijo' and not cancelada %}<a class="btn" href="{{ url_for('reuniones.proyectar', reunion_id=r.id, sucursal=r.sucursal_id or None) }}" data-no-ajax>Proyectar QR</a>{% endif %}
   </header>
 
   <div class="grid-kpis">
@@ -47,6 +52,7 @@
                   <form method="post" class="reu-inline-form" action="{{ url_for('reuniones.marcar', reunion_id=r.id, fecha=fecha.isoformat()) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="empleado_id" value="{{ f.id }}">
+                    <input type="hidden" name="sucursal_id" value="{{ r.sucursal_id }}">
                     <select name="estado" aria-label="Estado de {{ f.apellido }} {{ f.nombre }}">
                       {% for e in estados %}<option value="{{ e }}" {{ 'selected' if e == f.estado }}>{{ e|estado_reunion }}</option>{% endfor %}
                     </select>
@@ -72,6 +78,7 @@
     <form method="post" action="{{ url_for('reuniones.cancelar', reunion_id=r.id, fecha=fecha.isoformat()) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="accion" value="reactivar">
+      <input type="hidden" name="sucursal_id" value="{{ r.sucursal_id }}">
       <button class="btn btn-secondary" type="submit">Reactivar fecha</button>
     </form>
   {% else %}
@@ -79,7 +86,9 @@
     <p class="helper-text">Por feriado, cambio de agenda, etc. La fecha no cuenta para las estadísticas y la app avisa que se canceló.</p>
     <form method="post" class="epp-staff-search" action="{{ url_for('reuniones.cancelar', reunion_id=r.id, fecha=fecha.isoformat()) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="sucursal_id" value="{{ r.sucursal_id }}">
       <label>Motivo<input name="motivo" required maxlength="255" placeholder="Ej.: Feriado"></label>
+      {% if otras_sedes %}<label class="reu-check"><input type="checkbox" name="todas" value="1"> En todas las sucursales</label>{% endif %}
       <button class="btn btn-danger" type="submit" data-confirm="¿Cancelar la reunión del {{ fecha.strftime('%d/%m/%Y') }}?">Cancelar fecha</button>
     </form>
   {% endif %}

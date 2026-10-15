@@ -1,6 +1,12 @@
 {% extends 'reuniones/layout.html' %}
 {% block reuniones_content %}
 <section class="epp-card reu-proyectar">
+  {% if sedes|length > 1 %}
+    <p class="reu-sede-list reu-no-print">Sucursal:
+      {% for x in sedes %}<a class="chip {{ 'is-selected' if x.sucursal_id == reunion.sucursal_id }}" data-no-ajax
+         href="{{ url_for('reuniones.proyectar', reunion_id=reunion.id, sucursal=x.sucursal_id) }}">{{ x.sucursal_nombre }}</a>{% endfor %}
+    </p>
+  {% endif %}
   <p class="helper-text reu-no-print">El código se renueva solo cada 20 segundos. Dejá esta pantalla abierta durante el registro.</p>
   {% include 'reuniones/_qr_vivo.html' %}
 </section>
