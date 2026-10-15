@@ -226,6 +226,13 @@ def test_panel_respeta_permisos_de_asistencias(monkeypatch):
     assert "Empresa SA" in html and "7.5 h" in html and "Nocturno" in html and "Cerrar ahora 2 jornadas" in html
 
 
+def test_panel_sin_pendientes_explica_que_ya_esta_aplicado(monkeypatch):
+    client = _panel_client(monkeypatch, "admin")
+    monkeypatch.setattr(svc, "pendientes", lambda **kw: 0)
+    html = client.get("/asistencias/egresos-automaticos/").get_data(as_text=True)
+    assert "Cerrar ahora" not in html and "el cierre ya está aplicado" in html
+
+
 def test_panel_simular_no_escribe_y_ejecutar_registra_manual(monkeypatch):
     llamadas = []
     client = _panel_client(monkeypatch, "admin", llamadas)

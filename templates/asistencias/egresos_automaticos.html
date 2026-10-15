@@ -52,13 +52,17 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-secondary">Simular (no guarda cambios)</button>
       </form>
+      {% if pendientes %}
       <form method="post" action="{{ url_for('egresos_automaticos.ejecutar') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button type="submit" class="btn"{% if not pendientes %} disabled{% endif %}
+        <button type="submit" class="btn"
                 data-confirm="Se cerrarán {{ pendientes }} jornada(s) sin egreso y quedarán marcadas como automáticas (olvido de fichada). ¿Continuar?">
           Cerrar ahora {{ pendientes }} jornada{{ '' if pendientes == 1 else 's' }}
         </button>
       </form>
+      {% else %}
+      <p class="helper-text">No hay jornadas pendientes: el cierre ya está aplicado. Las de hoy se cierran esta noche a las 03:30, si el empleado no ficha la salida antes.</p>
+      {% endif %}
     </div>
     {% endif %}
   </div>
