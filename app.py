@@ -33,6 +33,7 @@ from web.roles.roles_routes import roles_bp
 from web.roles.empleado_roles_routes import empleado_roles_bp
 from web.empleado_horarios.empleado_horarios_routes import empleado_horarios_bp
 from web.asistencias.asistencias_routes import asistencias_bp
+from web.asistencias.egresos_automaticos_routes import egresos_automaticos_bp
 from web.justificaciones.justificaciones_routes import justificaciones_bp
 from web.auditoria.auditoria_routes import auditoria_bp
 from web.usuarios.usuarios_routes import usuarios_bp
@@ -116,6 +117,7 @@ BLUEPRINTS = (
     empleado_roles_bp,
     empleado_horarios_bp,
     asistencias_bp,
+    egresos_automaticos_bp,
     justificaciones_bp,
     auditoria_bp,
     usuarios_bp,

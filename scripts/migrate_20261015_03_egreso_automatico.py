@@ -57,6 +57,29 @@ def migrate_metodo_salida(cursor):
     )
 
 
+def migrate_ejecuciones(cursor):
+    """Historial de ejecuciones del cierre (nocturno, al iniciar o manual desde el panel)."""
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS egreso_automatico_ejecuciones (
+          id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          origen        VARCHAR(20)  NOT NULL,
+          usuario_id    INT          NULL,
+          inicio        DATETIME     NOT NULL,
+          fin           DATETIME     NOT NULL,
+          revisadas     INT UNSIGNED NOT NULL DEFAULT 0,
+          cerradas      INT UNSIGNED NOT NULL DEFAULT 0,
+          por_horario   INT UNSIGNED NOT NULL DEFAULT 0,
+          por_parametro INT UNSIGNED NOT NULL DEFAULT 0,
+          empresa_desactivada INT UNSIGNED NOT NULL DEFAULT 0,
+          errores       INT UNSIGNED NOT NULL DEFAULT 0,
+          PRIMARY KEY (id),
+          KEY idx_egreso_ejecuciones_inicio (inicio)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+
+
 if __name__ == "__main__":
     from db import init_orm
     from extensions import get_db
@@ -67,6 +90,7 @@ if __name__ == "__main__":
         cursor.execute("SET SESSION lock_wait_timeout=5")
         migrate_cursor(cursor)
         migrate_metodo_salida(cursor)
+        migrate_ejecuciones(cursor)
         connection.commit()
         print("Parametros de egreso automatico instalados.")
     finally:

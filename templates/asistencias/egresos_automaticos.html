@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Egresos automáticos{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>Egresos automáticos</h2>
+      <p class="module-intro">
+        Cierra las jornadas de días anteriores que tienen ingreso y no tienen egreso. La salida se toma del horario
+        asignado del empleado o, si no tiene, del ingreso más las horas configuradas (tope 23:59). Esas jornadas quedan
+        marcadas como automáticas y bajan la efectividad de fichaje. Corre sola todas las noches a las 03:30; acá podés
+        simularla o ejecutarla en el momento.
+      </p>
+    </div>
+  </div>
+
+  {% set ultima = ejecuciones[0] if ejecuciones else none %}
+  <div class="grid-kpis">
+    <div class="kpi-card {{ 'tone-ok' if pendientes == 0 else 'tone-warn' }}">
+      <div class="kpi-label">Jornadas sin egreso</div>
+      <div class="kpi-value">{{ pendientes }}</div>
+      <div class="helper-text">De días anteriores, pendientes de cierre</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Cerradas automáticamente</div>
+      <div class="kpi-value">{{ total }}</div>
+      <div class="helper-text">{{ 'Con los filtros aplicados' if (filtros.desde or filtros.hasta or filtros.q) else 'En total' }}</div>
+    </div>
+    <div class="kpi-card {% if ultima and ultima.errores %}tone-bad{% elif ultima %}tone-ok{% endif %}">
+      <div class="kpi-label">Última ejecución</div>
+      <div class="kpi-value">{{ ultima.inicio.strftime('%d/%m %H:%M') if ultima else '—' }}</div>
+      <div class="helper-text">{% if ultima %}{{ ultima.cerradas }} cerradas · {{ ultima.errores }} errores{% else %}Todavía no corrió{% endif %}</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Configuración</h3>
+    {% for c in configuraciones %}
+      <p>
+        <strong>{{ c.razon_social or ('Empresa #' ~ c.empresa_id) }}:</strong>
+        {% if c.egreso_automatico_activo is none or c.egreso_automatico_activo %}activado{% else %}<strong>desactivado</strong>{% endif %}
+        · sin horario asignado se suman {{ '%g'|format((c.egreso_automatico_horas or 8)|float) }} h al ingreso.
+        <a href="{{ url_for('configuracion_empresa.editar', empresa_id=c.empresa_id) }}">Cambiar</a>
+      </p>
+    {% else %}
+      <p class="helper-text">Sin configuración de empresa: se usan 8 h y el proceso está activado.</p>
+    {% endfor %}
+    {% if can_web('asistencias', 'editar') %}
+    <div class="toolbar">
+      <form method="post" action="{{ url_for('egresos_automaticos.simular') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-secondary">Simular (no guarda cambios)</button>
+      </form>
+      <form method="post" action="{{ url_for('egresos_automaticos.ejecutar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn"{% if not pendientes %} disabled{% endif %}
+                data-confirm="Se cerrarán {{ pendientes }} jornada(s) sin egreso y quedarán marcadas como automáticas (olvido de fichada). ¿Continuar?">
+          Cerrar ahora {{ pendientes }} jornada{{ '' if pendientes == 1 else 's' }}
+        </button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if simulacion %}
+    <div class="panel">
+      <h3>Resultado de la simulación</h3>
+      <p>
+        Se cerrarían <strong>{{ simulacion.cerradas }}</strong> jornada(s): {{ simulacion.por_horario }} según horario asignado
+        y {{ simulacion.por_parametro }} por horas configuradas{% if simulacion.empresa_desactivada %}; {{ simulacion.empresa_desactivada }} omitidas por empresa desactivada{% endif %}.
+        No se guardó ningún cambio.
+      </p>
+      {% if simulacion.detalle %}
+        <div class="table-responsive table-cards">
+          <table>
+            <thead><tr><th>Fecha</th><th>Ingreso</th><th>Egreso que se cargaría</th><th>Origen</th></tr></thead>
+            <tbody>
+              {% for d in simulacion.detalle %}
+                <tr>
+                  <td data-label="Fecha">{{ d.fecha }}</td>
+                  <td data-label="Ingreso">{{ d.entrada[:5] }}</td>
+                  <td data-label="Egreso que se cargaría">{{ d.egreso[:5] }}</td>
+                  <td data-label="Origen">{{ 'Horario asignado' if d.origen == 'horario' else 'Horas configuradas' }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if simulacion.cerradas > simulacion.detalle|length %}
+          <p class="helper-text">Se muestran las primeras {{ simulacion.detalle|length }}.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <h3>Jornadas cerradas automáticamente</h3>
+  <form method="get" action="{{ url_for('egresos_automaticos.index') }}" class="form-grid">
+    <div class="row">
+      <label for="ea-desde">Desde</label>
+      <input type="date" id="ea-desde" name="desde" value="{{ filtros.desde }}">
+    </div>
+    <div class="row">
+      <label for="ea-hasta">Hasta</label>
+      <input type="date" id="ea-hasta" name="hasta" value="{{ filtros.hasta }}">
+    </div>
+    <div class="row">
+      <label for="ea-q">Empleado</label>
+      <input type="search" id="ea-q" name="q" value="{{ filtros.q }}" placeholder="Apellido, nombre o legajo">
+    </div>
+    <div class="actions">
+      <button type="submit" class="btn">Filtrar</button>
+      <a class="btn btn-secondary" href="{{ url_for('egresos_automaticos.index') }}">Limpiar</a>
+    </div>
+  </form>
+
+  {% if cerradas %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead>
+          <tr><th>Fecha</th><th>Empleado</th><th>Sector</th><th>Ingreso</th><th>Egreso automático</th><th>Origen</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for r in cerradas %}
+            <tr>
+              <td data-label="Fecha">{{ r.fecha.strftime('%d/%m/%Y') if r.fecha else '' }}</td>
+              <td data-label="Empleado"><strong>{{ r.apellido }} {{ r.nombre }}</strong>{% if r.legajo %} <span class="chip">{{ r.legajo }}</span>{% endif %}</td>
+              <td data-label="Sector">{{ r.sector_nombre or '—' }}</td>
+              <td data-label="Ingreso">{{ (r.hora_entrada|string)[:-3] }}</td>
+              <td data-label="Egreso automático">{{ (r.hora_salida|string)[:-3] }}</td>
+              <td data-label="Origen">{{ 'Horario asignado' if r.origen == 'horario' else 'Horas configuradas' }}</td>
+              <td data-label="Resumen"><a href="{{ url_for('legajos.dashboard_empleado', empleado_id=r.empleado_id) }}">Ver efectividad</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% set hasta_n = (page * per_page) if (page * per_page) < total else total %}
+    <div class="pager">
+      {% if page > 1 %}
+        <a class="btn btn-secondary" href="{{ url_for('egresos_automaticos.index', page=page - 1, desde=filtros.desde or None, hasta=filtros.hasta or None, q=filtros.q or None) }}">Anterior</a>
+      {% endif %}
+      {% if page * per_page < total %}
+        <a class="btn btn-secondary" href="{{ url_for('egresos_automaticos.index', page=page + 1, desde=filtros.desde or None, hasta=filtros.hasta or None, q=filtros.q or None) }}">Siguiente</a>
+      {% endif %}
+      <span class="summary">Página {{ page }} | {{ (page - 1) * per_page + 1 }}-{{ hasta_n }} de {{ total }}</span>
+    </div>
+  {% else %}
+    <div class="empty-state">No hay jornadas cerradas automáticamente con estos filtros.</div>
+  {% endif %}
+
+  <h3>Historial de ejecuciones</h3>
+  {% if ejecuciones %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead>
+          <tr><th>Inicio</th><th>Origen</th><th>Usuario</th><th>Revisadas</th><th>Cerradas</th><th>Por horario</th><th>Por horas</th><th>Errores</th></tr>
+        </thead>
+        <tbody>
+          {% for x in ejecuciones %}
+            <tr>
+              <td data-label="Inicio">{{ x.inicio.strftime('%d/%m/%Y %H:%M') }}</td>
+              <td data-label="Origen">{{ {'nocturno': 'Nocturno', 'inicio': 'Al iniciar', 'manual': 'Manual'}.get(x.origen, x.origen) }}</td>
+              <td data-label="Usuario">{{ x.usuario_nombre or '—' }}</td>
+              <td data-label="Revisadas">{{ x.revisadas }}</td>
+              <td data-label="Cerradas">{{ x.cerradas }}</td>
+              <td data-label="Por horario">{{ x.por_horario }}</td>
+              <td data-label="Por horas">{{ x.por_parametro }}</td>
+              <td data-label="Errores">{% if x.errores %}<strong>{{ x.errores }}</strong>{% else %}0{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">Todavía no hay ejecuciones registradas.</div>
+  {% endif %}
+</div>
+{% endblock %}

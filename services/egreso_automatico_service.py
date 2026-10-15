@@ -117,9 +117,35 @@ def _cerrar(asistencia_id, hora, origen, horas):
         db.close()
 
 
-def cerrar_jornadas_abiertas(*, hoy=None, empresa_id=None, limite=None, dry_run=False):
-    """Cierra las jornadas abiertas de dias anteriores a hoy (hora Argentina)."""
-    hoy = hoy or dt.datetime.now(ARGENTINA).date()
+def _ahora():
+    return dt.datetime.now(ARGENTINA).replace(tzinfo=None)
+
+
+def _registrar_ejecucion(resumen, origen, usuario_id, inicio):
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO egreso_automatico_ejecuciones
+            (origen, usuario_id, inicio, fin, revisadas, cerradas, por_horario, por_parametro, empresa_desactivada, errores)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """,
+            (origen, usuario_id, inicio, _ahora(), resumen["revisadas"], resumen["cerradas"], resumen["por_horario"],
+             resumen["por_parametro"], resumen["empresa_desactivada"], resumen["errores"]),
+        )
+        db.commit()
+    finally:
+        cursor.close()
+        db.close()
+
+
+def cerrar_jornadas_abiertas(*, hoy=None, empresa_id=None, limite=None, dry_run=False,
+                             origen="nocturno", usuario_id=None):
+    """Cierra las jornadas abiertas de dias anteriores a hoy (hora Argentina).
+    origen: nocturno | inicio | manual (queda en el historial de ejecuciones)."""
+    inicio = _ahora()
+    hoy = hoy or inicio.date()
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
@@ -149,24 +175,116 @@ def cerrar_jornadas_abiertas(*, hoy=None, empresa_id=None, limite=None, dry_run=
         if not activo:
             resumen["empresa_desactivada"] += 1
             continue
-        hora, origen = calcular_egreso(row["hora_entrada"], _bloques(row["empleado_id"], row["fecha"]), horas)
+        hora, fuente = calcular_egreso(row["hora_entrada"], _bloques(row["empleado_id"], row["fecha"]), horas)
         if dry_run:
             cerrada = True
         else:
             try:
-                cerrada = _cerrar(row["id"], hora, origen, horas)
+                cerrada = _cerrar(row["id"], hora, fuente, horas)
             except Exception:
                 logger.exception("egreso_automatico_error", extra={"extra": {"asistencia_id": row["id"]}})
                 resumen["errores"] += 1
                 continue
         if cerrada:
             resumen["cerradas"] += 1
-            resumen["por_" + origen] += 1
+            resumen["por_" + fuente] += 1
             if len(resumen["detalle"]) < 50:
                 resumen["detalle"].append({"asistencia_id": row["id"], "fecha": str(row["fecha"]),
-                                           "entrada": str(row["hora_entrada"]), "egreso": hora, "origen": origen})
+                                           "entrada": str(row["hora_entrada"]), "egreso": hora, "origen": fuente})
     logger.info("egreso_automatico", extra={"extra": {k: v for k, v in resumen.items() if k != "detalle"}})
+    if not dry_run:
+        try:
+            _registrar_ejecucion(resumen, origen, usuario_id, inicio)
+        except Exception:
+            logger.warning("egreso_automatico_historial_error", exc_info=True)
     return resumen
+
+
+def pendientes(*, hoy=None, empresa_id=None):
+    """Jornadas de dias anteriores que todavia no tienen egreso."""
+    hoy = hoy or _ahora().date()
+    sql = ("SELECT COUNT(*) AS n FROM asistencias WHERE hora_entrada IS NOT NULL "
+           "AND hora_salida IS NULL AND fecha < %s")
+    params = [hoy]
+    if empresa_id:
+        sql += " AND empresa_id = %s"
+        params.append(int(empresa_id))
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(sql, tuple(params))
+        return int((cursor.fetchone() or {}).get("n") or 0)
+    finally:
+        cursor.close()
+        db.close()
+
+
+def ejecuciones(limite=15):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT x.*, u.usuario AS usuario_nombre
+            FROM egreso_automatico_ejecuciones x
+            LEFT JOIN usuarios u ON u.id = x.usuario_id
+            ORDER BY x.inicio DESC, x.id DESC
+            LIMIT %s
+            """,
+            (int(limite),),
+        )
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        db.close()
+
+
+def cerradas_page(*, page=1, per_page=20, desde=None, hasta=None, q=None, empresa_id=None):
+    """Jornadas cerradas por el sistema, mas recientes primero."""
+    where = ["a.metodo_salida = %s"]
+    params = [METODO]
+    if desde:
+        where.append("a.fecha >= %s")
+        params.append(desde)
+    if hasta:
+        where.append("a.fecha <= %s")
+        params.append(hasta)
+    if empresa_id:
+        where.append("a.empresa_id = %s")
+        params.append(int(empresa_id))
+    if q:
+        like = f"%{q.strip()}%"
+        where.append("(e.apellido LIKE %s OR e.nombre LIKE %s OR e.legajo LIKE %s OR e.dni LIKE %s)")
+        params.extend([like, like, like, like])
+    where_sql = " AND ".join(where)
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            f"""
+            SELECT a.id, a.fecha, a.hora_entrada, a.hora_salida, a.observaciones,
+                   e.id AS empleado_id, e.apellido, e.nombre, e.legajo, s.nombre AS sector_nombre
+            FROM asistencias a
+            JOIN empleados e ON e.id = a.empleado_id
+            LEFT JOIN sectores s ON s.id = e.sector_id
+            WHERE {where_sql}
+            ORDER BY a.fecha DESC, a.id DESC
+            LIMIT %s OFFSET %s
+            """,
+            (*params, int(per_page), (max(1, int(page)) - 1) * int(per_page)),
+        )
+        rows = cursor.fetchall()
+        cursor.execute(
+            f"SELECT COUNT(*) AS n FROM asistencias a JOIN empleados e ON e.id = a.empleado_id WHERE {where_sql}",
+            tuple(params),
+        )
+        total = int((cursor.fetchone() or {}).get("n") or 0)
+    finally:
+        cursor.close()
+        db.close()
+    for row in rows:
+        row["origen"] = "horario" if "horario asignado" in (row.get("observaciones") or "") else "parametro"
+    return rows, total
 
 
 def efectividad_por_empleado(empleado_ids, desde, hasta):

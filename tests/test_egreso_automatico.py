@@ -133,3 +133,108 @@ def test_parametro_horas_rechaza_valores_invalidos(raw):
     from web.configuracion.configuracion_empresa_routes import _parse_horas_egreso
     with pytest.raises(ValueError):
         _parse_horas_egreso(raw)
+
+
+# --- Historial de ejecuciones y consultas del panel (base real) -------------------
+
+@pytest.fixture
+def panel(jornadas):
+    conn = jornadas()
+    c = conn.cursor()
+    from scripts.migrate_20261015_03_egreso_automatico import migrate_ejecuciones
+    migrate_ejecuciones(c)
+    migrate_ejecuciones(c)  # idempotente
+    c.execute("ALTER TABLE empleados ADD COLUMN dni VARCHAR(20) NULL")
+    c.execute("CREATE TABLE usuarios (id INT PRIMARY KEY, usuario VARCHAR(80))")
+    c.execute("INSERT INTO usuarios VALUES (5, 'rrhh.ana')")
+    conn.commit()
+    c.close()
+    conn.close()
+    return jornadas
+
+
+def test_ejecucion_manual_queda_en_historial_con_origen_y_usuario(panel, monkeypatch):
+    monkeypatch.setattr(svc, "_ahora", lambda: dt.datetime(2026, 10, 14, 10, 0))
+    assert svc.pendientes() == 4  # 1, 2, 4 y 6 (la 3 es de hoy)
+
+    svc.cerrar_jornadas_abiertas(dry_run=True)
+    assert svc.ejecuciones() == []  # la simulacion no queda registrada
+
+    svc.cerrar_jornadas_abiertas(origen="manual", usuario_id=5)
+    [ejecucion] = svc.ejecuciones()
+    assert ejecucion["origen"] == "manual" and ejecucion["usuario_nombre"] == "rrhh.ana"
+    assert (ejecucion["revisadas"], ejecucion["cerradas"], ejecucion["por_horario"], ejecucion["por_parametro"],
+            ejecucion["empresa_desactivada"], ejecucion["errores"]) == (4, 3, 1, 2, 1, 0)
+    assert svc.pendientes() == 1  # queda la de la empresa desactivada
+
+    rows, total = svc.cerradas_page(per_page=2)
+    assert total == 3 and len(rows) == 2
+    origenes = {r["empleado_id"]: r["origen"] for r in svc.cerradas_page()[0]}
+    assert origenes == {10: "horario", 11: "parametro", 12: "parametro"}
+    rows, total = svc.cerradas_page(q="Garcia", desde="2026-10-13", hasta="2026-10-13")
+    assert total == 1 and rows[0]["apellido"] == "Garcia" and rows[0]["sector_nombre"] == "Entrega"
+    assert svc.cerradas_page(desde="2026-10-14")[1] == 0
+
+
+# --- Pantalla del panel ----------------------------------------------------------------
+
+def _panel_client(monkeypatch, rol, llamadas=None, permisos=None):
+    import app as app_module
+    import web.asistencias.egresos_automaticos_routes as routes
+    import web.auth.decorators as auth_decorators
+
+    llamadas = llamadas if llamadas is not None else []
+    resumen = {"revisadas": 2, "cerradas": 2, "por_horario": 1, "por_parametro": 1, "empresa_desactivada": 0,
+               "errores": 0, "detalle": [{"asistencia_id": 1, "fecha": "2026-10-13", "entrada": "08:02:00",
+                                          "egreso": "16:00:00", "origen": "horario"}]}
+    monkeypatch.setattr(svc, "cerrar_jornadas_abiertas", lambda **kw: llamadas.append(kw) or resumen)
+    monkeypatch.setattr(svc, "pendientes", lambda **kw: 2)
+    monkeypatch.setattr(svc, "ejecuciones", lambda limite=15: [{
+        "inicio": dt.datetime(2026, 10, 14, 3, 30), "origen": "nocturno", "usuario_nombre": None,
+        "revisadas": 5, "cerradas": 5, "por_horario": 4, "por_parametro": 1, "errores": 0}])
+    monkeypatch.setattr(svc, "cerradas_page", lambda **kw: ([{
+        "fecha": dt.date(2026, 10, 13), "hora_entrada": dt.timedelta(hours=8, minutes=2),
+        "hora_salida": dt.timedelta(hours=16), "empleado_id": 10, "apellido": "Perez", "nombre": "Ana",
+        "legajo": "0010", "sector_nombre": "Entrega", "origen": "horario"}], 1))
+    monkeypatch.setattr(routes, "get_configuraciones", lambda: [{
+        "empresa_id": 1, "razon_social": "Empresa SA", "egreso_automatico_activo": 1, "egreso_automatico_horas": 7.5}])
+    monkeypatch.setattr(routes, "log_audit", lambda *a, **kw: llamadas.append({"audit": a[1]}))
+    monkeypatch.setattr(app_module, "init_db", lambda: None)
+    monkeypatch.setattr(auth_decorators, "_cached_web_user", lambda uid: {"id": 5, "activo": 1, "rol": rol})
+    monkeypatch.setattr(auth_decorators, "_cached_user_permissions", lambda uid: permisos or {})
+    app = app_module.create_app()
+    app.config["WTF_CSRF_ENABLED"] = False
+    client = app.test_client()
+    with client.session_transaction() as sess:
+        sess["user_id"] = 5
+    return client
+
+
+def test_panel_respeta_permisos_de_asistencias(monkeypatch):
+    sin_asistencias = {"empleados": {"ver": True}}
+    assert _panel_client(monkeypatch, "supervisor", permisos=sin_asistencias).get(
+        "/asistencias/egresos-automaticos/").status_code == 403
+    solo_ver = _panel_client(monkeypatch, "supervisor", permisos={"asistencias": {"ver": True}})
+    html = solo_ver.get("/asistencias/egresos-automaticos/").get_data(as_text=True)
+    assert "Jornadas sin egreso" in html and "Cerrar ahora" not in html
+    assert solo_ver.post("/asistencias/egresos-automaticos/ejecutar").status_code == 403
+
+    response = _panel_client(monkeypatch, "rrhh").get("/asistencias/egresos-automaticos/?desde=no-es-fecha")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "Jornadas sin egreso" in html and "Perez Ana" in html and "16:00" in html
+    assert "Empresa SA" in html and "7.5 h" in html and "Nocturno" in html and "Cerrar ahora 2 jornadas" in html
+
+
+def test_panel_simular_no_escribe_y_ejecutar_registra_manual(monkeypatch):
+    llamadas = []
+    client = _panel_client(monkeypatch, "admin", llamadas)
+
+    html = client.post("/asistencias/egresos-automaticos/simular").get_data(as_text=True)
+    assert llamadas == [{"dry_run": True}]
+    assert "Resultado de la simulación" in html and "No se guardó ningún cambio" in html
+
+    llamadas.clear()
+    response = client.post("/asistencias/egresos-automaticos/ejecutar")
+    assert response.status_code == 302 and response.headers["Location"].endswith("/asistencias/egresos-automaticos/")
+    assert llamadas == [{"origen": "manual", "usuario_id": 5}, {"audit": "egreso_automatico_manual"}]

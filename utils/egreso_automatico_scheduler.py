@@ -9,9 +9,9 @@ from services.egreso_automatico_service import cerrar_jornadas_abiertas
 _scheduler = None
 
 
-def run():
+def run(origen="nocturno"):
     try:
-        cerrar_jornadas_abiertas()
+        cerrar_jornadas_abiertas(origen=origen)
     except Exception:
         logging.getLogger(__name__).exception("Error cerrando jornadas sin egreso")
 
@@ -27,7 +27,7 @@ def init_egreso_automatico_scheduler(app):
                        max_instances=1, coalesce=True)
     # Y una vez al arrancar (p. ej. tras un deploy), para no esperar a la noche.
     _scheduler.add_job(run, "date", run_date=datetime.now(zone) + timedelta(minutes=2),
-                       id="egreso_automatico_inicio", max_instances=1)
+                       id="egreso_automatico_inicio", max_instances=1, kwargs={"origen": "inicio"})
     _scheduler.start()
 
 
