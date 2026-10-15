@@ -179,13 +179,21 @@ def info_fecha(r, fecha):
     return None
 
 
+def _causa(nombre):
+    """'día no laborable', con el nombre (motivo del calendario) si lo tiene."""
+    if not nombre or nombre == feriado_service.SIN_NOMBRE:
+        return "día no laborable"
+    return f"día no laborable ({nombre})"
+
+
 def motivo_cambio(item):
     if not item or not item.get("feriado"):
         return None
     if item["omitida"]:
-        return f"No se hace por feriado: {item['feriado']}."
+        return f"No se hace: {_causa(item['feriado'])}."
     if item["original"]:
-        return f"Pospuesta del {DIAS[item['original'].weekday()].lower()} {item['original'].strftime('%d/%m')} por feriado: {item['feriado']}."
+        return (f"Pospuesta del {DIAS[item['original'].weekday()].lower()} {item['original'].strftime('%d/%m')}"
+                f" por {_causa(item['feriado'])}.")
     return None
 
 
@@ -508,10 +516,10 @@ def registrar_qr(empleado, contenido, *, lat=None, lon=None, ahora=None):
         if not existente and not ocurre_en(r, fecha):
             movida = info_fecha(r, fecha)
             if movida and movida["feriado"] and movida["original"] == fecha:
-                raise Error(f"Hoy es feriado ({movida['feriado']}): la reunión se pasó al "
+                raise Error(f"Hoy es {_causa(movida['feriado'])}: la reunión se pasó al "
                             f"{DIAS[movida['fecha'].weekday()].lower()} {movida['fecha'].strftime('%d/%m')}.", 409)
             if movida and movida["feriado"] and movida["omitida"]:
-                raise Error(f"Hoy es feriado ({movida['feriado']}): esta reunión no se hace.", 409)
+                raise Error(f"Hoy es {_causa(movida['feriado'])}: esta reunión no se hace.", 409)
             proxima = proxima_fecha(r, fecha)
             detalle = f" La próxima es el {proxima.strftime('%d/%m')}." if proxima else ""
             raise Error(f"Hoy no hay {r['nombre']}.{detalle}", 409)

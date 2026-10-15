@@ -25,7 +25,7 @@
   </header>
   {% if r.descripcion %}<p>{{ r.descripcion }}</p>{% endif %}
   <dl class="epp-order-facts reu-detail-facts">
-    <div><dt>Feriados</dt><dd>{{ {'posponer': 'Se pospone al siguiente día hábil', 'omitir': 'No se hace ese día', 'mantener': 'Se hace igual'}[r.feriado_accion or 'posponer'] }}</dd></div>
+    <div><dt>Días no laborables</dt><dd>{{ {'posponer': 'Se pospone al siguiente día hábil', 'omitir': 'No se hace ese día', 'mantener': 'Se hace igual'}[r.feriado_accion or 'posponer'] }}</dd></div>
     <div><dt>Registro</dt><dd>Desde {{ r.tolerancia_antes_min }} min antes · tarde después de {{ r.tarde_despues_min }} min · cierra {{ ('a los ' ~ r.cierre_despues_min ~ ' min') if r.cierre_despues_min is not none else 'al terminar' }}</dd></div>
     <div><dt>{{ 'Sucursales' if con_sedes else 'Código QR' }}</dt><dd>
       {% if con_sedes %}

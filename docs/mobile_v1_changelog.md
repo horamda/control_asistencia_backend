@@ -1,3 +1,8 @@
+## 1.40.1 — 2026-10-16
+
+- Reuniones: los días no laborables salen del calendario del reporte mensual de asistencia (único calendario; se quitó la pantalla aparte de Feriados del panel). Sin cambios en rutas ni campos.
+- Textos de `motivo_cambio`, `motivo_cancelacion` y del 409 de `/registrar`: "día no laborable" (con el nombre entre paréntesis si el día lo tiene), p. ej. `"Pospuesta del lunes 12/10 por día no laborable."`.
+
 ## 1.40.0 — 2026-10-16
 
 - Calendario de feriados en el panel (Horarios → Feriados): importa los nacionales del año desde argentinadatos.com (sin puentes turísticos) y permite cargar feriados propios o de una sucursal.

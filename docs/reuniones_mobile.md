@@ -1,6 +1,6 @@
 # Reuniones — contrato para Flutter y web de empleados
 
-Versión de contrato: 1.40.0 · Definición formal: [reuniones_mobile_openapi.yaml](reuniones_mobile_openapi.yaml)
+Versión de contrato: 1.40.1 · Definición formal: [reuniones_mobile_openapi.yaml](reuniones_mobile_openapi.yaml)
 
 Las reuniones se crean en el panel (Asistencia → Reuniones). Cada una tiene una recurrencia
 (diaria, semanal o mensual), un horario, una ventana de registro y una lista de **convocados
@@ -23,22 +23,27 @@ sede del empleado: `hora_inicio`, `lugar`, `inicio`/`fin` y ventanas son los de 
   `"Este QR es de la reunión en <sucursal>. La tuya es en <sucursal>."`.
 - Si cambia de sucursal, desde ese momento ve la reunión (y el QR válido) de la nueva sede.
 
-### Feriados (1.40.0)
+### Días no laborables (1.40.0, textos 1.40.1)
 
-El panel tiene un calendario de feriados (nacionales importados, de la empresa o de una sucursal). Si una
-fecha cae en feriado, cada reunión hace lo que indica `feriado_accion`:
-- `posponer` (por defecto): pasa al siguiente día hábil (sin sábados, domingos ni feriados). Si ese día ya
-  tiene la misma reunión (típico de las diarias), no se duplica: esa fecha no se hace.
+Las reuniones usan el calendario de **días no laborables** del panel (el del reporte mensual de asistencia:
+generales, de la empresa o de una sucursal). Si una fecha cae en un día no laborable, cada reunión hace lo
+que indica `feriado_accion`:
+- `posponer` (por defecto): pasa al siguiente día hábil (sin sábados, domingos ni días no laborables). Si ese
+  día ya tiene la misma reunión (típico de las diarias), no se duplica: esa fecha no se hace.
 - `omitir`: esa fecha no se hace. `mantener`: se hace igual.
 
 La API ya devuelve las fechas efectivas. Campos para mostrar el cambio:
 - `/proximas`: `fecha_original` (la fecha que tenía antes de posponerse, o `null`) y `motivo_cambio`
-  (texto listo, p. ej. `"Pospuesta del lunes 12/10 por feriado: Día del Respeto a la Diversidad Cultural."`).
-  Una fecha que no se hace por feriado aparece con `estado: "cancelada"`, `cancelada: true` y
-  `motivo_cancelacion` = `"No se hace por feriado: …"`.
+  (texto listo para mostrar). Ejemplos:
+  - `"Pospuesta del lunes 12/10 por día no laborable."`
+  - `"Pospuesta del lunes 19/10 por día no laborable (Aniversario Norte)."` (si el día tiene un nombre cargado)
+- Una fecha que no se hace aparece con `estado: "cancelada"`, `cancelada: true` y
+  `motivo_cancelacion` = `"No se hace: día no laborable."`.
 - `/historial`: `fecha_original`.
 - Reunión (`/reuniones` y detalle): `feriado_accion`.
-- `POST /registrar` en un día feriado: 409 `"Hoy es feriado (…): la reunión se pasó al martes 13/10."`.
+- `POST /registrar` en un día no laborable: 409 `"Hoy es día no laborable: la reunión se pasó al martes 13/10."`.
+
+Mostrar los textos tal cual: no hay que armarlos en la app.
 
 Los recordatorios locales deben programarse con `inicio` (ya viene con la fecha nueva).
 
@@ -194,7 +199,7 @@ Errores habituales (mostrar `error` tal cual):
 | 400 | El texto no es un QR de reunión, QR vencido (el dinámico dura 45 s) o coordenadas inválidas. |
 | 403 | No estás convocado a la reunión, o el QR es de otra empresa. |
 | 404 | La reunión no existe o está desactivada. |
-| 409 | Hoy no hay reunión, hoy es feriado (indica la fecha nueva), todavía no abrió el registro, ya cerró, fecha cancelada, QR impreso reemplazado, QR dinámico de otra fecha o QR de la sede de otra sucursal. |
+| 409 | Hoy no hay reunión, hoy es día no laborable (indica la fecha nueva), todavía no abrió el registro, ya cerró, fecha cancelada, QR impreso reemplazado, QR dinámico de otra fecha o QR de la sede de otra sucursal. |
 
 ### Detección del QR en el escáner
 

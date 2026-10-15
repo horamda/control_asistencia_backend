@@ -1,12 +1,13 @@
 openapi: 3.0.3
 info:
   title: Reuniones FichaYa
-  version: 1.40.0
+  version: 1.40.1
   description: |
     Reuniones recurrentes con convocados obligatorios y asistencia por QR.
     Guia con ejemplos, estados y recordatorios locales: reuniones_mobile.md.
     1.39.0: sedes por sucursal; hora, lugar y QR son los de la sucursal del empleado.
-    1.40.0: feriados; las fechas ya vienen pospuestas u omitidas (fecha_original, motivo_cambio, feriado_accion).
+    1.40.0: dias no laborables; las fechas ya vienen pospuestas u omitidas (fecha_original, motivo_cambio, feriado_accion).
+    1.40.1: textos de motivo_cambio y errores con "dia no laborable" (mismo calendario del reporte mensual).
 servers:
   - url: /api/v1/mobile
 security:
@@ -228,7 +229,7 @@ components:
         cierre_despues_min: {type: integer, nullable: true, description: null = cierra al terminar la reunion}
         fecha_inicio: {type: string, format: date}
         fecha_fin: {type: string, format: date, nullable: true}
-        feriado_accion: {type: string, enum: [posponer, omitir, mantener], description: Que pasa si cae en feriado (1.40.0)}
+        feriado_accion: {type: string, enum: [posponer, omitir, mantener], description: Que pasa si cae en un dia no laborable (1.40.0)}
         proxima_fecha: {type: string, format: date, nullable: true}
         mis_estadisticas: {$ref: '#/components/schemas/EstadisticaReunion'}
     ReunionProxima:
@@ -251,8 +252,8 @@ components:
         motivo_cancelacion: {type: string, nullable: true}
         registrado_at: {type: string, format: date-time, nullable: true}
         qr_modo: {type: string, enum: [fijo, dinamico, ambos]}
-        fecha_original: {type: string, format: date, nullable: true, description: Fecha antes de posponerse por feriado}
-        motivo_cambio: {type: string, nullable: true, description: Texto listo para mostrar (feriado)}
+        fecha_original: {type: string, format: date, nullable: true, description: Fecha antes de posponerse por un dia no laborable}
+        motivo_cambio: {type: string, nullable: true, description: 'Texto listo para mostrar, p. ej. "Pospuesta del lunes 12/10 por dia no laborable."'}
     RegistroReunion:
       type: object
       properties:
