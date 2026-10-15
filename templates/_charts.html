@@ -51,7 +51,7 @@
       {% endfor %}
       {% for b in chart.bars %}
         {% if b.path %}<path class="viz-bar" d="{{ b.path }}"></path>{% endif %}
-        <text class="viz-value" x="{{ b.x }}" y="{{ b.y_top - 7 }}" text-anchor="middle">{{ b.value_label }}</text>
+        {% if chart.show_values %}<text class="viz-value" x="{{ b.x }}" y="{{ b.y_top - 7 }}" text-anchor="middle">{{ b.value_label }}</text>{% endif %}
         <text class="viz-tick" x="{{ b.x }}" y="{{ chart.plot.bottom + 17 }}" text-anchor="middle">{{ b.label }}</text>
       {% endfor %}
       <line class="viz-axis" x1="{{ chart.plot.left }}" x2="{{ chart.plot.right }}" y1="{{ chart.plot.bottom }}" y2="{{ chart.plot.bottom }}"></line>

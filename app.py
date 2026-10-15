@@ -69,6 +69,8 @@ from routes.seguridad_routes import seguridad_mobile_bp
 from web.seguridad.seguridad_routes import seguridad_web_bp
 from web.carga.carga_routes import carga_web_bp
 from web.panel_notifications_routes import panel_notifications_bp
+from web.rendimiento.rendimiento_routes import rendimiento_bp
+from utils import request_metrics
 
 # API: autentican por token, responden errores en JSON y quedan exentas de CSRF.
 API_BLUEPRINTS = (
@@ -140,6 +142,7 @@ BLUEPRINTS = (
     skap_web_bp,
     skap_matriz_bp,
     panel_notifications_bp,
+    rendimiento_bp,
     trivia_bp,
 )
 
@@ -477,6 +480,10 @@ def create_app():
     from services.panel_export_service import build_export_toolbar, wrap_exportable_views
     wrap_exportable_views(app)
 
+    # Metricas del modulo Rendimiento: se vuelcan a la base cada minuto.
+    if _app_env() not in {"test", "testing"}:
+        request_metrics.start_flusher()
+
     # Scheduler de trivia (solo en entornos no-test y cuando se usa gunicorn/run)
     if _app_env() not in {"test", "testing"} and _parse_bool_env("SCHEDULER_IN_WEB", default=False):
         from utils.trivia_scheduler import init_trivia_scheduler
@@ -628,6 +635,16 @@ def create_app():
             if hasattr(g, 'skap_db_ms'):
                 response.headers["Server-Timing"] += f", skap_db;dur={g.skap_db_ms:.2f}"
 
+        if elapsed is not None and request_metrics.should_record(request.path):
+            request_metrics.record(
+                request.url_rule.rule if request.url_rule else "(sin ruta)",
+                request.method,
+                response.status_code,
+                elapsed,
+                getattr(g, "db_ms", 0.0),
+                getattr(g, "db_queries", 0),
+            )
+
         user_id = session.get("user_id")
         user_role = session.get("user_role")
         app.logger.info(
@@ -672,10 +689,20 @@ def create_app():
                     g._web_permission_cache[cache_key] = False
             return g._web_permission_cache[cache_key]
 
+        def is_strict_admin_safe():
+            try:
+                from web.auth.decorators import is_strict_admin
+
+                return bool(session.get("user_id")) and is_strict_admin()
+            except Exception:
+                app.logger.warning("strict_admin_context_error", exc_info=True)
+                return False
+
         role = str(session.get("user_role") or "").strip().lower()
         if not session.get("user_id") or role not in {"admin", "rrhh"}:
             return {
                 "can_web": can_web,
+                "is_strict_admin": is_strict_admin_safe,
                 "panel_notifications": {
                     "enabled": False,
                     "total": 0,
@@ -687,6 +714,7 @@ def create_app():
 
         return {
             "can_web": can_web,
+            "is_strict_admin": is_strict_admin_safe,
             "panel_notifications": {"enabled": True, "total": 0, "items": [], "has_items": False},
             "export_toolbar": build_export_toolbar(request.endpoint),
         }

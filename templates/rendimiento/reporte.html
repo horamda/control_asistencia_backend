@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% import "_charts.html" as viz %}
+{% block title %}Rendimiento{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/viz.css') }}">
+{% endblock %}
+{% block content %}
+<div class="content-stack viz-root">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Sistema</div>
+      <h2>Rendimiento de la aplicación</h2>
+      <p class="module-intro">
+        Tiempos medidos dentro de la app para el panel web y la app móvil. No incluyen la red ni la espera
+        previa en Railway, que se ven en sus logs HTTP. Horario de Argentina.
+      </p>
+    </div>
+  </div>
+
+  <form method="get" action="{{ url_for('rendimiento.reporte') }}" class="viz-head">
+    <div class="viz-period" role="group" aria-label="Período del reporte">
+      {% for clave, conf in periodos.items() %}
+        <button type="submit" name="periodo" value="{{ clave }}" class="btn btn-secondary btn-sm"
+                aria-pressed="{{ 'true' if clave == periodo else 'false' }}">{{ conf.titulo }}</button>
+      {% endfor %}
+    </div>
+  </form>
+
+  {% if r is none %}
+    <div class="empty-state">No se pudo generar el reporte. Verifique que la migración de métricas se haya aplicado.</div>
+  {% elif not r.hay_datos %}
+    <div class="empty-state">Todavía no hay métricas en este período. La app las registra a partir de este deploy y las guarda cada minuto.</div>
+  {% else %}
+    {% set t = r.totales %}
+    <div class="grid-kpis">
+      <div class="kpi-card">
+        <div class="kpi-label">Pedidos</div>
+        <div class="kpi-value">{{ r.num(t.pedidos) }}</div>
+        <div class="helper-text">{{ r.num(t.errores) }} con error 5xx</div>
+      </div>
+      <div class="kpi-card {% if (t.promedio_s or 0) <= 0.5 %}tone-ok{% elif (t.promedio_s or 0) <= 1.5 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label">Tiempo promedio</div>
+        <div class="kpi-value">{{ r.fmt(t.promedio_s, ' s', 2) }}</div>
+        <div class="helper-text">Mediana {{ t.p50 }} · p95 {{ t.p95 }}</div>
+      </div>
+      <div class="kpi-card {% if (t.lentos_pct or 0) <= 5 %}tone-ok{% elif (t.lentos_pct or 0) <= 15 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label">Pedidos lentos</div>
+        <div class="kpi-value">{{ r.fmt(t.lentos_pct, '%') }}</div>
+        <div class="helper-text">Tardaron más de 1 s</div>
+      </div>
+      <div class="kpi-card {% if (t.ms_por_consulta or 0) <= 10 %}tone-ok{% elif (t.ms_por_consulta or 0) <= 30 %}tone-warn{% else %}tone-bad{% endif %}">
+        <div class="kpi-label">Latencia por consulta</div>
+        <div class="kpi-value">{{ r.fmt(t.ms_por_consulta, ' ms') }}</div>
+        <div class="helper-text">Base de datos: {{ r.fmt(t.db_pct, '%', 0) }} del tiempo</div>
+      </div>
+    </div>
+
+    <div class="viz-layout">
+      <figure class="viz-card viz-card-wide" data-tooltips="{{ r.tooltips.tiempo | tojson | forceescape }}">
+        <figcaption>
+          <h4 class="section-title">Tiempo de respuesta promedio</h4>
+          <p class="helper-text">{{ r.titulo }}. Segundos por pedido.</p>
+        </figcaption>
+        {% if r.graficos.tiempo.empty %}<p class="viz-message">Sin pedidos en el período.</p>{% else %}
+          {{ viz.line(r.graficos.tiempo, "tiempo", "Tiempo de respuesta promedio", r.tooltips.tiempo) }}
+        {% endif %}
+        <div class="viz-tooltip" role="presentation" hidden></div>
+      </figure>
+
+      <figure class="viz-card" data-tooltips="{{ r.tooltips.lentos | tojson | forceescape }}">
+        <figcaption>
+          <h4 class="section-title">Pedidos lentos (más de 1 s)</h4>
+          <p class="helper-text">Porcentaje del total de pedidos.</p>
+        </figcaption>
+        {% if r.graficos.lentos.empty %}<p class="viz-message">Sin pedidos en el período.</p>{% else %}
+          {{ viz.line(r.graficos.lentos, "lentos", "Pedidos lentos", r.tooltips.lentos) }}
+        {% endif %}
+        <div class="viz-tooltip" role="presentation" hidden></div>
+      </figure>
+
+      <figure class="viz-card" data-tooltips="{{ r.tooltips.base | tojson | forceescape }}">
+        <figcaption>
+          <h4 class="section-title">Latencia por consulta a la base</h4>
+          <p class="helper-text">Milisegundos. Con app y base en la misma región, unos pocos ms.</p>
+        </figcaption>
+        {% if r.graficos.base.empty %}<p class="viz-message">Sin consultas en el período.</p>{% else %}
+          {{ viz.line(r.graficos.base, "base", "Latencia por consulta a la base", r.tooltips.base) }}
+        {% endif %}
+        <div class="viz-tooltip" role="presentation" hidden></div>
+      </figure>
+
+      <figure class="viz-card viz-card-wide" data-tooltips="{{ r.tooltips.volumen | tojson | forceescape }}">
+        <figcaption>
+          <h4 class="section-title">Volumen de pedidos</h4>
+          <p class="helper-text">{{ r.titulo }}.</p>
+        </figcaption>
+        {% if r.graficos.volumen.empty %}<p class="viz-message">Sin pedidos en el período.</p>{% else %}
+          {{ viz.columns(r.graficos.volumen, "volumen", "Volumen de pedidos", r.tooltips.volumen) }}
+        {% endif %}
+        {{ viz.data_table(["Período", "Pedidos", "Promedio", "p95", "Lentos", "ms por consulta"], r.tabla_periodos) }}
+        <div class="viz-tooltip" role="presentation" hidden></div>
+      </figure>
+    </div>
+
+    <h3>Pantallas y endpoints con más tiempo acumulado</h3>
+    <p class="helper-text">Ordenados por impacto: tiempo total consumido en el período (pedidos × tiempo promedio). Optimizar los primeros es lo que más mejora la app.</p>
+    <div class="table-responsive table-cards">
+      <table>
+        <thead>
+          <tr><th>Ruta</th><th>Pedidos</th><th>Promedio</th><th>p95</th><th>Lentos</th><th>Consultas por pedido</th><th>ms por consulta</th><th>Impacto</th></tr>
+        </thead>
+        <tbody>
+          {% for ruta in r.rutas %}
+            <tr>
+              <td data-label="Ruta"><code>{{ ruta.metodo }} {{ ruta.ruta }}</code></td>
+              <td data-label="Pedidos">{{ r.num(ruta.pedidos) }}</td>
+              <td data-label="Promedio">{{ r.fmt(ruta.promedio_s, ' s', 2) }}</td>
+              <td data-label="p95">{{ ruta.p95 }}</td>
+              <td data-label="Lentos">{{ r.fmt(ruta.lentos_pct, '%') }}</td>
+              <td data-label="Consultas por pedido">{{ r.fmt(ruta.consultas_por_pedido, '', 1) }}</td>
+              <td data-label="ms por consulta">{{ r.fmt(ruta.ms_por_consulta, ' ms') }}</td>
+              <td data-label="Impacto">{{ r.fmt(ruta.impacto_pct, '%', 0) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/viz.js') }}" defer></script>
+{% endblock %}

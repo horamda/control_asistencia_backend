@@ -29,8 +29,8 @@ def _format_tick(value: float, suffix: str) -> str:
     return f"{value:g}{suffix}"
 
 
-def _format_value(value: float, suffix: str) -> str:
-    return f"{value:.1f}{suffix}"
+def _format_value(value: float, suffix: str, decimals: int = 1) -> str:
+    return f"{value:.{decimals}f}{suffix}"
 
 
 def _plot_box(width: int, height: int, *, left: int, right: int, top: int, bottom: int) -> dict:
@@ -44,6 +44,7 @@ def line_chart(
     y_min: float | None = 0,
     y_max: float | None = None,
     suffix: str = "%",
+    decimals: int = 1,
     width: int = 560,
     height: int = 240,
 ) -> dict:
@@ -93,7 +94,7 @@ def line_chart(
             "path": path,
             "points": points,
             "end": end,
-            "end_label": _format_value(end["value"], suffix) if end else "",
+            "end_label": _format_value(end["value"], suffix, decimals) if end else "",
         })
 
     # Etiquetas directas al final de cada serie solo si no se pisan.
@@ -132,7 +133,7 @@ def _rounded_top_bar(x0: float, x1: float, y_top: float, y_base: float, radius: 
     )
 
 
-def column_chart(bars: list[dict], *, suffix: str = "%", width: int = 560, height: int = 240) -> dict:
+def column_chart(bars: list[dict], *, suffix: str = "%", decimals: int = 1, width: int = 560, height: int = 240) -> dict:
     """bars: [{"label", "value": float|None, ...}]; una sola serie."""
     plot = _plot_box(width, height, left=44, right=16, top=22, bottom=30)
     values = [b["value"] for b in bars if b["value"] is not None]
@@ -157,7 +158,7 @@ def column_chart(bars: list[dict], *, suffix: str = "%", width: int = 560, heigh
             "x": round(center, 2),
             "path": _rounded_top_bar(x0, x1, y_top, plot["bottom"]) if value else "",
             "y_top": y_top,
-            "value_label": _format_value(value, suffix) if value is not None else "s/d",
+            "value_label": _format_value(value, suffix, decimals) if value is not None else "s/d",
             "hit_x0": round(center - band / 2, 2),
             "hit_width": round(band, 2),
         })
@@ -168,4 +169,6 @@ def column_chart(bars: list[dict], *, suffix: str = "%", width: int = 560, heigh
         "plot": plot,
         "y_ticks": [{"y": y_of(t), "label": _format_tick(t, suffix)} for t in ticks],
         "bars": out,
+        # Con muchas columnas los valores se superponen: quedan en el tooltip y la tabla.
+        "show_values": len(out) <= 12,
     }

@@ -347,6 +347,7 @@
                   {% if can_web("app_version") %}<a class="nav-link" href="/app-version/">Versiones App</a>{% endif %}
                   {% if can_web("mobile_stats") %}<a class="nav-link" href="/mobile-stats/">Uso de la app</a>{% endif %}
                   {% if can_web("calificaciones_app") %}<a class="nav-link" href="/calificaciones-app/">Calificaciones app</a>{% endif %}
+                  {% if is_strict_admin is defined and is_strict_admin() %}<a class="nav-link" href="{{ url_for('rendimiento.reporte') }}">Rendimiento</a>{% endif %}
                 </div>
               </div>
             {% endif %}
