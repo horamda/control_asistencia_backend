@@ -42,3 +42,18 @@
 
 .epp-staff-search{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}.epp-page .epp-staff-search label{flex:1;min-width:min(100%,240px);margin:0}.epp-staff-search input{box-sizing:border-box;min-height:44px}.epp-staff-table table{width:100%}.epp-staff-table td{vertical-align:top;white-space:normal}.epp-staff-sizes{margin:0;padding-left:18px;display:grid;gap:8px}.epp-staff-sizes small{display:block;color:var(--muted);overflow-wrap:anywhere}
 @media(max-width:600px){.epp-staff-search>*{width:100%}.epp-staff-table table,.epp-staff-table tbody{display:block;min-width:0}.epp-staff-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.epp-staff-table tr{display:grid;gap:10px;border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px}.epp-staff-table td{display:block;border:0;padding:0;overflow-wrap:anywhere}.epp-staff-table .btn{width:100%;box-sizing:border-box}}
+
+/* Disponibilidad por sector + puesto */
+.epp-coverage{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:var(--surface-soft);border:1px solid var(--border);font-weight:600}
+.epp-coverage.is-warning{border-color:var(--danger);color:var(--danger)}
+.epp-sector-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:12px}
+.epp-sector{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--surface);min-width:0}
+.epp-sector.is-whole{border-color:var(--primary)}
+.epp-page .epp-sector label{display:flex;align-items:flex-start;gap:8px;margin:0;cursor:pointer}
+/* Los inputs del formulario tienen altura de campo de texto: el casillero lleva la suya. */
+.epp-page .epp-catalog-form .epp-sector input[type=checkbox]{width:16px;height:16px;min-height:0;padding:0;margin:3px 0 0;flex:none}
+.epp-sector-all{display:flex;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.epp-sector-all small,.epp-sector-puestos small{color:var(--muted);font-weight:400}
+.epp-sector-puestos{display:grid;gap:6px;padding-left:4px}
+.epp-sector.is-whole .epp-sector-puestos{opacity:.55}
+.epp-sector-puestos .epp-sin-empleados span{color:var(--muted)}

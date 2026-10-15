@@ -37,7 +37,7 @@ def test_employee_cannot_manage_concepts(operation):
 def test_concept_templates_escape_names_and_keep_inactive_selection():
     root = Path(__file__).resolve().parents[1]
     env = Environment(loader=ChoiceLoader([DictLoader({"epp/layout.html": "{% block epp_content %}{% endblock %}"}), FileSystemLoader(root / "templates")]), autoescape=True)
-    env.globals.update(csrf_token=lambda: "token", url_for=lambda *a, **kw: "/test")
+    env.globals.update(csp_nonce=lambda: 'test-nonce', csrf_token=lambda: "token", url_for=lambda *a, **kw: "/test")
     for file in ["layout", "form", "detail", "replacement_concepts"]:
         env.parse((root / "templates/epp" / (file + ".html")).read_text(encoding="utf-8"))
     html = env.get_template("epp/replacement_concepts.html").render(items=[dict(id=1, nombre="<script>", activo=1)])

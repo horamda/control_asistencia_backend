@@ -58,7 +58,7 @@ def test_sizes_list_empty_and_individual_views():
         env.parse((root / 'templates' / name).read_text(encoding='utf-8'))
     from jinja2 import DictLoader, ChoiceLoader
     env.loader = ChoiceLoader([DictLoader({'epp/layout.html': '{% block epp_content %}{% endblock %}'}), env.loader])
-    env.globals.update(url_for=lambda endpoint, **kwargs: '/sizes', csrf_token=lambda: 'csrf')
+    env.globals.update(csp_nonce=lambda: 'test-nonce', url_for=lambda endpoint, **kwargs: '/sizes', csrf_token=lambda: 'csrf')
     template = env.get_template('epp/sizes.html')
     context = dict(search='', items=[], sizes=[], options={'empleados': []})
     html = template.render(eid=None, staff=[dict(id=1, nombre='Ana', apellido='Perez', legajo='1', talles=[])], **context)

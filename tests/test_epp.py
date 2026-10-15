@@ -8,6 +8,7 @@ from tests.test_seguridad import database, photo
 from services import epp_service as s
 from scripts.migrate_20261008_02_epp import migrate_cursor
 from scripts.migrate_20261013_01_epp_conceptos import migrate_cursor as migrate_concepts
+from scripts.migrate_20261015_02_epp_habilitaciones import migrate_cursor as migrate_rules
 
 ADMIN = dict(
     mode="web",
@@ -38,10 +39,13 @@ def schema(database, monkeypatch):
         c.execute("UPDATE empleados SET reporta_a_empleado_id=11 WHERE id=10")
         c.execute("ALTER TABLE sectores ADD empresa_id INT DEFAULT 1")
         c.execute("ALTER TABLE puestos ADD empresa_id INT DEFAULT 1")
+        c.execute("CREATE TABLE IF NOT EXISTS empleado_puestos(id INT AUTO_INCREMENT PRIMARY KEY, empleado_id INT, sector_id INT, puesto_id INT, activo INT DEFAULT 1)")
         migrate_cursor(c)
         migrate_cursor(c)
         migrate_concepts(c)
         migrate_concepts(c)
+        migrate_rules(c)
+        migrate_rules(c)
     aid = s.save_article(
         ADMIN,
         dict(
@@ -220,7 +224,7 @@ def client(monkeypatch):
     app.config["TESTING"] = True
     app.register_blueprint(w.web)
     app.register_blueprint(w.mobile)
-    app.jinja_env.globals.update(
+    app.jinja_env.globals.update(csp_nonce=lambda: 'test-nonce', 
         csrf_token=lambda: "test",
         can_web=lambda code, *args: code in ("epp", "epp_responsables"),
         export_toolbar={"enabled": False, "items": []},
@@ -379,3 +383,21 @@ def test_replacement_concepts_history_and_scope(schema):
         s.delete_replacement_concept(dict(ADMIN, empresa_id=2), cid)
     s.save_replacement_concept(ADMIN, dict(id=cid, nombre="Rotura", activo=1))
     assert len(s.replacement_concepts(OWNER, active_only=True)) == 1
+
+
+def test_habilitaciones_respect_sector_puesto_pairs_and_additional_positions(schema):
+    with s.db.transaction() as c:
+        c.execute("INSERT INTO sectores(id,nombre,empresa_id) VALUES(2,'Almacen',1)")
+        c.execute("INSERT INTO puestos(id,nombre,empresa_id) VALUES(2,'Picker',1)")
+    # Puesto 1 dentro del sector 2: el empleado 10 (sector 1, puesto 1) no aplica.
+    aid = s.save_article(ADMIN, dict(nombre="Casco", categoria="Ropa", talles=["U"], habilitaciones=["2:1"]))
+    assert aid not in {a["id"] for a in s.catalogs(OWNER, 10)}
+    # Con un puesto adicional en ese sector, si aplica.
+    with s.db.transaction() as c:
+        c.execute("INSERT INTO empleado_puestos(empleado_id,sector_id,puesto_id,activo) VALUES(10,2,1,1)")
+    assert aid in {a["id"] for a in s.catalogs(OWNER, 10)}
+    # Sector completo + un puesto de ese sector: se guarda solo el sector.
+    s.save_article(ADMIN, dict(id=aid, nombre="Casco", categoria="Ropa", talles=["U"], habilitaciones=["1", "1:1"]))
+    guardado = next(a for a in s.catalogs(ADMIN) if a["id"] == aid)
+    assert guardado["habilitaciones"] == [{"p": None, "s": 1}]
+    assert guardado["sectores"] == [1] and guardado["puestos"] == []

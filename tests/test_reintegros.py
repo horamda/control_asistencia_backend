@@ -244,7 +244,7 @@ def client(monkeypatch):
     app.config["TESTING"] = True
     app.register_blueprint(mobile.reintegros_mobile_bp)
     app.register_blueprint(web.reintegros_web_bp)
-    app.jinja_env.globals.update(
+    app.jinja_env.globals.update(csp_nonce=lambda: 'test-nonce', 
         csrf_token=lambda: "test",
         can_web=lambda code, *args: code in ("reintegros", "reintegros_pagos"),
         export_toolbar={"enabled": False, "items": []},

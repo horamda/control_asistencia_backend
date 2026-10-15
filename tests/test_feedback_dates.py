@@ -94,6 +94,7 @@ def client(monkeypatch, role="admin", active=True):
     app.secret_key = "test"
     app.jinja_loader = ChoiceLoader([DictLoader({"base.html": "{% block content %}{% endblock %}"}), FileSystemLoader("templates")])
     app.jinja_env.globals["csrf_token"] = lambda: "test-token"
+    app.jinja_env.globals['csp_nonce'] = lambda: 'test-nonce'
     app.register_blueprint(routes.feedback_web_bp)
     monkeypatch.setattr(auth, "get_web_user_by_id", lambda uid: {"id": uid, "rol": role, "activo": active})
     monkeypatch.setattr(auth, "can_access_module", lambda *args: True)

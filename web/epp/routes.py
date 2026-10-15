@@ -65,6 +65,51 @@ def data():
     return value
 
 
+def eligibility(who, selected=None):
+    """Sectores con sus puestos reales (segun los empleados activos, incluidos
+    puestos adicionales) para el formulario de disponibilidad del catalogo."""
+    with s.db.transaction(read_only=True) as c:
+        sectores = s.db.all_rows(c, "SELECT id,nombre FROM sectores WHERE empresa_id=%s ORDER BY nombre", (who["empresa_id"],))
+        puestos = {r["id"]: r["nombre"] for r in s.db.all_rows(
+            c, "SELECT id,nombre FROM puestos WHERE empresa_id=%s", (who["empresa_id"],))}
+        pares = s.db.all_rows(
+            c,
+            "SELECT id empleado_id,sector_id,puesto_id FROM empleados WHERE empresa_id=%s AND activo=1"
+            " UNION SELECT ep.empleado_id,ep.sector_id,ep.puesto_id FROM empleado_puestos ep"
+            " JOIN empleados e ON e.id=ep.empleado_id WHERE e.empresa_id=%s AND e.activo=1 AND ep.activo=1",
+            (who["empresa_id"], who["empresa_id"]),
+        )
+    por_empleado, por_par, por_sector = {}, {}, {}
+    for r in pares:
+        por_empleado.setdefault(r["empleado_id"], set()).add((r["sector_id"], r["puesto_id"]))
+    for empleado_id, combos in por_empleado.items():
+        for sec, pue in combos:
+            por_par.setdefault((sec, pue), set()).add(empleado_id)
+        for sec in {sec for sec, _ in combos}:
+            por_sector[sec] = por_sector.get(sec, 0) + 1
+    marcadas = {(r.get("s"), r.get("p")) for r in (selected or {}).get("habilitaciones") or []}
+    grupos = []
+    for sector in sectores:
+        ids = {pue for sec, pue in por_par if sec == sector["id"]}
+        ids |= {pue for sec, pue in marcadas if sec == sector["id"] and pue}  # reglas sin empleados hoy
+        grupos.append(dict(
+            id=sector["id"], nombre=sector["nombre"], empleados=por_sector.get(sector["id"], 0),
+            todo=(sector["id"], None) in marcadas,
+            puestos=sorted(
+                (dict(id=pue, nombre=puestos.get(pue, f"#{pue}"), empleados=len(por_par.get((sector["id"], pue), ())),
+                      marcado=(sector["id"], pue) in marcadas) for pue in ids if pue),
+                key=lambda x: x["nombre"],
+            ),
+        ))
+    cualquier = [dict(id=pue, nombre=puestos.get(pue, f"#{pue}")) for sec, pue in sorted(marcadas, key=str) if sec is None and pue]
+    return dict(
+        sectores=[g for g in grupos if g["empleados"] or g["todo"] or g["puestos"]],
+        cualquier_sector=cualquier,
+        # Combinaciones de cada empleado (sin datos personales) para la cobertura en vivo.
+        empleados=[sorted(f"{sec}:{pue}" for sec, pue in combos) for combos in por_empleado.values()],
+    )
+
+
 def options(who):
     with s.db.transaction(read_only=True) as c:
         scope = "" if who["global"] else " AND reporta_a_empleado_id=%s"
@@ -153,8 +198,7 @@ def catalog():
         values["talles"] = [
             v.strip() for v in request.form.get("talles", "").split(",") if v.strip()
         ]
-        for field in ("sectores", "puestos"):
-            values[field] = request.form.getlist(field)
+        values["habilitaciones"] = request.form.getlist("habilitacion")
         s.save_article(who, values, request.files.get("imagen"))
         flash(
             "Artículo guardado. El historial conserva los talles anteriores.", "success"
@@ -169,6 +213,7 @@ def catalog():
         items=rows,
         selected=selected,
         options=options(who),
+        eligibility=eligibility(who, selected),
         categories=s.categories(who),
     )
 

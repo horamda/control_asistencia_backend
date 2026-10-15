@@ -20,10 +20,42 @@
         <small id="epp-image-help">JPG, PNG o WEBP, hasta 5 MB. Si no elegís otra imagen, se conserva la actual.</small><p id="epp-image-feedback" role="status" aria-live="polite"></p>
       </fieldset>
     </div>
-    <fieldset class="epp-fieldset epp-eligibility"><legend>Disponibilidad para el personal</legend><p>Sin selección: disponible para todos. Si elegís sectores y puestos, el empleado debe cumplir ambas condiciones.</p><div class="epp-fields">
-      <label>Sectores habilitados<select name="sectores" multiple size="6" aria-describedby="epp-selection-help">{% for o in options.sectores %}<option value="{{ o.id }}" {{ 'selected' if selected and o.id in selected.sectores }}>{{ o.nombre }}</option>{% endfor %}</select></label>
-      <label>Puestos habilitados<select name="puestos" multiple size="6" aria-describedby="epp-selection-help">{% for o in options.puestos %}<option value="{{ o.id }}" {{ 'selected' if selected and o.id in selected.puestos }}>{{ o.nombre }}</option>{% endfor %}</select></label>
-    </div><small id="epp-selection-help">En computadora, mantené Ctrl (Windows) o Cmd (Mac) para seleccionar o quitar varias opciones.</small></fieldset>
+    <fieldset class="epp-fieldset epp-eligibility" data-epp-eligibility>
+      <legend>Disponibilidad para el personal</legend>
+      <p>Sin selección: disponible para todos. Marcá un sector completo o puestos puntuales dentro de cada sector; cuenta el puesto principal y los puestos adicionales de cada empleado.</p>
+      <p class="epp-coverage" data-epp-coverage role="status" aria-live="polite"></p>
+      <div class="epp-sector-grid">
+        {% for sector in eligibility.sectores %}
+          <div class="epp-sector" data-epp-sector>
+            <label class="epp-sector-all">
+              <input type="checkbox" name="habilitacion" value="{{ sector.id }}" data-epp-sector-all {% if sector.todo %}checked{% endif %}>
+              <span><strong>{{ sector.nombre }}</strong> <small>todo el sector · {{ sector.empleados }} empleado{{ '' if sector.empleados == 1 else 's' }}</small></span>
+            </label>
+            {% if sector.puestos %}
+              <div class="epp-sector-puestos">
+                {% for puesto in sector.puestos %}
+                  <label class="{{ 'epp-sin-empleados' if not puesto.empleados }}">
+                    <input type="checkbox" name="habilitacion" value="{{ sector.id }}:{{ puesto.id }}" {% if puesto.marcado %}checked{% endif %}>
+                    <span>{{ puesto.nombre }} <small>{{ puesto.empleados if puesto.empleados else 'sin empleados' }}</small></span>
+                  </label>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+        {% if eligibility.cualquier_sector %}
+          <div class="epp-sector">
+            <span class="epp-sector-all"><strong>Puesto en cualquier sector</strong></span>
+            <div class="epp-sector-puestos">
+              {% for puesto in eligibility.cualquier_sector %}
+                <label><input type="checkbox" name="habilitacion" value=":{{ puesto.id }}" checked><span>{{ puesto.nombre }}</span></label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+      <script type="application/json" data-epp-coverage-data>{{ eligibility.empleados | tojson }}</script>
+    </fieldset>
     <footer class="epp-form-footer"><span>Completá el nombre, la categoría y los talles para guardar.</span><button class="btn" type="submit">{{ 'Guardar cambios' if selected else 'Guardar artículo' }}</button></footer>
   </form>
 </section>

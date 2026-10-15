@@ -159,7 +159,7 @@ def client(database,monkeypatch):
     app=Flask(__name__,template_folder=str(Path(__file__).resolve().parents[1]/'templates'))
     app.secret_key='test'; app.config['TESTING']=True
     app.register_blueprint(web.seguridad_web_bp);app.register_blueprint(mobile.seguridad_mobile_bp)
-    app.jinja_env.globals.update(csrf_token=lambda:'test',can_web=lambda code,*args:code=='seguridad_higiene',export_toolbar={'enabled':False,'items':[]})
+    app.jinja_env.globals.update(csp_nonce=lambda: 'test-nonce', csrf_token=lambda:'test',can_web=lambda code,*args:code=='seguridad_higiene',export_toolbar={'enabled':False,'items':[]})
     monkeypatch.setattr(auth,'can_access_module',lambda *args:True)
     monkeypatch.setattr(carga_web,'get_user',lambda uid:dict(id=uid,empresa_id=1,rol='supervisor',activo=1))
     monkeypatch.setattr(jwt,'verificar_token',lambda token:dict(empleado_id=int(token)))

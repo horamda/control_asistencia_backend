@@ -217,7 +217,7 @@ def client(database, monkeypatch):
     monkeypatch.setattr(web, 'get_user', lambda uid: {'id': uid, 'empresa_id': 1, 'rol': 'supervisor', 'activo': 1})
     monkeypatch.setattr(auth, 'can_access_module', lambda uid, module, action='ver': action == 'ver')
     monkeypatch.setattr(web, 'can_access_module', lambda uid, module, action='ver': action == 'ver')
-    app.jinja_env.globals.update(csrf_token=lambda: 'test', can_web=lambda *a: False, export_toolbar={'enabled': False, 'items': []})
+    app.jinja_env.globals.update(csp_nonce=lambda: 'test-nonce', csrf_token=lambda: 'test', can_web=lambda *a: False, export_toolbar={'enabled': False, 'items': []})
     return app.test_client()
 
 

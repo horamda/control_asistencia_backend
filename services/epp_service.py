@@ -19,7 +19,7 @@ def dumps(value):
 
 
 def decode(row):
-    for key in ("talles", "sectores", "puestos"):
+    for key in ("talles", "sectores", "puestos", "habilitaciones"):
         if key in row and isinstance(row[key], str):
             row[key] = json.loads(row[key])
     return row
@@ -64,6 +64,15 @@ def employee(c, who, eid, lock=False):
     )
     if not row:
         raise Error("Empleado no encontrado.", 404)
+    # Los puestos adicionales (otro sector/puesto) tambien habilitan articulos.
+    row["puestos_adicionales"] = [
+        (r["sector_id"], r["puesto_id"])
+        for r in db.all_rows(
+            c,
+            "SELECT sector_id,puesto_id FROM empleado_puestos WHERE empleado_id=%s AND activo=1",
+            (row["id"],),
+        )
+    ]
     if who.get("mode") == "empleado":
         allowed = row["id"] == who["empleado_id"]
     else:
@@ -77,12 +86,70 @@ def employee(c, who, eid, lock=False):
     return row
 
 
+def rules(article):
+    """Reglas de disponibilidad [(sector|None, puesto|None)]; vacio = todos.
+    puesto None = todo el sector; sector None = ese puesto en cualquier sector."""
+    stored = article.get("habilitaciones")
+    if stored is not None:
+        return [(r.get("s"), r.get("p")) for r in stored]
+    sectores, puestos = article.get("sectores") or [], article.get("puestos") or []
+    if sectores and puestos:  # articulo previo a la migracion: producto de listas
+        return [(sec, pue) for sec in sectores for pue in puestos]
+    return [(sec, None) for sec in sectores] + [(None, pue) for pue in puestos]
+
+
+def employee_pairs(emp):
+    return {(emp["sector_id"], emp["puesto_id"]), *map(tuple, emp.get("puestos_adicionales") or [])}
+
+
 def available(article, emp):
-    return (
-        article["activo"]
-        and (not article["sectores"] or emp["sector_id"] in article["sectores"])
-        and (not article["puestos"] or emp["puesto_id"] in article["puestos"])
+    if not article["activo"]:
+        return False
+    reglas = rules(article)
+    if not reglas:
+        return True
+    return any(
+        (sec is None or sec == e_sec) and (pue is None or pue == e_pue)
+        for sec, pue in reglas
+        for e_sec, e_pue in employee_pairs(emp)
     )
+
+
+def _parse_rule(value):
+    """'S' = todo el sector, 'S:P' = puesto dentro del sector, ':P' = puesto en cualquier sector."""
+    if isinstance(value, dict):
+        sec, pue = value.get("s"), value.get("p")
+    else:
+        sec, _, pue = str(value).partition(":")
+    sec = positive_int(sec, "Sector") if sec not in (None, "") else None
+    pue = positive_int(pue, "Puesto") if pue not in (None, "") else None
+    if sec is None and pue is None:
+        raise Error("Selección de sectores/puestos inválida.")
+    return sec, pue
+
+
+def article_rules(c, who, data):
+    if "habilitaciones" in data:
+        raw = data.get("habilitaciones") or []
+        if not isinstance(raw, list) or len(raw) > 500:
+            raise Error("Selección de sectores/puestos inválida.")
+        parsed = [_parse_rule(v) for v in raw]
+    else:  # formato anterior (API y tests): dos listas que se combinan
+        for field in ("sectores", "puestos"):
+            ids = data.get(field, [])
+            if not isinstance(ids, list) or len(ids) > 500:
+                raise Error("Selección de sectores/puestos inválida.")
+        parsed = rules(dict(sectores=[positive_int(i, "Sector") for i in data.get("sectores", [])],
+                            puestos=[positive_int(i, "Puesto") for i in data.get("puestos", [])]))
+    for table, ids in (("sectores", {sec for sec, _ in parsed if sec}), ("puestos", {pue for _, pue in parsed if pue})):
+        for rid in ids:
+            if not db.one(c, f"SELECT id FROM {table} WHERE id=%s AND empresa_id=%s", (rid, who["empresa_id"])):
+                raise Error("Sector/puesto ajeno a la empresa.")
+    whole = {sec for sec, pue in parsed if pue is None}
+    # Un sector completo ya incluye sus puestos: no se guardan repetidos.
+    cleaned = sorted({(sec, pue) for sec, pue in parsed if pue is None or sec not in whole},
+                     key=lambda r: (r[0] or 0, r[1] or 0))
+    return [{"s": sec, "p": pue} for sec, pue in cleaned]
 
 
 def catalogs(who, eid=None):
@@ -92,7 +159,7 @@ def catalogs(who, eid=None):
             decode(r)
             for r in db.all_rows(
                 c,
-                "SELECT id,nombre,categoria,descripcion,activo,talles,sectores,puestos,aviso_anual,(imagen IS NOT NULL) tiene_imagen FROM epp_articulos WHERE empresa_id=%s ORDER BY nombre",
+                "SELECT id,nombre,categoria,descripcion,activo,talles,sectores,puestos,habilitaciones,aviso_anual,(imagen IS NOT NULL) tiene_imagen FROM epp_articulos WHERE empresa_id=%s ORDER BY nombre",
                 (who["empresa_id"],),
             )
         ]
@@ -127,19 +194,11 @@ def save_article(who, data, photo=None):
             (who["empresa_id"], values["categoria"]),
         ):
             raise Error("Seleccione una categoría activa.")
-        for field, table in [("sectores", "sectores"), ("puestos", "puestos")]:
-            ids = data.get(field, [])
-            if not isinstance(ids, list) or len(ids) > 500:
-                raise Error("Selección de sectores/puestos inválida.")
-            ids = list(dict.fromkeys(positive_int(i, field) for i in ids))
-            for rid in ids:
-                if not db.one(
-                    c,
-                    f"SELECT id FROM {table} WHERE id=%s AND empresa_id=%s",
-                    (rid, who["empresa_id"]),
-                ):
-                    raise Error("Sector/puesto ajeno a la empresa.")
-            values[field] = dumps(ids)
+        reglas = article_rules(c, who, data)
+        values["habilitaciones"] = dumps(reglas)
+        # Listas derivadas: se conservan para la API (informativas).
+        values["sectores"] = dumps(sorted({r["s"] for r in reglas if r["s"]}))
+        values["puestos"] = dumps(sorted({r["p"] for r in reglas if r["p"]}))
         rid = positive_int(data["id"], "Artículo") if data.get("id") else None
         if rid:
             if not db.one(

@@ -243,6 +243,7 @@ def test_render_operational_templates(database,monkeypatch):
     app=Flask(__name__);app.secret_key='test';app.register_blueprint(web.skap_matriz_bp)
     app.jinja_loader=ChoiceLoader([DictLoader({'base.html':'{% block content %}{% endblock %}'}),FileSystemLoader(str(Path(__file__).parents[1]/'templates'))])
     app.jinja_env.globals['csrf_token']=lambda:'test'
+    app.jinja_env.globals['csp_nonce'] = lambda: 'test-nonce'
     client=app.test_client()
     with client.session_transaction() as s:s['user_id']=99
     for path in ['/skap/matrices','/skap/matrices/importar',f'/skap/matrices/importaciones/{batch}',f"/skap/matrices/{result['creadas'][0]}"]:
