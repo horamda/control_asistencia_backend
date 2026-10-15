@@ -13,6 +13,7 @@ from scripts.migrate_20261015_03_egreso_automatico import migrate_ejecuciones as
 from scripts.migrate_20261016_01_reuniones import migrate_cursor as migrate_meetings
 from scripts.migrate_20261016_02_reuniones_sucursales import migrate_cursor as migrate_meeting_branches
 from scripts.migrate_20261016_03_feriados import migrate_cursor as migrate_holidays
+from scripts.migrate_20261016_03_feriados import migrate_unificar as migrate_holidays_calendar
 
 
 def main():
@@ -92,6 +93,14 @@ def main():
         if not cursor.fetchone():
             cursor.execute('SET SESSION lock_wait_timeout=5')
             migrate_holidays(cursor)
+            cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
+            db.commit()
+        version = '20261016_feriados_calendario'
+        cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
+        if not cursor.fetchone():
+            cursor.execute('SET SESSION lock_wait_timeout=5')
+            migrate_holidays(cursor)
+            migrate_holidays_calendar(cursor)
             cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
             db.commit()
     finally:

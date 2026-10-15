@@ -733,6 +733,12 @@ def reportes_dias_no_laborables_guardar():
         sector_id=sector_id,
         actor_id=session.get("user_id"),
     )
+    # Las reuniones usan este mismo calendario: las fechas futuras se recalculan.
+    try:
+        from services.feriado_service import reprogramar_reuniones
+        reprogramar_reuniones(empresa_id, datetime.date(year, month, 1))
+    except Exception:
+        current_app.logger.warning("reuniones_reprogramar_error", exc_info=True)
     args = _report_scope_args()
     args["msg"] = "Dias no laborables guardados."
     return redirect(url_for("asistencias.reportes_mensuales", **args))

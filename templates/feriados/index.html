@@ -7,12 +7,16 @@
 {% block content %}
 <div class="content-stack epp-page reu-page">
   <header>
-    <h2>Feriados</h2>
-    <p>Calendario de feriados de la empresa. Las reuniones que caen en un feriado se posponen al siguiente día hábil (o se omiten, según cada reunión).</p>
+    <h2>Feriados y días no laborables</h2>
+    <p>
+      Es el mismo calendario de <a href="/asistencias/reportes">Días laborables / no laborables</a> del reporte mensual:
+      lo que se marca acá o allá se usa en los reportes de asistencia y en las reuniones (que se posponen al siguiente día hábil o se omiten, según cada una).
+    </p>
   </header>
 
   <form method="get" class="epp-staff-search" action="{{ url_for('feriados.index') }}">
     <label>Año<input type="number" name="anio" min="2000" max="2100" value="{{ anio }}"></label>
+    <label class="reu-check"><input type="checkbox" name="domingos" value="1" {{ 'checked' if domingos }}> Mostrar domingos</label>
     <button class="btn" type="submit">Ver</button>
     {% if can_web('horarios', 'crear') %}
       <button class="btn btn-secondary" type="submit" form="feriados-importar">Importar feriados nacionales {{ anio }}</button>
@@ -27,15 +31,15 @@
 
   {% if can_web('horarios', 'crear') %}
   <section class="epp-card">
-    <h3>Agregar feriado</h3>
-    <p class="helper-text">Para feriados provinciales, municipales, días no laborables que la empresa respete (por ejemplo, un puente turístico) o el día de una sucursal.</p>
+    <h3>Agregar día no laborable</h3>
+    <p class="helper-text">Feriados provinciales o municipales, un puente turístico que la empresa respete o el día de una sucursal. Los feriados nacionales se importan con el botón de arriba (y nombran los días que ya estaban marcados).</p>
     <form method="post" class="epp-staff-search" action="{{ url_for('feriados.nuevo') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>Fecha<input type="date" name="fecha" required></label>
-      <label>Nombre<input name="nombre" required maxlength="150" placeholder="Ej.: Día del empleado de comercio"></label>
+      <label>Nombre<input name="nombre" required maxlength="255" placeholder="Ej.: Día del empleado de comercio"></label>
       <label>Aplica a
         <select name="sucursal_id">
-          <option value="">Todas las sucursales</option>
+          <option value="">Toda la empresa</option>
           {% for su in sucursales %}<option value="{{ su.id }}">Solo {{ su.nombre }}</option>{% endfor %}
         </select>
       </label>
@@ -45,23 +49,37 @@
   {% endif %}
 
   <section class="epp-card">
-    <h3>Feriados {{ anio }}</h3>
-    {% if feriados %}
+    <h3>{{ anio }}: {{ visibles|length }} día{{ '' if visibles|length == 1 else 's' }}{% if not domingos and ocultos %} <small class="helper-text">({{ ocultos }} domingos ocultos)</small>{% endif %}</h3>
+    {% if visibles %}
       <div class="table-responsive table-cards">
         <table>
-          <thead><tr><th>Fecha</th><th>Nombre</th><th>Aplica a</th><th>Origen</th>{% if can_web('horarios', 'eliminar') %}<th></th>{% endif %}</tr></thead>
+          <thead><tr><th>Fecha</th><th>Nombre</th><th>Aplica a</th>{% if can_web('horarios', 'eliminar') %}<th></th>{% endif %}</tr></thead>
           <tbody>
-            {% for f in feriados %}
+            {% for f in visibles %}
               <tr>
                 <td data-label="Fecha">{{ (f.fecha|dia_semana)[:3] }} {{ f.fecha.strftime('%d/%m/%Y') }}{% if f.fecha == hoy %} <span class="chip">Hoy</span>{% endif %}</td>
-                <td data-label="Nombre">{{ f.nombre }}</td>
-                <td data-label="Aplica a">{{ f.sucursal_nombre or 'Todas las sucursales' }}</td>
-                <td data-label="Origen">{{ 'Calendario nacional' if f.origen == 'importado' else 'Cargado a mano' }}</td>
+                <td data-label="Nombre">
+                  {% if can_web('horarios', 'editar') %}
+                    <form method="post" class="reu-inline-form" action="{{ url_for('feriados.renombrar', feriado_id=f.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input name="nombre" maxlength="255" value="{{ f.motivo or '' }}" placeholder="Sin nombre" aria-label="Nombre del {{ f.fecha.strftime('%d/%m') }}">
+                      <button class="btn btn-secondary" type="submit">Guardar</button>
+                    </form>
+                  {% else %}
+                    {{ f.motivo or 'Día no laborable' }}
+                  {% endif %}
+                </td>
+                <td data-label="Aplica a">
+                  {% if f.sector_id %}Sector {{ f.sector_nombre or f.sector_id }} <small class="helper-text">(solo reportes)</small>
+                  {% elif f.sucursal_id %}{{ f.sucursal_nombre or ('Sucursal ' ~ f.sucursal_id) }}
+                  {% elif f.empresa_id %}Toda la empresa
+                  {% else %}Todas las empresas{% endif %}
+                </td>
                 {% if can_web('horarios', 'eliminar') %}
                   <td data-label="">
                     <form method="post" class="reu-inline-form" action="{{ url_for('feriados.eliminar', feriado_id=f.id) }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <button class="btn btn-secondary" type="submit" data-confirm="¿Quitar el feriado {{ f.nombre }} del {{ f.fecha.strftime('%d/%m/%Y') }}? Las reuniones de ese día vuelven a su fecha normal.">Quitar</button>
+                      <button class="btn btn-secondary" type="submit" data-confirm="¿El {{ f.fecha.strftime('%d/%m/%Y') }} vuelve a ser laborable? Afecta los reportes y las reuniones de ese día.">Quitar</button>
                     </form>
                   </td>
                 {% endif %}
@@ -71,7 +89,7 @@
         </table>
       </div>
     {% else %}
-      <div class="empty-state">No hay feriados cargados para {{ anio }}. Importá los nacionales con el botón de arriba.</div>
+      <div class="empty-state">No hay días no laborables cargados para {{ anio }}. Importá los feriados nacionales con el botón de arriba.</div>
     {% endif %}
   </section>
 </div>

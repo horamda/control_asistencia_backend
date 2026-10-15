@@ -92,9 +92,12 @@ def replace_month_dates(
     db = get_db()
     cursor = db.cursor()
     try:
+        # Solo se agregan y quitan las fechas que cambiaron: los dias que siguen marcados
+        # conservan su motivo (nombre del feriado), que usan las reuniones y la app.
         cursor.execute(
             """
-            DELETE FROM asistencia_dias_no_laborables
+            SELECT fecha
+            FROM asistencia_dias_no_laborables
             WHERE empresa_id = %s
               AND sucursal_id = %s
               AND sector_id = %s
@@ -102,7 +105,18 @@ def replace_month_dates(
             """,
             (emp, suc, sec, first.isoformat(), last.isoformat()),
         )
-        if normalized:
+        actuales = {row[0].isoformat() if hasattr(row[0], "isoformat") else str(row[0]) for row in cursor.fetchall()}
+        quitar = sorted(actuales - set(normalized))
+        agregar = sorted(set(normalized) - actuales)
+        if quitar:
+            cursor.executemany(
+                """
+                DELETE FROM asistencia_dias_no_laborables
+                WHERE empresa_id = %s AND sucursal_id = %s AND sector_id = %s AND fecha = %s
+                """,
+                [(emp, suc, sec, fecha) for fecha in quitar],
+            )
+        if agregar:
             cursor.executemany(
                 """
                 INSERT INTO asistencia_dias_no_laborables (
@@ -114,7 +128,7 @@ def replace_month_dates(
                 )
                 VALUES (%s, %s, %s, %s, %s)
                 """,
-                [(emp, suc, sec, fecha, actor_id) for fecha in normalized],
+                [(emp, suc, sec, fecha, actor_id) for fecha in agregar],
             )
         db.commit()
         return len(normalized)

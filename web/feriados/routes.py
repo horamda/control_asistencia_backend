@@ -1,4 +1,4 @@
-"""Calendario de feriados: nacionales importados, de la empresa o de una sucursal."""
+"""Feriados y dias no laborables (el calendario del reporte mensual), con nombre."""
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
 
@@ -44,8 +44,12 @@ def private(response):
 def index():
     actor = who()
     anio = _anio(request.args.get("anio"))
-    return render_template("feriados/index.html", feriados=s.listar(actor, anio), anio=anio,
-                           sucursales=reunion_service.sucursales(actor), hoy=now_local().date())
+    domingos = request.args.get("domingos") == "1"
+    feriados = s.listar(actor, anio)
+    # Los domingos marcados (habituales en el calendario) se ocultan salvo que tengan nombre.
+    visibles = [f for f in feriados if domingos or f["fecha"].weekday() != 6 or f["motivo"]]
+    return render_template("feriados/index.html", visibles=visibles, ocultos=len(feriados) - len(visibles), anio=anio,
+                           domingos=domingos, sucursales=reunion_service.sucursales(actor), hoy=now_local().date())
 
 
 @feriados_bp.post("/nuevo")
@@ -57,12 +61,21 @@ def nuevo():
     return redirect(url_for("feriados.index", anio=fecha.year))
 
 
+@feriados_bp.post("/<int:feriado_id>/nombre")
+@permission_required("horarios", "editar")
+def renombrar(feriado_id):
+    row = s.renombrar(who(), feriado_id, request.form.get("nombre"))
+    log_audit(session, "feriado_renombrar", "feriados", feriado_id)
+    flash("Nombre actualizado.", "success")
+    return redirect(url_for("feriados.index", anio=row["fecha"].year))
+
+
 @feriados_bp.post("/<int:feriado_id>/eliminar")
 @permission_required("horarios", "eliminar")
 def eliminar(feriado_id):
     row = s.eliminar(who(), feriado_id)
     log_audit(session, "feriado_eliminar", "feriados", feriado_id)
-    flash(f"Feriado del {row['fecha']:%d/%m/%Y} eliminado.", "success")
+    flash(f"El {row['fecha']:%d/%m/%Y} vuelve a ser laborable.", "success")
     return redirect(url_for("feriados.index", anio=row["fecha"].year))
 
 
@@ -72,5 +85,6 @@ def importar():
     anio = _anio(request.form.get("anio"))
     resultado = s.importar_nacionales(who(), anio)
     log_audit(session, "feriados_importar", "feriados", None)
-    flash(f"Feriados nacionales {anio}: {resultado['nuevos']} nuevos, {resultado['existentes']} ya estaban.", "success")
+    flash(f"Feriados nacionales {anio}: {resultado['nuevos']} marcados, {resultado['nombrados']} ya marcados recibieron "
+          f"su nombre y {resultado['existentes']} ya estaban.", "success")
     return redirect(url_for("feriados.index", anio=anio))

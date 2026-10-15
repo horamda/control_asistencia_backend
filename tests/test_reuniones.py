@@ -105,15 +105,18 @@ def reuniones_db(database, monkeypatch):  # noqa: F811
         " VALUES (14, 1, 1, 2, 2, 1, '0014', 'No', 'Convocado')",
         "INSERT INTO vacaciones (empleado_id, fecha_desde, fecha_hasta) VALUES (12, '2026-10-10', '2026-10-20')",
         "UPDATE sucursales SET empresa_id=2 WHERE id=3",
+        (Path(__file__).resolve().parents[1] / "migrations/20260723_02_asistencia_dias_no_laborables.sql")
+        .read_text(encoding="utf-8").strip().rstrip(";"),
     ]:
         c.execute(sql)
     from scripts.migrate_20261016_01_reuniones import migrate_cursor
     from scripts.migrate_20261016_02_reuniones_sucursales import migrate_cursor as migrate_sedes
-    from scripts.migrate_20261016_03_feriados import migrate_cursor as migrate_feriados
+    from scripts.migrate_20261016_03_feriados import migrate_cursor as migrate_feriados, migrate_unificar
     for _ in range(2):  # idempotentes
         migrate_cursor(c)
         migrate_sedes(c)
         migrate_feriados(c)
+        migrate_unificar(c)
     conn.commit()
     c.close()
     conn.close()
@@ -473,14 +476,18 @@ def test_feriados_en_reuniones_y_sucursales(reuniones_db):
     datos = [{"fecha": "2026-10-12", "tipo": "trasladable", "nombre": "Diversidad Cultural"},
              {"fecha": "2026-03-23", "tipo": "puente", "nombre": "Puente turístico"},
              {"fecha": "2027-01-01", "tipo": "inamovible", "nombre": "Otro año"}]
-    assert fer.importar_nacionales(ADMIN, 2026, fetch=lambda anio: datos) == {"nuevos": 1, "existentes": 0, "omitidos": 2}
+    # Como en produccion: el 12/10 ya estaba marcado en el calendario del reporte, sin nombre.
+    with svc.db.transaction() as c:
+        c.execute("INSERT INTO asistencia_dias_no_laborables (empresa_id, sucursal_id, sector_id, fecha) VALUES (0,0,0,'2026-10-12')")
+    assert fer.importar_nacionales(ADMIN, 2026, fetch=lambda anio: datos) == {
+        "nuevos": 0, "nombrados": 1, "existentes": 0, "omitidos": 2}
     assert fer.importar_nacionales(ADMIN, 2026, fetch=lambda anio: datos)["existentes"] == 1
     with pytest.raises(svc.Error, match="calendario oficial"):
         fer.importar_nacionales(ADMIN, 2026, fetch=lambda anio: (_ for _ in ()).throw(OSError("sin red")))
     fer.guardar(ADMIN, dict(fecha="2026-10-19", nombre="Aniversario Norte", sucursal_id="2"))
-    with pytest.raises(svc.Error, match="Ya hay un feriado"):
+    with pytest.raises(svc.Error, match="ya está marcado"):
         fer.guardar(ADMIN, dict(fecha="2026-10-19", nombre="Repetido", sucursal_id="2"))
-    assert [f["nombre"] for f in fer.listar(ADMIN, 2026)] == ["Diversidad Cultural", "Aniversario Norte"]
+    assert [f["motivo"] for f in fer.listar(ADMIN, 2026)] == ["Diversidad Cultural", "Aniversario Norte"]
 
     AHORA["valor"] = dt.datetime(2026, 10, 1, 8, 0)
     rid = crear(dias_semana=["0"], reglas=["todos"], empleados=[], qr_modo="fijo",
@@ -510,7 +517,7 @@ def test_feriados_en_reuniones_y_sucursales(reuniones_db):
     with svc.db.transaction() as c:
         norte_sede = svc.sede(c, svc.obtener(c, ADMIN, rid), 2)
         assert svc.ocurrencia(c, norte_sede, D(2026, 10, 20))["fecha_original"] == D(2026, 10, 19)
-        feriado_id = svc.db.one(c, "SELECT id FROM feriados WHERE nombre='Aniversario Norte'")["id"]
+        feriado_id = svc.db.one(c, "SELECT id FROM asistencia_dias_no_laborables WHERE motivo='Aniversario Norte'")["id"]
     fer.eliminar(ADMIN, feriado_id)
     assert [p["fecha"] for p in svc.proximas(emp(12), 10)["items"]][-1] == "2026-10-19"
     with svc.db.transaction(read_only=True) as c:
@@ -529,7 +536,49 @@ def test_pantalla_feriados(client, monkeypatch):
     assert client.post("/feriados/importar", data={"anio": "2026"}).status_code == 302
     assert client.post("/feriados/nuevo", data={"fecha": "2026-11-09", "nombre": "Comercio", "sucursal_id": ""}).status_code == 302
     html = client.get("/feriados/?anio=2026").get_data(as_text=True)
-    assert "Revolución de Mayo" in html and "Comercio" in html and "Calendario nacional" in html
+    assert 'value="Revolución de Mayo"' in html and 'value="Comercio"' in html
+    assert "Todas las empresas" in html and "Toda la empresa" in html
     r = client.post("/feriados/nuevo", data={"fecha": "mal", "nombre": "X"})
     assert r.status_code == 302 and client.get(r.headers["Location"]).status_code == 200
     assert 'name="feriado_accion"' in client.get("/reuniones/nueva").get_data(as_text=True)
+
+
+def test_calendario_mensual_conserva_nombres_y_mueve_reuniones(reuniones_db, monkeypatch):
+    from repositories import asistencia_dia_no_laborable_repository as repo
+    from services import feriado_service as fer
+    monkeypatch.setattr(repo, "get_db", reuniones_db)
+    fer.importar_nacionales(ADMIN, 2026, fetch=lambda anio: [{"fecha": "2026-10-12", "tipo": "trasladable",
+                                                              "nombre": "Diversidad Cultural"}])
+    # El editor del reporte mensual guarda el mes completo: el dia que sigue marcado conserva su nombre.
+    repo.replace_month_dates(year=2026, month=10, dates={"2026-10-12", "2026-10-26"}, empresa_id=0)
+    assert repo.get_dates(year=2026, month=10, empresa_id=1) == {"2026-10-12", "2026-10-26"}
+    with svc.db.transaction() as c:
+        nombres = {str(r["fecha"]): r["motivo"] for r in svc.db.all_rows(c, "SELECT fecha, motivo FROM asistencia_dias_no_laborables")}
+        assert nombres == {"2026-10-12": "Diversidad Cultural", "2026-10-26": None}
+        # Las reuniones toman el mismo calendario; los dias de un solo sector no mueven la reunion.
+        c.execute("INSERT INTO asistencia_dias_no_laborables (empresa_id, sucursal_id, sector_id, fecha) VALUES (1,0,1,'2026-10-19')")
+    with svc.db.transaction(read_only=True) as c:
+        assert fer.de_sucursal(fer.mapa(c, 1), 1) == {D(2026, 10, 12): "Diversidad Cultural", D(2026, 10, 26): "Día no laborable"}
+    AHORA["valor"] = dt.datetime(2026, 10, 1, 8, 0)
+    crear(dias_semana=["0"], reglas=["todos"], empleados=[])
+    assert [p["fecha"] for p in svc.proximas(emp(10), 31)["items"]] == [
+        "2026-10-05", "2026-10-13", "2026-10-19", "2026-10-27"]
+    assert len(fer.listar(ADMIN, 2026)) == 3  # incluye el de sector (se muestra en la pantalla)
+
+
+def test_migracion_traspasa_la_tabla_feriados_anterior(reuniones_db):
+    from scripts.migrate_20261016_03_feriados import migrate_unificar
+    conn = reuniones_db()
+    c = conn.cursor()
+    c.execute("CREATE TABLE feriados (id INT PRIMARY KEY, empresa_id INT, sucursal_id INT, fecha DATE, nombre VARCHAR(150), creado_por INT)")
+    c.execute("INSERT INTO asistencia_dias_no_laborables (empresa_id, sucursal_id, sector_id, fecha) VALUES (1,0,0,'2026-11-11')")
+    c.execute("INSERT INTO feriados VALUES (1,1,0,'2026-11-11','San Martín de Tours',99), (2,1,2,'2026-11-20','Aniversario',99)")
+    migrate_unificar(c)
+    migrate_unificar(c)  # ya no existe: no hace nada
+    c.execute("SELECT fecha, sucursal_id, motivo FROM asistencia_dias_no_laborables ORDER BY fecha")
+    assert [(str(f), s, m) for f, s, m in c.fetchall()] == [("2026-11-11", 0, "San Martín de Tours"), ("2026-11-20", 2, "Aniversario")]
+    c.execute("SHOW TABLES LIKE 'feriados'")
+    assert c.fetchall() == []
+    conn.commit()
+    c.close()
+    conn.close()
