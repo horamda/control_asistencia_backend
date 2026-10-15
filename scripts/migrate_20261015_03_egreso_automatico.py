@@ -36,6 +36,27 @@ def migrate_cursor(cursor):
             cursor.execute(f"ALTER TABLE configuracion_empresa ADD COLUMN {name} {definition}")
 
 
+def migrate_metodo_salida(cursor):
+    """asistencias.metodo_salida es ENUM: se agrega 'automatico' al final
+    (conserva los valores existentes; en MySQL es un cambio solo de metadatos)."""
+    cursor.execute(
+        "SELECT COLUMN_TYPE, IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() "
+        "AND TABLE_NAME='asistencias' AND COLUMN_NAME='metodo_salida'"
+    )
+    row = cursor.fetchone()
+    if not row:
+        return
+    column_type, nullable = (list(row.values()) if isinstance(row, dict) else list(row))[:2]
+    if isinstance(column_type, (bytes, bytearray)):
+        column_type = column_type.decode("utf-8")
+    if not str(column_type).lower().startswith("enum(") or "'automatico'" in str(column_type):
+        return  # texto libre o ya migrado
+    nuevo = str(column_type)[:-1] + ",'automatico')"
+    cursor.execute(
+        f"ALTER TABLE asistencias MODIFY metodo_salida {nuevo} {'NULL' if nullable == 'YES' else 'NOT NULL'}"
+    )
+
+
 if __name__ == "__main__":
     from db import init_orm
     from extensions import get_db
@@ -45,6 +66,7 @@ if __name__ == "__main__":
     try:
         cursor.execute("SET SESSION lock_wait_timeout=5")
         migrate_cursor(cursor)
+        migrate_metodo_salida(cursor)
         connection.commit()
         print("Parametros de egreso automatico instalados.")
     finally:

@@ -41,7 +41,8 @@ def jornadas(database, monkeypatch):  # noqa: F811
         "CREATE TABLE configuracion_empresa (empresa_id INT PRIMARY KEY, egreso_automatico_activo TINYINT NOT NULL DEFAULT 1,"
         " egreso_automatico_horas DECIMAL(4,2) NOT NULL DEFAULT 8)",
         "CREATE TABLE asistencias (id INT AUTO_INCREMENT PRIMARY KEY, empresa_id INT, empleado_id INT, fecha DATE,"
-        " hora_entrada TIME NULL, hora_salida TIME NULL, metodo_entrada VARCHAR(20), metodo_salida VARCHAR(20) NULL,"
+        " hora_entrada TIME NULL, hora_salida TIME NULL, metodo_entrada ENUM('qr','manual','facial') NULL,"
+        " metodo_salida ENUM('qr','manual','facial') NULL,"
         " estado VARCHAR(30), observaciones TEXT NULL)",
         "CREATE TABLE asistencia_marcas (id BIGINT AUTO_INCREMENT PRIMARY KEY, empresa_id INT, empleado_id INT,"
         " asistencia_id INT NULL, fecha DATE, hora TIME, accion VARCHAR(10), metodo VARCHAR(20), tipo_marca VARCHAR(20),"
@@ -62,6 +63,10 @@ def jornadas(database, monkeypatch):  # noqa: F811
         " (1,10,1,'2026-10-13','08:02','ingreso','qr','jornada'), (1,11,2,'2026-10-13','09:00','ingreso','qr','jornada')",
     ]:
         c.execute(sql)
+    # Igual que en produccion: metodo_salida es ENUM y la migracion agrega 'automatico'.
+    from scripts.migrate_20261015_03_egreso_automatico import migrate_metodo_salida
+    migrate_metodo_salida(c)
+    migrate_metodo_salida(c)  # idempotente
     conn.commit()
     c.close()
     conn.close()
