@@ -106,6 +106,11 @@ def extract_qr_token(raw_token: str | None) -> str:
             "qr_token requerido para metodo qr.",
             "qr_token_required",
         )
+    if value.lower().startswith("fichaya://reunion"):
+        raise QRTokenValidationError(
+            "Este QR es de una reunión: registrá tu asistencia desde la sección Reuniones.",
+            "qr_token_reunion",
+        )
 
     if value.lower().startswith("bearer "):
         value = value[7:].strip()

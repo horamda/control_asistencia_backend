@@ -1,0 +1,8 @@
+{% extends 'reuniones/layout.html' %}
+{% block reuniones_content %}
+<section class="epp-card">
+  <h3>No se pudo completar la operación</h3>
+  <p>{{ message }}</p>
+  <a class="btn btn-secondary" href="{{ url_for('reuniones.index') }}">Volver a reuniones</a>
+</section>
+{% endblock %}

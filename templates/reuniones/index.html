@@ -1,0 +1,64 @@
+{% extends 'reuniones/layout.html' %}
+{% block reuniones_content %}
+{% set activas = reuniones|selectattr('activa')|list %}
+<div class="grid-kpis">
+  <div class="kpi-card">
+    <div class="kpi-label">Reuniones activas</div>
+    <div class="kpi-value">{{ activas|length }}</div>
+    <div class="helper-text">{{ reuniones|length - activas|length }} inactivas</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Hoy</div>
+    <div class="kpi-value">{{ reuniones|selectattr('hoy')|list|length }}</div>
+    <div class="helper-text">Reuniones programadas para hoy</div>
+  </div>
+  {% set p = total.asistencia_pct %}
+  <div class="kpi-card {% if p is none %}{% elif p >= 90 %}tone-ok{% elif p >= 75 %}tone-warn{% else %}tone-bad{% endif %}">
+    <div class="kpi-label">Asistencia (30 días)</div>
+    <div class="kpi-value">{{ '%g'|format(p) ~ '%' if p is not none else '—' }}</div>
+    <div class="helper-text">{{ total.asistidas }} de {{ total.convocatorias - total.justificados }} convocatorias · {{ total.tarde }} tarde</div>
+  </div>
+</div>
+
+<form method="get" action="{{ url_for('reuniones.index') }}" class="epp-staff-search">
+  <label>Buscar<input type="search" name="q" value="{{ filtros.q }}" placeholder="Nombre o lugar"></label>
+  <label>Estado
+    <select name="estado">
+      <option value="">Todas</option>
+      <option value="activas" {{ 'selected' if filtros.estado == 'activas' }}>Activas</option>
+      <option value="inactivas" {{ 'selected' if filtros.estado == 'inactivas' }}>Inactivas</option>
+    </select>
+  </label>
+  <button class="btn" type="submit">Filtrar</button>
+</form>
+
+{% if reuniones %}
+  <div class="epp-cards reu-cards">
+    {% for r in reuniones %}
+      <article class="epp-card reu-card">
+        <div class="epp-product-meta">
+          <span>{{ r.lugar or 'Sin lugar' }}</span>
+          <span class="epp-status {{ 'is-active' if r.activa }}">{{ 'Activa' if r.activa else 'Inactiva' }}</span>
+        </div>
+        <h3><a href="{{ url_for('reuniones.detalle', reunion_id=r.id) }}">{{ r.nombre }}</a></h3>
+        <p class="reu-when">{{ r.descripcion_frecuencia }}</p>
+        <dl class="reu-facts">
+          <div><dt>Convocados</dt><dd>{{ r.convocados }}</dd></div>
+          <div><dt>Próxima</dt><dd>{% if r.hoy %}<strong>Hoy</strong>{% elif r.proxima %}{{ r.proxima.strftime('%d/%m') }}{% else %}—{% endif %}</dd></div>
+          <div><dt>Asistencia 30 d</dt><dd>{{ '%g'|format(r.stats.asistencia_pct) ~ '%' if r.stats and r.stats.asistencia_pct is not none else '—' }}</dd></div>
+        </dl>
+        <div class="reu-card-actions">
+          <a class="btn btn-secondary" href="{{ url_for('reuniones.detalle', reunion_id=r.id) }}">Ver detalle</a>
+          <a class="btn btn-secondary" href="{{ url_for('reuniones.qr', reunion_id=r.id) }}">QR</a>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="epp-card epp-catalog-empty">
+    <h3>Todavía no hay reuniones</h3>
+    <p>Creá la primera reunión, elegí quiénes tienen que asistir y pegá su QR en la sala.</p>
+    {% if can_web('reuniones', 'crear') %}<a class="btn" href="{{ url_for('reuniones.nueva') }}">Nueva reunión</a>{% endif %}
+  </div>
+{% endif %}
+{% endblock %}

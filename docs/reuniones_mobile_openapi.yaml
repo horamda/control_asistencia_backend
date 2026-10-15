@@ -1,0 +1,272 @@
+openapi: 3.0.3
+info:
+  title: Reuniones FichaYa
+  version: 1.38.0
+  description: |
+    Reuniones recurrentes con convocados obligatorios y asistencia por QR.
+    Guia con ejemplos, estados y recordatorios locales: reuniones_mobile.md.
+servers:
+  - url: /api/v1/mobile
+security:
+  - bearerAuth: []
+paths:
+  /reuniones:
+    get:
+      tags: [Reuniones]
+      summary: Reuniones a las que el empleado esta convocado
+      responses:
+        '200':
+          description: Definiciones con proxima fecha y estadisticas propias historicas.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReunionItem'
+        '401':
+          $ref: '#/components/responses/Error'
+  /reuniones/proximas:
+    get:
+      tags: [Reuniones]
+      summary: Fechas de hoy en adelante con el estado del empleado (inicio y recordatorios)
+      parameters:
+        - name: dias
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 31, default: 7}
+      responses:
+        '200':
+          description: Ocurrencias en orden cronologico.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  desde: {type: string, format: date}
+                  hasta: {type: string, format: date}
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReunionProxima'
+        '401':
+          $ref: '#/components/responses/Error'
+  /reuniones/registrar:
+    post:
+      tags: [Reuniones]
+      summary: Registra la asistencia con el contenido del QR escaneado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qr]
+              properties:
+                qr:
+                  type: string
+                  description: Texto completo del QR (empieza con fichaya://reunion?). Alias qr_token.
+                  example: fichaya://reunion?t=eyJhbGciOiJIUzI1NiJ9...
+                lat: {type: number, minimum: -90, maximum: 90, nullable: true}
+                lon: {type: number, minimum: -180, maximum: 180, nullable: true}
+      responses:
+        '201':
+          description: Asistencia registrada.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RegistroReunion'}
+        '200':
+          description: Ya estaba registrado (ya_registrado true); idempotente.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RegistroReunion'}
+        '400':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+  /reuniones/historial:
+    get:
+      tags: [Reuniones]
+      summary: Asistencias propias (mas recientes primero)
+      parameters:
+        - {name: desde, in: query, schema: {type: string, format: date}}
+        - {name: hasta, in: query, schema: {type: string, format: date}}
+        - {name: reunion_id, in: query, schema: {type: integer}}
+        - {name: page, in: query, schema: {type: integer, default: 1}}
+        - {name: per, in: query, schema: {type: integer, default: 20, maximum: 100}}
+      responses:
+        '200':
+          description: Pagina del historial.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/HistorialReunion'}
+                  page: {type: integer}
+                  per_page: {type: integer}
+                  total: {type: integer}
+        '400':
+          $ref: '#/components/responses/Error'
+  /reuniones/estadisticas:
+    get:
+      tags: [Reuniones]
+      summary: Estadisticas propias del periodo (por defecto 90 dias, maximo 366)
+      parameters:
+        - {name: desde, in: query, schema: {type: string, format: date}}
+        - {name: hasta, in: query, schema: {type: string, format: date}}
+      responses:
+        '200':
+          description: Totales y detalle por reunion; no cuenta fechas canceladas.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  periodo:
+                    type: object
+                    properties:
+                      desde: {type: string, format: date}
+                      hasta: {type: string, format: date}
+                  totales: {$ref: '#/components/schemas/EstadisticaReunion'}
+                  por_reunion:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/EstadisticaReunion'
+                        - type: object
+                          properties:
+                            reunion_id: {type: integer}
+                            nombre: {type: string}
+        '400':
+          $ref: '#/components/responses/Error'
+  /reuniones/{id}:
+    get:
+      tags: [Reuniones]
+      summary: Detalle de una reunion a la que el empleado esta convocado
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200':
+          description: Reunion con proximas fechas, historial y estadisticas de 90 dias.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ReunionItem'
+                  - type: object
+                    properties:
+                      activa: {type: boolean}
+                      proximas_fechas:
+                        type: array
+                        items: {type: string, format: date}
+                      historial:
+                        type: array
+                        items: {$ref: '#/components/schemas/HistorialReunion'}
+                      mis_estadisticas:
+                        allOf:
+                          - $ref: '#/components/schemas/EstadisticaReunion'
+                        nullable: true
+        '404':
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  responses:
+    Error:
+      description: Mensaje listo para mostrar al usuario.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: {type: string, example: No estás convocado a esta reunión.}
+  schemas:
+    EstadisticaReunion:
+      type: object
+      properties:
+        convocatorias: {type: integer}
+        presentes: {type: integer}
+        tarde: {type: integer}
+        ausentes: {type: integer}
+        justificados: {type: integer}
+        asistidas: {type: integer, description: presentes + tarde}
+        asistencia_pct: {type: number, nullable: true, description: asistidas / (convocatorias - justificados) * 100}
+        puntualidad_pct: {type: number, nullable: true, description: presentes / asistidas * 100}
+    ReunionItem:
+      type: object
+      properties:
+        id: {type: integer}
+        nombre: {type: string}
+        descripcion: {type: string, nullable: true}
+        lugar: {type: string, nullable: true}
+        frecuencia: {type: string, enum: [diaria, semanal, mensual]}
+        dias_semana:
+          type: array
+          description: 0 = lunes ... 6 = domingo
+          items: {type: integer, minimum: 0, maximum: 6}
+        mensual_tipo: {type: string, enum: [dia, semana], nullable: true}
+        dia_mes: {type: integer, nullable: true}
+        semana_mes: {type: integer, nullable: true, description: 1 a 4; 5 = ultima semana}
+        hora_inicio: {type: string, example: '09:00'}
+        duracion_min: {type: integer}
+        descripcion_frecuencia: {type: string, example: Todos los miércoles a las 09:00 (45 min)}
+        qr_modo: {type: string, enum: [fijo, dinamico, ambos]}
+        tolerancia_antes_min: {type: integer}
+        tarde_despues_min: {type: integer}
+        cierre_despues_min: {type: integer, nullable: true, description: null = cierra al terminar la reunion}
+        fecha_inicio: {type: string, format: date}
+        fecha_fin: {type: string, format: date, nullable: true}
+        proxima_fecha: {type: string, format: date, nullable: true}
+        mis_estadisticas: {$ref: '#/components/schemas/EstadisticaReunion'}
+    ReunionProxima:
+      type: object
+      properties:
+        reunion_id: {type: integer}
+        nombre: {type: string}
+        lugar: {type: string, nullable: true}
+        descripcion: {type: string, nullable: true}
+        fecha: {type: string, format: date}
+        inicio: {type: string, format: date-time}
+        fin: {type: string, format: date-time}
+        ventana_desde: {type: string, format: date-time}
+        ventana_hasta: {type: string, format: date-time}
+        tarde_desde: {type: string, format: date-time}
+        estado: {type: string, enum: [pendiente, abierta, presente, tarde, ausente, justificado, cancelada]}
+        cancelada: {type: boolean}
+        motivo_cancelacion: {type: string, nullable: true}
+        registrado_at: {type: string, format: date-time, nullable: true}
+        qr_modo: {type: string, enum: [fijo, dinamico, ambos]}
+    RegistroReunion:
+      type: object
+      properties:
+        reunion_id: {type: integer}
+        reunion: {type: string}
+        lugar: {type: string, nullable: true}
+        fecha: {type: string, format: date}
+        inicio: {type: string, example: '09:00'}
+        fin: {type: string, example: '09:45'}
+        estado: {type: string, enum: [presente, tarde]}
+        registrado_at: {type: string, format: date-time}
+        ya_registrado: {type: boolean}
+    HistorialReunion:
+      type: object
+      properties:
+        id: {type: integer}
+        reunion_id: {type: integer}
+        nombre: {type: string}
+        lugar: {type: string, nullable: true}
+        fecha: {type: string, format: date}
+        inicio: {type: string, example: '09:00'}
+        fin: {type: string, example: '09:45'}
+        estado: {type: string, enum: [presente, tarde, ausente, justificado, cancelada]}
+        registrado_at: {type: string, format: date-time, nullable: true}
+        metodo: {type: string, enum: [qr_fijo, qr_dinamico, manual, sistema], nullable: true}
+        observaciones: {type: string, nullable: true}

@@ -1,0 +1,34 @@
+{% extends 'reuniones/layout.html' %}
+{% block reuniones_content %}
+<section class="epp-card reu-qr-sheet">
+  <header class="epp-section-heading reu-no-print">
+    <div>
+      <h3>QR de la reunión</h3>
+      <p>Imprimilo y pegalo en la sala. Los convocados lo escanean desde la app (Reuniones → Escanear QR) dentro del horario de registro.</p>
+    </div>
+    <div class="reu-card-actions">
+      {% if imagen %}<button class="btn" type="button" data-print>Imprimir</button>{% endif %}
+      {% if reunion.qr_modo != 'fijo' %}<a class="btn btn-secondary" href="{{ url_for('reuniones.proyectar', reunion_id=reunion.id) }}" data-no-ajax>Proyectar QR dinámico</a>{% endif %}
+    </div>
+  </header>
+
+  {% if imagen %}
+    <div class="reu-qr-print">
+      <h2>{{ reunion.nombre }}</h2>
+      <p>{{ descripcion_frecuencia }}{% if reunion.lugar %} · {{ reunion.lugar }}{% endif %}</p>
+      <img class="reu-qr-img" src="{{ imagen }}" alt="Código QR de {{ reunion.nombre }}">
+      <p><strong>Escaneá este código con la app FichaYa para registrar tu asistencia.</strong></p>
+      <small>Código n.º {{ reunion.qr_version }}</small>
+    </div>
+    {% if can_web('reuniones', 'editar') %}
+      <form method="post" class="reu-no-print" action="{{ url_for('reuniones.regenerar_qr', reunion_id=reunion.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <p class="helper-text">Si el QR circula por foto o se perdió, generá uno nuevo: el anterior deja de funcionar.</p>
+        <button class="btn btn-secondary" type="submit" data-confirm="El QR impreso actual dejará de funcionar. ¿Generar uno nuevo?">Generar QR nuevo</button>
+      </form>
+    {% endif %}
+  {% else %}
+    <p>Esta reunión usa solo QR dinámico: proyectalo desde el panel durante la reunión.</p>
+  {% endif %}
+</section>
+{% endblock %}

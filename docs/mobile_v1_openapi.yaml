@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.37.0
+  version: 1.38.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.38.0: modulo Reuniones (/reuniones): convocatorias, registro por QR, proximas fechas y estadisticas. Ver reuniones_mobile.md.
     Version 1.37.0: egreso automatico por olvido de fichada. `metodo`/`metodo_salida` pueden valer "automatico"; aditivos `es_automatica` (me/marcas), `egreso_automatico` (me/asistencias) y `fichaje` (me/dashboard).
     Version 1.35.0: viáticos mensuales por sector, kilómetros informativos, odómetro opcional, cierre y reaperturas, comprobantes y avisos del día 5. Nuevas altas requieren período. Ver reintegros_mobile.md.
     Version 1.34.1: selección múltiple de externos en Seguridad e Higiene y contrato de Viáticos y reintegros. Actualización documental.
@@ -3552,6 +3553,18 @@ security:
 # Paths
 # ---------------------------------------------------------------------------
 paths:
+  /reuniones:
+    $ref: "./reuniones_mobile_openapi.yaml#/paths/~1reuniones"
+  /reuniones/proximas:
+    $ref: "./reuniones_mobile_openapi.yaml#/paths/~1reuniones~1proximas"
+  /reuniones/registrar:
+    $ref: "./reuniones_mobile_openapi.yaml#/paths/~1reuniones~1registrar"
+  /reuniones/historial:
+    $ref: "./reuniones_mobile_openapi.yaml#/paths/~1reuniones~1historial"
+  /reuniones/estadisticas:
+    $ref: "./reuniones_mobile_openapi.yaml#/paths/~1reuniones~1estadisticas"
+  /reuniones/{id}:
+    $ref: "./reuniones_mobile_openapi.yaml#/paths/~1reuniones~1{id}"
   /epp/config:
     $ref: "./epp_mobile_openapi.yaml#/paths/~1epp~1config"
   /epp/talles:

@@ -1,0 +1,143 @@
+{% extends 'reuniones/layout.html' %}
+{% import "_charts.html" as viz %}
+{% block reuniones_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/viz.css') }}">{% endblock %}
+{% block reuniones_content %}
+{% set r = reunion %}
+<section class="epp-card">
+  <header class="epp-section-heading">
+    <div>
+      <span class="epp-eyebrow">{{ 'Activa' if r.activa else 'Inactiva' }}{% if r.lugar %} · {{ r.lugar }}{% endif %}</span>
+      <h3>{{ r.nombre }}</h3>
+      <p>{{ r.descripcion_frecuencia }}</p>
+    </div>
+    <div class="reu-card-actions">
+      {% if can_web('reuniones', 'editar') %}<a class="btn btn-secondary" href="{{ url_for('reuniones.editar', reunion_id=r.id) }}">Editar</a>{% endif %}
+      <a class="btn btn-secondary" href="{{ url_for('reuniones.qr', reunion_id=r.id) }}">QR impreso</a>
+      {% if r.qr_modo != 'fijo' %}<a class="btn btn-secondary" href="{{ url_for('reuniones.proyectar', reunion_id=r.id) }}" data-no-ajax>Proyectar QR</a>{% endif %}
+      {% if can_web('reuniones', 'eliminar') %}
+        <form method="post" action="{{ url_for('reuniones.eliminar', reunion_id=r.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-danger" type="submit" data-confirm="¿Eliminar la reunión {{ r.nombre }}? Si ya tiene asistencias, desactivala desde Editar.">Eliminar</button>
+        </form>
+      {% endif %}
+    </div>
+  </header>
+  {% if r.descripcion %}<p>{{ r.descripcion }}</p>{% endif %}
+  <dl class="epp-order-facts reu-detail-facts">
+    <div><dt>Registro</dt><dd>Desde {{ r.tolerancia_antes_min }} min antes · tarde después de {{ r.tarde_despues_min }} min · cierra {{ ('a los ' ~ r.cierre_despues_min ~ ' min') if r.cierre_despues_min is not none else 'al terminar' }}</dd></div>
+    <div><dt>Código QR</dt><dd>{{ {'fijo': 'Fijo impreso', 'dinamico': 'Dinámico en pantalla', 'ambos': 'Fijo y dinámico'}[r.qr_modo] }}</dd></div>
+    <div><dt>Próximas fechas</dt><dd>
+      {% for f in proximas %}<a class="chip" href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=f.isoformat()) }}">{{ 'Hoy' if f == hoy else (f|dia_semana)[:3] ~ ' ' ~ f.strftime('%d/%m') }}</a> {% else %}—{% endfor %}
+    </dd></div>
+  </dl>
+</section>
+
+<form method="get" class="epp-staff-search" action="{{ url_for('reuniones.detalle', reunion_id=r.id) }}">
+  <label>Desde<input type="date" name="desde" value="{{ desde.isoformat() }}"></label>
+  <label>Hasta<input type="date" name="hasta" value="{{ hasta.isoformat() }}"></label>
+  <button class="btn" type="submit">Aplicar período</button>
+  {% if can_web('reuniones', 'exportar') %}<a class="btn btn-secondary" data-no-ajax href="{{ url_for('reuniones.exportar', reunion_id=r.id, desde=desde.isoformat(), hasta=hasta.isoformat()) }}">Exportar CSV</a>{% endif %}
+</form>
+
+{% set p = total.asistencia_pct %}
+<div class="grid-kpis">
+  <div class="kpi-card {% if p is none %}{% elif p >= 90 %}tone-ok{% elif p >= 75 %}tone-warn{% else %}tone-bad{% endif %}">
+    <div class="kpi-label">Asistencia</div>
+    <div class="kpi-value">{{ '%g'|format(p) ~ '%' if p is not none else '—' }}</div>
+    <div class="helper-text">{{ total.asistidas }} de {{ total.convocatorias - total.justificados }} convocatorias</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Puntualidad</div>
+    <div class="kpi-value">{{ '%g'|format(total.puntualidad_pct) ~ '%' if total.puntualidad_pct is not none else '—' }}</div>
+    <div class="helper-text">{{ total.tarde }} llegadas tarde</div>
+  </div>
+  <div class="kpi-card {{ 'tone-bad' if total.ausentes else '' }}">
+    <div class="kpi-label">Ausencias</div>
+    <div class="kpi-value">{{ total.ausentes }}</div>
+    <div class="helper-text">{{ total.justificados }} justificadas</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Convocados hoy</div>
+    <div class="kpi-value">{{ convocados|length }}</div>
+    <div class="helper-text">Según la asignación actual</div>
+  </div>
+</div>
+
+<div class="viz-root">
+  <figure class="viz-card viz-card-wide" data-tooltips="{{ tips | tojson | forceescape }}">
+    <figcaption>
+      <h4 class="section-title">Asistencia por fecha</h4>
+      <p class="helper-text">Porcentaje de convocados que asistieron (presentes y tarde), sin contar justificados.</p>
+    </figcaption>
+    {% if chart.empty %}<p class="viz-message">Todavía no hay fechas cerradas en el período.</p>{% else %}
+      {{ viz.line(chart, "asistencia", "Asistencia por fecha", tips) }}
+    {% endif %}
+    <div class="viz-tooltip" role="presentation" hidden></div>
+  </figure>
+</div>
+
+<section class="epp-card">
+  <h3>Fechas</h3>
+  {% if ocurrencias %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Fecha</th><th>Estado</th><th>Convocados</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th></tr></thead>
+        <tbody>
+          {% for o in ocurrencias %}
+            <tr>
+              <td data-label="Fecha"><a href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=o.fecha.isoformat()) }}">{{ o.fecha.strftime('%d/%m/%Y') }}</a></td>
+              <td data-label="Estado">{% if o.estado == 'cancelada' %}<span class="reu-badge reu-cancelada" title="{{ o.motivo_cancelacion or '' }}">Cancelada</span>{% elif o.estado == 'cerrada' %}Cerrada{% else %}En curso{% endif %}</td>
+              <td data-label="Convocados">{{ o.convocados if o.convocados is not none else '—' }}</td>
+              <td data-label="Presentes">{{ o.presentes }}</td>
+              <td data-label="Tarde">{{ o.tarde }}</td>
+              <td data-label="Ausentes">{{ o.ausentes }}</td>
+              <td data-label="Justificados">{{ o.justificados }}</td>
+              <td data-label="Asistencia">{{ '%g'|format(o.asistencia_pct) ~ '%' if o.asistencia_pct is not none and o.estado != 'cancelada' else '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">Sin fechas registradas en el período.</div>
+  {% endif %}
+</section>
+
+<section class="epp-card">
+  <h3>Asistencia por empleado</h3>
+  <p class="helper-text">Ordenado de menor a mayor asistencia.</p>
+  {% if ranking %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Empleado</th><th>Sector</th><th>Convocatorias</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th></tr></thead>
+        <tbody>
+          {% for e in ranking %}
+            <tr>
+              <td data-label="Empleado"><strong>{{ e.apellido }} {{ e.nombre }}</strong>{% if e.legajo %} <span class="chip">{{ e.legajo }}</span>{% endif %}</td>
+              <td data-label="Sector">{{ e.sector_nombre or '—' }}</td>
+              <td data-label="Convocatorias">{{ e.convocatorias }}</td>
+              <td data-label="Presentes">{{ e.presentes }}</td>
+              <td data-label="Tarde">{{ e.tarde }}</td>
+              <td data-label="Ausentes">{{ e.ausentes }}</td>
+              <td data-label="Justificados">{{ e.justificados }}</td>
+              <td data-label="Asistencia"><span class="reu-pct {% if e.asistencia_pct is none %}{% elif e.asistencia_pct >= 90 %}is-ok{% elif e.asistencia_pct >= 75 %}is-warn{% else %}is-bad{% endif %}">{{ '%g'|format(e.asistencia_pct) ~ '%' if e.asistencia_pct is not none else '—' }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">Sin asistencias en el período.</div>
+  {% endif %}
+</section>
+
+<section class="epp-card">
+  <details>
+    <summary>Convocados actuales ({{ convocados|length }})</summary>
+    <ul class="reu-people-summary">
+      {% for e in convocados %}<li>{{ e.apellido }} {{ e.nombre }} <small>{{ e.legajo or '' }}{% if e.sector_nombre %} · {{ e.sector_nombre }}{% endif %}</small></li>{% else %}<li>Nadie: revisá los participantes de la reunión.</li>{% endfor %}
+    </ul>
+  </details>
+</section>
+<script src="{{ url_for('static', filename='js/viz.js') }}" defer></script>
+{% endblock %}

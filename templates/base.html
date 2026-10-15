@@ -186,6 +186,10 @@
                 {% if can_web("qr_puerta") %}
                   <a class="nav-link" href="/qr-puerta/">QR puerta</a>
                 {% endif %}
+                {% if can_web("reuniones") %}
+                  <a class="nav-link" href="/reuniones/">Reuniones</a>
+                  <a class="nav-link" href="/reuniones/estadisticas">Asistencia a reuniones</a>
+                {% endif %}
                 {% if can_web("justificaciones") %}<a class="nav-link" href="/justificaciones/">Justificaciones</a>{% endif %}
                 {% if can_web("francos") %}<a class="nav-link" href="/francos/">Francos</a>{% endif %}
                 {% if can_web("vacaciones") %}

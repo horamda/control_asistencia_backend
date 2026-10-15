@@ -78,7 +78,7 @@
 .viz-svg .viz-dot { stroke: var(--viz-surface); stroke-width: 2; }
 .viz-svg .viz-bar { fill: var(--viz-series-1); }
 .viz-ausentismo, .viz-puntualidad, .viz-semana,
-.viz-promedio, .viz-lentos, .viz-base, .viz-pedidos { --viz-color: var(--viz-series-1); }
+.viz-promedio, .viz-lentos, .viz-base, .viz-pedidos, .viz-asistencia { --viz-color: var(--viz-series-1); }
 .viz-justificadas { --viz-color: var(--viz-series-2); }
 .viz-svg .viz-line { stroke: var(--viz-color); }
 .viz-svg .viz-dot { fill: var(--viz-color); }

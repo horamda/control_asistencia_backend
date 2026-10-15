@@ -1,0 +1,98 @@
+{% extends 'reuniones/layout.html' %}
+{% import "_charts.html" as viz %}
+{% block reuniones_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/viz.css') }}">{% endblock %}
+{% block reuniones_content %}
+<form method="get" class="epp-staff-search" action="{{ url_for('reuniones.estadisticas') }}">
+  <label>Desde<input type="date" name="desde" value="{{ desde.isoformat() }}"></label>
+  <label>Hasta<input type="date" name="hasta" value="{{ hasta.isoformat() }}"></label>
+  <button class="btn" type="submit">Aplicar período</button>
+  {% if can_web('reuniones', 'exportar') %}<a class="btn btn-secondary" data-no-ajax href="{{ url_for('reuniones.estadisticas_exportar', desde=desde.isoformat(), hasta=hasta.isoformat()) }}">Exportar CSV por empleado</a>{% endif %}
+</form>
+
+{% set p = total.asistencia_pct %}
+<div class="grid-kpis">
+  <div class="kpi-card {% if p is none %}{% elif p >= 90 %}tone-ok{% elif p >= 75 %}tone-warn{% else %}tone-bad{% endif %}">
+    <div class="kpi-label">Asistencia general</div>
+    <div class="kpi-value">{{ '%g'|format(p) ~ '%' if p is not none else '—' }}</div>
+    <div class="helper-text">{{ total.asistidas }} de {{ total.convocatorias - total.justificados }} convocatorias</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Puntualidad</div>
+    <div class="kpi-value">{{ '%g'|format(total.puntualidad_pct) ~ '%' if total.puntualidad_pct is not none else '—' }}</div>
+    <div class="helper-text">{{ total.tarde }} llegadas tarde</div>
+  </div>
+  <div class="kpi-card {{ 'tone-bad' if total.ausentes }}">
+    <div class="kpi-label">Ausencias</div>
+    <div class="kpi-value">{{ total.ausentes }}</div>
+    <div class="helper-text">{{ total.justificados }} justificadas</div>
+  </div>
+</div>
+
+<div class="viz-root">
+  <figure class="viz-card viz-card-wide" data-tooltips="{{ tips | tojson | forceescape }}">
+    <figcaption>
+      <h4 class="section-title">Asistencia diaria a reuniones</h4>
+      <p class="helper-text">Todas las reuniones del día, sin contar justificados ni fechas canceladas.</p>
+    </figcaption>
+    {% if chart.empty %}<p class="viz-message">Sin reuniones cerradas en el período.</p>{% else %}
+      {{ viz.line(chart, "asistencia", "Asistencia diaria a reuniones", tips) }}
+    {% endif %}
+    <div class="viz-tooltip" role="presentation" hidden></div>
+  </figure>
+</div>
+
+<section class="epp-card">
+  <h3>Por reunión</h3>
+  {% if por_reunion %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Reunión</th><th>Convocatorias</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th><th>Puntualidad</th></tr></thead>
+        <tbody>
+          {% for x in por_reunion %}
+            <tr>
+              <td data-label="Reunión"><a href="{{ url_for('reuniones.detalle', reunion_id=x.reunion_id, desde=desde.isoformat(), hasta=hasta.isoformat()) }}">{{ x.nombre }}</a></td>
+              <td data-label="Convocatorias">{{ x.convocatorias }}</td>
+              <td data-label="Presentes">{{ x.presentes }}</td>
+              <td data-label="Tarde">{{ x.tarde }}</td>
+              <td data-label="Ausentes">{{ x.ausentes }}</td>
+              <td data-label="Justificados">{{ x.justificados }}</td>
+              <td data-label="Asistencia"><span class="reu-pct {% if x.asistencia_pct is none %}{% elif x.asistencia_pct >= 90 %}is-ok{% elif x.asistencia_pct >= 75 %}is-warn{% else %}is-bad{% endif %}">{{ '%g'|format(x.asistencia_pct) ~ '%' if x.asistencia_pct is not none else '—' }}</span></td>
+              <td data-label="Puntualidad">{{ '%g'|format(x.puntualidad_pct) ~ '%' if x.puntualidad_pct is not none else '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">Sin reuniones cerradas en el período.</div>
+  {% endif %}
+</section>
+
+<section class="epp-card">
+  <h3>Por empleado</h3>
+  <p class="helper-text">De menor a mayor asistencia: los primeros son los que más faltan.</p>
+  {% if por_empleado %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Empleado</th><th>Convocatorias</th><th>Presentes</th><th>Tarde</th><th>Ausentes</th><th>Justificados</th><th>Asistencia</th></tr></thead>
+        <tbody>
+          {% for e in por_empleado %}
+            <tr>
+              <td data-label="Empleado"><strong>{{ e.apellido }} {{ e.nombre }}</strong>{% if e.legajo %} <span class="chip">{{ e.legajo }}</span>{% endif %}</td>
+              <td data-label="Convocatorias">{{ e.convocatorias }}</td>
+              <td data-label="Presentes">{{ e.presentes }}</td>
+              <td data-label="Tarde">{{ e.tarde }}</td>
+              <td data-label="Ausentes">{{ e.ausentes }}</td>
+              <td data-label="Justificados">{{ e.justificados }}</td>
+              <td data-label="Asistencia"><span class="reu-pct {% if e.asistencia_pct is none %}{% elif e.asistencia_pct >= 90 %}is-ok{% elif e.asistencia_pct >= 75 %}is-warn{% else %}is-bad{% endif %}">{{ '%g'|format(e.asistencia_pct) ~ '%' if e.asistencia_pct is not none else '—' }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">Sin asistencias en el período.</div>
+  {% endif %}
+</section>
+<script src="{{ url_for('static', filename='js/viz.js') }}" defer></script>
+{% endblock %}

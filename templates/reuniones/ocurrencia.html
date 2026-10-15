@@ -1,0 +1,88 @@
+{% extends 'reuniones/layout.html' %}
+{% block reuniones_content %}
+{% set r = reunion %}
+{% set cancelada = ocurrencia and ocurrencia.estado == 'cancelada' %}
+<section class="epp-card">
+  <header class="epp-section-heading">
+    <div>
+      <span class="epp-eyebrow"><a href="{{ url_for('reuniones.detalle', reunion_id=r.id) }}">{{ r.nombre }}</a></span>
+      <h3>{{ fecha|dia_semana }} {{ fecha.strftime('%d/%m/%Y') }} · {{ horario.inicio.strftime('%H:%M') }} a {{ horario.fin.strftime('%H:%M') }}</h3>
+      <p>
+        Registro de {{ horario.ventana_desde.strftime('%H:%M') }} a {{ horario.ventana_hasta.strftime('%H:%M') }},
+        tarde desde las {{ horario.tarde_desde.strftime('%H:%M') }}.
+        {% if cancelada %}<strong>Cancelada{% if ocurrencia.motivo_cancelacion %}: {{ ocurrencia.motivo_cancelacion }}{% endif %}.</strong>
+        {% elif ocurrencia and ocurrencia.estado == 'cerrada' %}Cerrada: los que no escanearon quedaron ausentes.
+        {% elif abierta %}<strong>Registro abierto ahora.</strong>
+        {% elif futura %}Todavía no empezó.{% endif %}
+      </p>
+    </div>
+    {% if abierta and r.qr_modo != 'fijo' and not cancelada %}<a class="btn" href="{{ url_for('reuniones.proyectar', reunion_id=r.id) }}" data-no-ajax>Proyectar QR</a>{% endif %}
+  </header>
+
+  <div class="grid-kpis">
+    <div class="kpi-card tone-ok"><div class="kpi-label">Presentes</div><div class="kpi-value">{{ conteo.presente }}</div></div>
+    <div class="kpi-card tone-warn"><div class="kpi-label">Tarde</div><div class="kpi-value">{{ conteo.tarde }}</div></div>
+    <div class="kpi-card {{ 'tone-bad' if conteo.ausente }}"><div class="kpi-label">Ausentes</div><div class="kpi-value">{{ conteo.ausente }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Justificados</div><div class="kpi-value">{{ conteo.justificado }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Sin registrar</div><div class="kpi-value">{{ conteo.pendiente }}</div></div>
+  </div>
+</section>
+
+<section class="epp-card">
+  <h3>Convocados</h3>
+  {% if filas %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Empleado</th><th>Sector</th><th>Estado</th><th>Hora</th><th>Método</th>{% if can_web('reuniones', 'editar') and not futura and not cancelada %}<th>Corregir</th>{% endif %}</tr></thead>
+        <tbody>
+          {% for f in filas %}
+            <tr>
+              <td data-label="Empleado"><strong>{{ f.apellido }} {{ f.nombre }}</strong>{% if f.legajo %} <span class="chip">{{ f.legajo }}</span>{% endif %}</td>
+              <td data-label="Sector">{{ f.sector_nombre or '—' }}</td>
+              <td data-label="Estado"><span class="reu-badge reu-{{ f.estado }}">{{ f.estado|estado_reunion }}</span>{% if f.observaciones %} <small>{{ f.observaciones }}</small>{% endif %}</td>
+              <td data-label="Hora">{{ f.registrado_at.strftime('%H:%M') if f.registrado_at else '—' }}</td>
+              <td data-label="Método">{{ {'qr_fijo': 'QR impreso', 'qr_dinamico': 'QR en pantalla', 'manual': 'Manual', 'sistema': 'Cierre automático'}.get(f.metodo, '—') }}</td>
+              {% if can_web('reuniones', 'editar') and not futura and not cancelada %}
+                <td data-label="Corregir">
+                  <form method="post" class="reu-inline-form" action="{{ url_for('reuniones.marcar', reunion_id=r.id, fecha=fecha.isoformat()) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="empleado_id" value="{{ f.id }}">
+                    <select name="estado" aria-label="Estado de {{ f.apellido }} {{ f.nombre }}">
+                      {% for e in estados %}<option value="{{ e }}" {{ 'selected' if e == f.estado }}>{{ e|estado_reunion }}</option>{% endfor %}
+                    </select>
+                    <input name="observaciones" maxlength="255" placeholder="Motivo" value="{{ f.observaciones or '' }}" aria-label="Motivo">
+                    <button class="btn btn-secondary" type="submit">Guardar</button>
+                  </form>
+                </td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">La reunión no tiene convocados.</div>
+  {% endif %}
+</section>
+
+{% if can_web('reuniones', 'editar') %}
+<section class="epp-card">
+  {% if cancelada %}
+    <h3>Reactivar esta fecha</h3>
+    <form method="post" action="{{ url_for('reuniones.cancelar', reunion_id=r.id, fecha=fecha.isoformat()) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="accion" value="reactivar">
+      <button class="btn btn-secondary" type="submit">Reactivar fecha</button>
+    </form>
+  {% else %}
+    <h3>Cancelar esta fecha</h3>
+    <p class="helper-text">Por feriado, cambio de agenda, etc. La fecha no cuenta para las estadísticas y la app avisa que se canceló.</p>
+    <form method="post" class="epp-staff-search" action="{{ url_for('reuniones.cancelar', reunion_id=r.id, fecha=fecha.isoformat()) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Motivo<input name="motivo" required maxlength="255" placeholder="Ej.: Feriado"></label>
+      <button class="btn btn-danger" type="submit" data-confirm="¿Cancelar la reunión del {{ fecha.strftime('%d/%m/%Y') }}?">Cancelar fecha</button>
+    </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,3 +1,11 @@
+## 1.38.0 — 2026-10-16
+
+- Nuevo módulo Reuniones. Rutas `/api/v1/mobile/reuniones`: listado de mis reuniones, `proximas` (inicio y recordatorios locales), `registrar` (QR escaneado), `historial`, `estadisticas` y detalle `/{id}`. Guía: `reuniones_mobile.md`; definición: `reuniones_mobile_openapi.yaml`.
+- QR con prefijo `fichaya://reunion?`: el escáner de la app debe derivarlo a `POST /reuniones/registrar`; el resto de los QR siguen el flujo de fichada. Fijo (impreso, regenerable) o dinámico (proyectado, 45 s).
+- Panel: Asistencia → Reuniones (alta/edición con convocados por empresa, sector, puesto o persona; QR para imprimir y proyectar; detalle por fecha con corrección manual y cancelación; estadísticas y CSV). Permiso nuevo `reuniones`.
+- El servidor cierra cada reunión al terminar su registro (cada 10 min): ausentes para quien no escaneó y justificados por vacaciones o franco. Migración `20261016_01_reuniones` (se aplica sola al iniciar).
+- Cambios aditivos: no modifica rutas existentes. Notificaciones push pendientes para una versión posterior.
+
 ## 1.37.0 — 2026-10-15
 
 - Egreso automático por olvido de fichada: el backend cierra cada noche (03:30) las jornadas de días anteriores sin egreso, con la hora del horario asignado o ingreso + horas configuradas (tope 23:59). Las horas cuentan.

@@ -1,0 +1,7 @@
+{% extends 'reuniones/layout.html' %}
+{% block reuniones_content %}
+<section class="epp-card reu-proyectar">
+  <p class="helper-text reu-no-print">El código se renueva solo cada 20 segundos. Dejá esta pantalla abierta durante el registro.</p>
+  {% include 'reuniones/_qr_vivo.html' %}
+</section>
+{% endblock %}

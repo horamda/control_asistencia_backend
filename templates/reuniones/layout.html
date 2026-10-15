@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Reuniones{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/epp.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reuniones.css') }}">
+{% block reuniones_head %}{% endblock %}
+{% endblock %}
+{% block content %}
+<div class="content-stack epp-page reu-page">
+  <header>
+    <h2>Reuniones</h2>
+    <p>Reuniones recurrentes con convocados obligatorios, asistencia por QR desde la app y estadísticas.</p>
+  </header>
+  <nav class="actions" aria-label="Reuniones">
+    <a class="btn btn-secondary" href="{{ url_for('reuniones.index') }}">Reuniones</a>
+    <a class="btn btn-secondary" href="{{ url_for('reuniones.estadisticas') }}">Estadísticas</a>
+    {% if can_web('reuniones', 'crear') %}<a class="btn" href="{{ url_for('reuniones.nueva') }}">Nueva reunión</a>{% endif %}
+  </nav>
+  {% block reuniones_content %}{% endblock %}
+</div>
+{% endblock %}

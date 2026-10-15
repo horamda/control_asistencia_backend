@@ -1,0 +1,159 @@
+{% extends 'reuniones/layout.html' %}
+{% block reuniones_content %}
+<section class="epp-card epp-editor">
+  <header class="epp-section-heading">
+    <div>
+      <h3>{{ 'Editar reunión' if reunion else 'Nueva reunión' }}</h3>
+      <p>Definí cuándo se hace, cómo se registra la asistencia y quiénes tienen que estar sí o sí.</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('reuniones.detalle', reunion_id=reunion.id) if reunion else url_for('reuniones.index') }}">Cancelar</a>
+  </header>
+
+  <form method="post" class="epp-catalog-form reu-form" data-reu-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <fieldset class="epp-fieldset">
+      <legend>Datos de la reunión</legend>
+      <div class="epp-fields">
+        <label class="epp-full">Nombre<input name="nombre" required maxlength="150" value="{{ v.nombre or '' }}" placeholder="Ej.: Reunión de seguridad semanal"></label>
+        <label>Lugar<input name="lugar" maxlength="150" value="{{ v.lugar or '' }}" placeholder="Ej.: Sala de capacitación"></label>
+        <label>Estado
+          <select name="activa">
+            <option value="1">Activa</option>
+            <option value="0" {{ 'selected' if v.activa|string == '0' }}>Inactiva</option>
+          </select>
+        </label>
+        <label class="epp-full">Descripción / temario<textarea name="descripcion" maxlength="1000" rows="3" placeholder="Qué se trata y qué tiene que llevar cada participante…">{{ v.descripcion or '' }}</textarea></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="epp-fieldset reu-section">
+      <legend>Cuándo se repite</legend>
+      <div class="epp-fields">
+        <label>Frecuencia
+          <select name="frecuencia" data-reu-frecuencia>
+            <option value="diaria" {{ 'selected' if v.frecuencia == 'diaria' }}>Diaria</option>
+            <option value="semanal" {{ 'selected' if v.frecuencia == 'semanal' }}>Semanal</option>
+            <option value="mensual" {{ 'selected' if v.frecuencia == 'mensual' }}>Mensual</option>
+          </select>
+        </label>
+        <label>Hora de inicio<input type="time" name="hora_inicio" required value="{{ v.hora_inicio }}"></label>
+
+        <div class="epp-full" data-reu-show="diaria semanal">
+          <span class="reu-label">Días de la semana</span>
+          <div class="reu-days">
+            {% for d in dias %}
+              <label><input type="checkbox" name="dias_semana" value="{{ loop.index0 }}" {{ 'checked' if loop.index0 in v.dias_semana }}><span>{{ d }}</span></label>
+            {% endfor %}
+          </div>
+          <small>Diaria: marcá los días hábiles en que se hace. Semanal: el día (o los días) de la semana.</small>
+        </div>
+
+        <label data-reu-show="mensual">Se repite
+          <select name="mensual_tipo" data-reu-mensual>
+            <option value="dia" {{ 'selected' if v.mensual_tipo == 'dia' }}>Un día fijo del mes</option>
+            <option value="semana" {{ 'selected' if v.mensual_tipo == 'semana' }}>Un día de una semana (ej.: primer lunes)</option>
+          </select>
+        </label>
+        <label data-reu-show="mensual" data-reu-mensual-show="dia">Día del mes
+          <input type="number" name="dia_mes" min="1" max="31" value="{{ v.dia_mes }}" aria-describedby="reu-dia-mes-help">
+          <small id="reu-dia-mes-help">Si el mes es más corto, se hace el último día.</small>
+        </label>
+        <label data-reu-show="mensual" data-reu-mensual-show="semana">Semana
+          <select name="semana_mes">
+            {% for n, nombre in semanas.items() %}<option value="{{ n }}" {{ 'selected' if v.semana_mes|string == n|string }}>{{ nombre|capitalize }}</option>{% endfor %}
+          </select>
+        </label>
+        <label data-reu-show="mensual" data-reu-mensual-show="semana">Día
+          <select name="dia_semana_mes">
+            {% for d in dias %}<option value="{{ loop.index0 }}" {{ 'selected' if v.dia_semana_mes|string == loop.index0|string }}>{{ d }}</option>{% endfor %}
+          </select>
+        </label>
+
+        <label>Duración (minutos)<input type="number" name="duracion_min" min="5" max="720" required value="{{ v.duracion_min }}"></label>
+        <span></span>
+        <label>Vigente desde<input type="date" name="fecha_inicio" required value="{{ v.fecha_inicio }}"></label>
+        <label>Vigente hasta<input type="date" name="fecha_fin" value="{{ v.fecha_fin or '' }}" aria-describedby="reu-fin-help"><small id="reu-fin-help">Vacío: sin fecha de fin.</small></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="epp-fieldset reu-section">
+      <legend>Registro de asistencia</legend>
+      <div class="epp-fields">
+        <label>Se puede escanear desde (min antes)<input type="number" name="tolerancia_antes_min" min="0" max="180" value="{{ v.tolerancia_antes_min }}"></label>
+        <label>Cuenta como tarde después de (min)<input type="number" name="tarde_despues_min" min="0" max="720" value="{{ v.tarde_despues_min }}"></label>
+        <label>El registro cierra a los (min del inicio)<input type="number" name="cierre_despues_min" min="0" max="720" value="{{ v.cierre_despues_min }}" aria-describedby="reu-cierre-help"><small id="reu-cierre-help">Vacío: hasta que termina la reunión. Después se marca ausente a quien no escaneó.</small></label>
+        <label>Código QR
+          <select name="qr_modo" aria-describedby="reu-qr-help">
+            <option value="fijo" {{ 'selected' if v.qr_modo == 'fijo' }}>Fijo impreso</option>
+            <option value="dinamico" {{ 'selected' if v.qr_modo == 'dinamico' }}>Dinámico en pantalla</option>
+            <option value="ambos" {{ 'selected' if v.qr_modo == 'ambos' }}>Ambos</option>
+          </select>
+          <small id="reu-qr-help">El fijo se imprime y se pega en la sala. El dinámico se proyecta desde el panel y cambia cada pocos segundos.</small>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="epp-fieldset epp-eligibility" data-reu-participantes>
+      <legend>Participantes obligatorios</legend>
+      <p>Elegí toda la empresa, sectores o puestos (los empleados nuevos quedan incluidos solos) y/o personas puntuales. Cuenta el puesto principal y los puestos adicionales.</p>
+      <p class="epp-coverage" data-reu-coverage role="status" aria-live="polite"></p>
+      <label class="reu-todos"><input type="checkbox" name="regla" value="todos" data-reu-todos {{ 'checked' if todos }}><span><strong>Toda la empresa</strong> <small>{{ cobertura|length }} empleados activos</small></span></label>
+
+      <div class="epp-sector-grid" data-reu-reglas>
+        {% for sector in eligibility.sectores %}
+          <div class="epp-sector" data-epp-sector>
+            <label class="epp-sector-all">
+              <input type="checkbox" name="regla" value="{{ sector.id }}" data-epp-sector-all {% if sector.todo %}checked{% endif %}>
+              <span><strong>{{ sector.nombre }}</strong> <small>todo el sector · {{ sector.empleados }} empleado{{ '' if sector.empleados == 1 else 's' }}</small></span>
+            </label>
+            {% if sector.puestos %}
+              <div class="epp-sector-puestos">
+                {% for puesto in sector.puestos %}
+                  <label class="{{ 'epp-sin-empleados' if not puesto.empleados }}">
+                    <input type="checkbox" name="regla" value="{{ sector.id }}:{{ puesto.id }}" {% if puesto.marcado %}checked{% endif %}>
+                    <span>{{ puesto.nombre }} <small>{{ puesto.empleados if puesto.empleados else 'sin empleados' }}</small></span>
+                  </label>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+        {% if eligibility.cualquier_sector %}
+          <div class="epp-sector">
+            <span class="epp-sector-all"><strong>Puesto en cualquier sector</strong></span>
+            <div class="epp-sector-puestos">
+              {% for puesto in eligibility.cualquier_sector %}
+                <label><input type="checkbox" name="regla" value=":{{ puesto.id }}" checked><span>{{ puesto.nombre }}</span></label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="reu-people" data-reu-personas>
+        <div class="reu-people-head">
+          <strong>Personas puntuales</strong>
+          <span data-reu-personas-count></span>
+        </div>
+        <label class="reu-people-search">Buscar empleado<input type="search" data-reu-buscar placeholder="Apellido, nombre, legajo o sector" autocomplete="off"></label>
+        <div class="reu-people-list">
+          {% for e in empleados %}
+            <label data-reu-persona data-texto="{{ (e.apellido ~ ' ' ~ e.nombre ~ ' ' ~ (e.legajo or '') ~ ' ' ~ (e.sector_nombre or ''))|lower }}">
+              <input type="checkbox" name="empleado" value="{{ e.id }}" {{ 'checked' if e.id in marcados }}>
+              <span>{{ e.apellido }} {{ e.nombre }} <small>{{ e.legajo or '' }}{% if e.sector_nombre %} · {{ e.sector_nombre }}{% endif %}</small></span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+      <script type="application/json" data-reu-coverage-data>{{ cobertura | tojson }}</script>
+    </fieldset>
+
+    <footer class="epp-form-footer">
+      <span>Al guardar, la reunión aparece en la app de cada convocado y se le recuerda antes de empezar.</span>
+      <button class="btn" type="submit">{{ 'Guardar cambios' if reunion else 'Crear reunión' }}</button>
+    </footer>
+  </form>
+</section>
+<script src="{{ url_for('static', filename='js/reuniones.js') }}" defer></script>
+{% endblock %}

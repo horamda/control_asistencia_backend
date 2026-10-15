@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.37.0
+Version de contrato: 1.38.0
+
+- **Reuniones (1.38.0):** reuniones recurrentes (diarias, semanales, mensuales) con convocados obligatorios, asistencia por QR fijo o dinámico, próximas reuniones para recordatorios y estadísticas propias. [Contrato Flutter](reuniones_mobile.md), [OpenAPI](reuniones_mobile_openapi.yaml).
 
 - **Egreso automatico y efectividad de fichaje (1.37.0):** campos aditivos en `me/marcas`, `me/asistencias` y `me/dashboard`. Ver [seccion](#asistencias-egreso-automatico-y-efectividad-de-fichaje-1370).
 

@@ -1,0 +1,329 @@
+"""Modulo Reuniones: recurrencia, convocados, QR, cierre con ausentes y estadisticas."""
+import datetime as dt
+from pathlib import Path
+
+import pytest
+from flask import Flask
+
+from services import reunion_service as svc
+from tests.test_seguridad import database  # noqa: F401  (fixture de base aislada)
+
+D = dt.date
+
+
+def reunion(**kw):
+    base = dict(id=1, empresa_id=1, nombre="Seguridad", frecuencia="semanal", dias_semana="2", mensual_tipo=None,
+                dia_mes=None, semana_mes=None, hora_inicio="09:00", duracion_min=60, fecha_inicio=D(2026, 1, 1),
+                fecha_fin=None, tolerancia_antes_min=15, tarde_despues_min=10, cierre_despues_min=None)
+    base.update(kw)
+    return base
+
+
+# --- Recurrencia (sin base) -----------------------------------------------------------
+
+def test_semanal_y_diaria_respetan_dias_y_vigencia():
+    r = reunion(dias_semana="0,2", fecha_fin=D(2026, 10, 31))
+    assert [f.isoformat() for f in svc.fechas(r, D(2026, 10, 12), D(2026, 10, 18))] == ["2026-10-12", "2026-10-14"]
+    assert not svc.ocurre_en(r, D(2026, 11, 2))  # despues de la fecha de fin
+    assert not svc.ocurre_en(reunion(fecha_inicio=D(2026, 10, 20)), D(2026, 10, 14))
+    diaria = reunion(frecuencia="diaria", dias_semana="0,1,2,3,4")
+    assert len(list(svc.fechas(diaria, D(2026, 10, 12), D(2026, 10, 18)))) == 5
+    assert svc.describir(diaria) == "De lunes a viernes a las 09:00 (60 min)"
+    assert svc.describir(reunion(dias_semana="0,2")) == "Todos los lunes y miércoles a las 09:00 (60 min)"
+
+
+def test_mensual_dia_fijo_usa_el_ultimo_dia_en_meses_cortos():
+    r = reunion(frecuencia="mensual", mensual_tipo="dia", dia_mes=31, dias_semana=None)
+    assert svc.ocurre_en(r, D(2026, 2, 28)) and svc.ocurre_en(r, D(2026, 10, 31))
+    assert not svc.ocurre_en(r, D(2026, 10, 30))
+    assert svc.describir(r) == "El día 31 de cada mes a las 09:00 (60 min)"
+
+
+def test_mensual_por_semana_primer_lunes_y_ultimo_viernes():
+    primer_lunes = reunion(frecuencia="mensual", mensual_tipo="semana", semana_mes=1, dias_semana="0")
+    assert [f.day for f in svc.fechas(primer_lunes, D(2026, 10, 1), D(2026, 12, 31))] == [5, 2, 7]
+    ultimo_viernes = reunion(frecuencia="mensual", mensual_tipo="semana", semana_mes=5, dias_semana="4")
+    assert [f.day for f in svc.fechas(ultimo_viernes, D(2026, 10, 1), D(2026, 11, 30))] == [30, 27]
+    assert svc.describir(ultimo_viernes) == "El último viernes de cada mes a las 09:00 (60 min)"
+
+
+def test_ventana_de_registro():
+    h = svc.horarios(reunion(cierre_despues_min=30), D(2026, 10, 14))
+    assert (h["ventana_desde"].time(), h["tarde_desde"].time(), h["ventana_hasta"].time(), h["fin"].time()) == (
+        dt.time(8, 45), dt.time(9, 10), dt.time(9, 30), dt.time(10, 0))
+    assert svc.horarios(reunion(), D(2026, 10, 14))["ventana_hasta"].time() == dt.time(10, 0)  # hasta el final
+
+
+@pytest.mark.parametrize("cambios,mensaje", [
+    (dict(dias_semana=[]), "al menos un día"),
+    (dict(hora_inicio="23:30", duracion_min="60"), "mismo día"),
+    (dict(tarde_despues_min="20", cierre_despues_min="10"), "cierre del registro"),
+    (dict(frecuencia="mensual", mensual_tipo="dia", dia_mes="32"), "Día del mes"),
+    (dict(nombre=""), "Nombre"),
+])
+def test_validacion_del_formulario(cambios, mensaje):
+    data = dict(nombre="Seguridad", frecuencia="semanal", dias_semana=["2"], hora_inicio="09:00", duracion_min="60")
+    data.update(cambios)
+    with pytest.raises(svc.Error, match=mensaje):
+        svc._validar(data)
+
+
+def test_qr_rechaza_contenido_ajeno():
+    with pytest.raises(svc.Error, match="no es de una reunión"):
+        svc._leer_qr("https://ejemplo.com/?x=1")
+    with pytest.raises(svc.Error):
+        svc._leer_qr(svc.QR_PREFIX + "no-es-un-jwt")
+
+
+# --- Flujo completo (base real, corre en CI) -------------------------------------------------
+
+AHORA = {"valor": dt.datetime(2026, 10, 13, 8, 0)}
+
+
+@pytest.fixture
+def reuniones_db(database, monkeypatch):  # noqa: F811
+    monkeypatch.setenv("JWT_SECRET", "reuniones-test-secret-0123456789abcdef0123456789")
+    conn = database()
+    c = conn.cursor()
+    for sql in ("ALTER TABLE sectores ADD COLUMN empresa_id INT NOT NULL DEFAULT 1",
+                "ALTER TABLE puestos ADD COLUMN empresa_id INT NOT NULL DEFAULT 1",
+                "ALTER TABLE empleados ADD COLUMN dni VARCHAR(20) NULL"):
+        try:
+            c.execute(sql)
+        except Exception:
+            pass  # la columna ya existe en el esquema base
+    for sql in [
+        "CREATE TABLE IF NOT EXISTS empleado_puestos (id INT AUTO_INCREMENT PRIMARY KEY, empleado_id INT, empresa_id INT,"
+        " sector_id INT, puesto_id INT, activo TINYINT DEFAULT 1)",
+        "CREATE TABLE IF NOT EXISTS vacaciones (id INT AUTO_INCREMENT PRIMARY KEY, empleado_id INT, fecha_desde DATE, fecha_hasta DATE)",
+        "CREATE TABLE IF NOT EXISTS francos (id INT AUTO_INCREMENT PRIMARY KEY, empleado_id INT, fecha DATE)",
+        "INSERT INTO sectores (id, nombre) VALUES (2, 'Almacen')",
+        "INSERT INTO puestos (id, nombre) VALUES (2, 'Picker')",
+        "UPDATE empleados SET sector_id=2, puesto_id=2 WHERE id=13",
+        "INSERT INTO empleados (id, empresa_id, sucursal_id, sector_id, puesto_id, activo, legajo, nombre, apellido)"
+        " VALUES (14, 1, 1, 2, 2, 1, '0014', 'No', 'Convocado')",
+        "INSERT INTO vacaciones (empleado_id, fecha_desde, fecha_hasta) VALUES (12, '2026-10-10', '2026-10-20')",
+    ]:
+        c.execute(sql)
+    from scripts.migrate_20261016_01_reuniones import migrate_cursor
+    migrate_cursor(c)
+    migrate_cursor(c)  # idempotente
+    conn.commit()
+    c.close()
+    conn.close()
+    AHORA["valor"] = dt.datetime(2026, 10, 13, 8, 0)
+    monkeypatch.setattr(svc, "now_local", lambda: AHORA["valor"])
+    return database
+
+
+ADMIN = dict(empresa_id=1, user_id=99)
+
+
+def emp(eid):
+    with svc.db.transaction(read_only=True) as c:
+        return svc.db.one(c, "SELECT * FROM empleados WHERE id=%s", (eid,))
+
+
+def crear(**cambios):
+    data = dict(nombre="Seguridad semanal", lugar="Sala 1", frecuencia="semanal", dias_semana=["2"], hora_inicio="09:00",
+                duracion_min="60", tolerancia_antes_min="15", tarde_despues_min="10", qr_modo="ambos",
+                reglas=["1:1"], empleados=["13"])
+    data.update(cambios)
+    return svc.guardar(ADMIN, data)
+
+
+def test_flujo_qr_cierre_y_estadisticas(reuniones_db):
+    rid = crear()
+    with svc.db.transaction(read_only=True) as c:
+        r = svc.obtener(c, ADMIN, rid)
+        assert [e["id"] for e in svc.convocados(c, r)] == sorted([10, 11, 12, 13], key=lambda i: {
+            10: "Perez", 11: "Garcia", 12: "Sucursal", 13: "Ajena"}[i])
+    qr = svc.qr_fijo(r)
+
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 8, 30)
+    with pytest.raises(svc.Error, match="Se habilita a las 08:45"):
+        svc.registrar_qr(emp(10), qr)
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 8, 50)
+    primero = svc.registrar_qr(emp(10), qr, lat=-34.6, lon=-58.4)
+    assert primero["estado"] == "presente" and not primero["ya_registrado"]
+    assert svc.registrar_qr(emp(10), qr)["ya_registrado"]  # idempotente
+    with pytest.raises(svc.Error, match="No estás convocado"):
+        svc.registrar_qr(emp(14), qr)
+    with pytest.raises(svc.Error, match="otra empresa"):
+        svc.registrar_qr(emp(20), qr)
+
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 9, 20)
+    dinamico = svc.qr_dinamico(r, D(2026, 10, 14))
+    assert svc.registrar_qr(emp(11), dinamico)["estado"] == "tarde"
+    with pytest.raises(svc.Error, match="otra fecha"):
+        svc.registrar_qr(emp(13), svc.qr_dinamico(r, D(2026, 10, 13)))
+
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 10, 1)
+    with pytest.raises(svc.Error, match="cerró a las 10:00"):
+        svc.registrar_qr(emp(13), qr)
+
+    # Cierre: 13 ausente, 12 justificado por vacaciones. Idempotente.
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 10, 5)
+    resumen = svc.cerrar_ocurrencias(ahora=AHORA["valor"])
+    assert (resumen["cerradas"], resumen["ausentes"], resumen["justificados"]) == (1, 1, 1)
+    assert svc.cerrar_ocurrencias(ahora=AHORA["valor"])["cerradas"] == 0
+
+    d = svc.detalle(ADMIN, rid, desde=D(2026, 10, 1), hasta=D(2026, 10, 31))
+    assert (d["total"]["convocatorias"], d["total"]["asistidas"], d["total"]["justificados"]) == (4, 2, 1)
+    assert d["total"]["asistencia_pct"] == 66.7 and d["total"]["puntualidad_pct"] == 50.0
+    assert d["ranking"][0]["empleado_id"] == 13  # el que falto, primero
+    assert d["ocurrencias"][0]["estado"] == "cerrada" and d["ocurrencias"][0]["convocados"] == 4
+
+    occ = svc.ocurrencia_detalle(ADMIN, rid, D(2026, 10, 14))
+    assert occ["conteo"] == {"presente": 1, "tarde": 1, "ausente": 1, "justificado": 1, "pendiente": 0}
+
+    # Correccion manual desde el panel.
+    svc.marcar_manual(ADMIN, rid, D(2026, 10, 14), 13, "justificado", "Médico")
+    assert svc.detalle(ADMIN, rid, desde=D(2026, 10, 1), hasta=D(2026, 10, 31))["total"]["asistencia_pct"] == 100.0
+
+    # Empleado: estadisticas, historial y proximas (hoy registrado, la semana que viene pendiente).
+    mias = svc.estadisticas_empleado(emp(11), D(2026, 10, 1), D(2026, 10, 31))
+    assert mias["totales"]["tarde"] == 1 and mias["totales"]["asistencia_pct"] == 100.0
+    assert svc.historial_empleado(emp(10))["items"][0]["estado"] == "presente"
+    prox = svc.proximas(emp(10), 8, ahora=AHORA["valor"])["items"]
+    assert [(p["fecha"], p["estado"]) for p in prox] == [("2026-10-14", "presente"), ("2026-10-21", "pendiente")]
+    assert svc.mis_reuniones(emp(13))[0]["proxima_fecha"] == "2026-10-14"
+    assert svc.mis_reuniones(emp(14)) == []
+
+    # Cancelar una fecha futura: la app la ve cancelada y el QR no registra.
+    svc.cancelar_ocurrencia(ADMIN, rid, D(2026, 10, 21), "Feriado")
+    prox = svc.proximas(emp(10), 8, ahora=AHORA["valor"])["items"]
+    assert prox[1]["cancelada"] and prox[1]["motivo_cancelacion"] == "Feriado"
+    AHORA["valor"] = dt.datetime(2026, 10, 21, 9, 0)
+    with pytest.raises(svc.Error, match="cancelada"):
+        svc.registrar_qr(emp(10), qr)
+
+    # Regenerar el QR invalida el impreso. Con asistencias no se puede eliminar.
+    svc.regenerar_qr(ADMIN, rid)
+    with pytest.raises(svc.Error, match="ya no es válido"):
+        svc.registrar_qr(emp(10), qr)
+    with pytest.raises(svc.Error, match="desactivala"):
+        svc.eliminar(ADMIN, rid)
+
+
+def test_participantes_toda_la_empresa_y_validaciones(reuniones_db):
+    rid = crear(reglas=["todos", "1"], empleados=["10"], qr_modo="fijo")
+    with svc.db.transaction(read_only=True) as c:
+        r = svc.obtener(c, ADMIN, rid)
+        assert svc.reglas(c, rid) == [{"empleado_id": None, "sector_id": None, "puesto_id": None}]
+        assert len(svc.convocados(c, r)) == 5  # empresa 1 completa, sin la 2
+    with pytest.raises(svc.Error, match="QR impreso"):
+        AHORA["valor"] = dt.datetime(2026, 10, 14, 9, 0)
+        svc.registrar_qr(emp(10), svc.qr_dinamico(r, D(2026, 10, 14)))
+    with pytest.raises(svc.Error, match="no pertenecen"):
+        crear(empleados=["20"])
+    with pytest.raises(svc.Error, match="al menos un participante"):
+        crear(reglas=[], empleados=[])
+    sin_uso = crear(nombre="Sin uso")
+    svc.eliminar(ADMIN, sin_uso)
+    with pytest.raises(svc.Error, match="no encontrada"):
+        svc.eliminar(dict(empresa_id=2), rid)  # otra empresa no la ve
+
+
+# --- Panel y API -------------------------------------------------------------------------------
+
+@pytest.fixture
+def client(reuniones_db, monkeypatch):
+    import routes.carga_routes as carga_routes
+    import utils.jwt_guard as jwt_guard
+    import web.auth.decorators as auth
+    from web.reuniones import routes
+
+    app = Flask(__name__, template_folder=str(Path(__file__).resolve().parents[1] / "templates"))
+    app.secret_key = "test"
+    app.config["TESTING"] = True
+    app.register_blueprint(routes.web)
+    app.register_blueprint(routes.mobile)
+    permisos = {"acciones": {"ver", "crear", "editar", "eliminar", "exportar"}}
+    app.jinja_env.globals.update(csp_nonce=lambda: "n", csrf_token=lambda: "t",
+                                 can_web=lambda code, action="ver": code == "reuniones" and action in permisos["acciones"],
+                                 export_toolbar={"enabled": False, "items": []})
+    monkeypatch.setattr(auth, "can_access_module", lambda uid, module, action="ver": module == "reuniones"
+                        and action in permisos["acciones"])
+    monkeypatch.setattr(routes, "_cached_web_user", lambda uid: dict(id=99, empresa_id=1, activo=1))
+    monkeypatch.setattr(routes, "now_local", lambda: AHORA["valor"])
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: dict(empleado_id=int(token)))
+    monkeypatch.setattr(carga_routes, "get_by_id", emp)
+    monkeypatch.setattr(routes, "log_audit", lambda *a, **kw: None)
+    test_client = app.test_client()
+    with test_client.session_transaction() as sess:
+        sess["user_id"] = 99
+    test_client.permisos = permisos
+    return test_client
+
+
+def test_panel_crud_y_pantallas(client):
+    assert client.get("/reuniones/nueva").status_code == 200
+    response = client.post("/reuniones/nueva", data={
+        "nombre": "Diaria de turno", "frecuencia": "diaria", "dias_semana": ["0", "1", "2", "3", "4"],
+        "hora_inicio": "07:30", "duracion_min": "15", "qr_modo": "ambos", "regla": ["2"], "empleado": ["10"]})
+    assert response.status_code == 302
+    rid = int(response.headers["Location"].rstrip("/").split("/")[-1])
+
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 7, 35)
+    paginas = ["/reuniones/", f"/reuniones/{rid}", f"/reuniones/{rid}/editar", f"/reuniones/{rid}/qr",
+               f"/reuniones/{rid}/qr/proyectar", f"/reuniones/{rid}/qr/vivo", f"/reuniones/{rid}/fecha/2026-10-14",
+               "/reuniones/estadisticas", f"/reuniones/{rid}/exportar.csv", "/reuniones/estadisticas/exportar.csv"]
+    for path in paginas:
+        r = client.get(path)
+        assert r.status_code == 200, (path, r.get_data(as_text=True)[:400])
+    html = client.get(f"/reuniones/{rid}/qr/proyectar").get_data(as_text=True)
+    assert 'hx-trigger="every 20s"' in html and "data:image/png;base64" in html
+    assert "De lunes a viernes a las 07:30" in client.get("/reuniones/").get_data(as_text=True)
+
+    # Error de validacion: vuelve al formulario conservando los datos.
+    r = client.post(f"/reuniones/{rid}/editar", data={"nombre": "Diaria de turno", "frecuencia": "semanal",
+                                                      "hora_inicio": "07:30", "duracion_min": "15", "regla": ["2"]})
+    assert r.status_code == 400 and "Elegí al menos un día" in r.get_data(as_text=True)
+
+    client.permisos["acciones"] = {"ver"}
+    html = client.get(f"/reuniones/{rid}").get_data(as_text=True)
+    assert f"/reuniones/{rid}/editar" not in html and f"/reuniones/{rid}/eliminar" not in html
+    assert client.post(f"/reuniones/{rid}/eliminar").status_code == 403
+    client.permisos["acciones"] = set()
+    assert client.get("/reuniones/").status_code == 403
+
+
+def test_api_mobile(client):
+    rid = crear(nombre="Mensual", frecuencia="mensual", mensual_tipo="semana", semana_mes="2", dia_semana_mes="2")
+    headers = {"Authorization": "Bearer 10"}
+    assert client.get("/api/v1/mobile/reuniones", headers={}).status_code == 401
+
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 8, 0)  # 14/10 es el segundo miercoles
+    lista = client.get("/api/v1/mobile/reuniones", headers=headers).json["items"]
+    assert lista[0]["descripcion_frecuencia"] == "El segundo miércoles de cada mes a las 09:00 (60 min)"
+    prox = client.get("/api/v1/mobile/reuniones/proximas?dias=7", headers=headers).json
+    assert prox["items"][0]["estado"] == "pendiente" and prox["items"][0]["inicio"].startswith("2026-10-14T09:00")
+
+    with svc.db.transaction(read_only=True) as c:
+        qr = svc.qr_fijo(svc.obtener(c, ADMIN, rid))
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 9, 2)
+    r = client.post("/api/v1/mobile/reuniones/registrar", json={"qr": qr, "lat": -34.6, "lon": -58.4}, headers=headers)
+    assert r.status_code == 201 and r.json["estado"] == "presente"
+    r = client.post("/api/v1/mobile/reuniones/registrar", json={"qr": qr}, headers=headers)
+    assert r.status_code == 200 and r.json["ya_registrado"]
+    r = client.post("/api/v1/mobile/reuniones/registrar", json={"qr": qr}, headers={"Authorization": "Bearer 14"})
+    assert r.status_code == 403 and "convocado" in r.json["error"]
+    assert client.post("/api/v1/mobile/reuniones/registrar", json={"qr": qr, "lat": 200},
+                       headers=headers).status_code == 400
+
+    detalle = client.get(f"/api/v1/mobile/reuniones/{rid}", headers=headers).json
+    assert detalle["historial"][0]["estado"] == "presente" and detalle["proximas_fechas"][:2] == ["2026-10-14", "2026-11-11"]
+    assert client.get(f"/api/v1/mobile/reuniones/{rid}", headers={"Authorization": "Bearer 14"}).status_code == 404
+    stats = client.get("/api/v1/mobile/reuniones/estadisticas?desde=2026-10-01&hasta=2026-10-31", headers=headers).json
+    assert stats["totales"]["presentes"] == 1 and stats["por_reunion"][0]["nombre"] == "Mensual"
+    hist = client.get("/api/v1/mobile/reuniones/historial", headers=headers).json
+    assert hist["total"] == 1
+    assert client.get("/api/v1/mobile/reuniones/historial?desde=mal", headers=headers).status_code == 400
+
+
+def test_qr_de_reunion_en_la_fichada_da_un_mensaje_claro():
+    from utils.jwt import QRTokenValidationError, extract_qr_token
+    with pytest.raises(QRTokenValidationError) as exc:
+        extract_qr_token(svc.QR_PREFIX + "eyJ.abc.def")
+    assert exc.value.code == "qr_token_reunion"

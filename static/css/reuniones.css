@@ -1,0 +1,65 @@
+/* Reuniones: reutiliza el formato de EPP (epp.css) y agrega solo lo propio del modulo. */
+.reu-section{border-top:1px solid var(--border);padding-top:20px}
+.reu-label{display:block;font-weight:600;margin-bottom:8px}
+.reu-form small{display:block}
+[data-reu-show][hidden]{display:none!important}
+
+/* Casilleros: los inputs del formulario tienen altura de campo de texto. */
+.epp-page .reu-form input[type=checkbox]{width:16px;height:16px;min-height:0;padding:0;margin:3px 0 0;flex:none}
+.reu-days{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.epp-page .reu-days label{display:flex;align-items:center;gap:6px;margin:0;padding:8px 12px;border:1px solid var(--border);border-radius:999px;cursor:pointer;background:var(--surface)}
+.epp-page .reu-days input[type=checkbox]{margin:0}
+.reu-days label:has(input:checked){border-color:var(--primary);background:var(--primary-soft)}
+.epp-page .reu-todos{display:flex;align-items:flex-start;gap:8px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;cursor:pointer}
+.reu-todos:has(input:checked){border-color:var(--primary);background:var(--primary-soft)}
+.reu-todos small{color:var(--muted);font-weight:400}
+[data-reu-reglas].is-disabled{opacity:.5}
+
+.reu-people{margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--surface)}
+.reu-people-head{display:flex;justify-content:space-between;gap:12px;margin-bottom:10px}
+.reu-people-head span{color:var(--muted);font-size:.875rem}
+.epp-page .reu-people-search{margin:0 0 10px}
+.reu-people-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:6px 16px;max-height:320px;overflow:auto;padding-right:4px}
+.epp-page .reu-people-list label{display:flex;align-items:flex-start;gap:8px;margin:0;cursor:pointer;min-width:0}
+.reu-people-list label[hidden]{display:none}
+.reu-people-list small,.reu-people-summary small{color:var(--muted)}
+.reu-people-list span{overflow-wrap:anywhere}
+.reu-people-summary{columns:2 260px;padding-left:18px}
+
+/* Listado */
+.reu-card{display:flex;flex-direction:column;gap:10px}
+.reu-card h3{margin:0;overflow-wrap:anywhere}
+.reu-when{margin:0;color:var(--muted)}
+.reu-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+.reu-facts dt{font-size:.8rem;color:var(--muted)}.reu-facts dd{margin:2px 0 0;font-weight:600}
+.reu-card-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:auto}
+.reu-card-actions form,.reu-inline-form{margin:0;padding:0;border:0;background:none;box-shadow:none}
+.reu-detail-facts{grid-template-columns:repeat(3,minmax(0,1fr))}
+.reu-detail-facts .chip{text-decoration:none;margin:0 4px 4px 0;display:inline-block}
+
+/* Estados */
+.reu-badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.85rem;font-weight:600;border:1px solid var(--border);background:var(--surface-soft)}
+.reu-presente{border-color:var(--success);color:var(--success)}
+.reu-tarde{border-color:var(--warning);color:var(--warning)}
+.reu-ausente,.reu-cancelada{border-color:var(--danger);color:var(--danger)}
+.reu-justificado,.reu-pendiente{color:var(--muted)}
+.reu-pct{font-weight:700}.reu-pct.is-ok{color:var(--success)}.reu-pct.is-warn{color:var(--warning)}.reu-pct.is-bad{color:var(--danger)}
+.reu-inline-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0}
+.reu-inline-form select,.reu-inline-form input{width:auto;min-width:0;max-width:160px}
+
+/* QR */
+.reu-qr-print{text-align:center;display:grid;justify-items:center;gap:8px;padding:12px 0}
+.reu-qr-print h2{margin:0}.reu-qr-print p{margin:0}
+.epp-page .reu-qr-img{width:min(100%,360px);height:auto;image-rendering:pixelated;background:#fff;padding:12px;border-radius:12px}
+.reu-qr-live .reu-qr-img{width:min(100%,520px)}
+.reu-qr-print small{color:var(--muted)}
+
+@media(max-width:700px){.reu-facts,.reu-detail-facts{grid-template-columns:minmax(0,1fr)}.reu-inline-form select,.reu-inline-form input{max-width:none;flex:1}}
+@media print{
+  body *{visibility:hidden}
+  .reu-qr-print,.reu-qr-print *{visibility:visible}
+  .reu-qr-print{position:absolute;inset:0;padding-top:40px;color:#000}
+  .reu-qr-print h2{font-size:28pt}.reu-qr-print p{font-size:14pt}
+  .epp-page .reu-qr-img{width:12cm}
+  .reu-no-print{display:none}
+}

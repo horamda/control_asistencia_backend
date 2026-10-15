@@ -71,6 +71,7 @@ from web.seguridad.seguridad_routes import seguridad_web_bp
 from web.carga.carga_routes import carga_web_bp
 from web.panel_notifications_routes import panel_notifications_bp
 from web.rendimiento.rendimiento_routes import rendimiento_bp
+from web.reuniones.routes import web as reuniones_web_bp, mobile as reuniones_mobile_bp
 from utils import request_metrics
 
 # API: autentican por token, responden errores en JSON y quedan exentas de CSRF.
@@ -84,6 +85,7 @@ API_BLUEPRINTS = (
     reintegros_mobile_bp,
     epp_mobile_bp,
     seguridad_mobile_bp,
+    reuniones_mobile_bp,
     trivia_bp,
 )
 API_BLUEPRINT_NAMES = frozenset(bp.name for bp in API_BLUEPRINTS)
@@ -99,6 +101,8 @@ BLUEPRINTS = (
     reintegros_mobile_bp,
     epp_mobile_bp,
     epp_web_bp,
+    reuniones_mobile_bp,
+    reuniones_web_bp,
     reintegros_web_bp,
     seguridad_mobile_bp,
     seguridad_web_bp,
