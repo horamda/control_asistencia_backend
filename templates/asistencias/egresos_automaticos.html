@@ -64,6 +64,12 @@
       <p class="helper-text">No hay jornadas pendientes: el cierre ya está aplicado. Las de hoy se cierran esta noche a las 03:30, si el empleado no ficha la salida antes.</p>
       {% endif %}
     </div>
+    <form method="post" action="{{ url_for('egresos_automaticos.recalcular') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <p class="helper-text">¿Cambiaste las horas configuradas? Las jornadas ya cerradas por horas (no las de horario asignado) conservan el valor con el que se cerraron hasta que las recalcules.</p>
+      <button type="submit" class="btn btn-secondary"
+              data-confirm="Las jornadas cerradas por horas configuradas se recalculan con el valor actual de cada empresa. Cambian sus horas trabajadas. ¿Continuar?">Recalcular con las horas actuales</button>
+    </form>
     {% endif %}
   </div>
 

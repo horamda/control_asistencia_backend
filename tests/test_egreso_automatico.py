@@ -245,3 +245,38 @@ def test_panel_simular_no_escribe_y_ejecutar_registra_manual(monkeypatch):
     response = client.post("/asistencias/egresos-automaticos/ejecutar")
     assert response.status_code == 302 and response.headers["Location"].endswith("/asistencias/egresos-automaticos/")
     assert llamadas == [{"origen": "manual", "usuario_id": 5}, {"audit": "egreso_automatico_manual"}]
+
+
+def test_recalcular_por_parametro_con_las_horas_actuales(jornadas):
+    svc.cerrar_jornadas_abiertas(hoy=dt.date(2026, 10, 14))  # empresa 1: 7,5 h
+    conn = jornadas()
+    c = conn.cursor()
+    c.execute("UPDATE configuracion_empresa SET egreso_automatico_horas = 6 WHERE empresa_id = 1")
+    conn.commit()
+    c.close()
+    conn.close()
+
+    simulado = svc.recalcular_por_parametro(dry_run=True)
+    # Solo las cerradas por parametro (2 y 6); la 1 fue segun horario asignado.
+    assert (simulado["revisadas"], simulado["cambiadas"]) == (2, 2)
+    assert _rows(jornadas, "SELECT hora_salida FROM asistencias WHERE id = 2")[0]["hora_salida"] == dt.timedelta(hours=16, minutes=30)
+
+    resultado = svc.recalcular_por_parametro()
+    assert resultado["detalle"] == [(2, "16:30:00", "15:00:00"), (6, "17:30:00", "16:00:00")]
+    filas = {r["id"]: r for r in _rows(jornadas, "SELECT id, hora_salida, observaciones FROM asistencias")}
+    assert str(filas[2]["hora_salida"]) == "15:00:00" and "(ingreso + 6 h)" in filas[2]["observaciones"]
+    assert "7.5" not in filas[2]["observaciones"]
+    assert str(filas[1]["hora_salida"]) == "16:00:00"  # horario asignado: sin cambios
+    marca = _rows(jornadas, "SELECT hora, observaciones FROM asistencia_marcas WHERE asistencia_id = 2 AND accion = 'egreso'")[0]
+    assert str(marca["hora"]) == "15:00:00" and "(ingreso + 6 h)" in marca["observaciones"]
+    assert svc.recalcular_por_parametro()["cambiadas"] == 0  # idempotente
+
+
+def test_panel_recalcular(monkeypatch):
+    llamadas = []
+    client = _panel_client(monkeypatch, "admin", llamadas)
+    monkeypatch.setattr(svc, "recalcular_por_parametro", lambda **kw: llamadas.append("recalcular") or {
+        "revisadas": 3, "cambiadas": 2, "sin_cambios": 1, "detalle": []})
+    assert "Recalcular con las horas actuales" in client.get("/asistencias/egresos-automaticos/").get_data(as_text=True)
+    response = client.post("/asistencias/egresos-automaticos/recalcular")
+    assert response.status_code == 302 and llamadas == ["recalcular", {"audit": "egreso_automatico_recalculo"}]

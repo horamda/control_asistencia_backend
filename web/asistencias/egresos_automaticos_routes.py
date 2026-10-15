@@ -64,3 +64,21 @@ def ejecutar():
         mensaje += f"; {resumen['errores']} con error (ver logs)"
     flash(mensaje + ".", "error" if resumen["errores"] else "success")
     return redirect(url_for("egresos_automaticos.index"))
+
+
+@egresos_automaticos_bp.route("/recalcular", methods=["POST"])
+@role_required("admin", "rrhh")
+def recalcular():
+    """Aplica las horas configuradas actuales a las jornadas ya cerradas por parametro."""
+    try:
+        resumen = svc.recalcular_por_parametro()
+    except Exception:
+        current_app.logger.exception("egresos_automaticos_recalcular_error")
+        flash("No se pudo recalcular. Revise los logs e intente nuevamente.", "error")
+        return redirect(url_for("egresos_automaticos.index"))
+    log_audit(session, "egreso_automatico_recalculo", "asistencias", None)
+    if resumen["cambiadas"]:
+        flash(f"Se recalcularon {resumen['cambiadas']} jornada(s) con las horas configuradas actuales.", "success")
+    else:
+        flash("Todas las jornadas cerradas por horas configuradas ya usan el valor actual.", "success")
+    return redirect(url_for("egresos_automaticos.index"))

@@ -8,6 +8,7 @@ Cierra las jornadas de dias anteriores que tienen ingreso y no tienen egreso:
   error en la efectividad de fichaje del empleado.
 """
 import datetime as dt
+import re
 import logging
 
 from extensions import get_db
@@ -115,6 +116,63 @@ def _cerrar(asistencia_id, hora, origen, horas):
     finally:
         cursor.close()
         db.close()
+
+
+_DETALLE_PARAMETRO = re.compile(r"ingreso \+ [0-9]+(?:\.[0-9]+)? h")
+
+
+def recalcular_por_parametro(*, empresa_id=None, dry_run=False):
+    """Recalcula las jornadas cerradas por horas configuradas con el valor actual de cada empresa
+    (p. ej. tras cambiar el parametro). Las cerradas segun horario asignado no se tocan.
+    Devuelve {revisadas, cambiadas, sin_cambios, detalle: [(id, salida_anterior, salida_nueva)]}."""
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    resumen = {"revisadas": 0, "cambiadas": 0, "sin_cambios": 0, "detalle": []}
+    try:
+        if not dry_run:
+            db.start_transaction()  # todo o nada
+        configs = _configuraciones(cursor)
+        sql = ("SELECT id, empresa_id, hora_entrada, hora_salida, observaciones FROM asistencias "
+               "WHERE metodo_salida = %s AND observaciones LIKE %s")
+        params = [METODO, "%Egreso automatico por olvido de fichada (ingreso + %"]
+        if empresa_id:
+            sql += " AND empresa_id = %s"
+            params.append(int(empresa_id))
+        cursor.execute(sql + " ORDER BY id", tuple(params))
+        filas = cursor.fetchall()
+        for row in filas:
+            resumen["revisadas"] += 1
+            horas = configs.get(row["empresa_id"], (True, HORAS_DEFAULT))[1]
+            nueva, _ = calcular_egreso(row["hora_entrada"], [], horas)
+            anterior = _hhmmss(_minutes(row["hora_salida"]))
+            detalle = f"ingreso + {horas:g} h"
+            observaciones = _DETALLE_PARAMETRO.sub(detalle, row["observaciones"], count=1)
+            if anterior == nueva:
+                resumen["sin_cambios"] += 1  # p. ej. topes a las 23:59: solo se actualiza la nota
+                if observaciones == row["observaciones"]:
+                    continue
+            else:
+                resumen["cambiadas"] += 1
+                resumen["detalle"].append((row["id"], anterior, nueva))
+            if dry_run:
+                continue
+            cursor.execute("UPDATE asistencias SET hora_salida = %s, observaciones = %s WHERE id = %s",
+                           (nueva, observaciones, row["id"]))
+            cursor.execute(
+                "UPDATE asistencia_marcas SET hora = %s, observaciones = %s"
+                " WHERE asistencia_id = %s AND accion = 'egreso' AND metodo = %s",
+                (nueva, f"Egreso automatico por olvido de fichada ({detalle}).", row["id"], METODO),
+            )
+        if not dry_run:
+            db.commit()
+    except Exception:
+        if not dry_run:
+            db.rollback()
+        raise
+    finally:
+        cursor.close()
+        db.close()
+    return resumen
 
 
 def _ahora():
