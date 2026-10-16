@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.43.0
+Version de contrato: 1.43.1
+
+- **Push activo en producción (1.43.1):** Firebase configurado; `GET /push/config` ya devuelve `activo: true`. La app tiene que registrar el token (`POST /push/dispositivo`) y no duplicar el recordatorio local de 30 min. Ver [contrato push](push_mobile.md#estado-1431-activo-en-producción).
 
 - **Notificaciones push (1.43.0):** Android y web con Firebase. Rutas `/api/v1/mobile/push` (config, registrar y quitar dispositivo) y avisos de reuniones. Ver [contrato push](push_mobile.md).
 

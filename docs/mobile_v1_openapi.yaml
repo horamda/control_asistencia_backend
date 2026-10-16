@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.43.0
+  version: 1.43.1
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.43.1: push activo en produccion (Firebase fichaya-917d5); se documentan /push/config y /push/dispositivo.
     Version 1.43.0: notificaciones push (Android y web) en /push; ver push_mobile.md.
     Version 1.42.0: Reuniones superpuestas (superpuesta_con en /reuniones/proximas; ausencia justificada si asistio a la otra).
     Version 1.41.0: Reuniones con resumen semanal (/proximas?semana=actual) y horas asistidas en estadisticas.
@@ -2233,6 +2234,31 @@ components:
       properties:
         error:
           type: string
+
+    PushConfig:
+      type: object
+      properties:
+        activo:
+          type: boolean
+          description: true si el servidor tiene Firebase configurado (produccion desde 1.43.1).
+        canal_android:
+          type: string
+          example: reuniones
+        vapid_key:
+          type: string
+          nullable: true
+          description: Clave publica VAPID para getToken() en Flutter web.
+        web:
+          type: object
+          nullable: true
+          description: Configuracion publica de Firebase para Flutter web y firebase-messaging-sw.js.
+          properties:
+            apiKey: {type: string}
+            authDomain: {type: string}
+            projectId: {type: string}
+            storageBucket: {type: string}
+            messagingSenderId: {type: string}
+            appId: {type: string}
 
     # --- Feedback de calle ---
     FeedbackEmpleadoRef:
@@ -7250,6 +7276,125 @@ paths:
       description: Sin body.
       tags:
       - Trivia
+
+  /push/config:
+    get:
+      summary: Estado de las notificaciones push y datos publicos de Firebase
+      description: |
+        Llamar despues del login. Con `activo: false` la app no pide permisos ni registra token.
+        `web` y `vapid_key` son publicos (los usa Flutter web); `canal_android` es el canal de notificaciones
+        que la app Android debe crear. Ver push_mobile.md.
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushConfig'
+              example:
+                activo: true
+                canal_android: reuniones
+                vapid_key: BF2u4_...
+                web:
+                  apiKey: AIza...
+                  authDomain: fichaya-917d5.firebaseapp.com
+                  projectId: fichaya-917d5
+                  storageBucket: fichaya-917d5.firebasestorage.app
+                  messagingSenderId: '885761435547'
+                  appId: 1:885761435547:web:d9d260b374b68eeccfe33e
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Push
+  /push/dispositivo:
+    post:
+      summary: Registrar o actualizar el token FCM del dispositivo
+      description: |
+        Idempotente. Llamar tras el login, en cada `onTokenRefresh` y al abrir la app.
+        Si el token estaba a nombre de otro empleado (telefono compartido), pasa al empleado autenticado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, plataforma]
+              properties:
+                token:
+                  type: string
+                  minLength: 20
+                  maxLength: 1024
+                  description: Token de FirebaseMessaging.getToken().
+                plataforma:
+                  type: string
+                  enum: [android, web]
+                app_version:
+                  type: string
+                  maxLength: 40
+                  nullable: true
+      responses:
+        '200':
+          description: Dispositivo registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  registrado:
+                    type: boolean
+                  activo:
+                    type: boolean
+                    description: Si el servidor tiene Firebase configurado.
+        '400':
+          description: Token o plataforma invalidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Push
+    delete:
+      summary: Quitar el dispositivo al cerrar sesion
+      description: El dispositivo deja de recibir avisos del empleado autenticado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Resultado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quitado:
+                    type: boolean
+                    description: false si el token no estaba registrado para este empleado.
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Push
 
   /empleados/imagen/{dni}:
     servers:

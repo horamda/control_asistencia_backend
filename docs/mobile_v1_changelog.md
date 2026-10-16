@@ -1,3 +1,7 @@
+## 1.43.1 — 2026-10-16
+
+- Notificaciones push **activas en producción**: Firebase configurado (proyecto `fichaya-917d5`). `GET /push/config` devuelve `activo: true`, la configuración web y la clave VAPID; el servidor ya envía avisos de reuniones y el recordatorio de 30 min. Sin cambios de rutas ni campos. OpenAPI: se documentan `GET /push/config` y `POST`/`DELETE /push/dispositivo`. La app debe registrar el token y, con push activo, dejar de programar el recordatorio local de 30 min. Guía: `push_mobile.md`.
+
 ## 1.43.0 — 2026-10-16
 
 - Notificaciones push con Firebase (Android y web): `GET /push/config`, `POST` y `DELETE /push/dispositivo`. Avisos de reuniones (nueva, cambio, fecha cancelada/reactivada, horario de una fecha) y recordatorio 30 min antes enviado por el servidor. Inactivo hasta configurar Firebase en el servidor. Guía: `push_mobile.md`.
