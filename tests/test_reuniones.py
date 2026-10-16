@@ -148,6 +148,7 @@ def test_flujo_qr_cierre_y_estadisticas(reuniones_db):
         assert [e["id"] for e in svc.convocados(c, r)] == sorted([10, 11, 12, 13], key=lambda i: {
             10: "Perez", 11: "Garcia", 12: "Sucursal", 13: "Ajena"}[i])
     qr = svc.qr_fijo(r)
+    assert svc.qr_fijo(dict(r)) == qr  # el QR impreso es siempre el mismo (misma imagen)
 
     AHORA["valor"] = dt.datetime(2026, 10, 14, 8, 30)
     with pytest.raises(svc.Error, match="Se habilita a las 08:45"):

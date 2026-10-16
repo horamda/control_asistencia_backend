@@ -27,7 +27,6 @@ ESTADOS = ("presente", "tarde", "ausente", "justificado")
 QR_PREFIX = "fichaya://reunion?t="
 QR_TIPO = "reunion_qr"
 QR_DINAMICO_TTL = 45
-QR_FIJO_TTL = 10 * 365 * 24 * 3600
 DIAS = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
 SEMANAS = {1: "primer", 2: "segundo", 3: "tercer", 4: "cuarto", 5: "último"}
 MAX_RANGO_DIAS = 366
@@ -431,15 +430,20 @@ def cerrar_ocurrencias(*, ahora=None, dias_atras=7):
 
 # --- QR ------------------------------------------------------------------------------
 
-def _token(payload, ttl):
-    data = dict(payload, type=QR_TIPO, exp=dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=ttl))
-    return jwt.encode(data, _get_secret(), algorithm="HS256")
+# Vencimiento fijo del QR impreso: el mismo contenido (y la misma imagen) cada vez que se muestra.
+# Deja de valer al regenerarlo (qr_version), no por fecha.
+QR_FIJO_EXP = 4102444800  # 2100-01-01 UTC
+
+
+def _token(payload, ttl=None, *, exp=None):
+    vence = exp if exp is not None else dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=ttl)
+    return jwt.encode(dict(payload, type=QR_TIPO, exp=vence), _get_secret(), algorithm="HS256")
 
 
 def qr_fijo(r):
     """QR impreso de la reunion en una sede (r = en_sede(...))."""
     return QR_PREFIX + _token({"rid": r["id"], "emp": r["empresa_id"], "s": int(r.get("sucursal_id") or 0),
-                               "m": "fijo", "v": int(r["qr_version"])}, QR_FIJO_TTL)
+                               "m": "fijo", "v": int(r["qr_version"])}, exp=QR_FIJO_EXP)
 
 
 def qr_dinamico(r, fecha):
