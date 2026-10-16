@@ -10,6 +10,7 @@ from utils.trivia_scheduler import init_trivia_scheduler, shutdown_trivia_schedu
 from utils.reintegro_scheduler import init_reintegro_scheduler
 from utils.egreso_automatico_scheduler import init_egreso_automatico_scheduler, shutdown_egreso_automatico_scheduler
 from utils.reunion_scheduler import init_reunion_scheduler, shutdown_reunion_scheduler
+from utils.push_scheduler import init_push_scheduler, shutdown_push_scheduler
 from types import SimpleNamespace
 
 
@@ -35,6 +36,7 @@ def main():
         init_reintegro_scheduler(app)
         init_egreso_automatico_scheduler(app)
         init_reunion_scheduler(app)
+        init_push_scheduler(app)
         started = True
         while not stop.wait(15):
             # Do not reconnect: losing the owning connection must stop this process.
@@ -49,6 +51,7 @@ def main():
                 reintegro_scheduler._scheduler.shutdown(wait=True)
             shutdown_egreso_automatico_scheduler(wait=True)
             shutdown_reunion_scheduler(wait=True)
+            shutdown_push_scheduler(wait=True)
         cursor.close()
         db.close()
 

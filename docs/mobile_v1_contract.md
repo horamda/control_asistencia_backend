@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.42.1
+Version de contrato: 1.43.0
+
+- **Notificaciones push (1.43.0):** Android y web con Firebase. Rutas `/api/v1/mobile/push` (config, registrar y quitar dispositivo) y avisos de reuniones. Ver [contrato push](push_mobile.md).
 
 - **Reuniones superpuestas (1.42.0):** `/reuniones/proximas` indica en cada reunión con cuáles se pisa (`superpuesta_con`) y al asistir a una, la otra queda justificada. Ver [contrato](reuniones_mobile.md#reuniones-superpuestas-1420).
 

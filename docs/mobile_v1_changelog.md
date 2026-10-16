@@ -1,3 +1,7 @@
+## 1.43.0 — 2026-10-16
+
+- Notificaciones push con Firebase (Android y web): `GET /push/config`, `POST` y `DELETE /push/dispositivo`. Avisos de reuniones (nueva, cambio, fecha cancelada/reactivada, horario de una fecha) y recordatorio 30 min antes enviado por el servidor. Inactivo hasta configurar Firebase en el servidor. Guía: `push_mobile.md`.
+
 ## 1.42.1 — 2026-10-16
 
 - Reuniones: el panel puede cambiar el horario de una sola fecha. `/reuniones/proximas` ya devuelve la hora nueva ese día y `motivo_cambio` = "Horario cambiado a las HH:MM (habitual HH:MM).". Sin campos nuevos.

@@ -423,6 +423,7 @@
                   {% if can_correct_feedback_dates is defined and can_correct_feedback_dates() %}<a class="nav-link" href="{{ url_for('feedback_web.fechas_listado') }}">Corrección FDBK</a>{% endif %}
                   {% if can_web("configuracion") %}<a class="nav-link" href="/configuracion-empresa/">Configuración</a>{% endif %}
                   {% if can_web("auditoria") %}<a class="nav-link" href="/auditoria/">Auditoría</a>{% endif %}
+                  {% if can_web("configuracion") %}<a class="nav-link" href="/notificaciones-push/">Notificaciones push</a>{% endif %}
                   {% if can_web("app_version") %}<a class="nav-link" href="/app-version/">Versiones App</a>{% endif %}
                   {% if can_web("mobile_stats") %}<a class="nav-link" href="/mobile-stats/">Uso de la app</a>{% endif %}
                   {% if can_web("calificaciones_app") %}<a class="nav-link" href="/calificaciones-app/">Calificaciones app</a>{% endif %}

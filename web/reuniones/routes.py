@@ -10,6 +10,7 @@ from mysql.connector import ProgrammingError
 
 from repositories import carga_repository as db
 from routes.carga_routes import employee, serialize
+from services import reunion_avisos
 from services import reunion_service as s
 from services.carga_service import now_local
 from services.svg_chart_service import line_chart
@@ -206,6 +207,7 @@ def nueva():
                                    **_form_context(actor, data=data)), 400
         log_audit(session, "reunion_crear", "reuniones", rid)
         flash("Reunión creada. Ya podés imprimir su QR.", "success")
+        reunion_avisos.reunion_guardada(actor, rid, nueva=True)
         _avisar_superposiciones(actor, rid)
         return redirect(url_for("reuniones.detalle", reunion_id=rid))
     return render_template("reuniones/form.html", reunion=None, v=_valores(), **_form_context(actor))
@@ -221,6 +223,7 @@ def editar(reunion_id):
         reunion["sedes"] = s.sedes(c, reunion_id)
     if request.method == "POST":
         data = _form_data()
+        antes = reunion_avisos.firma(actor, reunion_id)
         try:
             s.guardar(actor, data, reunion_id)
         except s.Error as error:
@@ -229,6 +232,7 @@ def editar(reunion_id):
                                    **_form_context(actor, reunion, data)), 400
         log_audit(session, "reunion_editar", "reuniones", reunion_id)
         flash("Reunión actualizada.", "success")
+        reunion_avisos.reunion_guardada(actor, reunion_id, nueva=False, antes=antes)
         _avisar_superposiciones(actor, reunion_id)
         return redirect(url_for("reuniones.detalle", reunion_id=reunion_id))
     return render_template("reuniones/form.html", reunion=reunion, v=_valores(reunion), **_form_context(actor, reunion))
@@ -329,6 +333,7 @@ def reprogramar(reunion_id, fecha):
     n = s.reprogramar_ocurrencia(who(), reunion_id, fecha, request.form.get("hora"), request.form.get("motivo"),
                                  sucursal_id=None if todas else sucursal, restaurar=restaurar)
     log_audit(session, "reunion_restaurar_horario" if restaurar else "reunion_reprogramar_fecha", "reuniones", reunion_id)
+    reunion_avisos.fecha_reprogramada(who(), reunion_id, fecha, None if todas else sucursal, restaurada=restaurar)
     if restaurar:
         flash("La fecha volvió a su horario habitual.", "success")
     else:
@@ -347,6 +352,8 @@ def cancelar(reunion_id, fecha):
     s.cancelar_ocurrencia(who(), reunion_id, fecha, request.form.get("motivo"), cancelar=not reactivar,
                           sucursal_id=None if todas else sucursal)
     log_audit(session, "reunion_reactivar_fecha" if reactivar else "reunion_cancelar_fecha", "reuniones", reunion_id)
+    reunion_avisos.fecha_cancelada(who(), reunion_id, fecha, None if todas else sucursal, request.form.get("motivo"),
+                                   reactivada=reactivar)
     if reactivar:
         flash("Fecha reactivada.", "success")
     else:

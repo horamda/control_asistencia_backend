@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Notificaciones push{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Sistema</div>
+      <h2>Notificaciones push</h2>
+      <p class="module-intro">Avisos al teléfono (Android) y al navegador (app web) mediante Firebase: reuniones nuevas, cambios, cancelaciones y recordatorios 30 minutos antes.</p>
+    </div>
+  </div>
+
+  <div class="grid-kpis">
+    <div class="kpi-card {{ 'tone-ok' if activo else 'tone-warn' }}">
+      <div class="kpi-label">Firebase</div>
+      <div class="kpi-value">{{ 'Conectado' if activo else 'Sin configurar' }}</div>
+      <div class="helper-text">{{ ('Proyecto ' ~ project_id) if activo else 'Falta FIREBASE_SERVICE_ACCOUNT en Railway' }}</div>
+    </div>
+    {% for d in dispositivos %}
+      <div class="kpi-card">
+        <div class="kpi-label">Dispositivos {{ 'Android' if d.plataforma == 'android' else 'web' }}</div>
+        <div class="kpi-value">{{ d.n }}</div>
+        <div class="helper-text">{{ d.empleados }} empleado{{ '' if d.empleados == 1 else 's' }}</div>
+      </div>
+    {% else %}
+      <div class="kpi-card"><div class="kpi-label">Dispositivos</div><div class="kpi-value">0</div><div class="helper-text">Se registran al abrir la app y aceptar los avisos</div></div>
+    {% endfor %}
+    <div class="kpi-card {{ 'tone-bad' if resumen.get('error') else '' }}">
+      <div class="kpi-label">Últimos 7 días</div>
+      <div class="kpi-value">{{ resumen.get('enviado', 0) }}</div>
+      <div class="helper-text">enviados · {{ resumen.get('error', 0) }} con error · {{ resumen.get('sin_dispositivo', 0) }} sin dispositivo</div>
+    </div>
+  </div>
+
+  {% if not activo %}
+  <section class="form-card">
+    <fieldset class="form-section">
+      <legend>Cómo activarlas</legend>
+      <ol class="push-pasos">
+        <li>En <a href="https://console.firebase.google.com" target="_blank" rel="noopener">console.firebase.google.com</a> creá un proyecto (gratis).</li>
+        <li>Agregá la app <strong>Android</strong> y la app <strong>Web</strong> al proyecto.</li>
+        <li>Configuración del proyecto → Cuentas de servicio → <strong>Generar nueva clave privada</strong> (JSON).</li>
+        <li>En Railway, cargá el contenido del JSON en la variable <code>FIREBASE_SERVICE_ACCOUNT</code>.</li>
+        <li>Para la app web: <code>FIREBASE_WEB_CONFIG</code> (configuración web, JSON), <code>FIREBASE_WEB_VAPID_KEY</code> (Cloud Messaging → Certificados web push) y <code>FRONTEND_WEB_URL</code>.</li>
+      </ol>
+    </fieldset>
+  </section>
+  {% else %}
+  <section class="form-card">
+    <fieldset class="form-section">
+      <legend>Enviar una prueba</legend>
+      <p class="helper-text">Llega a todos los dispositivos registrados del empleado elegido. {% if not web_configurada %}La app web todavía no tiene su configuración (FIREBASE_WEB_CONFIG y FIREBASE_WEB_VAPID_KEY).{% endif %}</p>
+      {% if con_dispositivo %}
+        <form method="post" action="{{ url_for('push_web.prueba') }}" class="epp-staff-search">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label>Empleado
+            <select name="empleado_id" required>
+              {% for e in con_dispositivo %}<option value="{{ e.id }}">{{ e.apellido }} {{ e.nombre }}{% if e.legajo %} · {{ e.legajo }}{% endif %}</option>{% endfor %}
+            </select>
+          </label>
+          <button class="btn" type="submit">Enviar prueba</button>
+        </form>
+      {% else %}
+        <p class="empty-state">Todavía nadie registró un dispositivo. Abrí la app con un usuario y aceptá las notificaciones.</p>
+      {% endif %}
+    </fieldset>
+  </section>
+  {% endif %}
+
+  <h3>Últimos envíos</h3>
+  {% if envios %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Fecha</th><th>Empleado</th><th>Aviso</th><th>Estado</th></tr></thead>
+        <tbody>
+          {% for e in envios %}
+            <tr>
+              <td data-label="Fecha">{{ e.creado_at.strftime('%d/%m %H:%M') }}</td>
+              <td data-label="Empleado">{{ e.apellido }} {{ e.nombre }}</td>
+              <td data-label="Aviso"><strong>{{ e.titulo }}</strong><br><small class="helper-text">{{ e.cuerpo }}</small></td>
+              <td data-label="Estado">
+                <span class="badge {{ {'enviado': 'ok', 'error': 'danger', 'reintentar': 'warning', 'pendiente': 'neutral', 'enviando': 'neutral'}.get(e.estado, 'neutral') }}">{{ {'enviado': 'Enviado', 'error': 'Error', 'reintentar': 'Reintentando', 'pendiente': 'En cola', 'enviando': 'Enviando', 'sin_dispositivo': 'Sin dispositivo'}.get(e.estado, e.estado) }}</span>
+                {% if e.error %}<br><small class="helper-text">{{ e.error }}</small>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">Todavía no hay envíos.</div>
+  {% endif %}
+</div>
+{% endblock %}
