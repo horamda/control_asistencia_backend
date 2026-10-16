@@ -1,3 +1,7 @@
+## 1.42.1 — 2026-10-16
+
+- Reuniones: el panel puede cambiar el horario de una sola fecha. `/reuniones/proximas` ya devuelve la hora nueva ese día y `motivo_cambio` = "Horario cambiado a las HH:MM (habitual HH:MM).". Sin campos nuevos.
+
 ## 1.42.0 — 2026-10-16
 
 - Reuniones superpuestas: `/reuniones/proximas` agrega `superpuesta_con` en cada item y `resumen.superpuestas`. Si el empleado asiste a una de dos reuniones que se pisan, la otra queda justificada ("Asistió a … (superpuesta)"), también si esa otra ya había cerrado como ausente.

@@ -112,11 +112,13 @@ def reuniones_db(database, monkeypatch):  # noqa: F811
     from scripts.migrate_20261016_01_reuniones import migrate_cursor
     from scripts.migrate_20261016_02_reuniones_sucursales import migrate_cursor as migrate_sedes
     from scripts.migrate_20261016_03_feriados import migrate_cursor as migrate_feriados, migrate_unificar
+    from scripts.migrate_20261016_04_reuniones_reprogramar import migrate_cursor as migrate_reprogramar
     for _ in range(2):  # idempotentes
         migrate_cursor(c)
         migrate_sedes(c)
         migrate_feriados(c)
         migrate_unificar(c)
+        migrate_reprogramar(c)
     conn.commit()
     c.close()
     conn.close()
@@ -615,3 +617,81 @@ def test_panel_avisa_superposicion_al_guardar(client):
     html = r.get_data(as_text=True)
     assert "se superpone con «Seguridad» (09:00 a 10:00)" in html
     assert "Se superpone con otras reuniones" in html
+
+
+
+# --- Cambiar el horario de una fecha -----------------------------------------------------------------
+
+def test_reprogramar_una_fecha_para_evitar_superposicion(reuniones_db, monkeypatch):
+    # Diaria 09:00 (lun a vie) para todos; el miercoles hay otra a las 09:00 para el empleado 10.
+    diaria = crear(nombre="Daily", frecuencia="diaria", dias_semana=["0", "1", "2", "3", "4"], reglas=["todos"], empleados=[])
+    crear(nombre="Ventas", reglas=[], empleados=["10"])
+    miercoles = D(2026, 10, 14)
+    antes = svc.conflictos(ADMIN, diaria, desde=D(2026, 10, 13), dias=8)
+    assert antes[0]["fechas"] == 2  # 14 y 21
+
+    svc.reprogramar_ocurrencia(ADMIN, diaria, miercoles, "11:00", "se superpone con Ventas")
+    assert svc.conflictos(ADMIN, diaria, desde=D(2026, 10, 13), dias=8)[0]["fechas"] == 1  # solo queda el 21
+
+    # La app muestra la hora nueva y el motivo; el resto de los dias sigue a las 09:00.
+    AHORA["valor"] = dt.datetime(2026, 10, 13, 8, 0)
+    items = {i["fecha"]: i for i in svc.proximas(emp(11), 3)["items"]}
+    assert items["2026-10-14"]["inicio"] == "2026-10-14T11:00:00-03:00"
+    assert items["2026-10-14"]["motivo_cambio"] == "Horario cambiado a las 11:00 (habitual 09:00): se superpone con Ventas"
+    assert items["2026-10-15"]["inicio"] == "2026-10-15T09:00:00-03:00"
+    assert items["2026-10-14"]["superpuesta_con"] == []
+
+    # Editar la reunion o el calendario de dias no laborables no pisa el cambio.
+    crear_datos = dict(nombre="Daily", frecuencia="diaria", dias_semana=["0", "1", "2", "3", "4"], hora_inicio="09:00",
+                       duracion_min="60", qr_modo="ambos", reglas=["todos"], empleados=[])
+    svc.guardar(ADMIN, crear_datos, diaria)
+    from services import feriado_service
+    feriado_service.reprogramar_reuniones(1, D(2026, 10, 13))
+    assert svc.proximas(emp(11), 3)["items"][1]["inicio"] == "2026-10-14T11:00:00-03:00"
+
+    # QR y cierre con el horario nuevo.
+    with svc.db.transaction(read_only=True) as c:
+        qr = svc.qr_fijo(svc.sede(c, svc.obtener(c, ADMIN, diaria), 0))
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 9, 0)
+    with pytest.raises(svc.Error, match="Se habilita a las 10:45"):
+        svc.registrar_qr(emp(11), qr)
+    estado = "SELECT estado FROM reunion_ocurrencias WHERE reunion_id=%s AND fecha='2026-10-14'"
+    svc.cerrar_ocurrencias(ahora=dt.datetime(2026, 10, 14, 10, 5))  # cierra otras, no esta (termina 12:00)
+    with svc.db.transaction(read_only=True) as c:
+        assert svc.db.one(c, estado, (diaria,))["estado"] == "programada"
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 10, 55)
+    assert svc.registrar_qr(emp(11), qr)["estado"] == "presente"
+    with pytest.raises(svc.Error, match="registros de asistencia"):  # ya hay registros: no se mueve
+        svc.reprogramar_ocurrencia(ADMIN, diaria, miercoles, "15:00")
+    svc.cerrar_ocurrencias(ahora=dt.datetime(2026, 10, 14, 12, 5))
+    with svc.db.transaction(read_only=True) as c:
+        assert svc.db.one(c, estado, (diaria,))["estado"] == "cerrada"
+
+    # Cerrada tampoco; ni a un horario que ya paso o que termina al dia siguiente.
+    with pytest.raises(svc.Error, match="cerrada o cancelada"):
+        svc.reprogramar_ocurrencia(ADMIN, diaria, miercoles, "15:00")
+    AHORA["valor"] = dt.datetime(2026, 10, 15, 10, 0)
+    with pytest.raises(svc.Error, match="ya pasó"):
+        svc.reprogramar_ocurrencia(ADMIN, diaria, D(2026, 10, 15), "09:30")
+    with pytest.raises(svc.Error, match="día siguiente"):
+        svc.reprogramar_ocurrencia(ADMIN, diaria, D(2026, 10, 16), "23:30")
+
+    # Volver al horario habitual.
+    svc.reprogramar_ocurrencia(ADMIN, diaria, D(2026, 10, 16), "13:00")
+    svc.reprogramar_ocurrencia(ADMIN, diaria, D(2026, 10, 16), restaurar=True)
+    viernes = {i["fecha"]: i for i in svc.proximas(emp(11), 2)["items"]}["2026-10-16"]
+    assert viernes["inicio"] == "2026-10-16T09:00:00-03:00" and viernes["motivo_cambio"] is None
+
+
+def test_panel_cambiar_horario_de_una_fecha(client):
+    rid = crear(nombre="Daily", frecuencia="diaria", dias_semana=["0", "1", "2", "3", "4"], reglas=["todos"], empleados=[])
+    AHORA["valor"] = dt.datetime(2026, 10, 13, 8, 0)
+    html = client.get(f"/reuniones/{rid}/fecha/2026-10-14").get_data(as_text=True)
+    assert "Cambiar el horario de esta fecha" in html
+    r = client.post(f"/reuniones/{rid}/fecha/2026-10-14/horario", data={"hora": "11:00", "sucursal_id": "0"},
+                    follow_redirects=True)
+    html = r.get_data(as_text=True)
+    assert "Horario de la fecha cambiado a las 11:00" in html and "Volver al horario habitual" in html
+    assert "11:00 a 12:00" in html
+    detalle = client.get(f"/reuniones/{rid}").get_data(as_text=True)
+    assert "14/10 · 11:00" in detalle

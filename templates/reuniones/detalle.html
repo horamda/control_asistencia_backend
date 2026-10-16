@@ -35,7 +35,7 @@
       {% endif %}
     </dd></div>
     <div><dt>Próximas fechas</dt><dd>
-      {% for p in proximas %}{% if p.omitida %}<span class="chip reu-chip-feriado" title="{{ p.motivo }}"><s>{{ (p.fecha|dia_semana)[:3] ~ ' ' ~ p.fecha.strftime('%d/%m') }}</s> feriado{% if p.sucursal_nombre %} · {{ p.sucursal_nombre }}{% endif %}</span>{% else %}<a class="chip {{ 'reu-chip-feriado' if p.original }}" title="{{ p.motivo or '' }}" href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=p.fecha.isoformat(), sucursal=p.sucursal_id or None) }}">{{ 'Hoy' if p.fecha == hoy else (p.fecha|dia_semana)[:3] ~ ' ' ~ p.fecha.strftime('%d/%m') }}{% if p.original %} (por feriado){% endif %}{% if p.sucursal_nombre %} · {{ p.sucursal_nombre }}{% endif %}</a>{% endif %} {% else %}—{% endfor %}
+      {% for p in proximas %}{% if p.omitida %}<span class="chip reu-chip-feriado" title="{{ p.motivo }}"><s>{{ (p.fecha|dia_semana)[:3] ~ ' ' ~ p.fecha.strftime('%d/%m') }}</s> feriado{% if p.sucursal_nombre %} · {{ p.sucursal_nombre }}{% endif %}</span>{% else %}<a class="chip {{ 'reu-chip-feriado' if p.original or p.reprogramada }}" title="{{ p.motivo or '' }}" href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=p.fecha.isoformat(), sucursal=p.sucursal_id or None) }}">{{ 'Hoy' if p.fecha == hoy else (p.fecha|dia_semana)[:3] ~ ' ' ~ p.fecha.strftime('%d/%m') }}{% if p.reprogramada %} · {{ p.hora }}{% endif %}{% if p.original %} (por feriado){% endif %}{% if p.sucursal_nombre %} · {{ p.sucursal_nombre }}{% endif %}</a>{% endif %} {% else %}—{% endfor %}
     </dd></div>
   </dl>
 </section>

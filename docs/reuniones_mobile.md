@@ -1,6 +1,6 @@
 # Reuniones — contrato para Flutter y web de empleados
 
-Versión de contrato: 1.42.0 · Definición formal: [reuniones_mobile_openapi.yaml](reuniones_mobile_openapi.yaml)
+Versión de contrato: 1.42.1 · Definición formal: [reuniones_mobile_openapi.yaml](reuniones_mobile_openapi.yaml)
 
 Las reuniones se crean en el panel (Asistencia → Reuniones). Cada una tiene una recurrencia
 (diaria, semanal o mensual), un horario, una ventana de registro y una lista de **convocados
@@ -44,6 +44,14 @@ La API ya devuelve las fechas efectivas. Campos para mostrar el cambio:
 - `POST /registrar` en un día no laborable: 409 `"Hoy es día no laborable: la reunión se pasó al martes 13/10."`.
 
 Mostrar los textos tal cual: no hay que armarlos en la app.
+
+### Horario cambiado para una fecha (1.42.1)
+
+El panel puede cambiar el horario de **una sola fecha** (por ejemplo, para que no se superponga con otra
+reunión). Ese día `inicio`, `fin` y las ventanas de `/proximas` ya vienen con la hora nueva, y
+`motivo_cambio` dice `"Horario cambiado a las 11:00 (habitual 09:00)."` (con el motivo si se cargó). El QR,
+la llegada tarde y el cierre usan la hora nueva. Los recordatorios locales deben reprogramarse con `inicio`,
+como siempre: no hace falta lógica nueva en la app.
 
 ### Reuniones superpuestas (1.42.0)
 

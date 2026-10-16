@@ -370,6 +370,17 @@ def ocurrencia(c, r, fecha, crear=True, lock=False):
     return db.one(c, sql, args)
 
 
+def _guardadas(c, desde, hasta, empresa_id=None):
+    """Ocurrencias ya creadas en el rango: {(reunion, sede, fecha): fila}. Su horario manda sobre la
+    regla (p. ej. una fecha reprogramada a mano)."""
+    sql = "SELECT * FROM reunion_ocurrencias WHERE fecha BETWEEN %s AND %s"
+    args = [desde, hasta]
+    if empresa_id:
+        sql += " AND empresa_id = %s"
+        args.append(empresa_id)
+    return {(o["reunion_id"], o["sucursal_id"], o["fecha"]): o for o in db.all_rows(c, sql, tuple(args))}
+
+
 def _justificacion_automatica(c, empleado_ids, fecha, occ=None):
     """Motivo por empleado para justificar una ausencia: vacaciones, franco o haber asistido a otra
     reunion que se superpone en horario con esta ocurrencia (no puede estar en las dos)."""
@@ -397,14 +408,16 @@ def _justificacion_automatica(c, empleado_ids, fecha, occ=None):
 def cerrar_ocurrencias(*, ahora=None, dias_atras=7):
     """Cierra las ocurrencias (de cada sede) cuya ventana de registro termino. Idempotente."""
     ahora = ahora or now_local()
+    desde = ahora.date() - dt.timedelta(days=dias_atras)
     with db.transaction(read_only=True) as c:
         reuniones = [item for r in db.all_rows(c, "SELECT * FROM reuniones WHERE activa = 1")
                      for item in sedes_efectivas(c, r)]
+        guardadas = _guardadas(c, desde, ahora.date())
     resumen = dict(cerradas=0, ausentes=0, justificados=0, errores=0)
     for r in reuniones:
         creada = r.get("created_at")
-        for fecha in fechas(r, ahora.date() - dt.timedelta(days=dias_atras), ahora.date()):
-            h = horarios(r, fecha)
+        for fecha in fechas(r, desde, ahora.date()):
+            h = guardadas.get((r["id"], r["sucursal_id"], fecha)) or horarios(r, fecha)
             if h["ventana_hasta"] > ahora or (creada and h["inicio"] < creada):
                 continue
             try:
@@ -606,6 +619,47 @@ def marcar_manual(who, reunion_id, fecha, empleado_id, estado, observaciones=Non
                 usuario_id=who.get("user_id"), observaciones=obs, updated_at=ahora))
 
 
+def reprogramar_ocurrencia(who, reunion_id, fecha, hora=None, motivo=None, *, sucursal_id=None, restaurar=False,
+                           ahora=None):
+    """Cambia el horario de una sola fecha (en una sede o en todas; sucursal_id None = todas), o lo
+    devuelve al habitual. Solo sin registros de asistencia y hacia un horario que todavia no paso."""
+    ahora = ahora or now_local()
+    fecha = _date(fecha)
+    with db.transaction() as c:
+        base = obtener(c, who, reunion_id)
+        objetivo = sedes_efectivas(c, base) if sucursal_id is None else [sede(c, base, sucursal_id)]
+        objetivo = [r for r in objetivo if ocurre_en(r, fecha) or ocurrencia(c, r, fecha, crear=False)]
+        if not objetivo:
+            raise Error("La reunión no ocurre en esa fecha.")
+        nueva = None if restaurar else _hora(hora, "Nuevo horario")
+        for r in objetivo:
+            occ = ocurrencia(c, r, fecha, lock=True)
+            if occ["estado"] != "programada":
+                raise Error("Esa fecha ya está cerrada o cancelada: no se puede cambiar el horario.")
+            if db.one(c, "SELECT 1 AS x FROM reunion_asistencias WHERE ocurrencia_id=%s LIMIT 1", (occ["id"],)):
+                raise Error("Esa fecha ya tiene registros de asistencia: no se puede cambiar el horario.")
+            habitual = horarios(r, fecha)
+            if restaurar:
+                h, marca, nota = habitual, 0, motivo_cambio(info_fecha(r, fecha))
+            else:
+                minutos = nueva.hour * 60 + nueva.minute
+                if minutos + int(r["duracion_min"]) > 23 * 60 + 59:
+                    raise Error("Con ese horario la reunión terminaría al día siguiente.")
+                h = horarios(dict(r, hora_inicio=nueva.strftime("%H:%M:00")), fecha)
+                if h["inicio"] <= ahora:
+                    raise Error("El nuevo horario ya pasó.")
+                detalle = (motivo or "").strip()
+                nota = f"Horario cambiado a las {nueva.strftime('%H:%M')} (habitual {_hhmm(habitual['inicio'])})."
+                if detalle:
+                    nota = f"{nota[:-1]}: {detalle}"
+                marca = 1
+            c.execute("""UPDATE reunion_ocurrencias SET inicio=%s, fin=%s, ventana_desde=%s, ventana_hasta=%s,
+                         tarde_desde=%s, reprogramada=%s, motivo_cambio=%s WHERE id=%s""",
+                      (h["inicio"], h["fin"], h["ventana_desde"], h["ventana_hasta"], h["tarde_desde"], marca,
+                       (nota or None) and nota[:255], occ["id"]))
+    return len(objetivo)
+
+
 def cancelar_ocurrencia(who, reunion_id, fecha, motivo, *, cancelar=True, sucursal_id=None):
     """Cancela (o reactiva) la fecha en una sede; sucursal_id None = en todas las sedes."""
     fecha = _date(fecha)
@@ -765,7 +819,8 @@ def guardar(who, data, reunion_id=None):
             c.execute("DELETE FROM reunion_sedes WHERE reunion_id=%s", (reunion_id,))
             # Las ocurrencias futuras sin registros toman el horario nuevo.
             c.execute("""DELETE o FROM reunion_ocurrencias o WHERE o.reunion_id=%s AND o.estado='programada'
-                         AND o.inicio > %s AND NOT EXISTS (SELECT 1 FROM reunion_asistencias a WHERE a.ocurrencia_id=o.id)""",
+                         AND o.reprogramada = 0 AND o.inicio > %s
+                         AND NOT EXISTS (SELECT 1 FROM reunion_asistencias a WHERE a.ocurrencia_id=o.id)""",
                       (reunion_id, ahora))
         else:
             reunion_id = db.insert(c, "reuniones", dict(valores, empresa_id=who["empresa_id"], creado_por=who.get("user_id"),
@@ -811,12 +866,14 @@ def superposiciones(c, empresa_id, desde, hasta, reunion_id=None):
     canceladas = {(o["reunion_id"], o["sucursal_id"], o["fecha"]) for o in db.all_rows(
         c, "SELECT reunion_id, sucursal_id, fecha FROM reunion_ocurrencias WHERE empresa_id=%s AND estado='cancelada'"
            " AND fecha BETWEEN %s AND %s", (empresa_id, desde, hasta))}
+    guardadas = _guardadas(c, desde, hasta, empresa_id)
     por_fecha = {}
     for r in db.all_rows(c, "SELECT * FROM reuniones WHERE empresa_id=%s AND activa=1", (empresa_id,)):
         for x in sedes_efectivas(c, r, None, feriados):
             for f in fechas(x, desde, hasta):
                 if (x["id"], x["sucursal_id"], f) not in canceladas:
-                    por_fecha.setdefault(f, []).append((x, horarios(x, f)))
+                    h = guardadas.get((x["id"], x["sucursal_id"], f)) or horarios(x, f)
+                    por_fecha.setdefault(f, []).append((x, h))
     cache = {}
 
     def gente(x):
@@ -997,11 +1054,16 @@ def detalle(who, reunion_id, *, desde=None, hasta=None, sucursal_id=None):
         efectivas = [x for x in efectivas if x["sucursal_id"] == int(sucursal_id)]
     proximas = []
     if r["activa"]:
+        with db.transaction(read_only=True) as c:
+            guardadas = _guardadas(c, ahora.date(), ahora.date() + dt.timedelta(days=60), r["empresa_id"])
         for item in efectivas:
-            proximas += [dict(fecha=x["fecha"], sucursal_id=item["sucursal_id"], sucursal_nombre=item["sucursal_nombre"],
-                              hora=_hhmm(_time(item["hora_inicio"])), original=x["original"], omitida=x["omitida"],
-                              motivo=motivo_cambio(x))
-                         for x in calendario(item, ahora.date(), ahora.date() + dt.timedelta(days=60))[:6]]
+            for x in calendario(item, ahora.date(), ahora.date() + dt.timedelta(days=60))[:6]:
+                occ = guardadas.get((item["id"], item["sucursal_id"], x["fecha"]))
+                proximas.append(dict(fecha=x["fecha"], sucursal_id=item["sucursal_id"], sucursal_nombre=item["sucursal_nombre"],
+                                     hora=_hhmm(occ["inicio"]) if occ else _hhmm(_time(item["hora_inicio"])),
+                                     original=x["original"], omitida=x["omitida"],
+                                     reprogramada=bool(occ and occ.get("reprogramada")),
+                                     motivo=(occ or {}).get("motivo_cambio") or motivo_cambio(x)))
         proximas.sort(key=lambda x: (x["fecha"], x["sucursal_nombre"] or ""))
     return dict(reunion=r, sedes_efectivas=efectivas, convocados=lista, ocurrencias=ocurrencias, ranking=ranking,
                 por_sede=por_sede, total=_suma(por_sede), proximas=proximas[:12], desde=desde, hasta=hasta,
@@ -1038,6 +1100,7 @@ def ocurrencia_detalle(who, reunion_id, fecha, sucursal_id=SIN_SEDE):
     conteo = {k: sum(1 for f in filas if f["estado"] == k) for k in ESTADOS + ("pendiente",)}
     cambio = (occ or {}).get("motivo_cambio") or motivo_cambio(info_fecha(r, fecha))
     return dict(reunion=r, fecha=fecha, ocurrencia=occ, horario=h, filas=filas, conteo=conteo, otras_sedes=otras, cambio=cambio,
+                ahora=ahora,
                 abierta=h["ventana_desde"] <= ahora <= h["ventana_hasta"], futura=fecha > ahora.date())
 
 

@@ -320,6 +320,24 @@ def marcar(reunion_id, fecha):
     return redirect(url_for("reuniones.ocurrencia", reunion_id=reunion_id, fecha=fecha, sucursal=sucursal or None))
 
 
+@web.post("/<int:reunion_id>/fecha/<fecha>/horario")
+@permission_required("reuniones", "editar")
+def reprogramar(reunion_id, fecha):
+    sucursal = request.form.get("sucursal_id", 0, type=int)
+    restaurar = request.form.get("accion") == "restaurar"
+    todas = request.form.get("todas") == "1"
+    n = s.reprogramar_ocurrencia(who(), reunion_id, fecha, request.form.get("hora"), request.form.get("motivo"),
+                                 sucursal_id=None if todas else sucursal, restaurar=restaurar)
+    log_audit(session, "reunion_restaurar_horario" if restaurar else "reunion_reprogramar_fecha", "reuniones", reunion_id)
+    if restaurar:
+        flash("La fecha volvió a su horario habitual.", "success")
+    else:
+        flash(f"Horario de la fecha cambiado a las {request.form.get('hora')}"
+              + (f" en {n} sucursales" if n > 1 else "") + ". La app ya muestra el nuevo horario.", "success")
+        _avisar_superposiciones(who(), reunion_id)
+    return redirect(url_for("reuniones.ocurrencia", reunion_id=reunion_id, fecha=fecha, sucursal=sucursal or None))
+
+
 @web.post("/<int:reunion_id>/fecha/<fecha>/cancelar")
 @permission_required("reuniones", "editar")
 def cancelar(reunion_id, fecha):

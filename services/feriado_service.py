@@ -30,7 +30,7 @@ def de_sucursal(mapa_feriados, sucursal_id):
 def reprogramar(c, empresa_id, desde):
     """Las fechas futuras de reuniones sin registros se recalculan con el calendario nuevo.
     empresa_id None (o 0) = todas las empresas."""
-    sql = """DELETE o FROM reunion_ocurrencias o WHERE o.estado='programada' AND o.fecha >= %s
+    sql = """DELETE o FROM reunion_ocurrencias o WHERE o.estado='programada' AND o.reprogramada = 0 AND o.fecha >= %s
              AND NOT EXISTS (SELECT 1 FROM reunion_asistencias a WHERE a.ocurrencia_id=o.id)"""
     args = [desde]
     if empresa_id:

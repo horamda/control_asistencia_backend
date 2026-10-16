@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Reuniones FichaYa
-  version: 1.42.0
+  version: 1.42.1
   description: |
     Reuniones recurrentes con convocados obligatorios y asistencia por QR.
     Guia con ejemplos, estados y recordatorios locales: reuniones_mobile.md.
