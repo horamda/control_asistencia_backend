@@ -50,6 +50,7 @@
         </div>
         <h3><a href="{{ url_for('reuniones.detalle', reunion_id=r.id) }}">{{ r.nombre }}</a></h3>
         <p class="reu-when">{{ r.descripcion_frecuencia }}</p>
+        {% if superpuestas.get(r.id) %}<p><a class="badge warning" href="{{ url_for('reuniones.detalle', reunion_id=r.id) }}" title="Ver con qué reuniones se superpone">⚠ Se superpone en {{ superpuestas[r.id] }} fecha{{ '' if superpuestas[r.id] == 1 else 's' }}</a></p>{% endif %}
         {% if r.sedes %}
           <p class="reu-sede-list">{% for sd in r.sedes %}<span class="chip" title="{{ sd.lugar or '' }}">{{ sd.sucursal_nombre }}{% if sd.hora_inicio %} · {{ sd.hora_inicio|hora }}{% endif %}</span>{% endfor %}</p>
         {% endif %}

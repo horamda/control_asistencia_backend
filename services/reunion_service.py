@@ -370,11 +370,21 @@ def ocurrencia(c, r, fecha, crear=True, lock=False):
     return db.one(c, sql, args)
 
 
-def _justificacion_automatica(c, empleado_ids, fecha):
+def _justificacion_automatica(c, empleado_ids, fecha, occ=None):
+    """Motivo por empleado para justificar una ausencia: vacaciones, franco o haber asistido a otra
+    reunion que se superpone en horario con esta ocurrencia (no puede estar en las dos)."""
     if not empleado_ids:
         return {}
     marcas = _marcas(empleado_ids)
     motivos = {}
+    if occ:
+        for row in db.all_rows(c, f"""SELECT a.empleado_id, r.nombre FROM reunion_asistencias a
+                                       JOIN reunion_ocurrencias o ON o.id = a.ocurrencia_id
+                                       JOIN reuniones r ON r.id = a.reunion_id
+                                       WHERE a.empleado_id IN ({marcas}) AND a.fecha = %s AND a.estado IN ('presente','tarde')
+                                         AND o.id <> %s AND o.estado <> 'cancelada' AND o.inicio < %s AND o.fin > %s""",
+                               (*empleado_ids, fecha, occ["id"], occ["fin"], occ["inicio"])):
+            motivos.setdefault(row["empleado_id"], f"Asistió a {row['nombre']} (superpuesta)")
     for row in db.all_rows(c, f"SELECT empleado_id FROM vacaciones WHERE empleado_id IN ({marcas})"
                               " AND fecha_desde <= %s AND fecha_hasta >= %s", (*empleado_ids, fecha, fecha)):
         motivos[row["empleado_id"]] = "Vacaciones"
@@ -406,7 +416,7 @@ def cerrar_ocurrencias(*, ahora=None, dias_atras=7):
                     registrados = {row["empleado_id"] for row in db.all_rows(
                         c, "SELECT empleado_id FROM reunion_asistencias WHERE ocurrencia_id = %s", (occ["id"],))}
                     faltan = [e["id"] for e in lista if e["id"] not in registrados]
-                    motivos = _justificacion_automatica(c, faltan, fecha)
+                    motivos = _justificacion_automatica(c, faltan, fecha, occ)
                     for empleado_id in faltan:
                         motivo = motivos.get(empleado_id)
                         db.insert(c, "reunion_asistencias", dict(
@@ -540,6 +550,13 @@ def registrar_qr(empleado, contenido, *, lat=None, lon=None, ahora=None):
             raise Error(f"El registro cerró a las {_hhmm(occ['ventana_hasta'])}.", 409)
         estado = "tarde" if ahora > occ["tarde_desde"] else "presente"
         datos = dict(estado=estado, registrado_at=ahora, metodo=f"qr_{modo}", lat=lat, lon=lon, updated_at=ahora)
+        # Si otra reunion superpuesta ya cerro y lo marco ausente, esa ausencia queda justificada.
+        c.execute("""UPDATE reunion_asistencias a JOIN reunion_ocurrencias o ON o.id = a.ocurrencia_id
+                     SET a.estado = 'justificado', a.observaciones = %s, a.updated_at = %s
+                     WHERE a.empleado_id = %s AND a.fecha = %s AND a.estado = 'ausente' AND a.metodo = 'sistema'
+                       AND o.id <> %s AND o.inicio < %s AND o.fin > %s""",
+                  (f"Asistió a {r['nombre']} (superpuesta)"[:255], ahora, empleado["id"], fecha, occ["id"],
+                   occ["fin"], occ["inicio"]))
         if previo:
             c.execute("UPDATE reunion_asistencias SET estado=%s, registrado_at=%s, metodo=%s, lat=%s, lon=%s, updated_at=%s"
                       " WHERE id=%s", (*datos.values(), previo["id"]))
@@ -780,6 +797,76 @@ def regenerar_qr(who, reunion_id):
 def sucursales(who):
     with db.transaction(read_only=True) as c:
         return db.all_rows(c, "SELECT id, nombre FROM sucursales WHERE empresa_id=%s ORDER BY nombre", (who["empresa_id"],))
+
+
+# --- Superposiciones ---------------------------------------------------------------------------
+
+DIAS_SUPERPOSICION = 60
+
+
+def superposiciones(c, empresa_id, desde, hasta, reunion_id=None):
+    """Pares de reuniones (cada una en su sede) que el mismo dia se pisan en horario y comparten
+    convocados. Con reunion_id, solo los pares en los que participa esa reunion."""
+    feriados = feriado_service.mapa(c, empresa_id)
+    canceladas = {(o["reunion_id"], o["sucursal_id"], o["fecha"]) for o in db.all_rows(
+        c, "SELECT reunion_id, sucursal_id, fecha FROM reunion_ocurrencias WHERE empresa_id=%s AND estado='cancelada'"
+           " AND fecha BETWEEN %s AND %s", (empresa_id, desde, hasta))}
+    por_fecha = {}
+    for r in db.all_rows(c, "SELECT * FROM reuniones WHERE empresa_id=%s AND activa=1", (empresa_id,)):
+        for x in sedes_efectivas(c, r, None, feriados):
+            for f in fechas(x, desde, hasta):
+                if (x["id"], x["sucursal_id"], f) not in canceladas:
+                    por_fecha.setdefault(f, []).append((x, horarios(x, f)))
+    cache = {}
+
+    def gente(x):
+        clave = (x["id"], x["sucursal_id"])
+        if clave not in cache:
+            cache[clave] = {e["id"] for e in convocados(c, x, x["sucursal_id"] or None)}
+        return cache[clave]
+
+    salida = []
+    for fecha, lista in sorted(por_fecha.items()):
+        for i, (a, ha) in enumerate(lista):
+            for b, hb in lista[i + 1:]:
+                if a["id"] == b["id"] or (reunion_id and reunion_id not in (a["id"], b["id"])):
+                    continue
+                if not (ha["inicio"] < hb["fin"] and hb["inicio"] < ha["fin"]):
+                    continue
+                comunes = gente(a) & gente(b)
+                if comunes:
+                    salida.append(dict(fecha=fecha, empleados=len(comunes), reuniones=[
+                        dict(id=x["id"], nombre=x["nombre"], sucursal_nombre=x.get("sucursal_nombre"),
+                             inicio=_hhmm(h["inicio"]), fin=_hhmm(h["fin"])) for x, h in ((a, ha), (b, hb))]))
+    return salida
+
+
+def conflictos(who, reunion_id, dias=DIAS_SUPERPOSICION, *, desde=None):
+    """Superposiciones de una reunion en los proximos dias, agrupadas por la otra reunion."""
+    desde = desde or now_local().date()
+    with db.transaction(read_only=True) as c:
+        pares = superposiciones(c, who["empresa_id"], desde, desde + dt.timedelta(days=dias), int(reunion_id))
+    grupos = {}
+    for par in pares:
+        propia, otra = sorted(par["reuniones"], key=lambda x: x["id"] != int(reunion_id))
+        g = grupos.setdefault(otra["id"], dict(reunion_id=otra["id"], nombre=otra["nombre"], fechas=0, empleados=0,
+                                               primera=par["fecha"], horario=f"{otra['inicio']} a {otra['fin']}",
+                                               sucursal_nombre=otra.get("sucursal_nombre")))
+        g["fechas"] += 1
+        g["empleados"] = max(g["empleados"], par["empleados"])
+    return sorted(grupos.values(), key=lambda g: (g["primera"], g["nombre"]))
+
+
+def reuniones_con_superposicion(who, dias=DIAS_SUPERPOSICION):
+    """{reunion_id: cantidad de fechas superpuestas} para marcar las tarjetas del listado."""
+    hoy = now_local().date()
+    with db.transaction(read_only=True) as c:
+        pares = superposiciones(c, who["empresa_id"], hoy, hoy + dt.timedelta(days=dias))
+    conteo = {}
+    for par in pares:
+        for x in par["reuniones"]:
+            conteo[x["id"]] = conteo.get(x["id"], 0) + 1
+    return conteo
 
 
 # --- Consultas del panel -------------------------------------------------------------------
@@ -1062,6 +1149,11 @@ def proximas(empleado, dias=7, *, desde=None, ahora=None):
                 registrado_at=_iso(reg["registrado_at"]) if reg else None, qr_modo=r["qr_modo"],
             ))
     items.sort(key=lambda x: (x["inicio"], x["nombre"]))
+    for item in items:
+        item["superpuesta_con"] = [
+            dict(reunion_id=o["reunion_id"], nombre=o["nombre"], inicio=o["inicio"], fin=o["fin"])
+            for o in items if o is not item and o["estado"] != "cancelada" and item["estado"] != "cancelada"
+            and o["fecha"] == item["fecha"] and o["inicio"] < item["fin"] and item["inicio"] < o["fin"]]
     minutos = [i.pop("_minutos") for i in items]
     activas = [m for i, m in zip(items, minutos) if i["estado"] != "cancelada"]
     cuenta = {e: sum(1 for i in items if i["estado"] == e) for e in
@@ -1071,6 +1163,7 @@ def proximas(empleado, dias=7, *, desde=None, ahora=None):
         registradas=cuenta["presente"] + cuenta["tarde"], tarde=cuenta["tarde"],
         pendientes=cuenta["pendiente"] + cuenta["abierta"], ausentes=cuenta["ausente"],
         justificadas=cuenta["justificado"], canceladas=cuenta["cancelada"],
+        superpuestas=sum(1 for i in items if i["superpuesta_con"]),
     )
     return dict(desde=desde.isoformat(), hasta=hasta.isoformat(), resumen=resumen, items=items)
 

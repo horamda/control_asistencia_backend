@@ -4,7 +4,7 @@ import csv
 import datetime as dt
 import io
 
-from flask import (Blueprint, Response, abort, flash, jsonify, redirect, render_template, request, session,
+from flask import (Blueprint, current_app, Response, abort, flash, jsonify, redirect, render_template, request, session,
                    url_for)
 from mysql.connector import ProgrammingError
 
@@ -101,6 +101,7 @@ def index():
     actor = who()
     data = s.listado(actor, q=q, estado=estado, sucursal_id=sucursal)
     return render_template("reuniones/index.html", **data, sucursales=s.sucursales(actor),
+                           superpuestas=s.reuniones_con_superposicion(actor),
                            filtros=dict(q=q or "", estado=estado or "", sucursal=sucursal))
 
 
@@ -176,6 +177,21 @@ def _valores(reunion=None, data=None):
                 fecha_fin=s._iso(s._date(reunion["fecha_fin"])) if reunion.get("fecha_fin") else "")
 
 
+def _avisar_superposiciones(actor, reunion_id):
+    """No bloquea (a veces es intencional), pero avisa con quien se pisa y a cuanta gente afecta."""
+    try:
+        lista = s.conflictos(actor, reunion_id)
+    except Exception:
+        current_app.logger.warning("reunion_superposiciones_error", exc_info=True)
+        return
+    for g in lista[:3]:
+        fechas = "1 fecha" if g["fechas"] == 1 else f"{g['fechas']} fechas"
+        gente = "1 convocado" if g["empleados"] == 1 else f"{g['empleados']} convocados"
+        flash(f"Atención: se superpone con «{g['nombre']}» ({g['horario']}) en {fechas} de los próximos "
+              f"{s.DIAS_SUPERPOSICION} días, para {gente} en común. Quien asista a una tendrá justificada la otra.",
+              "warning")
+
+
 @web.route("/nueva", methods=["GET", "POST"])
 @permission_required("reuniones", "crear")
 def nueva():
@@ -190,6 +206,7 @@ def nueva():
                                    **_form_context(actor, data=data)), 400
         log_audit(session, "reunion_crear", "reuniones", rid)
         flash("Reunión creada. Ya podés imprimir su QR.", "success")
+        _avisar_superposiciones(actor, rid)
         return redirect(url_for("reuniones.detalle", reunion_id=rid))
     return render_template("reuniones/form.html", reunion=None, v=_valores(), **_form_context(actor))
 
@@ -212,6 +229,7 @@ def editar(reunion_id):
                                    **_form_context(actor, reunion, data)), 400
         log_audit(session, "reunion_editar", "reuniones", reunion_id)
         flash("Reunión actualizada.", "success")
+        _avisar_superposiciones(actor, reunion_id)
         return redirect(url_for("reuniones.detalle", reunion_id=reunion_id))
     return render_template("reuniones/form.html", reunion=reunion, v=_valores(reunion), **_form_context(actor, reunion))
 
@@ -254,9 +272,11 @@ def _grafico(ocurrencias):
 @permission_required("reuniones", "ver")
 def detalle(reunion_id):
     desde, hasta = _periodo(90)
-    data = s.detalle(who(), reunion_id, desde=desde, hasta=hasta, sucursal_id=request.args.get("sucursal", type=int))
+    actor = who()
+    data = s.detalle(actor, reunion_id, desde=desde, hasta=hasta, sucursal_id=request.args.get("sucursal", type=int))
     chart, tips = _grafico(data["ocurrencias"])
-    return render_template("reuniones/detalle.html", **data, chart=chart, tips=tips, hoy=now_local().date())
+    return render_template("reuniones/detalle.html", **data, chart=chart, tips=tips, hoy=now_local().date(),
+                           superposiciones=s.conflictos(actor, reunion_id), dias_superposicion=s.DIAS_SUPERPOSICION)
 
 
 @web.get("/<int:reunion_id>/exportar.csv")

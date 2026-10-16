@@ -1,3 +1,8 @@
+## 1.42.0 — 2026-10-16
+
+- Reuniones superpuestas: `/reuniones/proximas` agrega `superpuesta_con` en cada item y `resumen.superpuestas`. Si el empleado asiste a una de dos reuniones que se pisan, la otra queda justificada ("Asistió a … (superpuesta)"), también si esa otra ya había cerrado como ausente.
+- Panel: aviso al guardar una reunión que se superpone con otra (convocados en común, próximos 60 días), sección en el detalle y marca en el listado. Cambios aditivos.
+
 ## 1.41.0 — 2026-10-16
 
 - `/reuniones/proximas`: nuevo `?semana=actual` (lunes a domingo, incluye las ya pasadas) y bloque `resumen` con reuniones, horas/minutos, registradas, tarde, pendientes, ausentes, justificadas y canceladas.

@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.41.0
+Version de contrato: 1.42.0
+
+- **Reuniones superpuestas (1.42.0):** `/reuniones/proximas` indica en cada reunión con cuáles se pisa (`superpuesta_con`) y al asistir a una, la otra queda justificada. Ver [contrato](reuniones_mobile.md#reuniones-superpuestas-1420).
 
 - **Reuniones: resumen semanal (1.41.0):** `/reuniones/proximas?semana=actual` trae `resumen` (reuniones, horas, registradas, pendientes, ausentes, canceladas) y `/reuniones/estadisticas` agrega `horas_asistidas`. Ver [contrato](reuniones_mobile.md#2-get-reunionesproximassemanaactual--dias7).
 

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Reuniones FichaYa
-  version: 1.41.0
+  version: 1.42.0
   description: |
     Reuniones recurrentes con convocados obligatorios y asistencia por QR.
     Guia con ejemplos, estados y recordatorios locales: reuniones_mobile.md.
@@ -10,6 +10,7 @@ info:
     1.40.1: textos de motivo_cambio y errores con "dia no laborable" (mismo calendario del reporte mensual).
     1.41.0: /proximas acepta semana=actual y trae resumen (reuniones, horas, registradas, pendientes...);
     estadisticas agregan minutos_asistidos y horas_asistidas.
+    1.42.0: /proximas marca reuniones superpuestas (superpuesta_con, resumen.superpuestas).
 servers:
   - url: /api/v1/mobile
 security:
@@ -225,6 +226,7 @@ components:
         ausentes: {type: integer}
         justificadas: {type: integer}
         canceladas: {type: integer}
+        superpuestas: {type: integer, description: Reuniones que se pisan con otra propia (1.42.0)}
     ReunionItem:
       type: object
       properties:
@@ -276,6 +278,16 @@ components:
         qr_modo: {type: string, enum: [fijo, dinamico, ambos]}
         fecha_original: {type: string, format: date, nullable: true, description: Fecha antes de posponerse por un dia no laborable}
         motivo_cambio: {type: string, nullable: true, description: 'Texto listo para mostrar, p. ej. "Pospuesta del lunes 12/10 por dia no laborable."'}
+        superpuesta_con:
+          type: array
+          description: Otras reuniones propias que se pisan en horario ese dia (1.42.0)
+          items:
+            type: object
+            properties:
+              reunion_id: {type: integer}
+              nombre: {type: string}
+              inicio: {type: string, format: date-time}
+              fin: {type: string, format: date-time}
     RegistroReunion:
       type: object
       properties:

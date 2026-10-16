@@ -200,7 +200,7 @@ def test_flujo_qr_cierre_y_estadisticas(reuniones_db):
     prox = semana["items"]
     assert [(p["fecha"], p["estado"]) for p in prox] == [("2026-10-14", "presente"), ("2026-10-21", "pendiente")]
     assert semana["resumen"] == {"reuniones": 2, "minutos": 120, "horas": 2.0, "registradas": 1, "tarde": 0,
-                                 "pendientes": 1, "ausentes": 0, "justificadas": 0, "canceladas": 0}
+                                 "pendientes": 1, "ausentes": 0, "justificadas": 0, "canceladas": 0, "superpuestas": 0}
     assert svc.mis_reuniones(emp(14)) == [] and svc.mis_reuniones(emp(10))[0]["mis_estadisticas"]["horas_asistidas"] == 1.0
     assert svc.mis_reuniones(emp(13))[0]["proxima_fecha"] == "2026-10-14"
     assert svc.mis_reuniones(emp(14)) == []
@@ -559,3 +559,59 @@ def test_migracion_traspasa_la_tabla_feriados_anterior(reuniones_db):
     conn.commit()
     c.close()
     conn.close()
+
+
+# --- Superposiciones -------------------------------------------------------------------------------
+
+def test_superposiciones_aviso_y_justificacion(reuniones_db):
+    # A: miercoles 09:00-10:00 para toda la empresa. B: miercoles 09:30-10:30 solo para el empleado 10.
+    a = crear(nombre="Seguridad", reglas=["todos"], empleados=[])
+    b = crear(nombre="Ventas", hora_inicio="09:30", reglas=[], empleados=["10"])
+    tarde = crear(nombre="Tarde", hora_inicio="15:00", reglas=["todos"], empleados=[])  # no se pisa
+    hoy = D(2026, 10, 13)
+    conflictos = svc.conflictos(ADMIN, a, desde=hoy, dias=14)
+    assert [(g["nombre"], g["fechas"], g["empleados"], g["horario"]) for g in conflictos] == [("Ventas", 2, 1, "09:30 a 10:30")]
+    assert svc.conflictos(ADMIN, tarde, desde=hoy, dias=14) == []
+
+    # La app marca la superposicion en las dos.
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 8, 0)
+    semana = svc.proximas(emp(10), 1)
+    assert semana["resumen"]["superpuestas"] == 2
+    assert {x["nombre"] for i in semana["items"] for x in i["superpuesta_con"]} == {"Seguridad", "Ventas"}
+    assert all(not i["superpuesta_con"] for i in svc.proximas(emp(11), 1)["items"])
+
+    # Asiste a B; al cerrar A, su ausencia en A queda justificada.
+    with svc.db.transaction(read_only=True) as c:
+        qr_b = svc.qr_fijo(svc.sede(c, svc.obtener(c, ADMIN, b), 0))
+    AHORA["valor"] = dt.datetime(2026, 10, 14, 9, 25)
+    svc.registrar_qr(emp(10), qr_b)
+    svc.cerrar_ocurrencias(ahora=dt.datetime(2026, 10, 14, 10, 5))
+    with svc.db.transaction(read_only=True) as c:
+        fila = svc.db.one(c, "SELECT estado, observaciones FROM reunion_asistencias WHERE reunion_id=%s AND empleado_id=10", (a,))
+    assert fila["estado"] == "justificado" and "Ventas" in fila["observaciones"]
+
+    # Al reves: A cierra primero (queda ausente) y despues registra en una superpuesta que sigue abierta.
+    d = crear(nombre="Comite", hora_inicio="09:50", duracion_min="40", reglas=[], empleados=["11"])
+    AHORA["valor"] = dt.datetime(2026, 10, 21, 10, 5)
+    svc.cerrar_ocurrencias(ahora=AHORA["valor"])
+    consulta = "SELECT estado, observaciones FROM reunion_asistencias WHERE reunion_id=%s AND empleado_id=11 AND fecha='2026-10-21'"
+    with svc.db.transaction(read_only=True) as c:
+        assert svc.db.one(c, consulta, (a,))["estado"] == "ausente"
+        qr_d = svc.qr_fijo(svc.sede(c, svc.obtener(c, ADMIN, d), 0))
+    AHORA["valor"] = dt.datetime(2026, 10, 21, 10, 10)
+    svc.registrar_qr(emp(11), qr_d)
+    with svc.db.transaction(read_only=True) as c:
+        fila = svc.db.one(c, consulta, (a,))
+    assert fila["estado"] == "justificado" and "Comite" in fila["observaciones"]
+    AHORA["valor"] = dt.datetime(2026, 10, 13, 8, 0)
+    assert svc.reuniones_con_superposicion(ADMIN)[a] >= 1
+
+
+def test_panel_avisa_superposicion_al_guardar(client):
+    crear(nombre="Seguridad", reglas=["todos"], empleados=[])
+    r = client.post("/reuniones/nueva", data={"nombre": "Ventas", "frecuencia": "semanal", "dias_semana": ["2"],
+                                             "hora_inicio": "09:30", "duracion_min": "60", "qr_modo": "fijo",
+                                             "empleado": ["10"]}, follow_redirects=True)
+    html = r.get_data(as_text=True)
+    assert "se superpone con «Seguridad» (09:00 a 10:00)" in html
+    assert "Se superpone con otras reuniones" in html

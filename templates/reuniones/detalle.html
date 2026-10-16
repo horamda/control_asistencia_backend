@@ -92,6 +92,29 @@
   </figure>
 </div>
 
+{% if superposiciones %}
+<section class="epp-card reu-superposiciones">
+  <h3>Se superpone con otras reuniones</h3>
+  <p class="helper-text">Próximos {{ dias_superposicion }} días, para convocados en común. Quien asista a una tiene justificada la ausencia en la otra; si no es intencional, conviene cambiar el horario.</p>
+  <div class="table-responsive table-cards">
+    <table>
+      <thead><tr><th>Reunión</th><th>Horario</th><th>Fechas</th><th>Personas en común</th><th>Primera</th></tr></thead>
+      <tbody>
+        {% for g in superposiciones %}
+          <tr>
+            <td data-label="Reunión"><a href="{{ url_for('reuniones.detalle', reunion_id=g.reunion_id) }}">{{ g.nombre }}</a>{% if g.sucursal_nombre %} <span class="chip">{{ g.sucursal_nombre }}</span>{% endif %}</td>
+            <td data-label="Horario">{{ g.horario }}</td>
+            <td data-label="Fechas">{{ g.fechas }}</td>
+            <td data-label="Personas en común"><span class="badge warning">{{ g.empleados }}</span></td>
+            <td data-label="Primera">{{ (g.primera|dia_semana)[:3] }} {{ g.primera.strftime('%d/%m') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
 {% if con_sedes and por_sede %}
 <section class="epp-card">
   <h3>Por sucursal</h3>

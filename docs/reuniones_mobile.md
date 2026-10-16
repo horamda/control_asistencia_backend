@@ -1,6 +1,6 @@
 # Reuniones — contrato para Flutter y web de empleados
 
-Versión de contrato: 1.41.0 · Definición formal: [reuniones_mobile_openapi.yaml](reuniones_mobile_openapi.yaml)
+Versión de contrato: 1.42.0 · Definición formal: [reuniones_mobile_openapi.yaml](reuniones_mobile_openapi.yaml)
 
 Las reuniones se crean en el panel (Asistencia → Reuniones). Cada una tiene una recurrencia
 (diaria, semanal o mensual), un horario, una ventana de registro y una lista de **convocados
@@ -44,6 +44,15 @@ La API ya devuelve las fechas efectivas. Campos para mostrar el cambio:
 - `POST /registrar` en un día no laborable: 409 `"Hoy es día no laborable: la reunión se pasó al martes 13/10."`.
 
 Mostrar los textos tal cual: no hay que armarlos en la app.
+
+### Reuniones superpuestas (1.42.0)
+
+Si el empleado tiene dos reuniones que se pisan en horario el mismo día, no puede estar en las dos:
+- En `/proximas`, cada item trae `superpuesta_con`: lista de `{reunion_id, nombre, inicio, fin}` de sus otras
+  reuniones que se pisan (vacía si no hay). `resumen.superpuestas` cuenta cuántas tiene en el período.
+  Sugerencia de UI: un aviso "Se superpone con Ventas (09:30)" en la tarjeta.
+- Al asistir a una, la otra queda **justificada** automáticamente (no cuenta como ausencia) con
+  `observaciones` = `"Asistió a <reunión> (superpuesta)"`; se ve así en `/historial`.
 
 Los recordatorios locales deben programarse con `inicio` (ya viene con la fecha nueva).
 
@@ -136,6 +145,7 @@ Orden cronológico. `resumen` (1.41.0) trae los totales ya calculados; no hace f
 | `pendientes` | Todavía por hacer o con el registro abierto ahora. |
 | `ausentes` | No registró y la ventana cerró. `justificadas`: ausencia justificada. |
 | `canceladas` | Canceladas desde el panel o por día no laborable. |
+| `superpuestas` | Reuniones del período que se pisan en horario con otra propia (1.42.0). |
 
 Ejemplo de tarjeta: *"Esta semana: 4 reuniones · 3,5 h · registraste 2 · te faltan 2"*.
 
@@ -144,7 +154,7 @@ Ejemplo de tarjeta: *"Esta semana: 4 reuniones · 3,5 h · registraste 2 · te f
   "desde": "2026-10-12",
   "hasta": "2026-10-18",
   "resumen": {"reuniones": 4, "minutos": 210, "horas": 3.5, "registradas": 2, "tarde": 1,
-              "pendientes": 2, "ausentes": 0, "justificadas": 0, "canceladas": 1},
+              "pendientes": 2, "ausentes": 0, "justificadas": 0, "canceladas": 1, "superpuestas": 0},
   "items": [
     {
       "reunion_id": 5,
@@ -165,7 +175,8 @@ Ejemplo de tarjeta: *"Esta semana: 4 reuniones · 3,5 h · registraste 2 · te f
       "registrado_at": "2026-10-15T07:28:00-03:00",
       "qr_modo": "fijo",
       "fecha_original": null,
-      "motivo_cambio": null
+      "motivo_cambio": null,
+      "superpuesta_con": []
     }
   ]
 }

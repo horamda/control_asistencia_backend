@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.41.0
+  version: 1.42.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.42.0: Reuniones superpuestas (superpuesta_con en /reuniones/proximas; ausencia justificada si asistio a la otra).
     Version 1.41.0: Reuniones con resumen semanal (/proximas?semana=actual) y horas asistidas en estadisticas.
     Version 1.40.1: textos de Reuniones con "dia no laborable" (calendario del reporte mensual).
     Version 1.40.0: Reuniones con dias no laborables (fechas pospuestas u omitidas; fecha_original, motivo_cambio, feriado_accion).
