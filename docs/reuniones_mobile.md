@@ -1,6 +1,6 @@
 # Reuniones — contrato para Flutter y web de empleados
 
-Versión de contrato: 1.40.1 · Definición formal: [reuniones_mobile_openapi.yaml](reuniones_mobile_openapi.yaml)
+Versión de contrato: 1.41.0 · Definición formal: [reuniones_mobile_openapi.yaml](reuniones_mobile_openapi.yaml)
 
 Las reuniones se crean en el panel (Asistencia → Reuniones). Cada una tiene una recurrencia
 (diaria, semanal o mensual), un horario, una ventana de registro y una lista de **convocados
@@ -52,7 +52,7 @@ Los recordatorios locales deben programarse con `inicio` (ya viene con la fecha 
 | Método | Ruta | Uso en la app |
 |---|---|---|
 | GET | `/reuniones` | Pantalla "Mis reuniones": definiciones, próxima fecha y mis estadísticas por reunión. |
-| GET | `/reuniones/proximas?dias=7` | Inicio ("Reuniones de la semana") y programación de recordatorios locales. |
+| GET | `/reuniones/proximas?semana=actual` o `?dias=7` | Inicio ("Tu semana de reuniones": cantidad, horas, registradas) y recordatorios locales. |
 | POST | `/reuniones/registrar` | Envía el contenido del QR escaneado. |
 | GET | `/reuniones/historial?desde=&hasta=&reunion_id=&page=&per=` | Historial de asistencias propias. |
 | GET | `/reuniones/estadisticas?desde=&hasta=` | Totales y porcentaje por reunión. |
@@ -119,15 +119,32 @@ servidor cierra la reunión (cada 10 minutos); el historial muestra el estado de
 - `cierre_despues_min = null`: el registro cierra cuando termina la reunión.
 - `mis_estadisticas` es histórica (todas las fechas). `asistencia_pct` y `puntualidad_pct` pueden ser `null` sin datos.
 
-## 2. `GET /reuniones/proximas?dias=7`
+## 2. `GET /reuniones/proximas?semana=actual` / `?dias=7`
 
-`dias` entre 1 y 31 (por defecto 7), contando desde hoy. Incluye las reuniones de hoy aunque ya hayan pasado.
-Orden cronológico.
+- `?semana=actual` (1.41.0): de **lunes a domingo de la semana en curso**, incluidas las reuniones ya pasadas
+  (sirve para la tarjeta "Tu semana").
+- `?dias=N` (1 a 31, por defecto 7): desde hoy, N días (sirve para los recordatorios). Incluye las de hoy aunque
+  ya hayan pasado.
+
+Orden cronológico. `resumen` (1.41.0) trae los totales ya calculados; no hace falta sumarlos en la app:
+
+| Campo | Significado |
+|---|---|
+| `reuniones` | Reuniones del período (sin contar las canceladas). |
+| `horas` / `minutos` | Tiempo total de esas reuniones (`horas` con un decimal). |
+| `registradas` | Escaneadas (presente + tarde); `tarde` las que llegaron tarde. |
+| `pendientes` | Todavía por hacer o con el registro abierto ahora. |
+| `ausentes` | No registró y la ventana cerró. `justificadas`: ausencia justificada. |
+| `canceladas` | Canceladas desde el panel o por día no laborable. |
+
+Ejemplo de tarjeta: *"Esta semana: 4 reuniones · 3,5 h · registraste 2 · te faltan 2"*.
 
 ```json
 {
-  "desde": "2026-10-15",
-  "hasta": "2026-10-21",
+  "desde": "2026-10-12",
+  "hasta": "2026-10-18",
+  "resumen": {"reuniones": 4, "minutos": 210, "horas": 3.5, "registradas": 2, "tarde": 1,
+              "pendientes": 2, "ausentes": 0, "justificadas": 0, "canceladas": 1},
   "items": [
     {
       "reunion_id": 5,
@@ -156,7 +173,8 @@ Orden cronológico.
 
 ### Recordatorios locales (sin push)
 
-1. Al abrir la app, al volver a primer plano y después de registrar, llamar a `/proximas?dias=7`.
+1. Al abrir la app, al volver a primer plano y después de registrar, llamar a `/proximas?dias=7`
+   (desde hoy: no reprograma avisos de días ya pasados).
 2. Cancelar los recordatorios programados por la app y volver a programar uno por cada item con
    `estado` = `pendiente`, `cancelada = false`, en `inicio - 30 minutos` (y opcionalmente otro al abrir `ventana_desde`).
 3. Usar `reunion_id` + `fecha` como identificador del recordatorio para no duplicar.
@@ -234,13 +252,20 @@ Por defecto, los últimos 90 días. Rango máximo 366 días. No cuenta fechas ca
 {
   "periodo": {"desde": "2026-07-18", "hasta": "2026-10-15"},
   "totales": {"convocatorias": 20, "presentes": 15, "tarde": 2, "ausentes": 2, "justificados": 1,
-              "asistidas": 17, "asistencia_pct": 89.5, "puntualidad_pct": 88.2},
+              "asistidas": 17, "asistencia_pct": 89.5, "puntualidad_pct": 88.2,
+              "minutos_asistidos": 840, "horas_asistidas": 14.0},
   "por_reunion": [
     {"reunion_id": 3, "nombre": "Reunión de seguridad semanal", "convocatorias": 9, "presentes": 6, "tarde": 1,
-     "ausentes": 2, "justificados": 0, "asistidas": 7, "asistencia_pct": 77.8, "puntualidad_pct": 85.7}
+     "ausentes": 2, "justificados": 0, "asistidas": 7, "asistencia_pct": 77.8, "puntualidad_pct": 85.7,
+     "minutos_asistidos": 315, "horas_asistidas": 5.3}
   ]
 }
 ```
+
+- `horas_asistidas` / `minutos_asistidos` (1.41.0): tiempo de las reuniones a las que asistió (presente o tarde),
+  según la duración de cada una.
+- Para la pantalla de estadísticas por reunión alcanza con `por_reunion`: asistencias (`asistidas` de
+  `convocatorias`), `asistencia_pct`, `puntualidad_pct`, ausencias y horas.
 
 - `asistencia_pct` = asistidas / (convocatorias − justificados) × 100.
 - `puntualidad_pct` = presentes / asistidas × 100.

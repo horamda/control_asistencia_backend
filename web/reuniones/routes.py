@@ -433,6 +433,10 @@ def mobile_listado():
 @mobile.get("/proximas")
 @mobile_auth_required
 def mobile_proximas():
+    # ?semana=actual: de lunes a domingo de esta semana (incluye las ya pasadas); si no, desde hoy.
+    if request.args.get("semana") == "actual":
+        hoy = now_local().date()
+        return jsonify(serialize(s.proximas(employee(), 7, desde=hoy - dt.timedelta(days=hoy.weekday()))))
     return jsonify(serialize(s.proximas(employee(), request.args.get("dias", 7, type=int))))
 
 

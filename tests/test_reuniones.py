@@ -193,9 +193,14 @@ def test_flujo_qr_cierre_y_estadisticas(reuniones_db):
     # Empleado: estadisticas, historial y proximas (hoy registrado, la semana que viene pendiente).
     mias = svc.estadisticas_empleado(emp(11), D(2026, 10, 1), D(2026, 10, 31))
     assert mias["totales"]["tarde"] == 1 and mias["totales"]["asistencia_pct"] == 100.0
+    assert mias["totales"]["horas_asistidas"] == 1.0 and mias["por_reunion"][0]["minutos_asistidos"] == 60
     assert svc.historial_empleado(emp(10))["items"][0]["estado"] == "presente"
-    prox = svc.proximas(emp(10), 8, ahora=AHORA["valor"])["items"]
+    semana = svc.proximas(emp(10), 8, ahora=AHORA["valor"])
+    prox = semana["items"]
     assert [(p["fecha"], p["estado"]) for p in prox] == [("2026-10-14", "presente"), ("2026-10-21", "pendiente")]
+    assert semana["resumen"] == {"reuniones": 2, "minutos": 120, "horas": 2.0, "registradas": 1, "tarde": 0,
+                                 "pendientes": 1, "ausentes": 0, "justificadas": 0, "canceladas": 0}
+    assert svc.mis_reuniones(emp(14)) == [] and svc.mis_reuniones(emp(10))[0]["mis_estadisticas"]["horas_asistidas"] == 1.0
     assert svc.mis_reuniones(emp(13))[0]["proxima_fecha"] == "2026-10-14"
     assert svc.mis_reuniones(emp(14)) == []
 
@@ -308,6 +313,9 @@ def test_api_mobile(client):
     assert lista[0]["descripcion_frecuencia"] == "El segundo miércoles de cada mes a las 09:00 (60 min)"
     prox = client.get("/api/v1/mobile/reuniones/proximas?dias=7", headers=headers).json
     assert prox["items"][0]["estado"] == "pendiente" and prox["items"][0]["inicio"].startswith("2026-10-14T09:00")
+    semana = client.get("/api/v1/mobile/reuniones/proximas?semana=actual", headers=headers).json
+    assert (semana["desde"], semana["hasta"]) == ("2026-10-12", "2026-10-18")  # lunes a domingo
+    assert semana["resumen"]["reuniones"] == 1 and semana["resumen"]["horas"] == 1.0
 
     with svc.db.transaction(read_only=True) as c:
         qr = svc.qr_fijo(svc.obtener(c, ADMIN, rid))

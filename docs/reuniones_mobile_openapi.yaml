@@ -1,13 +1,15 @@
 openapi: 3.0.3
 info:
   title: Reuniones FichaYa
-  version: 1.40.1
+  version: 1.41.0
   description: |
     Reuniones recurrentes con convocados obligatorios y asistencia por QR.
     Guia con ejemplos, estados y recordatorios locales: reuniones_mobile.md.
     1.39.0: sedes por sucursal; hora, lugar y QR son los de la sucursal del empleado.
     1.40.0: dias no laborables; las fechas ya vienen pospuestas u omitidas (fecha_original, motivo_cambio, feriado_accion).
     1.40.1: textos de motivo_cambio y errores con "dia no laborable" (mismo calendario del reporte mensual).
+    1.41.0: /proximas acepta semana=actual y trae resumen (reuniones, horas, registradas, pendientes...);
+    estadisticas agregan minutos_asistidos y horas_asistidas.
 servers:
   - url: /api/v1/mobile
 security:
@@ -34,8 +36,12 @@ paths:
   /reuniones/proximas:
     get:
       tags: [Reuniones]
-      summary: Fechas de hoy en adelante con el estado del empleado (inicio y recordatorios)
+      summary: Reuniones de la semana (o de los proximos dias) con el estado del empleado y un resumen
       parameters:
+        - name: semana
+          in: query
+          description: actual = lunes a domingo de la semana en curso (ignora dias)
+          schema: {type: string, enum: [actual]}
         - name: dias
           in: query
           schema: {type: integer, minimum: 1, maximum: 31, default: 7}
@@ -49,6 +55,7 @@ paths:
                 properties:
                   desde: {type: string, format: date}
                   hasta: {type: string, format: date}
+                  resumen: {$ref: '#/components/schemas/ResumenSemana'}
                   items:
                     type: array
                     items:
@@ -203,6 +210,21 @@ components:
         asistidas: {type: integer, description: presentes + tarde}
         asistencia_pct: {type: number, nullable: true, description: asistidas / (convocatorias - justificados) * 100}
         puntualidad_pct: {type: number, nullable: true, description: presentes / asistidas * 100}
+        minutos_asistidos: {type: integer, description: Duracion de las reuniones a las que asistio (1.41.0)}
+        horas_asistidas: {type: number, description: minutos_asistidos / 60 con un decimal (1.41.0)}
+    ResumenSemana:
+      type: object
+      description: Totales del periodo de /proximas (1.41.0)
+      properties:
+        reuniones: {type: integer, description: Sin contar canceladas}
+        minutos: {type: integer}
+        horas: {type: number}
+        registradas: {type: integer, description: presente + tarde}
+        tarde: {type: integer}
+        pendientes: {type: integer, description: pendiente + abierta}
+        ausentes: {type: integer}
+        justificadas: {type: integer}
+        canceladas: {type: integer}
     ReunionItem:
       type: object
       properties:

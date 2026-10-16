@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.40.1
+Version de contrato: 1.41.0
+
+- **Reuniones: resumen semanal (1.41.0):** `/reuniones/proximas?semana=actual` trae `resumen` (reuniones, horas, registradas, pendientes, ausentes, canceladas) y `/reuniones/estadisticas` agrega `horas_asistidas`. Ver [contrato](reuniones_mobile.md#2-get-reunionesproximassemanaactual--dias7).
 
 - **Reuniones y días no laborables (1.40.0 / 1.40.1):** las fechas que caen en un día no laborable (el calendario del reporte mensual) se posponen al siguiente día hábil u omiten, según la reunión; `/reuniones/proximas` trae `fecha_original` y `motivo_cambio` listo para mostrar. Ver [contrato](reuniones_mobile.md#días-no-laborables-1400-textos-1401).
 

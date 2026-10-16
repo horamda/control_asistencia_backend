@@ -788,7 +788,9 @@ def _agregado(where, args):
                       COALESCE(SUM(a.estado='presente'),0) AS presentes,
                       COALESCE(SUM(a.estado='tarde'),0) AS tarde,
                       COALESCE(SUM(a.estado='ausente'),0) AS ausentes,
-                      COALESCE(SUM(a.estado='justificado'),0) AS justificados
+                      COALESCE(SUM(a.estado='justificado'),0) AS justificados,
+                      COALESCE(SUM(CASE WHEN a.estado IN ('presente','tarde')
+                                        THEN TIMESTAMPDIFF(MINUTE, o.inicio, o.fin) ELSE 0 END),0) AS minutos_asistidos
                FROM reunion_asistencias a JOIN reunion_ocurrencias o ON o.id = a.ocurrencia_id
                WHERE o.estado <> 'cancelada' AND {where}""", args
 
@@ -809,11 +811,15 @@ def _tasas(row):
     row["asistidas"] = asistidas
     row["asistencia_pct"] = pct(asistidas, row["convocatorias"] - row["justificados"])
     row["puntualidad_pct"] = pct(row["presentes"], asistidas)
+    if "minutos_asistidos" in row:
+        row["minutos_asistidos"] = int(row["minutos_asistidos"] or 0)
+        row["horas_asistidas"] = round(row["minutos_asistidos"] / 60, 1)
     return row
 
 
 def _suma(filas):
-    return _tasas({k: sum(x[k] for x in filas) for k in _CONTEOS})
+    claves = _CONTEOS + (("minutos_asistidos",) if filas and all("minutos_asistidos" in x for x in filas) else ())
+    return _tasas({k: sum(x[k] for x in filas) for k in claves})
 
 
 def _filtro_sucursal(sucursal_id, alias="a"):
@@ -994,17 +1000,19 @@ def mis_reuniones(empleado, *, ahora=None):
     for r in rows:
         item = reunion_publica(r)
         item["proxima_fecha"] = _iso(proxima_fecha(r, ahora.date()))
-        item["mis_estadisticas"] = stats.get(r["id"]) or _tasas(dict.fromkeys(_CONTEOS, 0))
+        item["mis_estadisticas"] = stats.get(r["id"]) or _tasas(dict(dict.fromkeys(_CONTEOS, 0), minutos_asistidos=0))
         item["mis_estadisticas"].pop("reunion_id", None)
         items.append(item)
     return items
 
 
-def proximas(empleado, dias=7, *, ahora=None):
-    """Ocurrencias de hoy en adelante (incluye las de hoy ya pasadas) con el estado del empleado."""
+def proximas(empleado, dias=7, *, desde=None, ahora=None):
+    """Ocurrencias desde hoy (o desde la fecha dada, p. ej. el lunes de la semana) con el estado del
+    empleado y un resumen: cantidad, horas, registradas, pendientes, ausentes y canceladas."""
     ahora = ahora or now_local()
     dias = max(1, min(int(dias or 7), 31))
-    desde, hasta = ahora.date(), ahora.date() + dt.timedelta(days=dias - 1)
+    desde = desde or ahora.date()
+    hasta = desde + dt.timedelta(days=dias - 1)
     with db.transaction(read_only=True) as c:
         rows = _de_empleado_en_sede(c, empleado)
         ids = [r["id"] for r in rows]
@@ -1037,6 +1045,7 @@ def proximas(empleado, dias=7, *, ahora=None):
             else:
                 estado = "pendiente"
             items.append(dict(
+                _minutos=int((h["fin"] - h["inicio"]).total_seconds() // 60),
                 reunion_id=r["id"], nombre=r["nombre"], lugar=r.get("lugar"), descripcion=r.get("descripcion"),
                 sucursal_id=r["sucursal_id"] or None, sucursal_nombre=r.get("sucursal_nombre"),
                 fecha=fecha.isoformat(), inicio=_iso(h["inicio"]), fin=_iso(h["fin"]),
@@ -1049,7 +1058,17 @@ def proximas(empleado, dias=7, *, ahora=None):
                 registrado_at=_iso(reg["registrado_at"]) if reg else None, qr_modo=r["qr_modo"],
             ))
     items.sort(key=lambda x: (x["inicio"], x["nombre"]))
-    return dict(desde=desde.isoformat(), hasta=hasta.isoformat(), items=items)
+    minutos = [i.pop("_minutos") for i in items]
+    activas = [m for i, m in zip(items, minutos) if i["estado"] != "cancelada"]
+    cuenta = {e: sum(1 for i in items if i["estado"] == e) for e in
+              ("presente", "tarde", "ausente", "justificado", "abierta", "pendiente", "cancelada")}
+    resumen = dict(
+        reuniones=len(activas), minutos=sum(activas), horas=round(sum(activas) / 60, 1),
+        registradas=cuenta["presente"] + cuenta["tarde"], tarde=cuenta["tarde"],
+        pendientes=cuenta["pendiente"] + cuenta["abierta"], ausentes=cuenta["ausente"],
+        justificadas=cuenta["justificado"], canceladas=cuenta["cancelada"],
+    )
+    return dict(desde=desde.isoformat(), hasta=hasta.isoformat(), resumen=resumen, items=items)
 
 
 def historial_empleado(empleado, *, desde=None, hasta=None, reunion_id=None, page=1, per_page=20):

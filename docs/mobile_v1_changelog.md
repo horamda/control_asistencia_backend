@@ -1,3 +1,9 @@
+## 1.41.0 — 2026-10-16
+
+- `/reuniones/proximas`: nuevo `?semana=actual` (lunes a domingo, incluye las ya pasadas) y bloque `resumen` con reuniones, horas/minutos, registradas, tarde, pendientes, ausentes, justificadas y canceladas.
+- `/reuniones/estadisticas` y estadísticas de cada reunión: `minutos_asistidos` y `horas_asistidas`.
+- Cambios aditivos: los clientes actuales siguen funcionando.
+
 ## 1.40.1 — 2026-10-16
 
 - Reuniones: los días no laborables salen del calendario del reporte mensual de asistencia (único calendario; se quitó la pantalla aparte de Feriados del panel). Sin cambios en rutas ni campos.
