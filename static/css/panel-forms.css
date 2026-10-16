@@ -1,0 +1,174 @@
+/* Formularios de carga: un mismo formato en todos los modulos (el de EPP y Reuniones).
+
+   Estructura que ya usan los formularios del panel:
+     <form method="post">
+       <div class="form-grid">                      3 columnas (1 en celular)
+         <div class="row [span-2|span-3]">          un campo
+           <label>Nombre</label><input ...>
+           <small>Ayuda opcional</small>
+         </div>
+         <div class="row span-3"><label class="check-inline"><input type="checkbox"> Activo</label></div>
+       </div>
+       <div class="actions">                        pie: Volver a la izquierda, accion principal a la derecha,
+         <button class="btn">Guardar</button>        Eliminar (.btn-danger) en el extremo opuesto
+         <a class="btn btn-secondary" href="...">Volver</a>
+       </div>
+     </form>
+
+   Alcance: formularios POST con .form-grid. Los filtros (GET), las acciones dentro de tablas y los
+   formularios con estilo propio de EPP / Reuniones (epp-card, epp-fieldset) no se tocan. */
+
+:is(.page-content,.embedded-layout) :is(form:not([method="get" i]):has(.form-grid),form.form-grid:not([method="get" i])) {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+:is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid {
+  gap: 18px 20px;
+  align-items: start;
+}
+:is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid + .form-grid {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+/* Campos: etiqueta arriba, control a todo el ancho de su columna, misma altura en todo el panel. */
+:is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid .row > label:not([class]) {
+  display: block;
+  margin-bottom: 6px;
+  font-size: .875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+:is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid .row :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),select) {
+  width: 100%;
+  max-width: none;
+  min-height: 44px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  border-radius: 9px;
+}
+:is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid .row textarea {
+  width: 100%;
+  max-width: none;
+  min-height: 96px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  resize: vertical;
+}
+:is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid .row input[type=file] {
+  width: 100%;
+  max-width: none;
+  padding: 8px;
+  box-sizing: border-box;
+}
+:is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid .row > :is(small,.helper-text,.hint) {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: .8125rem;
+  line-height: 1.45;
+}
+
+/* Segundo patron: el <form class="form-grid"> es la grilla y cada campo es
+   <label><span>Texto</span><input></label>. Mismo aspecto que .row. */
+:is(.page-content,.embedded-layout) form.form-grid:not([method="get" i]) {
+  gap: 18px 20px;
+  align-items: start;
+}
+:is(.page-content,.embedded-layout) form.form-grid:not([method="get" i]) > label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  min-width: 0;
+}
+:is(.page-content,.embedded-layout) form.form-grid:not([method="get" i]) > label > span:first-child {
+  font-size: .875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+:is(.page-content,.embedded-layout) form.form-grid:not([method="get" i]) > label > :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) {
+  width: 100%;
+  max-width: none;
+  min-height: 44px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  border-radius: 9px;
+}
+:is(.page-content,.embedded-layout) form.form-grid:not([method="get" i]) > label > textarea {
+  width: 100%;
+  max-width: none;
+  min-height: 96px;
+  box-sizing: border-box;
+  border-radius: 9px;
+}
+:is(.page-content,.embedded-layout) form.form-grid:not([method="get" i]) > label > :is(small,.helper-text) {
+  color: var(--muted);
+  font-size: .8125rem;
+}
+:is(.page-content,.embedded-layout) form.form-grid:not([method="get" i]) > .actions:last-child {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+}
+
+/* Casillas: alineadas con su texto, con tamaño propio (los inputs tienen altura de campo). */
+:is(.page-content,.embedded-layout) form:not([method="get" i]) .check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+/* Solo casillas comunes: los interruptores con estilo propio (p. ej. employee-toggle-card) no se tocan. */
+:is(.page-content,.embedded-layout) form:not([method="get" i]) :is(.check-inline,.form-grid .row > label:not([class])) > input:is([type=checkbox],[type=radio]) {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: none;
+}
+
+/* Pie del formulario: separado, accion principal a la derecha. */
+:is(.page-content,.embedded-layout) :is(form:not([method="get" i]):has(.form-grid),form.form-grid:not([method="get" i])) > .actions:last-child {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  justify-content: flex-end;
+}
+:is(.page-content,.embedded-layout) :is(form:not([method="get" i]):has(.form-grid),form.form-grid:not([method="get" i])) > .actions:last-child > :is(a,.btn-secondary,.btn-ghost) {
+  order: -1;
+}
+:is(.page-content,.embedded-layout) :is(form:not([method="get" i]):has(.form-grid),form.form-grid:not([method="get" i])) > .actions:last-child > .btn-danger {
+  order: -2;
+  margin-right: auto;
+}
+
+/* Errores de validacion arriba del formulario, con el mismo radio que la tarjeta. */
+:is(.page-content,.embedded-layout) .errors {
+  border-radius: var(--radius);
+}
+
+@media (max-width: 700px) {
+  :is(.page-content,.embedded-layout) :is(form:not([method="get" i]):has(.form-grid),form.form-grid:not([method="get" i])) {
+    padding: 16px;
+  }
+  :is(.page-content,.embedded-layout) :is(form:not([method="get" i]):has(.form-grid),form.form-grid:not([method="get" i])) > .actions:last-child > :is(a,button,.btn,.btn-secondary,.btn-danger,input[type=submit]) {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  :is(.page-content,.embedded-layout) :is(form:not([method="get" i]):has(.form-grid),form.form-grid:not([method="get" i])) > .actions:last-child > .btn-danger {
+    margin-right: 0;
+  }
+  :is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid .row :is(input,select,textarea) {
+    font-size: 16px; /* evita el zoom automatico de iOS al enfocar */
+  }
+}
