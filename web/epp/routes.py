@@ -615,11 +615,17 @@ def replacement_concepts():
     who = actor()
     if request.method == "POST":
         values = data()
-        if values.get("accion") == "eliminar":
-            s.delete_replacement_concept(who, values.get("id"))
-        else:
-            s.save_replacement_concept(who, values)
-        flash("Concepto de reposición actualizado.", "success")
+        try:
+            if values.get("accion") == "eliminar":
+                s.delete_replacement_concept(who, values.get("id"))
+            else:
+                s.save_replacement_concept(who, values)
+        except s.Error as error:
+            # Como en Conceptos de viaticos: el dialogo se reabre con el error y lo cargado.
+            return render("replacement_concepts", items=s.replacement_concepts(who), error=str(error),
+                          values=values), error.status
+        nuevo = not values.get("id")
+        flash("Concepto creado." if nuevo else "Concepto actualizado.", "success")
         return redirect(url_for("epp_web.replacement_concepts"))
     return render("replacement_concepts", items=s.replacement_concepts(who))
 

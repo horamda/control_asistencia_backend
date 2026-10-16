@@ -1,19 +1,55 @@
 {% extends 'epp/layout.html' %}
+{% block extra_head %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/reintegros_concepts.css') }}">{% endblock %}
 {% block epp_content %}
-<h3>Conceptos de reposición</h3>
-<p>Definí los conceptos disponibles al solicitar EPP y vestimenta. La baja desactiva el concepto y conserva el historial.</p>
-<form method="post" class="epp-card">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<label>Nuevo concepto<input name="nombre" maxlength="120" required placeholder="Por ejemplo: desgaste por uso"></label>
-<button class="btn" type="submit">Agregar concepto</button>
-</form>
-{% for c in items %}
-<form method="post" class="epp-card">
-<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<input type="hidden" name="id" value="{{ c.id }}">
-<label>Nombre<input name="nombre" value="{{ c.nombre }}" maxlength="120" required></label>
-<label>Estado<select name="activo"><option value="1" {{ 'selected' if c.activo }}>Activo</option><option value="0" {{ 'selected' if not c.activo }}>Inactivo</option></select></label>
-<div class="actions"><button class="btn" type="submit">Guardar cambios</button>{% if c.activo %}<button class="btn btn-danger" name="accion" value="eliminar" type="submit" formnovalidate>Dar de baja</button>{% endif %}</div>
-</form>
-{% else %}<p>No hay conceptos de reposición. Agregá el primero para usarlo en los pedidos.</p>{% endfor %}
+{# Mismo componente que Conceptos de viaticos (Reintegros): tabla con busqueda y alta/edicion en un dialogo. #}
+<div class="concept-page">
+  <header class="concept-heading">
+    <div><h2>Conceptos de reposición</h2><p>Motivos que se eligen al pedir EPP y vestimenta. Un concepto inactivo deja de ofrecerse y conserva su historial.</p></div>
+    <button type="button" id="concept-create">+ Nuevo concepto</button>
+  </header>
+  <section class="concept-catalog" aria-label="Conceptos de reposición">
+    <div class="concept-toolbar">
+      <label class="concept-search">Buscar concepto<input type="search" id="concept-search" placeholder="Ej. desgaste, rotura…"></label>
+      <label>Estado<select id="concept-filter"><option value="">Todos</option><option value="1">Activos</option><option value="0">Inactivos</option></select></label>
+      <span id="concept-count" aria-live="polite"></span>
+    </div>
+    <table class="concept-table">
+      <thead><tr><th scope="col">Concepto</th><th scope="col">Estado</th><th scope="col"><span class="concept-sr">Acciones</span></th></tr></thead>
+      <tbody>
+      {% for item in items %}
+        <tr data-concept-row data-name="{{ item.nombre }}" data-active="{{ 1 if item.activo else 0 }}">
+          <td><strong>{{ item.nombre }}</strong></td>
+          <td><span class="concept-badge {{ 'is-active' if item.activo else 'is-inactive' }}">● {{ 'Activo' if item.activo else 'Inactivo' }}</span></td>
+          <td class="concept-actions"><button type="button" class="concept-secondary" data-edit-concept data-id="{{ item.id }}" data-name="{{ item.nombre }}" data-active="{{ 1 if item.activo else 0 }}" aria-label="Editar {{ item.nombre }}">Editar</button></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div id="concept-empty" class="concept-empty" {% if items %}hidden{% endif %}>
+      <h3>{{ 'No encontramos conceptos' if items else 'Creá el primer concepto' }}</h3>
+      <p>{{ 'Probá con otro nombre o cambiá el filtro de estado.' if items else 'Por ejemplo: desgaste por uso, rotura, pérdida o ingreso de personal.' }}</p>
+      <button type="button" id="concept-empty-action" class="concept-secondary">{{ 'Limpiar filtros' if items else 'Crear concepto' }}</button>
+    </div>
+    <p class="concept-note">Para dar de baja un concepto, editalo y elegí <strong>Inactivo</strong>: deja de ofrecerse en los pedidos nuevos y los pedidos anteriores lo conservan.</p>
+  </section>
+  <noscript>Activá JavaScript para buscar, crear y editar conceptos.</noscript>
+</div>
+{% set values = values or {} %}
+<dialog id="concept-dialog" class="concept-dialog" aria-labelledby="concept-dialog-title" data-reopen="{{ 1 if error else 0 }}">
+  <form method="post" action="{{ url_for('epp_web.replacement_concepts') }}" id="concept-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="id" id="concept-id" value="{{ values.get('id', '') }}">
+    <header><h3 id="concept-dialog-title">{{ 'Editar concepto' if values.get('id') else 'Nuevo concepto' }}</h3><button type="button" class="concept-secondary" data-close-concept aria-label="Cerrar">×</button></header>
+    <div class="concept-dialog-body">
+      <p id="concept-error" role="alert" {% if not error %}hidden{% endif %}>{{ error or '' }}</p>
+      <label for="concept-name">Nombre del concepto</label>
+      <input id="concept-name" name="nombre" maxlength="120" required placeholder="Ej. Desgaste por uso" value="{{ values.get('nombre', '') }}">
+      <label for="concept-active">Estado</label>
+      <select id="concept-active" name="activo"><option value="1" {{ 'selected' if values.get('activo', '1') == '1' }}>Activo</option><option value="0" {{ 'selected' if values.get('activo') == '0' }}>Inactivo (dar de baja)</option></select>
+      <p class="concept-help">Solo los conceptos activos se pueden elegir al pedir EPP.</p>
+    </div>
+    <footer><button type="button" class="concept-secondary" data-close-concept>Cancelar</button><button type="submit" id="concept-save">{{ 'Guardar cambios' if values.get('id') else 'Crear concepto' }}</button></footer>
+  </form>
+</dialog>
+<script src="{{ url_for('static', filename='js/reintegros_concepts.js') }}" defer></script>
 {% endblock %}

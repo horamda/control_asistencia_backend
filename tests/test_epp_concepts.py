@@ -42,6 +42,8 @@ def test_concept_templates_escape_names_and_keep_inactive_selection():
         env.parse((root / "templates/epp" / (file + ".html")).read_text(encoding="utf-8"))
     html = env.get_template("epp/replacement_concepts.html").render(items=[dict(id=1, nombre="<script>", activo=1)])
     assert "&lt;script&gt;" in html and "<script>" not in html
-    assert 'name="csrf_token"' in html and 'value="eliminar"' in html
+    # Tabla con edicion en dialogo (mismo componente que Conceptos de viaticos); la baja es Estado = Inactivo.
+    assert 'name="csrf_token"' in html and 'data-edit-concept' in html and 'name="activo"' in html
+    assert 'Inactivo (dar de baja)' in html
     html = env.get_template("epp/form.html").render(editing=dict(id=1, revision=1, items=[], motivo="Test", concepto_reposicion_id=3, concepto_reposicion="Original"), eid=10, items=[], sizes=[], concepts=[], token="token")
     assert 'value="3" selected' in html and 'Original (inactivo)' in html
