@@ -58,6 +58,24 @@ def _employment_date(value):
     return dt.date.fromisoformat(str(value)[:10]) if value else None
 
 
+def _employment_periods(emp: dict) -> list[tuple]:
+    """Periodos trabajados [(desde, hasta)] con None como extremo abierto.
+
+    Si el empleado trae "periodos_laborales" (bajas y reingresos) se usan esos;
+    si no, el unico periodo fecha_ingreso..fecha_baja de los inactivos con baja
+    y de los activos.
+    """
+    if "periodos_laborales" in emp:
+        return [(_employment_date(desde), _employment_date(hasta)) for desde, hasta in emp["periodos_laborales"] or []]
+    if int(emp.get("activo") or 0) != 1 and _employment_date(emp.get("fecha_baja")) is None:
+        return []
+    return [(_employment_date(emp.get("fecha_ingreso")), _employment_date(emp.get("fecha_baja")))]
+
+
+def _employed_on(periods: list[tuple], day: dt.date) -> bool:
+    return any((desde is None or desde <= day) and (hasta is None or hasta >= day) for desde, hasta in periods)
+
+
 def _employee_name(row: dict) -> str:
     return " ".join(
         part.strip()
@@ -122,12 +140,11 @@ def build_monthly_attendance_report(
     # Today's absence cannot be decided until the day has ended.
     laborable_dates = [day for day in month_dates if day < today and day.isoformat() not in non_laborable_days]
     laborable_set = {d.isoformat() for d in laborable_dates}
+    periods_by_emp = {id(e): _employment_periods(e) for e in empleados}
     empleados_activos = [
         e
         for e in empleados
-        if (int(e.get("activo") or 0) == 1 or _employment_date(e.get("fecha_baja")) is not None)
-        and (_employment_date(e.get("fecha_ingreso")) or first) <= last
-        and (_employment_date(e.get("fecha_baja")) or last) >= first
+        if any((desde or first) <= last and (hasta or last) >= first for desde, hasta in periods_by_emp[id(e)])
         and int(e.get("requiere_control_asistencia", 1) or 0) == 1
     ]
     empleado_ids = {int(e["id"]) for e in empleados_activos if e.get("id")}
@@ -205,9 +222,8 @@ def build_monthly_attendance_report(
         incompletos_count = 0
         horas_count = 0.0
         cells = []
-        start = _employment_date(emp.get("fecha_ingreso")) or first
-        end = _employment_date(emp.get("fecha_baja")) or last
-        posible = sum(start <= day <= end for day in laborable_dates)
+        periods = periods_by_emp[id(emp)]
+        posible = sum(_employed_on(periods, day) for day in laborable_dates)
         analisis_sector[sector]["posibles"] += posible
         for day in month_dates:
             fecha = day.isoformat()
@@ -216,7 +232,7 @@ def build_monthly_attendance_report(
             en_vacaciones = bool(vacation_by_emp_day.get((empleado_id, fecha)))
             is_laborable = fecha in laborable_set
             hours, incomplete, missing_exit = _worked_day(day_marcas)
-            if not start <= day <= end:
+            if not _employed_on(periods, day):
                 cells.append({"iso": fecha, "day": day.day, "status": "outside", "label": "—", "title": "Fuera del periodo laboral", "hours": None})
                 continue
             if hours is not None:

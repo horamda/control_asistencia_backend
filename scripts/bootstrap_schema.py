@@ -17,6 +17,7 @@ from scripts.migrate_20261016_03_feriados import migrate_unificar as migrate_hol
 from scripts.migrate_20261016_04_reuniones_reprogramar import migrate_cursor as migrate_meeting_reschedule
 from scripts.migrate_20261016_05_push import migrate_cursor as migrate_push
 from scripts.migrate_20261016_06_comunicados import migrate_cursor as migrate_announcements
+from scripts.migrate_20261016_07_periodos_laborales import migrate_cursor as migrate_employment_periods
 
 
 def main():
@@ -125,6 +126,13 @@ def main():
         if not cursor.fetchone():
             cursor.execute('SET SESSION lock_wait_timeout=5')
             migrate_announcements(cursor)
+            cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
+            db.commit()
+        version = '20261016_periodos_laborales'
+        cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
+        if not cursor.fetchone():
+            cursor.execute('SET SESSION lock_wait_timeout=5')
+            migrate_employment_periods(cursor)
             cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
             db.commit()
     finally:

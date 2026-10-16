@@ -1,4 +1,7 @@
+import datetime
+
 from extensions import get_db
+from services import empleado_periodo_service as periodos_svc
 
 
 def _append_search_filter(where: list[str], params: list, search: str | None) -> None:
@@ -372,6 +375,7 @@ def create(data: dict):
     nombre, apellido, dni, email, password_hash,
     sector, puesto, empresa_id, sucursal_id
     """
+    periodos_iniciales = periodos_svc.plan_alta(data)
     db = get_db()
     cursor = db.cursor()
     try:
@@ -445,8 +449,9 @@ def create(data: dict):
             data.get("reporta_a_empleado_id") or None,
         ))
 
-        db.commit()
         emp_id = cursor.lastrowid
+        periodos_svc.aplicar(cursor, emp_id, [], periodos_iniciales)
+        db.commit()
         return emp_id
     finally:
         cursor.close()
@@ -458,11 +463,24 @@ def create(data: dict):
 # =========================================================
 
 def update(empleado_id: int, data: dict):
+    """Actualiza el empleado y sus periodos laborales.
+
+    Pasar a inactivo/suspendido exige fecha_baja; volver a activo abre un
+    periodo nuevo desde data["fecha_reingreso"] (hoy si no viene).
+    Levanta PeriodoLaboralError sin escribir nada si las fechas no cierran.
+    """
     db = get_db()
     cursor = db.cursor()
     try:
         estado = data.get("estado", "activo") or "activo"
         activo = 1 if estado in ("activo", "eventual") else 0
+        cursor.execute("SELECT activo, fecha_ingreso, fecha_baja FROM empleados WHERE id = %s", (empleado_id,))
+        row = cursor.fetchone()
+        antes = dict(zip(("activo", "fecha_ingreso", "fecha_baja"), row)) if row else {}
+        periodos = periodos_svc.get_periodos(cursor, empleado_id) if row else []
+        nuevos_periodos, fecha_baja = periodos_svc.plan_edicion(
+            periodos, antes, data, fecha_reingreso=data.get("fecha_reingreso"),
+        )
         cursor.execute("""
             UPDATE empleados
             SET
@@ -513,7 +531,7 @@ def update(empleado_id: int, data: dict):
             data.get("fecha_ingreso") or None,
             data.get("tipo_contrato") or None,
             data.get("modalidad") or "presencial",
-            data.get("fecha_baja") or None,
+            fecha_baja,
             data.get("categoria") or None,
             data.get("obra_social") or None,
             data.get("cod_chess_erp") or None,
@@ -530,6 +548,8 @@ def update(empleado_id: int, data: dict):
             data.get("reporta_a_empleado_id") or None,
             empleado_id
         ))
+        if row:
+            periodos_svc.aplicar(cursor, empleado_id, periodos, nuevos_periodos)
 
         db.commit()
         return True
@@ -542,16 +562,66 @@ def update(empleado_id: int, data: dict):
 # ACTIVO / INACTIVO
 # =========================================================
 
-def set_activo(empleado_id: int, activo: int):
+def get_periodos_laborales(empleado_id: int) -> list[dict]:
     db = get_db()
     cursor = db.cursor()
     try:
+        return periodos_svc.get_periodos(cursor, empleado_id)
+    finally:
+        cursor.close()
+        db.close()
+
+
+def attach_periodos_laborales(empleados: list[dict]) -> list[dict]:
+    """Agrega "periodos_laborales" a cada empleado para los reportes."""
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        periodos = periodos_svc.periodos_por_empleado(cursor, [e.get("id") for e in empleados])
+    finally:
+        cursor.close()
+        db.close()
+    for empleado in empleados:
+        empleado["periodos_laborales"] = periodos.get(int(empleado.get("id") or 0), [])
+    return empleados
+
+
+def dar_de_baja(empleado_id: int, fecha: datetime.date):
+    """Cierra el periodo vigente en `fecha` (ultimo dia trabajado) y desactiva."""
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute("SELECT fecha_ingreso FROM empleados WHERE id = %s", (empleado_id,))
+        row = cursor.fetchone()
+        periodos = periodos_svc.get_periodos(cursor, empleado_id)
+        nuevos = periodos_svc.plan_baja(periodos, fecha, row[0] if row else None)
         cursor.execute("""
             UPDATE empleados
-            SET activo = %s
+            SET activo = 0, estado = 'inactivo', fecha_baja = %s
             WHERE id = %s
-        """, (1 if activo else 0, empleado_id))
+        """, (fecha, empleado_id))
+        periodos_svc.aplicar(cursor, empleado_id, periodos, nuevos)
+        db.commit()
+        return True
+    finally:
+        cursor.close()
+        db.close()
 
+
+def reincorporar(empleado_id: int, fecha: datetime.date):
+    """Abre un periodo nuevo desde `fecha`; el ingreso original no cambia."""
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        periodos = periodos_svc.get_periodos(cursor, empleado_id)
+        nuevos = periodos_svc.plan_reingreso(periodos, fecha)
+        cursor.execute("""
+            UPDATE empleados
+            SET activo = 1, estado = 'activo', fecha_baja = NULL,
+                fecha_ingreso = COALESCE(fecha_ingreso, %s)
+            WHERE id = %s
+        """, (fecha, empleado_id))
+        periodos_svc.aplicar(cursor, empleado_id, periodos, nuevos)
         db.commit()
         return True
     finally:
@@ -563,7 +633,7 @@ def delete(empleado_id: int):
     """
     Baja lógica
     """
-    return set_activo(empleado_id, 0)
+    return dar_de_baja(empleado_id, datetime.date.today())
 
 
 def update_password(empleado_id: int, password_hash: str):

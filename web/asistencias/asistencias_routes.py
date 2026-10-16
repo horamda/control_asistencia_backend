@@ -15,7 +15,7 @@ from repositories.asistencia_dia_no_laborable_repository import get_dates as get
 from repositories.asistencia_dia_no_laborable_repository import replace_month_dates as replace_dias_no_laborables
 from repositories.configuracion_empresa_repository import get_by_empresa_id as get_configuracion_empresa_by_id
 from repositories.asistencia_repository import get_by_id, get_page
-from repositories.empleado_repository import get_all as get_empleados
+from repositories.empleado_repository import attach_periodos_laborales, get_all as get_empleados
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.sucursal_repository import get_all as get_sucursales
 from repositories.sector_repository import get_all as get_sectores
@@ -568,6 +568,11 @@ def reportes_mensuales():
     )
     if empresa_id:
         empleados = [e for e in empleados if int(e.get("empresa_id") or 0) == int(empresa_id)]
+    try:
+        empleados = attach_periodos_laborales(empleados)
+    except Exception:
+        # Sin periodos se usa la ventana fecha_ingreso..fecha_baja de cada empleado.
+        current_app.logger.warning("reporte_mensual_periodos_laborales_error", exc_info=True)
 
     marcas = get_marcas_admin_export(
         sucursal_id=sucursal_id,

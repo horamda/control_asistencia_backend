@@ -124,3 +124,36 @@ def test_monthly_report_builds_panel_grid_statuses():
     assert report["kpis"]["presentes"] == 2
     assert report["kpis"]["fichajes_incompletos"] == 1
     assert report["kpis"]["horas_trabajadas"] == 9.0
+
+
+def test_monthly_report_uses_employment_periods_for_rehires():
+    # Baja el 10/07 y reingreso el 20/07: el intervalo no suma faltas.
+    empleados = [
+        {
+            "id": 1, "apellido": "Aguirre", "nombre": "Leandro", "sector_nombre": "Operaciones", "activo": 1,
+            "fecha_ingreso": "2024-01-01",
+            "periodos_laborales": [(dt.date(2024, 1, 1), dt.date(2026, 7, 10)), (dt.date(2026, 7, 20), None)],
+        },
+        # Inactivo sin periodos (sin fecha de baja cargada): fuera del reporte.
+        {"id": 2, "apellido": "Rocha", "nombre": "Nicolas", "sector_nombre": "Almacen", "activo": 0, "periodos_laborales": []},
+    ]
+
+    report = build_monthly_attendance_report(
+        year=2026,
+        month=7,
+        empleados=empleados,
+        marcas=[],
+        justificaciones=[],
+        non_laborable_days=set(),
+        today=dt.date(2026, 8, 1),
+    )
+
+    laborables = [d for d in report["laborable_dates"]]
+    en_periodo = [d for d in laborables if d <= dt.date(2026, 7, 10) or d >= dt.date(2026, 7, 20)]
+    assert report["kpis"]["empleados_activos"] == 1
+    assert report["kpis"]["dias_posibles"] == len(en_periodo)
+    assert report["kpis"]["ausencias_computables"] == len(en_periodo)
+    cells = {c["iso"]: c["status"] for c in report["planilla_rows"][0]["cells"]}
+    assert cells["2026-07-15"] == "outside"
+    assert cells["2026-07-10"] == "unjustified"
+    assert cells["2026-07-20"] == "unjustified"

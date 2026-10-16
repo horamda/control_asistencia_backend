@@ -1,7 +1,7 @@
 from web.auth.decorators import permission_required, require_company_record
 import datetime
 
-from flask import Blueprint, render_template, redirect, url_for, request, abort, session, current_app, Response
+from flask import Blueprint, render_template, redirect, url_for, request, abort, session, current_app, Response, flash
 from werkzeug.security import generate_password_hash
 import time
 from utils.forms import parse_int as _parse_int, safe_next_url as _safe_next_url
@@ -9,6 +9,7 @@ from services.empleado_export_service import exportar_empleados_excel
 from services.empleado_import_service import importar_desde_csv
 from services.empleado_template_service import generar_template_excel
 from services.vacaciones_service import VacacionesError, calcular_resumen_vacaciones, calcular_resumenes_vacaciones
+from services.empleado_periodo_service import PeriodoLaboralError, plan_alta, plan_edicion
 
 from repositories.empleado_repository import (
     create,
@@ -16,8 +17,10 @@ from repositories.empleado_repository import (
     get_all as get_empleados_all,
     get_by_id,
     get_listado_resumen,
+    dar_de_baja,
     get_page,
-    set_activo,
+    get_periodos_laborales,
+    reincorporar,
     update,
     update_password,
 )
@@ -261,6 +264,7 @@ def listado():
     sectores = get_sectores(include_inactive=True)
     return render_template(
         "empleados/listado.html",
+        hoy=datetime.date.today().isoformat(),
         empleados=empleados,
         empresas=empresas,
         empresa_id=empresa_id,
@@ -308,6 +312,10 @@ def nuevo():
                 "web_profile_photo_upload_error",
                 extra={"extra": {"dni": data.get("dni"), "error": str(exc)}},
             )
+            errors.append(str(exc))
+        try:
+            plan_alta(data)
+        except PeriodoLaboralError as exc:
             errors.append(str(exc))
 
         if errors:
@@ -357,6 +365,9 @@ def editar(emp_id):
     emp = get_by_id(emp_id)
     if not emp:
         abort(404)
+    if not emp.get("activo") and (emp.get("estado") or "activo") in ("activo", "eventual"):
+        # Desactivado con el boton viejo (solo tocaba `activo`): no reactivar al guardar.
+        emp["estado"] = "inactivo"
     next_url = _safe_next_url(request.values.get("next"))
     emp["puestos_adicionales_ids"] = get_puestos_ids_by_empleado(emp_id)
 
@@ -365,6 +376,7 @@ def editar(emp_id):
     sectores = get_sectores(include_inactive=True)
     puestos = get_puestos(include_inactive=True)
     localidades = get_localidades()
+    periodos_laborales = get_periodos_laborales(emp_id)
 
     if request.method == "POST":
         validator = EmpleadoValidator()
@@ -391,6 +403,11 @@ def editar(emp_id):
         password = (request.form.get("password") or "").strip()
         if password_change_requested and not password:
             errors.append("Debe ingresar una contrasena para actualizarla.")
+        data["fecha_reingreso"] = (request.form.get("fecha_reingreso") or "").strip() or None
+        try:
+            plan_edicion(periodos_laborales, emp, data, fecha_reingreso=data["fecha_reingreso"])
+        except PeriodoLaboralError as exc:
+            errors.append(str(exc))
 
         if errors:
             merged = dict(emp)
@@ -410,9 +427,16 @@ def editar(emp_id):
                 localidades=localidades,
                 empleados_lista=_get_empleados_lista_para_form(),
                 photo_cache_buster=int(time.time()),
+            periodos_laborales=periodos_laborales,
+            empleado_activo=bool(emp.get("activo")),
+            hoy=datetime.date.today().isoformat(),
             )
 
-        update(emp_id, data)
+        try:
+            update(emp_id, data)
+        except PeriodoLaboralError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("empleados.editar", emp_id=emp_id, next=next_url))
         _save_puestos_adicionales(emp_id, data)
         log_audit(session, "update", "empleados", emp_id)
 
@@ -436,15 +460,32 @@ def editar(emp_id):
         localidades=localidades,
         empleados_lista=_get_empleados_lista_para_form(),
         photo_cache_buster=int(time.time()),
+        periodos_laborales=periodos_laborales,
+        empleado_activo=bool(emp.get("activo")),
+        hoy=datetime.date.today().isoformat(),
     )
+
+
+def _fecha_form(campo: str) -> datetime.date:
+    """Fecha de baja o reingreso enviada desde el listado (hoy si no viene)."""
+    valor = (request.form.get(campo) or "").strip()
+    if not valor:
+        return datetime.date.today()
+    try:
+        return datetime.date.fromisoformat(valor)
+    except ValueError:
+        raise PeriodoLaboralError(f"Fecha invalida: {valor}.") from None
 
 
 @empleados_bp.route("/activar/<int:emp_id>", methods=["POST"])
 @permission_required("empleados", "aprobar")
 def activar(emp_id):
     require_company_record(get_by_id(emp_id))
-    set_activo(emp_id, 1)
-    log_audit(session, "activate", "empleados", emp_id)
+    try:
+        reincorporar(emp_id, _fecha_form("fecha_reingreso"))
+        log_audit(session, "activate", "empleados", emp_id)
+    except PeriodoLaboralError as exc:
+        flash(str(exc), "error")
     return redirect(_safe_next_url(request.args.get("next")) or url_for("empleados.listado"))
 
 
@@ -452,8 +493,11 @@ def activar(emp_id):
 @permission_required("empleados", "aprobar")
 def desactivar(emp_id):
     require_company_record(get_by_id(emp_id))
-    set_activo(emp_id, 0)
-    log_audit(session, "deactivate", "empleados", emp_id)
+    try:
+        dar_de_baja(emp_id, _fecha_form("fecha_baja"))
+        log_audit(session, "deactivate", "empleados", emp_id)
+    except PeriodoLaboralError as exc:
+        flash(str(exc), "error")
     return redirect(_safe_next_url(request.args.get("next")) or url_for("empleados.listado"))
 
 

@@ -199,17 +199,27 @@
               <a class="btn btn-secondary btn-sm" href="{{ url_for('empleados.editar', emp_id=e.id, next=return_to) }}">Editar</a>
               <a class="btn btn-secondary btn-sm" href="{{ url_for('legajos.empleado', emp_id=e.id) }}">Legajo</a>
               {% if e.activo %}
-                <form method="post" action="{{ url_for('empleados.desactivar', emp_id=e.id, next=return_to) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit"
-                  class="btn btn-secondary btn-sm"
-
-                  data-confirm="Confirma desactivar este empleado?"
-                >Desactivar</button></form>
+                <details class="periodo-accion">
+                  <summary class="btn btn-secondary btn-sm">Desactivar</summary>
+                  <form method="post" action="{{ url_for('empleados.desactivar', emp_id=e.id, next=return_to) }}" class="periodo-accion-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <label>Último día trabajado
+                      <input type="date" name="fecha_baja" value="{{ hoy }}" required>
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-sm">Confirmar baja</button>
+                  </form>
+                </details>
               {% else %}
-                <form method="post" action="{{ url_for('empleados.activar', emp_id=e.id, next=return_to) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit"
-                  class="btn btn-secondary btn-sm"
-
-                  data-confirm="Confirma activar este empleado?"
-                >Activar</button></form>
+                <details class="periodo-accion">
+                  <summary class="btn btn-secondary btn-sm">Activar</summary>
+                  <form method="post" action="{{ url_for('empleados.activar', emp_id=e.id, next=return_to) }}" class="periodo-accion-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <label>Fecha de reingreso
+                      <input type="date" name="fecha_reingreso" value="{{ hoy }}" required>
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-sm">Confirmar reingreso</button>
+                  </form>
+                </details>
               {% endif %}
             </div>
           </td>
@@ -248,4 +258,15 @@
     <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver</a>
   </div>
 </div>
+<style>
+  .periodo-accion { display: inline-block; vertical-align: top; }
+  .periodo-accion > summary { list-style: none; cursor: pointer; }
+  .periodo-accion > summary::-webkit-details-marker { display: none; }
+  .periodo-accion-form {
+    display: grid; gap: 8px; margin-top: 6px; padding: 10px;
+    background: var(--surface, #fff); border: 1px solid var(--border, #d0d7de);
+    border-radius: 8px;
+  }
+  .periodo-accion-form label { display: grid; gap: 4px; font-size: .85rem; }
+</style>
 {% endblock %}

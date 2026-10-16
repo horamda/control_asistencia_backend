@@ -23,6 +23,7 @@ def _patch_catalogs(monkeypatch):
     monkeypatch.setattr(empleados_routes, "get_sucursales", lambda *args, **kwargs: [])
     monkeypatch.setattr(empleados_routes, "get_sectores", lambda *args, **kwargs: [])
     monkeypatch.setattr(empleados_routes, "get_puestos", lambda *args, **kwargs: [])
+    monkeypatch.setattr(empleados_routes, "get_periodos_laborales", lambda emp_id: [])
     monkeypatch.setattr(empleados_routes, "get_localidades", lambda *args, **kwargs: [])
     monkeypatch.setattr(empleados_routes, "exists_codigo", lambda _codigo: True)
     monkeypatch.setattr(empleados_routes, "exists_unique", lambda *args, **kwargs: False)
@@ -630,3 +631,72 @@ def test_empleados_listado_se_actualiza_con_htmx(monkeypatch):
     assert '<main class="page-content" id="page-content">' in html
     assert 'id="per-page" data-autosubmit' in html
     assert "js/ajax-nav.js" in html
+
+
+def _patch_baja_reingreso(monkeypatch):
+    monkeypatch.setattr(auth_decorators, "can_access_module", lambda *args, **kwargs: True)
+    monkeypatch.setattr(empleados_routes, "require_company_record", lambda record: record)
+    monkeypatch.setattr(empleados_routes, "get_by_id", lambda emp_id: {"id": emp_id, "empresa_id": 1})
+    monkeypatch.setattr(empleados_routes, "log_audit", lambda *args, **kwargs: None)
+
+
+def test_desactivar_registra_la_fecha_de_baja_elegida(monkeypatch):
+    import datetime as dt
+
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    _patch_baja_reingreso(monkeypatch)
+    llamadas = []
+    monkeypatch.setattr(empleados_routes, "dar_de_baja", lambda emp_id, fecha: llamadas.append((emp_id, fecha)))
+
+    resp = client.post("/empleados/desactivar/7", data={"fecha_baja": "2026-10-10"})
+
+    assert resp.status_code == 302
+    assert llamadas == [(7, dt.date(2026, 10, 10))]
+
+
+def test_activar_con_fecha_invalida_avisa_sin_reincorporar(monkeypatch):
+    from services.empleado_periodo_service import PeriodoLaboralError
+
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    _patch_baja_reingreso(monkeypatch)
+
+    def reincorporar(emp_id, fecha):
+        raise PeriodoLaboralError("La fecha de reingreso debe ser posterior a la ultima baja.")
+
+    monkeypatch.setattr(empleados_routes, "reincorporar", reincorporar)
+
+    resp = client.post("/empleados/activar/7", data={"fecha_reingreso": "2026-01-01"})
+
+    assert resp.status_code == 302
+    with client.session_transaction() as sess:
+        assert ("error", "La fecha de reingreso debe ser posterior a la ultima baja.") in sess["_flashes"]
+
+
+def test_editar_inactivo_muestra_reingreso_y_periodos(monkeypatch):
+    import datetime as dt
+
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    _patch_catalogs(monkeypatch)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(empleados_routes, "get_localidades", lambda *args, **kwargs: [])
+    monkeypatch.setattr(empleados_routes, "get_puestos_ids_by_empleado", lambda emp_id: [])
+    monkeypatch.setattr(empleados_routes, "_get_empleados_lista_para_form", lambda: [])
+    # Desactivado con el boton viejo: activo=0 pero estado "activo".
+    monkeypatch.setattr(empleados_routes, "get_by_id", lambda emp_id: {
+        "id": emp_id, "empresa_id": 1, "nombre": "Ana", "apellido": "Perez", "dni": "30123456",
+        "activo": 0, "estado": "activo", "fecha_ingreso": "2024-01-01", "fecha_baja": "2026-03-31",
+    })
+    monkeypatch.setattr(empleados_routes, "get_periodos_laborales", lambda emp_id: [
+        {"id": 1, "fecha_desde": dt.date(2024, 1, 1), "fecha_hasta": dt.date(2026, 3, 31)},
+    ])
+
+    resp = client.get("/empleados/editar/7")
+
+    html = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert 'name="fecha_reingreso"' in html
+    assert "01/01/2024 – 31/03/2026" in html
+    assert '<option value="inactivo" selected>' in html

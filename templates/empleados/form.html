@@ -114,6 +114,24 @@
           <option value="suspendido" {% if data.estado == 'suspendido' %}selected{% endif %}>Suspendido</option>
         </select>
       </div>
+      {% if mode == "edit" and not empleado_activo %}
+      <div class="row">
+        <label>Fecha de reingreso</label>
+        <input name="fecha_reingreso" type="date" value="{{ data.fecha_reingreso or hoy }}">
+        <small>Solo se usa si lo pasás a Activo o Eventual: inicio del nuevo período laboral.</small>
+      </div>
+      {% endif %}
+      {% if mode == "edit" and periodos_laborales %}
+      <div class="row span-2">
+        <label>Períodos laborales</label>
+        <ul class="periodos-laborales">
+          {% for p in periodos_laborales %}
+          <li>{{ p.fecha_desde.strftime('%d/%m/%Y') if p.fecha_desde else 'Sin fecha de ingreso' }} – {{ p.fecha_hasta.strftime('%d/%m/%Y') if p.fecha_hasta else 'actual' }}</li>
+          {% endfor %}
+        </ul>
+        <small>Las estadísticas solo cuentan lo registrado dentro de estos períodos.</small>
+      </div>
+      {% endif %}
       <div class="row employee-toggle-row">
         <label class="employee-toggle-card">
           <input type="checkbox" name="requiere_control_asistencia" value="1" {% if data.requiere_control_asistencia is not defined or data.requiere_control_asistencia %}checked{% endif %}>
@@ -197,6 +215,7 @@
       <div class="row">
         <label>Fecha ingreso</label>
         <input name="fecha_ingreso" type="date" value="{{ data.fecha_ingreso or '' }}">
+        <small>Ingreso original (antigüedad). Un reingreso no la cambia.</small>
       </div>
       <div class="row span-2">
         <label>Foto de perfil</label>
@@ -299,6 +318,7 @@
       <div class="row">
         <label>Fecha de baja</label>
         <input name="fecha_baja" type="date" value="{{ data.fecha_baja or '' }}">
+        <small>Último día trabajado. Obligatoria al pasar a Inactivo o Suspendido.</small>
       </div>
       <div class="row">
         <label>Categoria</label>

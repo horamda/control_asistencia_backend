@@ -17,14 +17,20 @@ def test_justification_counts_include_whole_last_day_and_null_status(start, end)
     connection = sqlite3.connect(":memory:")
     try:
         connection.executescript("""
-            CREATE TABLE justificaciones (created_at TEXT, estado TEXT);
+            CREATE TABLE empleados (id INTEGER PRIMARY KEY, estado TEXT);
+            CREATE TABLE empleado_periodos_laborales (empleado_id INTEGER, fecha_desde TEXT, fecha_hasta TEXT);
+            CREATE TABLE justificaciones (empleado_id INTEGER, fecha TEXT, fecha_desde TEXT, created_at TEXT, estado TEXT);
+            INSERT INTO empleados VALUES (1, 'activo'), (2, 'inactivo');
+            INSERT INTO empleado_periodos_laborales VALUES (1, '2020-01-01', NULL), (2, '2020-01-01', '2026-08-31');
             INSERT INTO justificaciones VALUES
-                ('2026-08-31 23:59:59', 'aprobada'),
-                ('2026-09-01 00:00:00', NULL),
-                ('2026-09-15 23:59:59.999999', 'APROBADA'),
-                ('2026-09-15 12:00:00', 'rechazada'),
-                ('2026-09-05 12:00:00', 'otro'),
-                ('2026-09-16 00:00:00', 'pendiente');
+                (1, '2026-08-31', NULL, '2026-08-31 23:59:59', 'aprobada'),
+                (1, '2026-09-01', NULL, '2026-09-01 00:00:00', NULL),
+                (1, '2026-09-15', NULL, '2026-09-15 23:59:59.999999', 'APROBADA'),
+                (1, '2026-09-15', NULL, '2026-09-15 12:00:00', 'rechazada'),
+                (1, '2026-09-05', NULL, '2026-09-05 12:00:00', 'otro'),
+                (1, '2026-09-16', NULL, '2026-09-16 00:00:00', 'pendiente'),
+                -- Ausencia posterior a la baja del empleado 2: no cuenta.
+                (2, '2026-09-10', NULL, '2026-09-10 12:00:00', 'pendiente');
         """)
 
         class Cursor:
