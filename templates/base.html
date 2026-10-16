@@ -87,85 +87,7 @@
               </a>
             </div>
 
-
-
-            {% if can_web("organizacion") or can_web("empresas") or can_web("sucursales") or can_web("sectores") or can_web("puestos") or can_web("localidades") %}
-              <div class="nav-group" data-collapsible="1">
-                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-organizacion">
-                  <span class="nav-toggle-label">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M14 16h1M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
-                    <span class="nav-label">Organización</span>
-                  </span>
-                  <span class="nav-caret" aria-hidden="true"></span>
-                </button>
-                <div class="nav-submenu" id="nav-submenu-organizacion">
-                  {% if can_web("organizacion") %}<a class="nav-link" href="/organigrama/">Organigrama</a>{% endif %}
-                  {% if can_web("empresas") %}<a class="nav-link" href="/empresas/">Empresas</a>{% endif %}
-                  {% if can_web("sucursales") %}<a class="nav-link" href="/sucursales/">Sucursales</a>{% endif %}
-                  {% if can_web("sectores") %}<a class="nav-link" href="/sectores/">Sectores</a>{% endif %}
-                  {% if can_web("puestos") %}<a class="nav-link" href="/puestos/">Puestos</a>{% endif %}
-                  {% if can_web("localidades") %}<a class="nav-link" href="/localidades/">Localidades</a>{% endif %}
-                </div>
-              </div>
-            {% endif %}
-
-            {% if can_web("empleados") or can_web("legajos") %}
-              <div class="nav-group" data-collapsible="1">
-                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-personas">
-                  <span class="nav-toggle-label">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <span class="nav-label">Capital Humano</span>
-                  </span>
-                  <span class="nav-caret" aria-hidden="true"></span>
-                </button>
-                <div class="nav-submenu" id="nav-submenu-personas">
-                  {% if can_web("empleados") %}<a class="nav-link" href="/empleados/">Directorio de empleados</a>{% endif %}
-                  {% if can_web("legajos") %}
-                    <a class="nav-link" href="/legajos/">Legajos</a>
-                    <a class="nav-link" href="/legajos/dashboard-empleado">Resumen por empleado</a>
-                    <a class="nav-link" href="/legajos/eventos/">Eventos legajo</a>
-                    <a class="nav-link" href="/legajos/tipos-evento/">Tipos evento legajo</a>
-                    <a class="nav-link" href="/legajos/permisos-mobile">Permisos mobile legajo</a>
-                  {% endif %}
-                </div>
-              </div>
-            {% endif %}
-
-            {% if can_web("usuarios") or can_web("roles_empleados") %}
-              <div class="nav-group" data-collapsible="1">
-                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-accesos">
-                  <span class="nav-toggle-label">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <span class="nav-label">Seguridad y accesos</span>
-                  </span>
-                  <span class="nav-caret" aria-hidden="true"></span>
-                </button>
-                <div class="nav-submenu" id="nav-submenu-accesos">
-                  {% if can_web("usuarios") %}<a class="nav-link" href="/usuarios/">Usuarios panel</a>{% endif %}
-                  {% if can_web("roles_empleados") %}
-                    <a class="nav-link" href="/roles/">Roles empleados</a>
-                    <a class="nav-link" href="/empleado-roles/">Asignar roles empleados</a>
-                  {% endif %}
-                </div>
-              </div>
-            {% endif %}
-
-            {% if can_web("horarios") %}
-              <div class="nav-group" data-collapsible="1">
-                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-horarios">
-                  <span class="nav-toggle-label">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <span class="nav-label">Horarios</span>
-                  </span>
-                  <span class="nav-caret" aria-hidden="true"></span>
-                </button>
-                <div class="nav-submenu" id="nav-submenu-horarios">
-                  <a class="nav-link" href="/horarios/">Plantillas</a>
-                  <a class="nav-link" href="/empleado-horarios/">Asignaciones</a>
-                  <a class="nav-link" href="/empleado-excepciones/">Excepciones</a>
-                </div>
-              </div>
-            {% endif %}
+            {% if (can_web("asistencias") or can_web("justificaciones") or can_web("qr_puerta") or can_web("francos") or can_web("vacaciones")) or (can_web("horarios")) or (can_web("reuniones")) %}<div class="nav-label nav-section-label">Operación diaria</div>{% endif %}
 
             {% if can_web("asistencias") or can_web("justificaciones") or can_web("qr_puerta") or can_web("francos") or can_web("vacaciones") %}
             <div class="nav-group" data-collapsible="1">
@@ -198,6 +120,23 @@
             </div>
             {% endif %}
 
+            {% if can_web("horarios") %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-horarios">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span class="nav-label">Horarios</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-horarios">
+                  <a class="nav-link" href="/horarios/">Plantillas</a>
+                  <a class="nav-link" href="/empleado-horarios/">Asignaciones</a>
+                  <a class="nav-link" href="/empleado-excepciones/">Excepciones</a>
+                </div>
+              </div>
+            {% endif %}
+
             {% if can_web("reuniones") %}
             <div class="nav-group" data-collapsible="1">
               <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-reuniones">
@@ -213,6 +152,30 @@
                 <a class="nav-link" href="/reuniones/estadisticas">Estadísticas de asistencia</a>
               </div>
             </div>
+            {% endif %}
+
+            {% if (can_web("empleados") or can_web("legajos")) or (can_web("pedidos_empleados")) or (can_web("reintegros")) or (can_web('seguridad_higiene') or can_web('epp')) or (can_web('validacion_carga')) %}<div class="nav-label nav-section-label">Personal</div>{% endif %}
+
+            {% if can_web("empleados") or can_web("legajos") %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-personas">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span class="nav-label">Capital Humano</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-personas">
+                  {% if can_web("empleados") %}<a class="nav-link" href="/empleados/">Directorio de empleados</a>{% endif %}
+                  {% if can_web("legajos") %}
+                    <a class="nav-link" href="/legajos/">Legajos</a>
+                    <a class="nav-link" href="/legajos/dashboard-empleado">Resumen por empleado</a>
+                    <a class="nav-link" href="/legajos/eventos/">Eventos legajo</a>
+                    <a class="nav-link" href="/legajos/tipos-evento/">Tipos evento legajo</a>
+                    <a class="nav-link" href="/legajos/permisos-mobile">Permisos mobile legajo</a>
+                  {% endif %}
+                </div>
+              </div>
             {% endif %}
 
             {% if can_web("pedidos_empleados") %}
@@ -249,6 +212,61 @@
                 </div>
               </div>
             {% endif %}
+
+            {% if can_web('seguridad_higiene') or can_web('epp') %}
+              <div class="nav-group nav-group-safety" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-seguridad-higiene">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+                    <span class="nav-label">Seguridad e Higiene</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-seguridad-higiene">
+                  {% if can_web('epp') %}
+                  <div class="nav-module-heading">Ropa y EPP</div>
+                  <a class="nav-link" href="/epp/">Pedidos y entregas</a>
+                  {% if can_web('epp','editar') %}<a class="nav-link" href="/epp/talles">Talles del personal</a>{% endif %}
+                  {% if can_web('epp_responsables','editar') %}<a class="nav-link" href="/epp/catalogo">Artículos y talles</a><a class="nav-link" href="/epp/categorias">Categorías de ropa y EPP</a>{% endif %}
+                  <a class="nav-link" href="/epp/reporte">Entregas anuales</a>
+                  {% endif %}
+                  {% if can_web('seguridad_higiene') %}
+                  <div class="nav-module-heading">Comportamientos seguros / inseguros</div>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.dashboard') }}">Dashboard de seguridad</a>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.index') }}">Consultar reportes</a>
+                  {% if can_web('seguridad_higiene', 'crear') %}
+                    <a class="nav-link" href="{{ url_for('seguridad_web.create') }}">Nuevo reporte</a>
+                    <a class="nav-link" href="{{ url_for('seguridad_web.imports') }}">Importar histórico</a>
+                  {% endif %}
+                  <a class="nav-link" href="{{ url_for('seguridad_web.catalogs') }}">Catálogos</a>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.external_people') }}">Personas externas</a>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.ranking') }}">Estadísticas y rankings</a>
+<a class="nav-link" href="{{ url_for('seguridad_web.safety_champion') }}">Campeón de la Seguridad</a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
+
+            {% if can_web('validacion_carga') %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-validacion-carga">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 3h14v12H1zM15 7h4l3 4v4h-7"/><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="18.5" cy="17.5" r="2.5"/></svg>
+                    <span class="nav-label">Validación de carga</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-validacion-carga">
+                  <a class="nav-link" href="{{ url_for('carga_web.index') }}">Consultar validaciones</a>
+                  <a class="nav-link" href="{{ url_for('carga_web.catalogs') }}#camiones">Camiones y vehículos</a>
+                  <a class="nav-link" href="{{ url_for('carga_web.catalogs') }}#horarios">Horarios de validación</a>
+                  <a class="nav-link" href="{{ url_for('carga_web.catalogs') }}#puestos">Puestos habilitados</a>
+                </div>
+              </div>
+            {% endif %}
+
+            {% if (can_web("feedback")) or (session.get('empleado_id')) or (can_web("skap")) or (can_web("kpis")) or (can_web("premios")) or (can_web("trivias")) %}<div class="nav-label nav-section-label">Gestión y desempeño</div>{% endif %}
+
             {% if can_web("feedback") %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-feedback">
@@ -273,6 +291,7 @@
             {% if session.get('empleado_id') %}
               <a class="nav-link" href="/skap/mis-evaluaciones">Mis evaluaciones SKAP</a>
             {% endif %}
+
             {% if can_web("skap") %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-skap">
@@ -350,6 +369,47 @@
               </div>
             {% endif %}
 
+            {% if (can_web("organizacion") or can_web("empresas") or can_web("sucursales") or can_web("sectores") or can_web("puestos") or can_web("localidades")) or (can_web("usuarios") or can_web("roles_empleados")) or (can_web("configuracion") or can_web("auditoria") or can_web("app_version") or can_web("mobile_stats") or can_web("calificaciones_app")) %}<div class="nav-label nav-section-label">Configuración</div>{% endif %}
+
+            {% if can_web("organizacion") or can_web("empresas") or can_web("sucursales") or can_web("sectores") or can_web("puestos") or can_web("localidades") %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-organizacion">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M14 16h1M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16"/></svg>
+                    <span class="nav-label">Organización</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-organizacion">
+                  {% if can_web("organizacion") %}<a class="nav-link" href="/organigrama/">Organigrama</a>{% endif %}
+                  {% if can_web("empresas") %}<a class="nav-link" href="/empresas/">Empresas</a>{% endif %}
+                  {% if can_web("sucursales") %}<a class="nav-link" href="/sucursales/">Sucursales</a>{% endif %}
+                  {% if can_web("sectores") %}<a class="nav-link" href="/sectores/">Sectores</a>{% endif %}
+                  {% if can_web("puestos") %}<a class="nav-link" href="/puestos/">Puestos</a>{% endif %}
+                  {% if can_web("localidades") %}<a class="nav-link" href="/localidades/">Localidades</a>{% endif %}
+                </div>
+              </div>
+            {% endif %}
+
+            {% if can_web("usuarios") or can_web("roles_empleados") %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-accesos">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span class="nav-label">Seguridad y accesos</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-accesos">
+                  {% if can_web("usuarios") %}<a class="nav-link" href="/usuarios/">Usuarios panel</a>{% endif %}
+                  {% if can_web("roles_empleados") %}
+                    <a class="nav-link" href="/roles/">Roles empleados</a>
+                    <a class="nav-link" href="/empleado-roles/">Asignar roles empleados</a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
+
             {% if can_web("configuracion") or can_web("auditoria") or can_web("app_version") or can_web("mobile_stats") or can_web("calificaciones_app") %}
               <div class="nav-group" data-collapsible="1">
                 <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-sistema">
@@ -367,56 +427,6 @@
                   {% if can_web("mobile_stats") %}<a class="nav-link" href="/mobile-stats/">Uso de la app</a>{% endif %}
                   {% if can_web("calificaciones_app") %}<a class="nav-link" href="/calificaciones-app/">Calificaciones app</a>{% endif %}
                   {% if is_strict_admin is defined and is_strict_admin() %}<a class="nav-link" href="{{ url_for('rendimiento.reporte') }}">Rendimiento</a>{% endif %}
-                </div>
-              </div>
-            {% endif %}
-            {% if can_web('validacion_carga') %}
-              <div class="nav-group" data-collapsible="1">
-                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-validacion-carga">
-                  <span class="nav-toggle-label">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 3h14v12H1zM15 7h4l3 4v4h-7"/><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="18.5" cy="17.5" r="2.5"/></svg>
-                    <span class="nav-label">Validación de carga</span>
-                  </span>
-                  <span class="nav-caret" aria-hidden="true"></span>
-                </button>
-                <div class="nav-submenu" id="nav-submenu-validacion-carga">
-                  <a class="nav-link" href="{{ url_for('carga_web.index') }}">Consultar validaciones</a>
-                  <a class="nav-link" href="{{ url_for('carga_web.catalogs') }}#camiones">Camiones y vehículos</a>
-                  <a class="nav-link" href="{{ url_for('carga_web.catalogs') }}#horarios">Horarios de validación</a>
-                  <a class="nav-link" href="{{ url_for('carga_web.catalogs') }}#puestos">Puestos habilitados</a>
-                </div>
-              </div>
-            {% endif %}
-            {% if can_web('seguridad_higiene') or can_web('epp') %}
-              <div class="nav-group nav-group-safety" data-collapsible="1">
-                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-seguridad-higiene">
-                  <span class="nav-toggle-label">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
-                    <span class="nav-label">Seguridad e Higiene</span>
-                  </span>
-                  <span class="nav-caret" aria-hidden="true"></span>
-                </button>
-                <div class="nav-submenu" id="nav-submenu-seguridad-higiene">
-                  {% if can_web('epp') %}
-                  <div class="nav-module-heading">Ropa y EPP</div>
-                  <a class="nav-link" href="/epp/">Pedidos y entregas</a>
-                  {% if can_web('epp','editar') %}<a class="nav-link" href="/epp/talles">Talles del personal</a>{% endif %}
-                  {% if can_web('epp_responsables','editar') %}<a class="nav-link" href="/epp/catalogo">Artículos y talles</a><a class="nav-link" href="/epp/categorias">Categorías de ropa y EPP</a>{% endif %}
-                  <a class="nav-link" href="/epp/reporte">Entregas anuales</a>
-                  {% endif %}
-                  {% if can_web('seguridad_higiene') %}
-                  <div class="nav-module-heading">Comportamientos seguros / inseguros</div>
-                  <a class="nav-link" href="{{ url_for('seguridad_web.dashboard') }}">Dashboard de seguridad</a>
-                  <a class="nav-link" href="{{ url_for('seguridad_web.index') }}">Consultar reportes</a>
-                  {% if can_web('seguridad_higiene', 'crear') %}
-                    <a class="nav-link" href="{{ url_for('seguridad_web.create') }}">Nuevo reporte</a>
-                    <a class="nav-link" href="{{ url_for('seguridad_web.imports') }}">Importar histórico</a>
-                  {% endif %}
-                  <a class="nav-link" href="{{ url_for('seguridad_web.catalogs') }}">Catálogos</a>
-                  <a class="nav-link" href="{{ url_for('seguridad_web.external_people') }}">Personas externas</a>
-                  <a class="nav-link" href="{{ url_for('seguridad_web.ranking') }}">Estadísticas y rankings</a>
-<a class="nav-link" href="{{ url_for('seguridad_web.safety_champion') }}">Campeón de la Seguridad</a>
-                  {% endif %}
                 </div>
               </div>
             {% endif %}

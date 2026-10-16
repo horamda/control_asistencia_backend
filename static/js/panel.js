@@ -444,6 +444,11 @@
         }
       });
 
+      // Los titulos de seccion (Operacion diaria, Personal...) no aplican a una busqueda.
+      document.querySelectorAll(".nav-groups .nav-section-label").forEach(function (label) {
+        label.hidden = searching;
+      });
+
       if (!searching) savedOpen = null;
       if (firstMatch) firstMatch.classList.add("nav-search-first");
       if (empty) empty.hidden = !searching || !!firstMatch;

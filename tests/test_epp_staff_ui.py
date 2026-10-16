@@ -42,7 +42,9 @@ def test_grouped_safety_navigation_permissions(modules):
     root = Path(__file__).resolve().parents[1]
     source = (root / 'templates/base.html').read_text(encoding='utf-8')
     start = source.index("{% if can_web('seguridad_higiene') or can_web('epp') %}")
-    end = source.index('</nav>', start)
+    # Solo el bloque del grupo (su {% endif %} de primer nivel), sin depender de su posicion en el menu.
+    cierre = "\n" + " " * 12 + "{% endif %}"
+    end = source.index(cierre, start) + len(cierre)
     env = Environment()
     html = env.from_string(source[start:end]).render(can_web=lambda module, *args: module in modules, url_for=lambda endpoint: '/' + endpoint)
     assert ('Seguridad e Higiene' in html) == bool(modules)
