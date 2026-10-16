@@ -48,7 +48,7 @@ def test_credenciales_y_config(monkeypatch, firebase):
     monkeypatch.setenv("FIREBASE_WEB_CONFIG", '{"apiKey": "pub", "projectId": "fichaya-test"}')
     monkeypatch.setenv("FIREBASE_WEB_VAPID_KEY", "BAbc")
     assert push.config_web() == {"activo": False, "web": {"apiKey": "pub", "projectId": "fichaya-test"},
-                                 "vapid_key": "BAbc", "canal_android": "reuniones"}
+                                 "vapid_key": "BAbc", "canal_android": "fichaya"}
 
 
 def test_token_oauth_y_envio(monkeypatch, firebase, clave_rsa):
@@ -73,7 +73,8 @@ def test_token_oauth_y_envio(monkeypatch, firebase, clave_rsa):
     mensaje = json.loads(llamadas[-1][1])["message"]
     assert llamadas[-1][0].endswith("/projects/fichaya-test/messages:send")
     assert llamadas[-1][2]["Authorization"] == "Bearer ya29.token"
-    assert mensaje["android"]["notification"]["channel_id"] == "reuniones"
+    assert mensaje["android"]["notification"]["channel_id"] == "fichaya"
+    assert mensaje["android"]["notification"]["sound"] == "fichaya"
     assert mensaje["webpush"]["fcm_options"]["link"] == "https://app.fichaya.test/reuniones/3"
     exito, error, invalido = push.enviar_a_token(firebase, "vencido-0123456789012", "Hola", "Cuerpo", {})
     assert not exito and invalido and error.startswith("404 NOT_FOUND")

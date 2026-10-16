@@ -41,16 +41,42 @@ def _png(ancho=2400, alto=1200):
     return FileStorage(stream=buffer, filename="aviso.png", content_type="image/png")
 
 
-def test_imagen_subida_se_comprime_a_jpeg():
-    contenido = s._imagen_subida(_png())
+def _tamano(contenido):
     with Image.open(io.BytesIO(contenido)) as imagen:
         assert imagen.format == "JPEG"
-        assert max(imagen.size) == 1800
+        return imagen.size
+
+
+def test_imagen_apaisada_ajustada_al_celular_y_a_la_notificacion():
+    app, push = s._imagen_subida(_png(2400, 1200))
+    assert _tamano(app) == (1080, 540)
+    assert _tamano(push) == (1024, 512)
+
+
+def test_afiche_vertical_entra_en_el_celular():
+    app, _ = s._imagen_subida(_png(1000, 2000))
+    assert _tamano(app) == (960, 1920)
+
+
+def test_notificacion_muestra_la_imagen_entera_sin_recortar():
+    # Tres franjas: verde arriba, azul al medio, rojo abajo. Recortada a 2:1 solo se veria el azul.
+    buffer = io.BytesIO()
+    imagen = Image.new("RGB", (600, 1200), (0, 0, 255))
+    imagen.paste((0, 200, 0), (0, 0, 600, 400))
+    imagen.paste((220, 0, 0), (0, 800, 600, 1200))
+    imagen.save(buffer, format="PNG")
+    buffer.seek(0)
+    _, push = s._imagen_subida(FileStorage(stream=buffer, filename="afiche.png"))
+    with Image.open(io.BytesIO(push)) as notificacion:
+        arriba = notificacion.getpixel((512, 10))
+        abajo = notificacion.getpixel((512, 500))
+    assert arriba[1] > 150 and arriba[0] < 80  # verde: el borde de arriba de la imagen se ve
+    assert abajo[0] > 150 and abajo[1] < 80  # rojo: el de abajo tambien
 
 
 def test_sin_archivo_no_hay_imagen():
-    assert s._imagen_subida(None) is None
-    assert s._imagen_subida(FileStorage(stream=io.BytesIO(b""), filename="")) is None
+    assert s._imagen_subida(None) == (None, None)
+    assert s._imagen_subida(FileStorage(stream=io.BytesIO(b""), filename="")) == (None, None)
 
 
 def test_archivo_que_no_es_imagen_se_rechaza():

@@ -19,9 +19,32 @@
         <label class="epp-full">Mensaje<textarea name="mensaje" required maxlength="2000" rows="5" aria-describedby="com-mensaje-help" placeholder="Qué pasa, cuándo y qué tiene que hacer cada uno…">{{ v.mensaje or '' }}</textarea>
           <small id="com-mensaje-help">La notificación muestra el comienzo; el texto completo queda en la bandeja de la app.</small>
         </label>
-        <label class="epp-full">Imagen (opcional)<input type="file" name="imagen" accept="image/jpeg,image/png,image/webp" aria-describedby="com-imagen-help">
-          <small id="com-imagen-help">JPG, PNG o WEBP de hasta 5 MB. Se ve en la notificación (miniatura que se agranda al expandirla) y al abrir el comunicado. Si el envío marca un error, volvé a elegirla.</small>
+        <label class="epp-full">Imagen (opcional)<input type="file" name="imagen" accept="image/jpeg,image/png,image/webp" aria-describedby="com-imagen-help" data-com-imagen>
+          <small id="com-imagen-help">JPG, PNG o WEBP de hasta 5 MB. Se ajusta sola al celular. En la notificación va apaisada (2:1) y entera, con un fondo desenfocado a los costados. Si el envío marca un error, volvé a elegirla.</small>
         </label>
+        <div class="epp-full com-vistas com-vistas-form" data-com-preview hidden>
+          <p class="helper-text" data-com-preview-info role="status" aria-live="polite"></p>
+          <figure class="com-vista">
+            <figcaption>Notificación en Android (expandida)</figcaption>
+            <div class="com-notif">
+              <span class="com-notif-app">FichaYa · ahora</span>
+              <strong data-com-preview-titulo>Título</strong>
+              <span class="com-notif-texto" data-com-preview-texto></span>
+              <div class="com-notif-img com-push-armada">
+                <div class="com-push-fondo" data-com-preview-fondo></div>
+                <img data-com-preview-img alt="">
+              </div>
+            </div>
+          </figure>
+          <figure class="com-vista">
+            <figcaption>En la app</figcaption>
+            <div class="com-telefono">
+              <strong data-com-preview-titulo>Título</strong>
+              <img data-com-preview-img alt="Vista previa de la imagen">
+              <p class="com-mensaje" data-com-preview-mensaje></p>
+            </div>
+          </figure>
+        </div>
       </div>
     </fieldset>
 
@@ -107,4 +130,5 @@
   </form>
 </section>
 <script src="{{ url_for('static', filename='js/reuniones.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/comunicados.js') }}" defer></script>
 {% endblock %}

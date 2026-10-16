@@ -15,9 +15,32 @@
       </form>
     {% endif %}
   </header>
-  <p class="com-mensaje">{{ comunicado.mensaje }}</p>
   {% if comunicado.tiene_imagen %}
-    <img class="com-imagen" src="{{ url_for('comunicados.imagen', comunicado_id=comunicado.id) }}" alt="Imagen del comunicado «{{ comunicado.titulo }}»" loading="lazy">
+    <div class="com-detalle">
+      <p class="com-mensaje">{{ comunicado.mensaje }}</p>
+      <div class="com-vistas" aria-label="Cómo lo ven los empleados">
+        <figure class="com-vista">
+          <figcaption>Notificación en Android (expandida)</figcaption>
+          <div class="com-notif">
+            <span class="com-notif-app">FichaYa · ahora</span>
+            <strong>{{ comunicado.titulo }}</strong>
+            <span class="com-notif-texto">{{ comunicado.mensaje|truncate(90) }}</span>
+            <img class="com-notif-img" src="{{ url_for('comunicados.imagen', comunicado_id=comunicado.id, version='push') }}" alt="" loading="lazy">
+          </div>
+        </figure>
+        <figure class="com-vista">
+          <figcaption>En la app</figcaption>
+          <div class="com-telefono">
+            <strong>{{ comunicado.titulo }}</strong>
+            <small>{{ comunicado.creado_at.strftime('%d/%m/%Y %H:%M') }}</small>
+            <img src="{{ url_for('comunicados.imagen', comunicado_id=comunicado.id) }}" alt="Imagen del comunicado «{{ comunicado.titulo }}»" loading="lazy">
+            <p class="com-mensaje">{{ comunicado.mensaje }}</p>
+          </div>
+        </figure>
+      </div>
+    </div>
+  {% else %}
+    <p class="com-mensaje">{{ comunicado.mensaje }}</p>
   {% endif %}
 </section>
 

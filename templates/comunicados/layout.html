@@ -12,6 +12,7 @@
   </header>
   <nav class="actions" aria-label="Comunicados">
     <a class="btn btn-secondary" href="{{ url_for('comunicados.index') }}">Enviados</a>
+    <a class="btn btn-secondary" href="{{ url_for('comunicados.automaticos') }}">Avisos automáticos</a>
     {% if can_web('comunicados', 'crear') %}<a class="btn" href="{{ url_for('comunicados.nuevo') }}">Nuevo comunicado</a>{% endif %}
   </nav>
   {% block comunicados_content %}{% endblock %}

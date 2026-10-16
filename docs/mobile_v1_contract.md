@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.45.0
+Version de contrato: 1.46.0
+
+- **Sonido propio en los push (1.46.0):** canal Android `fichaya` con el tono de FichaYa. Ver [push](push_mobile.md#sonido-propio-de-fichaya-146).
 
 - **Comunicados con imagen (1.45.0):** `imagen_url` en la bandeja y el detalle, `GET /comunicados/{id}/imagen` y la imagen dentro de la notificación push. Ver [contrato](comunicados_mobile.md) y [push con imagen](push_mobile.md#notificaciones-con-imagen).
 

@@ -67,6 +67,12 @@ def index():
     return render_template("comunicados/index.html", **s.listado(who(), request.args.get("page", 1, type=int)))
 
 
+@web.get("/automaticos")
+@permission_required("comunicados", "ver")
+def automaticos():
+    return render_template("comunicados/automaticos.html", **s.automaticos(who(), request.args))
+
+
 @web.route("/nuevo", methods=["GET", "POST"])
 @permission_required("comunicados", "crear")
 def nuevo():
@@ -95,7 +101,8 @@ def detalle(comunicado_id):
 @web.get("/<int:comunicado_id>/imagen")
 @permission_required("comunicados", "ver")
 def imagen(comunicado_id):
-    return private_photo(s.imagen(who(), comunicado_id))
+    version = "push" if request.args.get("version") == "push" else "app"
+    return private_photo(s.imagen(who(), comunicado_id, version))
 
 
 @web.get("/imagen-push/<int:comunicado_id>/<int:vence>/<firma>.jpg")

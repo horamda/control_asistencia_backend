@@ -76,4 +76,25 @@
 
 /* Comunicados: el mensaje respeta los saltos de linea que escribio RR. HH. */
 .com-mensaje { margin: 0; white-space: pre-line; line-height: 1.55; }
-.com-imagen { display: block; max-width: min(100%, 480px); height: auto; margin-top: 14px; border-radius: 10px; border: 1px solid var(--border, #d0d7de); }
+/* Comunicados: vista de celular (detalle y vista previa del formulario) */
+.com-detalle { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 24px; align-items: start; }
+@media (max-width: 900px) { .com-detalle { grid-template-columns: minmax(0, 1fr); } }
+.com-vistas { display: grid; gap: 16px; width: 100%; max-width: 340px; }
+.com-vistas-form { max-width: 720px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; }
+.com-vistas-form[hidden] { display: none; }
+.com-vistas-form > p { grid-column: 1 / -1; margin: 0; }
+.com-vista { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.com-vista figcaption { font-size: .8rem; font-weight: 600; color: var(--muted, #57606a); }
+.com-notif { display: grid; gap: 2px; padding: 12px; border-radius: 14px; background: var(--surface-soft, #f6f8fa); border: 1px solid var(--border, #d0d7de); font-size: .9rem; }
+.com-notif-app { font-size: .75rem; color: var(--muted, #57606a); }
+.com-notif-texto { color: var(--muted, #57606a); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.com-notif-img { display: block; width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 8px; margin-top: 8px; }
+.com-push-armada { position: relative; overflow: hidden; }
+.com-push-fondo { position: absolute; inset: -24px; background-size: cover; background-position: center; filter: blur(14px) brightness(.85); }
+.com-push-armada img { position: relative; display: block; width: 100%; height: 100%; object-fit: contain; }
+.com-telefono { display: grid; gap: 8px; align-content: start; width: 100%; max-width: 320px; max-height: 600px; overflow: auto; box-sizing: border-box;
+  padding: 18px 14px; border: 10px solid #1f2328; border-radius: 30px; background: var(--surface, #fff); }
+.com-telefono small { color: var(--muted, #57606a); }
+.com-telefono img { display: block; width: 100%; height: auto; border-radius: 8px; }
+.com-telefono .com-mensaje { font-size: .9rem; }
+.epp-page .com-filtros label { min-width: min(100%, 170px); }

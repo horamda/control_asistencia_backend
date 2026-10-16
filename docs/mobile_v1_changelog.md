@@ -1,3 +1,8 @@
+## 1.46.0 — 2026-10-16
+
+- Push con sonido propio de FichaYa: el backend usa el canal Android `fichaya` (antes `reuniones`) y `sound: "fichaya"`. `GET /push/config` devuelve `canal_android: "fichaya"`. La app crea ese canal con el tono `res/raw/fichaya`. Una app vieja sin el canal sigue recibiendo los avisos con el sonido del sistema. En web suena el sonido del navegador. Guía: `push_mobile.md#sonido-propio-de-fichaya-146`.
+- Imagen de comunicados: la de la app (`imagen_url`) se ajusta al celular (hasta 1080 × 1920, sin recortar) y la del push es una versión 2:1 (1024 × 512) con la imagen entera sobre un fondo desenfocado, para que Android no la recorte. Sin cambios de campos.
+
 ## 1.45.0 — 2026-10-16
 
 - Comunicados con imagen (opcional, una por comunicado): `imagen_url` en `GET /comunicados` y `GET /comunicados/{id}` (`null` si no tiene) y nueva `GET /comunicados/{id}/imagen` (JPEG, con JWT). El push `comunicado` trae la imagen en `notification.image` (miniatura que se agranda al expandir en Android; grande en web) y en `data.imagen` (link firmado, vence a los 7 días). Cambios aditivos. Guía: `comunicados_mobile.md` y `push_mobile.md#notificaciones-con-imagen`.

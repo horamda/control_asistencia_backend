@@ -4,24 +4,32 @@ Destinatarios con las mismas reglas que los convocados de Reuniones: toda la emp
 puesto en cualquier sector (cuenta el puesto principal y los adicionales) y personas puntuales; opcionalmente
 solo de algunas sucursales. Se resuelven al enviar: quien ingresa despues no lo recibe.
 
-Una imagen opcional (JPEG comprimido en la base) se ve en la app y en la notificacion push. Firebase la
-descarga sin login, asi que el push lleva un link firmado que vence a los IMAGEN_PUSH_DIAS."""
+Una imagen opcional se guarda en dos versiones JPEG: una para la app, ajustada al celular sin recortar
+(IMAGEN_APP_MAX), y otra 2:1 para la notificacion (IMAGEN_PUSH_TAMANO): Android la muestra apaisada y
+recortaria una imagen cuadrada o vertical, asi que va entera sobre un fondo desenfocado de ella misma.
+Firebase la descarga sin login, asi que el push lleva un link firmado que vence a los IMAGEN_PUSH_DIAS."""
 
+import datetime as dt
 import hashlib
 import hmac
+import io
 import time
+import warnings
 
 from flask import current_app, url_for
+from PIL import Image, ImageEnhance, ImageFilter, ImageOps, UnidentifiedImageError
 
 from repositories import carga_repository as db
 from services import push_service
-from services.carga_service import CargaError as Error, now_local, prepare_photos
+from services.carga_service import MAX_PHOTO_BYTES, CargaError as Error, now_local
 from services.reunion_service import _marcas, _participantes
 
 TITULO_MAX = 120
 MENSAJE_MAX = 2000
 POR_PAGINA = 20
 IMAGEN_PUSH_DIAS = 7
+IMAGEN_APP_MAX = (1080, 1920)  # ancho de un celular Full HD; afiches verticales hasta 16:9
+IMAGEN_PUSH_TAMANO = (1024, 512)  # proporcion de la notificacion expandida de Android
 _COLUMNAS = "c.id, c.empresa_id, c.titulo, c.mensaje, c.alcance, c.destinatarios, c.creado_por, c.creado_at"
 
 
@@ -107,11 +115,50 @@ def vista_previa(who, data):
         return len(destinatarios(c, who["empresa_id"], reglas, _sucursales(c, who["empresa_id"], data.get("sucursales"))))
 
 
+def _jpeg(imagen, calidad):
+    buffer = io.BytesIO()
+    imagen.save(buffer, format="JPEG", quality=calidad, optimize=True, progressive=True)
+    return buffer.getvalue()
+
+
+def _version_app(imagen):
+    """Para la pantalla del celular: entra en IMAGEN_APP_MAX sin recortar ni agrandar."""
+    copia = imagen.copy()
+    copia.thumbnail(IMAGEN_APP_MAX, Image.Resampling.LANCZOS)
+    return _jpeg(copia, 82)
+
+
+def _version_push(imagen):
+    """2:1 para la notificacion: la imagen entera, centrada sobre una version desenfocada de si misma."""
+    fondo = ImageOps.fit(imagen, IMAGEN_PUSH_TAMANO, Image.Resampling.LANCZOS)
+    fondo = ImageEnhance.Brightness(fondo.filter(ImageFilter.GaussianBlur(24))).enhance(0.85)
+    frente = imagen.copy()
+    frente.thumbnail(IMAGEN_PUSH_TAMANO, Image.Resampling.LANCZOS)
+    fondo.paste(frente, ((fondo.width - frente.width) // 2, (fondo.height - frente.height) // 2))
+    return _jpeg(fondo, 80)
+
+
 def _imagen_subida(archivo):
-    """Contenido JPEG comprimido de la imagen elegida en el panel, o None si no se adjunto."""
+    """(version app, version push) de la imagen elegida en el panel, o (None, None) si no se adjunto.
+
+    Mismas reglas que las fotos de carga (formato, 5 MB, 20 megapixeles, rotacion segun el EXIF), pero
+    redimensiona una sola vez desde el original para no perder calidad."""
     if archivo is None or not getattr(archivo, "filename", ""):
-        return None
-    return prepare_photos([archivo])[0]["contenido"]
+        return None, None
+    crudo = archivo.read(MAX_PHOTO_BYTES + 1)
+    if not crudo or len(crudo) > MAX_PHOTO_BYTES:
+        raise Error("La imagen debe tener contenido y pesar hasta 5 MB.")
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(crudo)) as origen:
+                if origen.format not in {"JPEG", "PNG", "WEBP"} or origen.width * origen.height > 20_000_000:
+                    raise Error("Use una imagen JPG, PNG o WEBP de hasta 20 megapíxeles.")
+                origen.load()
+                imagen = ImageOps.exif_transpose(origen).convert("RGB")
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning):
+        raise Error("El archivo no es una imagen válida.") from None
+    return _version_app(imagen), _version_push(imagen)
 
 
 def firma_imagen(cid, vence):
@@ -134,7 +181,7 @@ def url_imagen_push(cid, ahora=None):
 def enviar(who, data, imagen=None):
     titulo = _texto(data, "titulo", TITULO_MAX, "el título")
     mensaje = _texto(data, "mensaje", MENSAJE_MAX, "el mensaje")
-    contenido = _imagen_subida(imagen)
+    contenido, contenido_push = _imagen_subida(imagen)
     with db.transaction() as c:
         reglas = _reglas(c, who["empresa_id"], data)
         sucursales = _sucursales(c, who["empresa_id"], data.get("sucursales"))
@@ -142,7 +189,7 @@ def enviar(who, data, imagen=None):
         if not ids:
             raise Error("Con esa selección no hay empleados activos para recibir el comunicado.")
         cid = db.insert(c, "comunicados", dict(empresa_id=who["empresa_id"], titulo=titulo, mensaje=mensaje,
-                                                imagen=contenido,
+                                                imagen=contenido, imagen_push=contenido_push,
                                                 alcance=_alcance(c, who["empresa_id"], reglas, sucursales),
                                                 destinatarios=len(ids), creado_por=who.get("user_id"),
                                                 creado_at=now_local()))
@@ -205,10 +252,11 @@ def detalle(who, cid, estado=None):
     return dict(comunicado=comunicado, personas=personas, leidos=leidos, estado=estado or "")
 
 
-def imagen(who, cid):
-    """Imagen para el panel (misma empresa)."""
+def imagen(who, cid, version="app"):
+    """Imagen para el panel (misma empresa); version "push" es la 2:1 de la notificacion."""
+    columna = "COALESCE(imagen_push, imagen)" if version == "push" else "imagen"
     with db.transaction(read_only=True) as c:
-        fila = db.one(c, "SELECT imagen AS contenido FROM comunicados WHERE id=%s AND empresa_id=%s",
+        fila = db.one(c, f"SELECT {columna} AS contenido FROM comunicados WHERE id=%s AND empresa_id=%s",
                       (int(cid), who["empresa_id"]))
     if not fila or not fila["contenido"]:
         raise Error("Imagen no encontrada.", 404)
@@ -221,7 +269,7 @@ def imagen_push(cid, vence, firma, ahora=None):
     if int(vence) < ahora or not hmac.compare_digest(str(firma), firma_imagen(cid, vence)):
         raise Error("Imagen no encontrada.", 404)
     with db.transaction(read_only=True) as c:
-        fila = db.one(c, "SELECT imagen AS contenido FROM comunicados WHERE id=%s", (int(cid),))
+        fila = db.one(c, "SELECT COALESCE(imagen_push, imagen) AS contenido FROM comunicados WHERE id=%s", (int(cid),))
     if not fila or not fila["contenido"]:
         raise Error("Imagen no encontrada.", 404)
     return fila
@@ -236,6 +284,90 @@ def eliminar(who, cid):
         c.execute("DELETE FROM push_envios WHERE clave LIKE %s AND estado IN ('pendiente','reintentar')",
                   (f"comunicado:{comunicado['id']}:%",))
     return comunicado
+
+
+# --- Historial de avisos automaticos ------------------------------------------------------------------
+
+# Avisos que el sistema manda solo (los comunicados y las pruebas del panel quedan afuera).
+TIPOS_AUTOMATICOS = {
+    "salida_pendiente": "Salida sin fichar",
+    "recordatorio": "Recordatorio de reunión",
+    "reunion_nueva": "Reunión nueva",
+    "reunion_cambio": "Reunión modificada",
+    "reunion_cancelada": "Reunión cancelada",
+    "reunion_reactivada": "Reunión reactivada",
+    "reunion_horario": "Cambio de horario de reunión",
+    "epp_resuelto": "EPP resuelto",
+    "epp_entregado": "EPP entregado",
+    "reintegro": "Viáticos",
+    "reintegro_recordatorio": "Recordatorio de viáticos",
+    "adelanto": "Adelanto",
+    "pedido_mercaderia": "Pedido de mercadería",
+}
+ESTADOS_ENVIO = {"enviado": "Enviado", "sin_dispositivo": "Sin dispositivo", "error": "Error", "pendiente": "En cola"}
+_EN_COLA = ("pendiente", "reintentar", "enviando")
+HISTORIAL_POR_PAGINA = 50
+HISTORIAL_DIAS = 30
+
+
+def _fecha_filtro(valor):
+    try:
+        return dt.date.fromisoformat(str(valor or "").strip()[:10])
+    except ValueError:
+        return None
+
+
+def _estado_envio(estado):
+    return "pendiente" if estado in _EN_COLA else estado
+
+
+def automaticos(who, filtros):
+    """Historial de avisos automaticos de la empresa con filtros y resumen por estado."""
+    hoy = now_local().date()
+    hasta = _fecha_filtro(filtros.get("hasta")) or hoy
+    desde = _fecha_filtro(filtros.get("desde")) or hasta - dt.timedelta(days=HISTORIAL_DIAS - 1)
+    if desde > hasta:
+        desde, hasta = hasta, desde
+    tipo = filtros.get("tipo") if filtros.get("tipo") in TIPOS_AUTOMATICOS else ""
+    estado = filtros.get("estado") if filtros.get("estado") in ESTADOS_ENVIO else ""
+    buscar = str(filtros.get("q") or "").strip()[:80]
+    try:
+        page = max(1, int(filtros.get("page") or 1))
+    except (TypeError, ValueError):
+        page = 1
+
+    tipos = (tipo,) if tipo else tuple(TIPOS_AUTOMATICOS)
+    where = ["p.empresa_id=%s", "p.creado_at >= %s", "p.creado_at < %s", f"p.tipo IN ({_marcas(tipos)})"]
+    args = [who["empresa_id"], desde, hasta + dt.timedelta(days=1), *tipos]
+    if buscar:
+        like = f"%{buscar}%"
+        where.append("(e.apellido LIKE %s OR e.nombre LIKE %s OR e.legajo LIKE %s"
+                     " OR CONCAT_WS(' ', e.apellido, e.nombre) LIKE %s)")
+        args += [like] * 4
+    base = "FROM push_envios p LEFT JOIN empleados e ON e.id = p.empleado_id WHERE " + " AND ".join(where)
+
+    with db.transaction(read_only=True) as c:
+        resumen = dict.fromkeys(ESTADOS_ENVIO, 0)
+        for fila in db.all_rows(c, f"SELECT p.estado, COUNT(*) AS n {base} GROUP BY p.estado", tuple(args)):
+            clave = _estado_envio(fila["estado"])
+            resumen[clave] = resumen.get(clave, 0) + int(fila["n"])
+        if estado == "pendiente":
+            base += f" AND p.estado IN ({_marcas(_EN_COLA)})"
+            args += list(_EN_COLA)
+        elif estado:
+            base += " AND p.estado=%s"
+            args.append(estado)
+        total = int(db.one(c, f"SELECT COUNT(*) AS n {base}", tuple(args))["n"])
+        items = db.all_rows(c, f"""SELECT p.id, p.tipo, p.titulo, p.cuerpo, p.estado, p.error, p.creado_at, p.enviado_at,
+                                          p.empleado_id, e.apellido, e.nombre, e.legajo
+                                   {base} ORDER BY p.id DESC LIMIT %s OFFSET %s""",
+                            (*args, HISTORIAL_POR_PAGINA, (page - 1) * HISTORIAL_POR_PAGINA))
+    for item in items:
+        item["tipo_nombre"] = TIPOS_AUTOMATICOS.get(item["tipo"], item["tipo"])
+        item["estado"] = _estado_envio(item["estado"])
+    return dict(items=items, page=page, pages=max(1, -(-total // HISTORIAL_POR_PAGINA)), total=total,
+                resumen=resumen, tipos=TIPOS_AUTOMATICOS, estados=ESTADOS_ENVIO,
+                filtros=dict(tipo=tipo, estado=estado, q=buscar, desde=desde.isoformat(), hasta=hasta.isoformat()))
 
 
 # --- App del empleado ---------------------------------------------------------------------------------

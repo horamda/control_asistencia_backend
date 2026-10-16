@@ -1,0 +1,83 @@
+{% extends 'comunicados/layout.html' %}
+{% block comunicados_content %}
+{% set tono_estado = {'enviado': 'ok', 'sin_dispositivo': 'neutral', 'error': 'danger', 'pendiente': 'warning'} %}
+<section class="epp-card">
+  <header class="epp-section-heading">
+    <div>
+      <h3>Avisos automáticos</h3>
+      <p>Notificaciones que el sistema manda solo: salida sin fichar, reuniones, EPP, viáticos, adelantos y pedidos de mercadería.
+        «Sin dispositivo» es un empleado sin la app con notificaciones activadas.</p>
+    </div>
+  </header>
+
+  <form method="get" class="epp-staff-search com-filtros">
+    <label>Tipo
+      <select name="tipo">
+        <option value="">Todos</option>
+        {% for clave, nombre in tipos.items() %}
+          <option value="{{ clave }}" {{ 'selected' if filtros.tipo == clave }}>{{ nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Estado
+      <select name="estado">
+        <option value="">Todos</option>
+        {% for clave, nombre in estados.items() %}
+          <option value="{{ clave }}" {{ 'selected' if filtros.estado == clave }}>{{ nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Desde<input type="date" name="desde" value="{{ filtros.desde }}"></label>
+    <label>Hasta<input type="date" name="hasta" value="{{ filtros.hasta }}"></label>
+    <label>Empleado<input type="search" name="q" value="{{ filtros.q }}" placeholder="Apellido, nombre o legajo"></label>
+    <button class="btn" type="submit">Filtrar</button>
+  </form>
+</section>
+
+<div class="grid-kpis">
+  {% for clave, nombre in estados.items() %}
+    <div class="kpi-card">
+      <div class="kpi-label">{{ nombre }}</div>
+      <div class="kpi-value">{{ resumen.get(clave, 0) }}</div>
+    </div>
+  {% endfor %}
+</div>
+
+{% if items %}
+  <div class="table-responsive table-cards">
+    <table>
+      <thead><tr><th>Fecha</th><th>Empleado</th><th>Aviso</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for a in items %}
+          <tr>
+            <td data-label="Fecha">{{ a.creado_at.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td data-label="Empleado">
+              {% if a.apellido %}{{ a.apellido }} {{ a.nombre }}{% if a.legajo %}<br><small class="helper-text">Legajo {{ a.legajo }}</small>{% endif %}
+              {% else %}<span class="helper-text">Empleado #{{ a.empleado_id }}</span>{% endif %}
+            </td>
+            <td data-label="Aviso">
+              <span class="badge neutral">{{ a.tipo_nombre }}</span><br>
+              <strong>{{ a.titulo }}</strong><br>
+              <small class="helper-text">{{ a.cuerpo }}</small>
+            </td>
+            <td data-label="Estado">
+              <span class="badge {{ tono_estado.get(a.estado, 'neutral') }}">{{ estados.get(a.estado, a.estado) }}</span>
+              {% if a.estado == 'enviado' and a.enviado_at %}<br><small class="helper-text">{{ a.enviado_at.strftime('%d/%m %H:%M') }}</small>{% endif %}
+              {% if a.error %}<br><small class="helper-text">{{ a.error }}</small>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if pages > 1 %}
+    <nav class="actions" aria-label="Páginas">
+      {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('comunicados.automaticos', page=page - 1, **filtros) }}">Anterior</a>{% endif %}
+      <span class="helper-text">Página {{ page }} de {{ pages }} · {{ total }} avisos</span>
+      {% if page < pages %}<a class="btn btn-secondary" href="{{ url_for('comunicados.automaticos', page=page + 1, **filtros) }}">Siguiente</a>{% endif %}
+    </nav>
+  {% endif %}
+{% else %}
+  <section class="epp-card"><p class="helper-text">No hay avisos automáticos con estos filtros.</p></section>
+{% endif %}
+{% endblock %}

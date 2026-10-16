@@ -34,9 +34,10 @@ GET /comunicados/12
 - `mensaje` es texto plano (hasta 2000 caracteres) con saltos de línea: mostrarlo respetándolos.
   La notificación push trae solo el comienzo (180 caracteres).
 - `imagen_url` (1.45.0): `null` si el comunicado no tiene imagen. Es relativa a la base de la API y pide el mismo
-  `Authorization: Bearer` (en Flutter: `Image.network(base + imagen_url, headers: {...})`). JPEG de hasta
-  1800 px de lado; mostrarla debajo del título con el ancho de la pantalla y la altura proporcional. En la lista
-  alcanza con una miniatura o un ícono.
+  `Authorization: Bearer` (en Flutter: `Image.network(base + imagen_url, headers: {...})`). JPEG ajustado al
+  celular sin recortar: hasta 1080 px de ancho y 1920 px de alto (desde 1.46.0; antes hasta 1800 px de lado).
+  Mostrarla debajo del título con el ancho de la pantalla y la altura proporcional (`BoxFit.fitWidth`), sin
+  recortarla: suelen ser afiches con texto. En la lista alcanza con una miniatura o un ícono.
 - Si RR. HH. lo quita desde el panel, desaparece de la bandeja (la notificación ya enviada no se puede retirar).
 - Los destinatarios se fijan al enviar: un empleado que ingresa después no ve comunicados anteriores.
 

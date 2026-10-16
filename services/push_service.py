@@ -31,7 +31,11 @@ logger = logging.getLogger(__name__)
 SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 PLATAFORMAS = ("android", "web")
 MAX_INTENTOS = 3
-CANAL_ANDROID = "reuniones"
+# Canal con el sonido propio de FichaYa (res/raw/fichaya en la app). En Android 8+ el sonido es del canal y
+# no se puede cambiar en uno ya creado: por eso es un canal nuevo. Una app vieja sin este canal usa el canal
+# por defecto del manifest y el sonido del sistema.
+CANAL_ANDROID = "fichaya"
+SONIDO_ANDROID = "fichaya"
 _token_cache = {"valor": None, "vence": 0.0}
 _lock = threading.Lock()
 
@@ -181,7 +185,7 @@ def _mensaje(token, titulo, cuerpo, datos):
         "token": token,
         "notification": {"title": titulo, "body": cuerpo},
         "data": datos,
-        "android": {"priority": "HIGH", "notification": {"channel_id": CANAL_ANDROID}},
+        "android": {"priority": "HIGH", "notification": {"channel_id": CANAL_ANDROID, "sound": SONIDO_ANDROID}},
     }
     imagen = datos.get("imagen") or ""
     if imagen.startswith("https://"):

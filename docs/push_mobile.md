@@ -1,6 +1,6 @@
 # Notificaciones push — contrato para Flutter (Android) y la app web
 
-Versión de contrato: 1.44.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
+Versión de contrato: 1.46.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
 
 El backend envía los avisos; la app solo tiene que registrar su token y abrir la pantalla correcta al tocar
 la notificación. Si Firebase no está configurado en el servidor, `GET /push/config` devuelve `activo: false`
@@ -36,7 +36,7 @@ Base `/api/v1/mobile/push`, con `Authorization: Bearer <token>` como el resto de
 
 ```json
 GET /push/config
-{"activo": true, "canal_android": "reuniones", "vapid_key": "BF2u4_…",
+{"activo": true, "canal_android": "fichaya", "vapid_key": "BF2u4_…",
  "web": {"apiKey": "AIza…", "authDomain": "fichaya-917d5.firebaseapp.com", "projectId": "fichaya-917d5",
          "storageBucket": "fichaya-917d5.firebasestorage.app", "messagingSenderId": "885761435547",
          "appId": "1:885761435547:web:d9d260b374b68eeccfe33e"}}
@@ -57,14 +57,30 @@ Ya hecho en el repo de Flutter: `android/app/google-services.json` y el plugin
 Falta:
 1. Paquetes `firebase_core`, `firebase_messaging` y `flutter_local_notifications` (para mostrar avisos con la
    app abierta). `Firebase.initializeApp()` en `main()` antes de `runApp`.
-2. Crear el canal **`reuniones`** (importancia alta) al iniciar. El backend lo usa en todos los avisos; sin el
-   canal, Android 8+ los muestra en un canal genérico de baja prioridad.
+2. Crear el canal **`fichaya`** (importancia alta, sonido `res/raw/fichaya`) al iniciar. El backend lo usa en
+   todos los avisos desde 1.46.0 (antes `reuniones`); sin el canal, Android 8+ usa el canal por defecto del
+   manifest. Ver [sonido propio](#sonido-propio-de-fichaya-146).
 3. Android 13+: `FirebaseMessaging.instance.requestPermission()` (pide `POST_NOTIFICATIONS`; declararlo en el
    `AndroidManifest.xml`).
 4. Tras el login, si `config.activo`: `getToken()` → `POST /push/dispositivo` con `plataforma: "android"`.
    Escuchar `onTokenRefresh` y repetir el POST.
 5. Handler de segundo plano (`FirebaseMessaging.onBackgroundMessage`, función top-level) aunque no haga nada:
    la notificación la muestra el sistema porque el mensaje trae `notification`.
+
+### Sonido propio de FichaYa (1.46.0)
+
+Los avisos suenan con un tono propio (`android/app/src/main/res/raw/fichaya.wav`, menos de 1 s):
+
+- El backend manda `android.notification.channel_id = "fichaya"` y `android.notification.sound = "fichaya"`
+  (este último solo lo usa Android 7 o anterior).
+- En Android 8+ el sonido es del **canal** y queda fijo al crearlo: la app crea el canal `fichaya`
+  (`AndroidNotificationChannel(..., sound: RawResourceAndroidNotificationSound('fichaya'))`) y usa el mismo
+  canal para los avisos con la app abierta y los recordatorios locales. Para cambiar el tono más adelante hay
+  que crear otro canal (p. ej. `fichaya_v2`) y cambiar `CANAL_ANDROID` en el backend.
+- `res/raw/keep.xml` conserva `@raw/fichaya` para que el shrinker del build release no lo borre.
+- `default_notification_channel_id` del manifest pasa a `fichaya`.
+- El usuario puede cambiar o silenciar el sonido desde Ajustes → Apps → FichaYa → Notificaciones.
+- **Web**: los navegadores no permiten sonidos propios en las notificaciones; suena el del sistema.
 
 ## Web (Flutter web)
 
@@ -125,6 +141,9 @@ Desde 1.45.0 un comunicado con imagen llega con `notification.image` (y la misma
 - **Web**: el navegador la muestra grande (Chrome en Windows/Android; macOS solo muestra el texto).
 - **App abierta** (`onMessage`): Firebase no muestra nada; si la app arma su aviso local
   (p. ej. `flutter_local_notifications`), puede descargar `data.imagen` y usar `BigPictureStyleInformation`.
+- La imagen de la notificación es una versión **2:1 (1024 × 512)** que arma el servidor: la imagen entera
+  centrada sobre un fondo desenfocado de ella misma (desde 1.46.0). Android la recorta al centro si no es 2:1,
+  así que un afiche cuadrado o vertical ya no pierde el texto. La de la app (`imagen_url`) es la original.
 - La URL es pública y firmada, y **vence a los 7 días**: sirve para la notificación, no para guardarla. Dentro
   de la app usar `imagen_url` del comunicado (con JWT).
 

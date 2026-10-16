@@ -19,6 +19,8 @@ from scripts.migrate_20261016_05_push import migrate_cursor as migrate_push
 from scripts.migrate_20261016_06_comunicados import migrate_cursor as migrate_announcements
 from scripts.migrate_20261016_07_periodos_laborales import migrate_cursor as migrate_employment_periods
 from scripts.migrate_20261016_08_comunicados_imagen import migrate_cursor as migrate_announcement_image
+from scripts.migrate_20261016_09_push_envios_empresa import migrate_cursor as migrate_push_history_index
+from scripts.migrate_20261016_10_comunicados_imagen_push import migrate_cursor as migrate_announcement_push_image
 
 
 def main():
@@ -141,6 +143,20 @@ def main():
         if not cursor.fetchone():
             cursor.execute('SET SESSION lock_wait_timeout=5')
             migrate_announcement_image(cursor)
+            cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
+            db.commit()
+        version = '20261016_push_envios_empresa'
+        cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
+        if not cursor.fetchone():
+            cursor.execute('SET SESSION lock_wait_timeout=5')
+            migrate_push_history_index(cursor)
+            cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
+            db.commit()
+        version = '20261016_comunicados_imagen_push'
+        cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
+        if not cursor.fetchone():
+            cursor.execute('SET SESSION lock_wait_timeout=5')
+            migrate_announcement_push_image(cursor)
             cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
             db.commit()
     finally:

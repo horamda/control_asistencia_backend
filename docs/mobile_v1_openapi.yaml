@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.45.0
+  version: 1.46.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.46.0: push con sonido propio (canal_android = fichaya); ver push_mobile.md.
     Version 1.45.0: Comunicados con imagen (imagen_url, GET /comunicados/{comunicado_id}/imagen e imagen en el push); ver comunicados_mobile.md.
     Version 1.44.0: Comunicados (/comunicados, bandeja y lectura) y tipos push nuevos (salida_pendiente, epp_resuelto, epp_entregado, reintegro, reintegro_recordatorio, adelanto, pedido_mercaderia, comunicado); ver comunicados_mobile.md y push_mobile.md.
     Version 1.43.1: push activo en produccion (Firebase fichaya-917d5); se documentan /push/config y /push/dispositivo.
@@ -2271,7 +2272,8 @@ components:
           description: true si el servidor tiene Firebase configurado (produccion desde 1.43.1).
         canal_android:
           type: string
-          example: reuniones
+          description: Canal Android con el sonido de FichaYa (desde 1.46.0; antes reuniones).
+          example: fichaya
         vapid_key:
           type: string
           nullable: true
@@ -7321,7 +7323,7 @@ paths:
                 $ref: '#/components/schemas/PushConfig'
               example:
                 activo: true
-                canal_android: reuniones
+                canal_android: fichaya
                 vapid_key: BF2u4_...
                 web:
                   apiKey: AIza...
