@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.44.0
+Version de contrato: 1.45.0
+
+- **Comunicados con imagen (1.45.0):** `imagen_url` en la bandeja y el detalle, `GET /comunicados/{id}/imagen` y la imagen dentro de la notificación push. Ver [contrato](comunicados_mobile.md) y [push con imagen](push_mobile.md#notificaciones-con-imagen).
 
 - **Comunicados y más avisos push (1.44.0):** bandeja de comunicados del panel en `/comunicados` (ver [contrato](comunicados_mobile.md)) y avisos push nuevos: salida sin fichar, EPP, viáticos, adelantos y pedidos de mercadería resueltos, recordatorio de viáticos del día 5. Ver [tipos de aviso](push_mobile.md#contenido-de-cada-aviso).
 

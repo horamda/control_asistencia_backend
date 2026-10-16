@@ -104,7 +104,7 @@ Todos traen `notification` (título y texto listos para mostrar) y `data` con st
 | `reintegro_recordatorio` (1.44.0) | Día 5: completar los viáticos del mes anterior (mismo texto que `/reintegros/recordatorios`) | `periodo`, `ruta` = `/reintegros` |
 | `adelanto` (1.44.0) | Adelanto aprobado o rechazado | `adelanto_id`, `estado`, `ruta` = `/adelantos` |
 | `pedido_mercaderia` (1.44.0) | Pedido de mercadería aprobado o rechazado | `pedido_id`, `estado`, `ruta` = `/pedidos-mercaderia` |
-| `comunicado` (1.44.0) | Comunicado enviado desde el panel | `comunicado_id`, `ruta` = `/comunicados/{id}` |
+| `comunicado` (1.44.0) | Comunicado enviado desde el panel | `comunicado_id`, `ruta` = `/comunicados/{id}`, `imagen` (1.45.0, solo si tiene imagen) |
 
 - `ruta` identifica la pantalla a abrir; la app la traduce a su navegación (no hace falta que exista como ruta
   con nombre). Al tocar la notificación: navegar a esa pantalla (`onMessageOpenedApp` y `getInitialMessage`).
@@ -115,6 +115,18 @@ Todos traen `notification` (título y texto listos para mostrar) y `data` con st
 - Con la app abierta (`onMessage`), mostrar un aviso dentro de la app y refrescar la pantalla afectada
   (`/reuniones/proximas`, la bandeja de comunicados, el pedido, etc.).
 - Un `tipo` desconocido se ignora sin error (pueden sumarse tipos nuevos).
+
+### Notificaciones con imagen
+
+Desde 1.45.0 un comunicado con imagen llega con `notification.image` (y la misma URL en `data.imagen`):
+
+- **Android**: con la app cerrada o en segundo plano, el sistema muestra la miniatura a la derecha y la imagen
+  grande al expandir la notificación (estilo *big picture*). No hace falta código.
+- **Web**: el navegador la muestra grande (Chrome en Windows/Android; macOS solo muestra el texto).
+- **App abierta** (`onMessage`): Firebase no muestra nada; si la app arma su aviso local
+  (p. ej. `flutter_local_notifications`), puede descargar `data.imagen` y usar `BigPictureStyleInformation`.
+- La URL es pública y firmada, y **vence a los 7 días**: sirve para la notificación, no para guardarla. Dentro
+  de la app usar `imagen_url` del comunicado (con JWT).
 
 ## Recordatorios: push y avisos locales
 

@@ -3,7 +3,7 @@
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, session, url_for
 from mysql.connector import ProgrammingError
 
-from routes.carga_routes import employee
+from routes.carga_routes import employee, private_photo
 from services import comunicado_service as s
 from utils.audit import log_audit
 from utils.jwt_guard import mobile_auth_required
@@ -75,7 +75,7 @@ def nuevo():
         return _form(actor)
     data = _form_data()
     try:
-        cid, total = s.enviar(actor, data)
+        cid, total = s.enviar(actor, data, request.files.get("imagen"))
     except s.Error as error:
         flash(str(error), "error")
         return _form(actor, data, 400)
@@ -90,6 +90,21 @@ def nuevo():
 def detalle(comunicado_id):
     estado = request.args.get("estado") if request.args.get("estado") in ("leidos", "pendientes") else None
     return render_template("comunicados/detalle.html", **s.detalle(who(), comunicado_id, estado))
+
+
+@web.get("/<int:comunicado_id>/imagen")
+@permission_required("comunicados", "ver")
+def imagen(comunicado_id):
+    return private_photo(s.imagen(who(), comunicado_id))
+
+
+@web.get("/imagen-push/<int:comunicado_id>/<int:vence>/<firma>.jpg")
+def imagen_push(comunicado_id, vence, firma):
+    """Sin login: Firebase descarga la imagen de la notificacion con este link firmado y con vencimiento."""
+    try:
+        return private_photo(s.imagen_push(comunicado_id, vence, firma))
+    except s.Error:
+        abort(404)
 
 
 @web.post("/<int:comunicado_id>/eliminar")
@@ -114,6 +129,13 @@ def mis_comunicados():
 def ver(comunicado_id):
     """Devuelve el comunicado y lo marca como leido."""
     return jsonify(s.leer(employee(), comunicado_id))
+
+
+@mobile.get("/<int:comunicado_id>/imagen")
+@mobile_auth_required
+def imagen_mobile(comunicado_id):
+    """Imagen del comunicado (JPEG). No lo marca como leido."""
+    return private_photo(s.imagen_empleado(employee(), comunicado_id))
 
 
 @mobile.post("/<int:comunicado_id>/leido")

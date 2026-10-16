@@ -9,7 +9,7 @@
     <a class="btn btn-secondary" href="{{ url_for('comunicados.index') }}">Cancelar</a>
   </header>
 
-  <form method="post" class="epp-catalog-form reu-form" data-reu-form>
+  <form method="post" enctype="multipart/form-data" class="epp-catalog-form reu-form" data-reu-form>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <fieldset class="epp-fieldset">
@@ -18,6 +18,9 @@
         <label class="epp-full">Título<input name="titulo" required maxlength="120" value="{{ v.titulo or '' }}" placeholder="Ej.: Corte de luz el jueves"></label>
         <label class="epp-full">Mensaje<textarea name="mensaje" required maxlength="2000" rows="5" aria-describedby="com-mensaje-help" placeholder="Qué pasa, cuándo y qué tiene que hacer cada uno…">{{ v.mensaje or '' }}</textarea>
           <small id="com-mensaje-help">La notificación muestra el comienzo; el texto completo queda en la bandeja de la app.</small>
+        </label>
+        <label class="epp-full">Imagen (opcional)<input type="file" name="imagen" accept="image/jpeg,image/png,image/webp" aria-describedby="com-imagen-help">
+          <small id="com-imagen-help">JPG, PNG o WEBP de hasta 5 MB. Se ve en la notificación (miniatura que se agranda al expandirla) y al abrir el comunicado. Si el envío marca un error, volvé a elegirla.</small>
         </label>
       </div>
     </fieldset>

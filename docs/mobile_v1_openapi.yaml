@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.44.0
+  version: 1.45.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.45.0: Comunicados con imagen (imagen_url, GET /comunicados/{comunicado_id}/imagen e imagen en el push); ver comunicados_mobile.md.
     Version 1.44.0: Comunicados (/comunicados, bandeja y lectura) y tipos push nuevos (salida_pendiente, epp_resuelto, epp_entregado, reintegro, reintegro_recordatorio, adelanto, pedido_mercaderia, comunicado); ver comunicados_mobile.md y push_mobile.md.
     Version 1.43.1: push activo en produccion (Firebase fichaya-917d5); se documentan /push/config y /push/dispositivo.
     Version 1.43.0: notificaciones push (Android y web) en /push; ver push_mobile.md.
@@ -2242,6 +2243,11 @@ components:
         id: {type: integer}
         titulo: {type: string}
         mensaje: {type: string, description: Texto plano con saltos de linea (hasta 2000).}
+        imagen_url:
+          type: string
+          nullable: true
+          description: Ruta relativa a la imagen (pide JWT); null si no tiene. Desde 1.45.0.
+          example: /api/v1/mobile/comunicados/12/imagen
         fecha: {type: string, format: date-time, description: Envio (hora Argentina).}
         leido: {type: boolean}
         leido_at: {type: string, format: date-time, nullable: true}
@@ -7468,6 +7474,38 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: No existe, se quito o no era para este empleado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Comunicados
+  /comunicados/{comunicado_id}/imagen:
+    get:
+      summary: Imagen del comunicado (no lo marca como leido)
+      description: JPEG de hasta 1800 px de lado. Solo si el comunicado es para el empleado. Desde 1.45.0.
+      parameters:
+      - name: comunicado_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Imagen.
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sin imagen, no existe o no era para este empleado.
           content:
             application/json:
               schema:

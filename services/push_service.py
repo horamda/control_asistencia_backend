@@ -183,6 +183,10 @@ def _mensaje(token, titulo, cuerpo, datos):
         "data": datos,
         "android": {"priority": "HIGH", "notification": {"channel_id": CANAL_ANDROID}},
     }
+    imagen = datos.get("imagen") or ""
+    if imagen.startswith("https://"):
+        # Android: miniatura a la derecha y la imagen grande al expandir. Web: imagen grande.
+        mensaje["notification"]["image"] = imagen
     base = (os.getenv("FRONTEND_WEB_URL") or "").rstrip("/")
     if base.startswith("https://"):
         mensaje["webpush"] = {"fcm_options": {"link": base + datos.get("ruta", "/")}}

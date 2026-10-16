@@ -1,3 +1,7 @@
+## 1.45.0 — 2026-10-16
+
+- Comunicados con imagen (opcional, una por comunicado): `imagen_url` en `GET /comunicados` y `GET /comunicados/{id}` (`null` si no tiene) y nueva `GET /comunicados/{id}/imagen` (JPEG, con JWT). El push `comunicado` trae la imagen en `notification.image` (miniatura que se agranda al expandir en Android; grande en web) y en `data.imagen` (link firmado, vence a los 7 días). Cambios aditivos. Guía: `comunicados_mobile.md` y `push_mobile.md#notificaciones-con-imagen`.
+
 ## 1.44.0 — 2026-10-16
 
 - Comunicados: `GET /comunicados` (bandeja con `no_leidos`), `GET /comunicados/{id}` (lo marca leído), `POST /comunicados/{id}/leido` y `POST /comunicados/leer-todos`. RR. HH. los envía desde el panel; llegan por push (`tipo: comunicado`). Guía: `comunicados_mobile.md`.

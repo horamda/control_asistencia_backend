@@ -76,3 +76,4 @@
 
 /* Comunicados: el mensaje respeta los saltos de linea que escribio RR. HH. */
 .com-mensaje { margin: 0; white-space: pre-line; line-height: 1.55; }
+.com-imagen { display: block; max-width: min(100%, 480px); height: auto; margin-top: 14px; border-radius: 10px; border: 1px solid var(--border, #d0d7de); }

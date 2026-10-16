@@ -2,16 +2,27 @@
 
 Destinatarios con las mismas reglas que los convocados de Reuniones: toda la empresa, sector, sector:puesto,
 puesto en cualquier sector (cuenta el puesto principal y los adicionales) y personas puntuales; opcionalmente
-solo de algunas sucursales. Se resuelven al enviar: quien ingresa despues no lo recibe."""
+solo de algunas sucursales. Se resuelven al enviar: quien ingresa despues no lo recibe.
+
+Una imagen opcional (JPEG comprimido en la base) se ve en la app y en la notificacion push. Firebase la
+descarga sin login, asi que el push lleva un link firmado que vence a los IMAGEN_PUSH_DIAS."""
+
+import hashlib
+import hmac
+import time
+
+from flask import current_app, url_for
 
 from repositories import carga_repository as db
 from services import push_service
-from services.carga_service import CargaError as Error, now_local
+from services.carga_service import CargaError as Error, now_local, prepare_photos
 from services.reunion_service import _marcas, _participantes
 
 TITULO_MAX = 120
 MENSAJE_MAX = 2000
 POR_PAGINA = 20
+IMAGEN_PUSH_DIAS = 7
+_COLUMNAS = "c.id, c.empresa_id, c.titulo, c.mensaje, c.alcance, c.destinatarios, c.creado_por, c.creado_at"
 
 
 def _texto(data, campo, maximo, nombre):
@@ -96,9 +107,34 @@ def vista_previa(who, data):
         return len(destinatarios(c, who["empresa_id"], reglas, _sucursales(c, who["empresa_id"], data.get("sucursales"))))
 
 
-def enviar(who, data):
+def _imagen_subida(archivo):
+    """Contenido JPEG comprimido de la imagen elegida en el panel, o None si no se adjunto."""
+    if archivo is None or not getattr(archivo, "filename", ""):
+        return None
+    return prepare_photos([archivo])[0]["contenido"]
+
+
+def firma_imagen(cid, vence):
+    clave = str(current_app.secret_key or "").encode()
+    return hmac.new(clave, f"comunicado-imagen:{int(cid)}:{int(vence)}".encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def url_imagen_push(cid, ahora=None):
+    """Link publico y firmado a la imagen, para que Firebase la muestre en la notificacion."""
+    vence = int(ahora if ahora is not None else time.time()) + IMAGEN_PUSH_DIAS * 86400
+    try:
+        url = url_for("comunicados.imagen_push", comunicado_id=int(cid), vence=vence,
+                      firma=firma_imagen(cid, vence), _external=True)
+    except RuntimeError:  # fuera de un request no hay URL publica conocida
+        return None
+    # Firebase solo descarga imagenes por HTTPS.
+    return url if url.startswith("https://") else None
+
+
+def enviar(who, data, imagen=None):
     titulo = _texto(data, "titulo", TITULO_MAX, "el título")
     mensaje = _texto(data, "mensaje", MENSAJE_MAX, "el mensaje")
+    contenido = _imagen_subida(imagen)
     with db.transaction() as c:
         reglas = _reglas(c, who["empresa_id"], data)
         sucursales = _sucursales(c, who["empresa_id"], data.get("sucursales"))
@@ -106,6 +142,7 @@ def enviar(who, data):
         if not ids:
             raise Error("Con esa selección no hay empleados activos para recibir el comunicado.")
         cid = db.insert(c, "comunicados", dict(empresa_id=who["empresa_id"], titulo=titulo, mensaje=mensaje,
+                                                imagen=contenido,
                                                 alcance=_alcance(c, who["empresa_id"], reglas, sucursales),
                                                 destinatarios=len(ids), creado_por=who.get("user_id"),
                                                 creado_at=now_local()))
@@ -114,8 +151,10 @@ def enviar(who, data):
             c.executemany("INSERT INTO comunicado_destinatarios (comunicado_id, empleado_id) VALUES (%s, %s)",
                           [(cid, eid) for eid in lote])
     cuerpo = mensaje if len(mensaje) <= 180 else mensaje[:177].rstrip() + "…"
-    push_service.encolar_ahora(who["empresa_id"], ids, "comunicado", titulo, cuerpo,
-                               {"comunicado_id": cid, "ruta": f"/comunicados/{cid}"}, f"comunicado:{cid}")
+    datos = {"comunicado_id": cid, "ruta": f"/comunicados/{cid}"}
+    if contenido:
+        datos["imagen"] = url_imagen_push(cid)
+    push_service.encolar_ahora(who["empresa_id"], ids, "comunicado", titulo, cuerpo, datos, f"comunicado:{cid}")
     return cid, len(ids)
 
 
@@ -126,6 +165,7 @@ def listado(who, page=1):
     with db.transaction(read_only=True) as c:
         total = int(db.one(c, "SELECT COUNT(*) AS n FROM comunicados WHERE empresa_id=%s", (who["empresa_id"],))["n"])
         items = db.all_rows(c, """SELECT c.id, c.titulo, c.mensaje, c.alcance, c.destinatarios, c.creado_at,
+                                         MAX(c.imagen IS NOT NULL) AS tiene_imagen,
                                          COALESCE(SUM(d.leido_at IS NOT NULL), 0) AS leidos
                                   FROM comunicados c
                                   LEFT JOIN comunicado_destinatarios d ON d.comunicado_id = c.id
@@ -140,7 +180,8 @@ def listado(who, page=1):
 
 
 def _obtener(c, who, cid):
-    fila = db.one(c, "SELECT * FROM comunicados WHERE id=%s AND empresa_id=%s", (int(cid), who["empresa_id"]))
+    fila = db.one(c, f"""SELECT {_COLUMNAS}, (c.imagen IS NOT NULL) AS tiene_imagen FROM comunicados c
+                          WHERE c.id=%s AND c.empresa_id=%s""", (int(cid), who["empresa_id"]))
     if not fila:
         raise Error("Comunicado no encontrado.", 404)
     return fila
@@ -164,6 +205,28 @@ def detalle(who, cid, estado=None):
     return dict(comunicado=comunicado, personas=personas, leidos=leidos, estado=estado or "")
 
 
+def imagen(who, cid):
+    """Imagen para el panel (misma empresa)."""
+    with db.transaction(read_only=True) as c:
+        fila = db.one(c, "SELECT imagen AS contenido FROM comunicados WHERE id=%s AND empresa_id=%s",
+                      (int(cid), who["empresa_id"]))
+    if not fila or not fila["contenido"]:
+        raise Error("Imagen no encontrada.", 404)
+    return fila
+
+
+def imagen_push(cid, vence, firma, ahora=None):
+    """Imagen por link firmado (sin login) mientras no venza."""
+    ahora = int(ahora if ahora is not None else time.time())
+    if int(vence) < ahora or not hmac.compare_digest(str(firma), firma_imagen(cid, vence)):
+        raise Error("Imagen no encontrada.", 404)
+    with db.transaction(read_only=True) as c:
+        fila = db.one(c, "SELECT imagen AS contenido FROM comunicados WHERE id=%s", (int(cid),))
+    if not fila or not fila["contenido"]:
+        raise Error("Imagen no encontrada.", 404)
+    return fila
+
+
 def eliminar(who, cid):
     """Lo quita de la bandeja de la app (el aviso push ya enviado no se puede retirar)."""
     with db.transaction() as c:
@@ -178,7 +241,8 @@ def eliminar(who, cid):
 # --- App del empleado ---------------------------------------------------------------------------------
 
 def _item(fila):
-    return dict(id=fila["id"], titulo=fila["titulo"], mensaje=fila["mensaje"],
+    imagen_url = f"/api/v1/mobile/comunicados/{fila['id']}/imagen" if fila.get("tiene_imagen") else None
+    return dict(id=fila["id"], titulo=fila["titulo"], mensaje=fila["mensaje"], imagen_url=imagen_url,
                 fecha=fila["creado_at"].isoformat(timespec="seconds"), leido=fila["leido_at"] is not None,
                 leido_at=fila["leido_at"].isoformat(timespec="seconds") if fila["leido_at"] else None)
 
@@ -186,7 +250,8 @@ def _item(fila):
 def mis_comunicados(empleado, page=1):
     page = max(1, int(page or 1))
     with db.transaction(read_only=True) as c:
-        filas = db.all_rows(c, """SELECT c.id, c.titulo, c.mensaje, c.creado_at, d.leido_at
+        filas = db.all_rows(c, """SELECT c.id, c.titulo, c.mensaje, c.creado_at, d.leido_at,
+                                         (c.imagen IS NOT NULL) AS tiene_imagen
                                   FROM comunicado_destinatarios d JOIN comunicados c ON c.id = d.comunicado_id
                                   WHERE d.empleado_id=%s AND c.empresa_id=%s
                                   ORDER BY c.id DESC LIMIT %s OFFSET %s""",
@@ -202,7 +267,8 @@ def mis_comunicados(empleado, page=1):
 def leer(empleado, cid):
     """Devuelve el comunicado y lo marca como leido (la primera vez queda la fecha)."""
     with db.transaction() as c:
-        fila = db.one(c, """SELECT c.id, c.titulo, c.mensaje, c.creado_at, d.leido_at
+        fila = db.one(c, """SELECT c.id, c.titulo, c.mensaje, c.creado_at, d.leido_at,
+                                   (c.imagen IS NOT NULL) AS tiene_imagen
                             FROM comunicado_destinatarios d JOIN comunicados c ON c.id = d.comunicado_id
                             WHERE d.comunicado_id=%s AND d.empleado_id=%s AND c.empresa_id=%s""",
                       (int(cid), empleado["id"], empleado["empresa_id"]))
@@ -213,6 +279,18 @@ def leer(empleado, cid):
             c.execute("UPDATE comunicado_destinatarios SET leido_at=%s WHERE comunicado_id=%s AND empleado_id=%s",
                       (fila["leido_at"], fila["id"], empleado["id"]))
     return _item(fila)
+
+
+def imagen_empleado(empleado, cid):
+    """Imagen para la app: solo si el comunicado es para este empleado."""
+    with db.transaction(read_only=True) as c:
+        fila = db.one(c, """SELECT c.imagen AS contenido
+                            FROM comunicado_destinatarios d JOIN comunicados c ON c.id = d.comunicado_id
+                            WHERE d.comunicado_id=%s AND d.empleado_id=%s AND c.empresa_id=%s""",
+                      (int(cid), empleado["id"], empleado["empresa_id"]))
+    if not fila or not fila["contenido"]:
+        raise Error("Imagen no encontrada.", 404)
+    return fila
 
 
 def leer_todos(empleado):

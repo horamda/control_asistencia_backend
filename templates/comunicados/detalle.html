@@ -16,6 +16,9 @@
     {% endif %}
   </header>
   <p class="com-mensaje">{{ comunicado.mensaje }}</p>
+  {% if comunicado.tiene_imagen %}
+    <img class="com-imagen" src="{{ url_for('comunicados.imagen', comunicado_id=comunicado.id) }}" alt="Imagen del comunicado «{{ comunicado.titulo }}»" loading="lazy">
+  {% endif %}
 </section>
 
 <div class="grid-kpis">
