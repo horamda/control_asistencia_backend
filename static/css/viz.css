@@ -1,5 +1,5 @@
 /* Graficos SVG del dashboard (templates/_charts.html). Colores por rol,
-   validados contra la superficie del panel en claro (#fff) y oscuro (#162335). */
+   validados contra la superficie del panel en claro (#fff) y oscuro (#242526). */
 .viz-root {
   --viz-series-1: #2a78d6;
   --viz-series-2: #eb6834;

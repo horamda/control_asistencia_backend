@@ -128,7 +128,7 @@
             <tr>
               <td data-label="Fecha"><a href="{{ url_for('reuniones.ocurrencia', reunion_id=r.id, fecha=o.fecha.isoformat(), sucursal=o.sucursal_id or None) }}">{{ o.fecha.strftime('%d/%m/%Y') }}</a></td>
               {% if con_sedes %}<td data-label="Sucursal">{{ o.sucursal_nombre or '—' }}</td>{% endif %}
-              <td data-label="Estado">{% if o.estado == 'cancelada' %}<span class="reu-badge reu-cancelada" title="{{ o.motivo_cancelacion or '' }}">Cancelada</span>{% elif o.estado == 'cerrada' %}Cerrada{% else %}En curso{% endif %}</td>
+              <td data-label="Estado">{% if o.estado == 'cancelada' %}<span class="badge danger" title="{{ o.motivo_cancelacion or '' }}">Cancelada</span>{% elif o.estado == 'cerrada' %}Cerrada{% else %}En curso{% endif %}</td>
               <td data-label="Convocados">{{ o.convocados if o.convocados is not none else '—' }}</td>
               <td data-label="Presentes">{{ o.presentes }}</td>
               <td data-label="Tarde">{{ o.tarde }}</td>

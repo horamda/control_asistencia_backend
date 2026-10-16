@@ -1,37 +1,158 @@
 ﻿{% extends 'epp/layout.html' %}
 {% block epp_content %}
+{% set estado_info = {
+  'borrador': ('Borrador', 'neutral', 'Todavía no se envió a aprobación.'),
+  'pendiente': ('Pendiente de aprobación', 'warning', 'Lo puede aprobar el jefe directo o Seguridad e Higiene.'),
+  'aprobado': ('Aprobado', 'ok', 'Listo para entregar.'),
+  'parcial': ('Entrega parcial', 'warning', 'Faltan ' ~ row.pendiente_total ~ ' unidad' ~ ('' if row.pendiente_total == 1 else 'es') ~ ' por entregar.'),
+  'entregado': ('Entregado', 'ok', 'Se entregó todo lo aprobado.'),
+  'rechazado': ('Rechazado', 'danger', 'No se aprobó ningún artículo.'),
+  'cancelado': ('Cancelado', 'danger', 'El pedido se canceló.'),
+} %}
+{% set info = estado_info.get(row.estado, (row.estado|capitalize, 'neutral', '')) %}
 <div class="epp-detail">
   <section class="epp-card epp-order-summary">
-    <header class="epp-section-heading"><div><span class="epp-eyebrow">Solicitud de equipamiento</span><h3>Pedido #{{ row.id }}</h3><p>{{ row.empleado_nombre }}</p></div><span class="epp-status">{{ row.estado|capitalize }}</span></header>
-    <dl class="epp-order-facts"><div><dt>Legajo</dt><dd>{{ row.legajo }}</dd></div><div><dt>Sucursal</dt><dd>{{ row.sucursal_id }}</dd></div><div><dt>Concepto de reposición</dt><dd>{{ row.concepto_reposicion or 'Sin concepto' }}</dd></div><div><dt>Motivo del pedido</dt><dd>{{ row.motivo or 'Sin motivo indicado' }}</dd></div></dl>
+    <header class="epp-section-heading">
+      <div>
+        <span class="epp-eyebrow">Pedido #{{ row.id }}</span>
+        <h3>{{ row.empleado_nombre }}</h3>
+        <p>{{ info[2] }}</p>
+      </div>
+      <span class="badge {{ info[1] }}">{{ info[0] }}</span>
+    </header>
+    <dl class="epp-order-facts">
+      <div><dt>Legajo</dt><dd>{{ row.legajo or '—' }}</dd></div>
+      <div><dt>Sucursal</dt><dd>{{ row.sucursal_nombre or '—' }}</dd></div>
+      <div><dt>Motivo del pedido</dt><dd>{{ row.motivo or 'Sin motivo indicado' }}{% if row.concepto_reposicion %} <span class="chip">{{ row.concepto_reposicion }}</span>{% endif %}</dd></div>
+    </dl>
     {% if row.estado in ['borrador','pendiente'] and can_web('epp','editar') %}<a class="btn btn-secondary" href="{{ url_for('epp_web.edit',pid=row.id) }}">Editar pedido</a>{% endif %}
   </section>
-  <section class="epp-card"><header class="epp-section-heading"><div><h3>Artículos solicitados</h3><p>Detalle de cantidades, talles y entregas.</p></div></header>
-    <div class="table-responsive epp-order-table"><table><thead><tr><th>Artículo</th><th>Talle / medida</th><th>Solicitado</th><th>Aprobado</th><th>Entregado</th><th>Este año / orientación</th></tr></thead><tbody>{% for i in row['items'] %}<tr><td data-label="Artículo"><strong>{{ i.nombre }}</strong></td><td data-label="Talle / medida">{{ i.talle }} {{ i.medidas }}</td><td data-label="Solicitado">{{ i.cantidad }}</td><td data-label="Aprobado">{{ i.aprobada if i.aprobada is not none else 'Pendiente' }}</td><td data-label="Entregado">{{ i.entregada }}</td><td data-label="Este año / orientación">{{ i.entregado_anio }} / {{ i.aviso_anual or 'Sin orientación' }}</td></tr>{% endfor %}</tbody></table></div>
-  </section>
+
   {% if row.estado=='pendiente' and who.approve and who.empleado_id!=row.empleado_id %}
-  <section class="epp-card epp-decision"><header class="epp-section-heading"><div><span class="epp-eyebrow">Revisión del pedido</span><h3>Resolver pedido</h3><p>Indicá cuántas unidades aprobás de cada artículo.</p></div></header>
+  <section class="epp-card epp-decision">
+    <header class="epp-section-heading">
+      <div>
+        <span class="epp-eyebrow">Tu decisión</span>
+        <h3>¿Aprobás este pedido?</h3>
+        <p>Por defecto se aprueba todo lo solicitado. Cambiá solo los artículos que quieras reducir o rechazar.</p>
+      </div>
+      <div class="epp-quick" data-epp-quick hidden>
+        <button class="btn btn-secondary" type="button" data-epp-all="todo">Aprobar todo</button>
+        <button class="btn btn-secondary" type="button" data-epp-all="rechazar">Rechazar todo</button>
+      </div>
+    </header>
     <form method="post" action="{{ url_for('epp_web.action',pid=row.id) }}" class="epp-detail-form" data-epp-resolution>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="revision" value="{{ row.revision }}"><input type="hidden" name="accion" value="resolver">
-      <div class="epp-quantity-list">{% for i in row['items'] %}<div class="epp-quantity-row"><div><strong>{{ i.nombre }}</strong><p>Talle: {{ i.talle }}{% if i.medidas %} · {{ i.medidas }}{% endif %}</p><span>Solicitado: {{ i.cantidad }} unidad{{ '' if i.cantidad == 1 else 'es' }}</span></div><label for="approve-{{ i.id }}">Cantidad a aprobar<input id="approve-{{ i.id }}" type="number" name="cantidad_{{ i.id }}" min="0" max="{{ i.cantidad }}" step="1" value="{{ i.cantidad }}" required data-requested="{{ i.cantidad }}" aria-describedby="epp-resolution-help"></label></div>{% endfor %}</div>
-      <p class="epp-help-box" id="epp-resolution-help">Ingresá 0 para rechazar un artículo. Si reducís alguna cantidad, explicá el motivo.</p>
-      <label for="epp-resolution-reason">Motivo de la resolución <small data-reason-label>Obligatorio si reducís cantidades o rechazás artículos.</small><textarea id="epp-resolution-reason" name="motivo" maxlength="1000" rows="4" placeholder="Explicá el motivo de los cambios para que el solicitante pueda consultarlo."></textarea></label>
-      <footer class="epp-form-footer"><span>Una aprobación de Seguridad e Higiene o del jefe directo es suficiente.</span><button class="btn" type="submit">Confirmar resolución</button></footer>
+      <div class="epp-quantity-list">
+        {% for i in row['items'] %}
+          <div class="epp-quantity-row epp-decision-row" data-epp-line>
+            <div>
+              <strong>{{ i.nombre }}</strong>
+              <p>Talle {{ i.talle }}{% if i.medidas %} · {{ i.medidas }}{% endif %} · pidió <b>{{ i.cantidad }}</b></p>
+              {% if i.aviso_anual %}<span>Este año ya recibió {{ i.entregado_anio }} (orientación anual: {{ i.aviso_anual }}){% if i.entregado_anio + i.cantidad > i.aviso_anual %} · <b class="epp-warn-text">supera la orientación</b>{% endif %}</span>{% endif %}
+            </div>
+            <div class="epp-decision-controls">
+              <div class="choice-group" role="radiogroup" aria-label="Decisión para {{ i.nombre }}" data-epp-choice hidden>
+                <label><input type="radio" name="modo_{{ i.id }}" value="todo" checked><span>Aprobar {{ i.cantidad }}</span></label>
+                {% if i.cantidad > 1 %}<label><input type="radio" name="modo_{{ i.id }}" value="menos"><span>Menos</span></label>{% endif %}
+                <label class="is-danger"><input type="radio" name="modo_{{ i.id }}" value="rechazar"><span>Rechazar</span></label>
+              </div>
+              <label class="epp-amount" data-epp-amount>Cantidad a aprobar
+                <input id="approve-{{ i.id }}" type="number" name="cantidad_{{ i.id }}" min="0" max="{{ i.cantidad }}" step="1" value="{{ i.cantidad }}" required data-requested="{{ i.cantidad }}">
+              </label>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="epp-help-box" data-epp-summary role="status" aria-live="polite">Se aprueba todo lo solicitado.</p>
+      <label for="epp-resolution-reason" data-epp-reason>Motivo <small>Obligatorio cuando reducís o rechazás: lo ve el solicitante.</small>
+        <textarea id="epp-resolution-reason" name="motivo" maxlength="1000" rows="3" placeholder="Ej.: ya recibió un chaleco este año; se entrega uno."></textarea>
+      </label>
+      <footer class="epp-form-footer">
+        <span>Alcanza con una aprobación (jefe directo o Seguridad e Higiene).</span>
+        <button class="btn" type="submit" data-epp-submit>Aprobar pedido</button>
+      </footer>
     </form>
-  </section>{% endif %}
+  </section>
+  {% endif %}
+
   {% if row.estado in ['aprobado','parcial'] and who.global and who.deliver %}
-  <section class="epp-card"><header class="epp-section-heading"><div><h3>Registrar entrega</h3><p>Ingresá las unidades que se entregan en esta oportunidad.</p></div></header>
-    <form method="post" action="{{ url_for('epp_web.deliver',pid=row.id) }}" class="epp-detail-form">
+  <section class="epp-card">
+    <header class="epp-section-heading">
+      <div>
+        <span class="epp-eyebrow">Entrega</span>
+        <h3>Registrar entrega</h3>
+        <p>Ya están cargadas las unidades pendientes. Si entregás menos, cambiá la cantidad; lo que falte queda para otra entrega.</p>
+      </div>
+    </header>
+    <form method="post" action="{{ url_for('epp_web.deliver',pid=row.id) }}" class="epp-detail-form" data-epp-delivery>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="revision" value="{{ row.revision }}"><input type="hidden" name="envio_id" value="{{ token }}">
-      <label class="epp-date-field">Fecha de entrega<input type="date" name="fecha" min="{{ row.creado_at.date() }}" max="{{ today }}" value="{{ today }}" required></label>
-      <div class="epp-quantity-list">{% for i in row['items'] %}<div class="epp-quantity-row"><div><strong>{{ i.nombre }}</strong><p>Talle: {{ i.talle }}</p><span>Aprobado: {{ i.aprobada }} · Entregado: {{ i.entregada }} · Pendiente: {{ i.aprobada-i.entregada }}</span></div><label>Cantidad a entregar<input type="number" name="cantidad_{{ i.id }}" min="0" max="{{ i.aprobada-i.entregada }}" step="1" value="0" required></label></div>{% endfor %}</div>
-      <label>Observaciones / justificación de excepción anual<textarea name="observaciones" maxlength="1000" rows="4" placeholder="Agregá detalles de la entrega o justificá una excepción anual, si corresponde."></textarea></label>
-      <footer class="epp-form-footer"><span>Se generará una planilla con las cantidades entregadas.</span><button class="btn" type="submit">Confirmar entrega y emitir planilla</button></footer>
+      <div class="epp-quantity-list">
+        {% for i in row['items'] %}
+          <div class="epp-quantity-row {{ 'epp-row-done' if not i.pendiente_entrega }}">
+            <div>
+              <strong>{{ i.nombre }}</strong>
+              <p>Talle {{ i.talle }}{% if i.medidas %} · {{ i.medidas }}{% endif %}</p>
+              <span>{% if i.pendiente_entrega %}Faltan {{ i.pendiente_entrega }} de {{ i.aprobada }} aprobadas{% else %}Completo ({{ i.entregada }} entregadas){% endif %}</span>
+            </div>
+            {% if i.pendiente_entrega %}
+              <label>Entregar ahora<input type="number" name="cantidad_{{ i.id }}" min="0" max="{{ i.pendiente_entrega }}" step="1" value="{{ i.pendiente_entrega }}" required data-epp-deliver></label>
+            {% else %}
+              <input type="hidden" name="cantidad_{{ i.id }}" value="0">
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class="epp-delivery-extra">
+        <label class="epp-date-field">Fecha de entrega<input type="date" name="fecha" min="{{ row.creado_at.date() }}" max="{{ today }}" value="{{ today }}" required></label>
+        <label>Observaciones <small>Opcional. Si supera la orientación anual, justificalo acá.</small><textarea name="observaciones" maxlength="1000" rows="2" placeholder="Ej.: reposición por rotura."></textarea></label>
+      </div>
+      <footer class="epp-form-footer">
+        <span>Se genera la planilla para que el empleado firme.</span>
+        <button class="btn" type="submit" data-epp-deliver-submit>Registrar entrega</button>
+      </footer>
     </form>
-  </section>{% endif %}
-  <section class="epp-card"><header class="epp-section-heading"><div><h3>Entregas y planillas</h3><p>Consultá los comprobantes y su estado de firma.</p></div></header><div class="epp-receipts">{% for e in row.entregas %}<a class="btn btn-secondary" href="{{ url_for('epp_web.receipt_view',did=e.id) }}">Entrega #{{ e.id }} · {{ e.fecha }} · {{ 'Anulada' if e.anulada else 'Firmada' if e.firmada else 'Firma pendiente' }}</a>{% else %}<p class="epp-help-box">Aún no se registraron entregas para este pedido.</p>{% endfor %}</div></section>
-  {% if row.estado in ['borrador','pendiente'] %}<details class="epp-card epp-cancel"><summary>Cancelar pedido</summary><p>Indicá por qué se cancela la solicitud. El motivo quedará registrado en el historial.</p><form method="post" action="{{ url_for('epp_web.action',pid=row.id) }}" class="epp-detail-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="revision" value="{{ row.revision }}"><input type="hidden" name="accion" value="cancelar"><label>Motivo de cancelación<textarea name="motivo" maxlength="1000" rows="3" required placeholder="Escribí el motivo de la cancelación."></textarea></label><div class="epp-cancel-action"><button class="btn btn-danger" type="submit">Cancelar pedido</button></div></form></details>{% endif %}
-  <details class="epp-card epp-history"><summary>Historial de cambios</summary>{% for h in row.historial %}<div class="epp-history-entry"><p>{{ h.creado_at }} · {{ h.accion }} · Usuario {{ h.usuario_id or 'App del empleado' }}</p><pre>{{ h.datos }}</pre></div>{% else %}<p>No hay cambios registrados.</p>{% endfor %}</details>
+  </section>
+  {% endif %}
+
+  <section class="epp-card">
+    <header class="epp-section-heading"><div><h3>Artículos</h3></div></header>
+    <div class="table-responsive epp-order-table"><table>
+      <thead><tr><th>Artículo</th><th>Talle</th><th>Pedido</th><th>Aprobado</th><th>Entregado</th></tr></thead>
+      <tbody>{% for i in row['items'] %}<tr>
+        <td data-label="Artículo"><strong>{{ i.nombre }}</strong>{% if i.motivo %}<br><small class="helper-text">{{ i.motivo }}</small>{% endif %}</td>
+        <td data-label="Talle">{{ i.talle }}{% if i.medidas %} · {{ i.medidas }}{% endif %}</td>
+        <td data-label="Pedido">{{ i.cantidad }}</td>
+        <td data-label="Aprobado">{% if i.aprobada is none %}<span class="badge neutral">Pendiente</span>{% elif i.aprobada == 0 %}<span class="badge danger">Rechazado</span>{% else %}{{ i.aprobada }}{% endif %}</td>
+        <td data-label="Entregado">{{ i.entregada }}</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+  </section>
+
+  <section class="epp-card">
+    <header class="epp-section-heading"><div><h3>Entregas y planillas</h3></div></header>
+    <div class="epp-receipts">{% for e in row.entregas %}<a class="btn btn-secondary" href="{{ url_for('epp_web.receipt_view',did=e.id) }}">Entrega del {{ e.fecha.strftime('%d/%m/%Y') if e.fecha.strftime is defined else e.fecha }} · <span class="badge {{ 'danger' if e.anulada else 'ok' if e.firmada else 'warning' }}">{{ 'Anulada' if e.anulada else 'Firmada' if e.firmada else 'Falta firmar' }}</span></a>{% else %}<p class="epp-help-box">Todavía no hay entregas.</p>{% endfor %}</div>
+  </section>
+
+  {% if row.estado in ['borrador','pendiente'] %}
+  <details class="epp-card epp-cancel">
+    <summary>Cancelar pedido</summary>
+    <form method="post" action="{{ url_for('epp_web.action',pid=row.id) }}" class="epp-detail-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="revision" value="{{ row.revision }}"><input type="hidden" name="accion" value="cancelar">
+      <label>¿Por qué se cancela?<textarea name="motivo" maxlength="1000" rows="2" required placeholder="Queda registrado en el historial."></textarea></label>
+      <div class="epp-cancel-action"><button class="btn btn-danger" type="submit" data-confirm="¿Cancelar el pedido #{{ row.id }}?">Cancelar pedido</button></div>
+    </form>
+  </details>
+  {% endif %}
+
+  <details class="epp-card epp-history">
+    <summary>Historial ({{ row.historial|length }})</summary>
+    <ol class="epp-timeline">
+      {% for h in row.historial %}
+        <li><strong>{{ h.accion_label }}</strong> <span class="helper-text">{{ h.creado_at.strftime('%d/%m/%Y %H:%M') if h.creado_at.strftime is defined else h.creado_at }} · {{ h.quien }}</span>{% if h.detalle %}<p>{{ h.detalle }}</p>{% endif %}</li>
+      {% else %}<li>No hay cambios registrados.</li>{% endfor %}
+    </ol>
+  </details>
 </div>
 <script src="{{ url_for('static',filename='js/epp-detail.js') }}" defer></script>
 {% endblock %}

@@ -262,15 +262,60 @@ def create():
     )
 
 
+HISTORIAL_ACCIONES = {
+    "crear": "Pedido creado",
+    "editar_pedido": "Pedido editado",
+    "enviar": "Enviado a aprobación",
+    "resolver": "Pedido resuelto",
+    "cancelar": "Pedido cancelado",
+    "entregar": "Entrega registrada",
+    "anular_entrega": "Entrega anulada",
+    "planilla_firmada": "Planilla firmada",
+}
+
+
+def _detalle_web(pid):
+    """Detalle con nombres legibles (sucursal, usuarios) e historial sin JSON crudo."""
+    row = s.detail(actor(), pid)
+    with s.db.transaction(read_only=True) as c:
+        sucursal = s.db.one(c, "SELECT nombre FROM sucursales WHERE id=%s", (row.get("sucursal_id"),))             if row.get("sucursal_id") else None
+        ids = sorted({h["usuario_id"] for h in row["historial"] if h.get("usuario_id")})
+        usuarios = {u["id"]: u["usuario"] for u in s.db.all_rows(
+            c, f"SELECT id, usuario FROM usuarios WHERE id IN ({', '.join(['%s'] * len(ids))})", tuple(ids))} if ids else {}
+    row["sucursal_nombre"] = sucursal["nombre"] if sucursal else None
+    for h in row["historial"]:
+        try:
+            datos = json.loads(h.get("datos") or "{}")
+        except ValueError:
+            datos = {}
+        h["accion_label"] = HISTORIAL_ACCIONES.get(h["accion"], h["accion"].replace("_", " ").capitalize())
+        h["quien"] = usuarios.get(h.get("usuario_id")) or ("App del empleado" if not h.get("usuario_id") else f"Usuario #{h['usuario_id']}")
+        h["detalle"] = datos.get("motivo") if isinstance(datos, dict) else None
+    for i in row["items"]:
+        i["pendiente_entrega"] = max(0, int(i["aprobada"] or 0) - int(i["entregada"] or 0))
+    row["pendiente_total"] = sum(i["pendiente_entrega"] for i in row["items"])
+    return row
+
+
 @web.get("/pedidos/<int:pid>")
 @permission_required("epp", "ver")
 def detail(pid):
     return render(
         "detail",
-        row=s.detail(actor(), pid),
+        row=_detalle_web(pid),
         token=str(uuid4()),
         today=s.now_local().date(),
     )
+
+
+def _mensaje_resolucion(cantidades, items):
+    pedidas = {str(i["id"]): int(i["cantidad"]) for i in items}
+    aprobadas = {k: int(v) for k, v in cantidades.items() if str(v).isdigit()}
+    if aprobadas and all(v == 0 for v in aprobadas.values()):
+        return "Pedido rechazado."
+    if all(aprobadas.get(k) == v for k, v in pedidas.items()):
+        return "Pedido aprobado. Ya se puede registrar la entrega."
+    return "Pedido aprobado con cambios. El solicitante puede ver el motivo."
 
 
 @web.post("/pedidos/<int:pid>/acciones")
@@ -279,12 +324,15 @@ def action(pid):
     values = data()
     if values.get("accion") == "resolver" and not actor()["approve"]:
         abort(403)
+    mensaje = {"cancelar": "Pedido cancelado.", "enviar": "Pedido enviado a aprobación."}.get(
+        values.get("accion"), "Pedido actualizado.")
     if values.get("accion") == "resolver":
         values["cantidades"] = {
             k[9:]: v for k, v in request.form.items() if k.startswith("cantidad_")
         }
+        mensaje = _mensaje_resolucion(values["cantidades"], s.detail(actor(), pid)["items"])
     s.action(actor(), pid, values)
-    flash("Pedido actualizado.", "success")
+    flash(mensaje, "success")
     return redirect(url_for("epp_web.detail", pid=pid))
 
 

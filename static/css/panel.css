@@ -1,16 +1,16 @@
 :root {
-  --bg: #eef2f7;
-  --bg-spot: #e6edf7;
-  --bg-grad-start: #f4f7fb;
+  --bg: #f0f2f5;
+  --bg-spot: #e9edf5;
+  --bg-grad-start: #f5f6f8;
   --surface: #ffffff;
-  --surface-soft: #f7f9fc;
-  --surface-strong: #f1f6fd;
-  --border: #d6deea;
+  --surface-soft: #f7f8fa;
+  --surface-strong: #eef3ff;
+  --border: #dadde1;
   --text: #111827;
-  --muted: #5f6b7c;
-  --primary: #0f4c81;
-  --primary-strong: #09365d;
-  --primary-soft: #e7f0fb;
+  --muted: #5f6774;
+  --primary: #0866ff;
+  --primary-strong: #0757d6;
+  --primary-soft: #e7f0ff;
   --success: #1e7a4f;
   --warning: #b26c00;
   --danger: #b32135;
@@ -29,18 +29,18 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #0f1725;
-  --bg-spot: #162338;
-  --bg-grad-start: #101a2a;
-  --surface: #162335;
-  --surface-soft: #1a2a3d;
-  --surface-strong: #203248;
-  --border: #2f425a;
-  --text: #e5edf7;
-  --muted: #9db0c9;
-  --primary: #3f8ed8;
-  --primary-strong: #2a6fb0;
-  --primary-soft: #19314d;
+  --bg: #18191a;
+  --bg-spot: #1d1e20;
+  --bg-grad-start: #1a1b1c;
+  --surface: #242526;
+  --surface-soft: #2a2b2d;
+  --surface-strong: #3a3b3c;
+  --border: #3e4042;
+  --text: #e4e6eb;
+  --muted: #b0b3b8;
+  --primary: #4599ff;
+  --primary-strong: #2d88ff;
+  --primary-soft: #263951;
   --success: #2fb672;
   --warning: #e1a230;
   --danger: #d05a6b;
@@ -133,7 +133,7 @@ a:hover {
   min-width: 0;
   z-index: 70;
   overflow-y: auto;
-  background: linear-gradient(185deg, #12263f 0%, #182f4a 100%);
+  background: #0866ff;
   color: #dce6f4;
   padding: 24px 18px;
   display: flex;
@@ -873,6 +873,35 @@ tbody tr:hover {
   color: #9c1f30;
   background: #fdecef;
   border-color: #efb0ba;
+}
+
+.badge.neutral,
+.badge.ghost {
+  color: var(--muted);
+  background: var(--surface-soft);
+  border-color: var(--border);
+}
+
+/* Grupo de opciones (radios con aspecto de botones) para elegir entre 2-4 alternativas.
+   <div class="choice-group"><label><input type="radio" ...><span>Texto</span></label>...</div>
+   .is-danger en el label de la opcion destructiva (p. ej. Rechazar). */
+.choice-group {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.choice-group label { display: block; margin: 0; cursor: pointer; font-weight: 600; }
+.choice-group input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.choice-group span { display: block; padding: 10px 14px; min-height: 44px; box-sizing: border-box; line-height: 24px; white-space: nowrap; }
+.choice-group label + label span { border-left: 1px solid var(--border); }
+.choice-group input:checked + span { background: var(--action-bg, var(--primary)); color: #fff; }
+.choice-group label.is-danger input:checked + span { background: var(--danger-bg, var(--danger)); }
+.choice-group input:focus-visible + span { outline: 3px solid var(--primary); outline-offset: -3px; }
+@media (max-width: 700px) {
+  .choice-group { display: flex; width: 100%; }
+  .choice-group label { flex: 1; text-align: center; }
 }
 
 .gps-fraud-badge {

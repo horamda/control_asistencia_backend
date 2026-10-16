@@ -45,7 +45,7 @@
             <tr>
               <td data-label="Empleado"><strong>{{ f.apellido }} {{ f.nombre }}</strong>{% if f.legajo %} <span class="chip">{{ f.legajo }}</span>{% endif %}</td>
               <td data-label="Sector">{{ f.sector_nombre or '—' }}</td>
-              <td data-label="Estado"><span class="reu-badge reu-{{ f.estado }}">{{ f.estado|estado_reunion }}</span>{% if f.observaciones %} <small>{{ f.observaciones }}</small>{% endif %}</td>
+              <td data-label="Estado"><span class="badge {{ {'presente': 'ok', 'tarde': 'warning', 'ausente': 'danger'}.get(f.estado, 'neutral') }}">{{ f.estado|estado_reunion }}</span>{% if f.observaciones %} <small>{{ f.observaciones }}</small>{% endif %}</td>
               <td data-label="Hora">{{ f.registrado_at.strftime('%H:%M') if f.registrado_at else '—' }}</td>
               <td data-label="Método">{{ {'qr_fijo': 'QR impreso', 'qr_dinamico': 'QR en pantalla', 'manual': 'Manual', 'sistema': 'Cierre automático'}.get(f.metodo, '—') }}</td>
               {% if can_web('reuniones', 'editar') and not futura and not cancelada %}

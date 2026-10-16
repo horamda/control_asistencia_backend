@@ -1,4 +1,4 @@
-﻿.epp-page{max-width:1280px;margin-inline:auto}.epp-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px}.epp-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;min-width:0}.epp-image,.epp-placeholder{width:100%;height:170px;object-fit:contain;background:var(--surface-soft);border-radius:10px;margin-bottom:12px}.epp-placeholder{display:grid;place-items:center;color:var(--muted)}.epp-page label{display:grid;gap:6px;margin-bottom:12px}.epp-page input,.epp-page select,.epp-page textarea{width:100%;max-width:100%}.epp-page select[multiple]{min-height:140px}.epp-page textarea{min-height:85px}.epp-page form{margin-bottom:18px}.epp-page pre{white-space:pre-wrap;overflow-wrap:anywhere}.epp-page details summary{cursor:pointer;padding:12px 0}#epp-form-error{color:var(--danger)}@media(max-width:600px){.epp-card{padding:14px}.epp-page .actions{gap:10px}}
+.epp-page{max-width:1280px;margin-inline:auto}.epp-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px}.epp-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;min-width:0}.epp-image,.epp-placeholder{width:100%;height:170px;object-fit:contain;background:var(--surface-soft);border-radius:10px;margin-bottom:12px}.epp-placeholder{display:grid;place-items:center;color:var(--muted)}.epp-page label{display:grid;gap:6px;margin-bottom:12px}.epp-page input,.epp-page select,.epp-page textarea{width:100%;max-width:100%}.epp-page select[multiple]{min-height:140px}.epp-page textarea{min-height:85px}.epp-page form{margin-bottom:18px}.epp-page pre{white-space:pre-wrap;overflow-wrap:anywhere}.epp-page details summary{cursor:pointer;padding:12px 0}#epp-form-error{color:var(--danger)}@media(max-width:600px){.epp-card{padding:14px}.epp-page .actions{gap:10px}}
 
 /* Catalog editor: scoped to preserve the order and delivery screens. */
 .epp-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px}
@@ -57,3 +57,27 @@
 .epp-sector-puestos{display:grid;gap:6px;padding-left:4px}
 .epp-sector.is-whole .epp-sector-puestos{opacity:.55}
 .epp-sector-puestos .epp-sin-empleados span{color:var(--muted)}
+
+/* Pedido: decision por articulo (usa .choice-group y .badge de panel.css) y entrega. */
+[data-epp-choice][hidden],.epp-quick[hidden],.epp-amount[hidden],[data-epp-reason][hidden]{display:none!important}
+.epp-quick{display:flex;flex-wrap:wrap;gap:8px}
+.epp-detail .epp-decision-row{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.epp-decision-row[data-modo=rechazar]{border-color:var(--danger)}
+.epp-decision-row[data-modo=menos]{border-color:var(--warning)}
+.epp-decision-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px}
+.epp-detail .epp-amount{max-width:140px}
+.epp-detail .epp-amount input{font-size:1.1rem;font-weight:700}
+.epp-warn-text{color:var(--danger);font-weight:600}
+.epp-row-done{opacity:.6}
+.epp-receipts .badge{margin-left:6px}
+.epp-delivery-extra{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:16px;align-items:start}
+.epp-timeline{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.epp-timeline li{border-left:3px solid var(--border);padding:4px 0 4px 12px}
+.epp-timeline p{margin:4px 0 0}
+@media(max-width:700px){
+  .epp-detail .epp-decision-row{grid-template-columns:minmax(0,1fr)}
+  .epp-decision-controls{justify-content:stretch}
+  .epp-detail .epp-amount{max-width:none;width:100%}
+  .epp-delivery-extra{grid-template-columns:minmax(0,1fr)}
+  .epp-quick{width:100%}.epp-quick .btn{flex:1}
+}
