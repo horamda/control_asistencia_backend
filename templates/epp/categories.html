@@ -1,1 +1,55 @@
-﻿{% extends 'epp/layout.html' %}{% block epp_content %}<h3>Categorías de artículos</h3><form method="post" class="actions"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Nueva categoría<input name="nombre" maxlength="80" required></label><button class="btn">Crear categoría</button></form><div class="table-responsive"><table><thead><tr><th>Categoría</th><th>Administrar</th></tr></thead><tbody>{% for c in items %}<tr><td>{{ c.nombre }} · {{ 'Activa' if c.activo else 'Inactiva' }}</td><td><details><summary>Editar</summary><form method="post" class="actions"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="id" value="{{ c.id }}"><label>Nombre<input name="nombre" value="{{ c.nombre }}" required maxlength="80"></label><label>Estado<select name="activo"><option value="1">Activa</option><option value="0" {{ 'selected' if not c.activo }}>Inactiva</option></select></label><button class="btn">Guardar</button></form></details></td></tr>{% endfor %}</tbody></table></div><p>Desactivar impide seleccionar esta categoría para nuevos artículos. Los artículos existentes se administran individualmente; las entregas conservan su categoría histórica.</p>{% endblock %}
+﻿{% extends 'epp/layout.html' %}
+{% block extra_head %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/catalogo.css') }}">{% endblock %}
+{% block epp_content %}
+{# Mismo componente de catalogo que Conceptos de viaticos / de reposicion: tabla + dialogo. #}
+<div class="concept-page">
+  <header class="concept-heading">
+    <div><h2>Categorías de artículos</h2><p>Agrupan los artículos del catálogo. Una categoría inactiva no se puede elegir en artículos nuevos; las entregas conservan su categoría histórica.</p></div>
+    <button type="button" id="concept-create">+ Nueva categoría</button>
+  </header>
+  <section class="concept-catalog" aria-label="Categorías de artículos">
+    <div class="concept-toolbar">
+      <label class="concept-search">Buscar categoría<input type="search" id="concept-search" placeholder="Ej. calzado, ropa…"></label>
+      <label>Estado<select id="concept-filter"><option value="">Todas</option><option value="1">Activas</option><option value="0">Inactivas</option></select></label>
+      <span id="concept-count" aria-live="polite"></span>
+    </div>
+    <table class="concept-table">
+      <thead><tr><th scope="col">Categoría</th><th scope="col">Estado</th><th scope="col"><span class="concept-sr">Acciones</span></th></tr></thead>
+      <tbody>
+      {% for item in items %}
+        <tr data-concept-row data-name="{{ item.nombre }}" data-active="{{ 1 if item.activo else 0 }}">
+          <td><strong>{{ item.nombre }}</strong></td>
+          <td><span class="concept-badge {{ 'is-active' if item.activo else 'is-inactive' }}">● {{ 'Activa' if item.activo else 'Inactiva' }}</span></td>
+          <td class="concept-actions"><button type="button" class="concept-secondary" data-edit-concept data-id="{{ item.id }}" data-name="{{ item.nombre }}" data-active="{{ 1 if item.activo else 0 }}" aria-label="Editar {{ item.nombre }}">Editar</button></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div id="concept-empty" class="concept-empty" {% if items %}hidden{% endif %}>
+      <h3>{{ 'No encontramos categorías' if items else 'Creá la primera categoría' }}</h3>
+      <p>{{ 'Probá con otro nombre o cambiá el filtro de estado.' if items else 'Por ejemplo: calzado, ropa de trabajo, protección auditiva.' }}</p>
+      <button type="button" id="concept-empty-action" class="concept-secondary">{{ 'Limpiar filtros' if items else 'Crear categoría' }}</button>
+    </div>
+  </section>
+  <noscript>Activá JavaScript para buscar, crear y editar categorías.</noscript>
+</div>
+{% set values = values or {} %}
+<dialog id="concept-dialog" class="concept-dialog" aria-labelledby="concept-dialog-title" data-reopen="{{ 1 if error else 0 }}"
+        data-singular="categoría" data-plural="categorías" data-genero="f">
+  <form method="post" action="{{ url_for('epp_web.categories') }}" id="concept-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="id" id="concept-id" value="{{ values.get('id', '') }}">
+    <header><h3 id="concept-dialog-title">{{ 'Editar categoría' if values.get('id') else 'Nueva categoría' }}</h3><button type="button" class="concept-secondary" data-close-concept aria-label="Cerrar">×</button></header>
+    <div class="concept-dialog-body">
+      <p id="concept-error" role="alert" {% if not error %}hidden{% endif %}>{{ error or '' }}</p>
+      <label for="concept-name">Nombre de la categoría</label>
+      <input id="concept-name" name="nombre" maxlength="80" required placeholder="Ej. Calzado" value="{{ values.get('nombre', '') }}">
+      <label for="concept-active">Estado</label>
+      <select id="concept-active" name="activo"><option value="1" {{ 'selected' if values.get('activo', '1') == '1' }}>Activa</option><option value="0" {{ 'selected' if values.get('activo') == '0' }}>Inactiva</option></select>
+      <p class="concept-help">Solo las categorías activas se ofrecen al crear artículos.</p>
+    </div>
+    <footer><button type="button" class="concept-secondary" data-close-concept>Cancelar</button><button type="submit" id="concept-save">{{ 'Guardar cambios' if values.get('id') else 'Crear categoría' }}</button></footer>
+  </form>
+</dialog>
+<script src="{{ url_for('static', filename='js/catalogo.js') }}" defer></script>
+{% endblock %}

@@ -4580,6 +4580,12 @@ details[open] .org-team-arr { transform: rotate(180deg); }
     flex-direction: column;
   }
 
+  /* En columna, flex-basis es la altura: sin esto el titulo ocupa 240px vacios en celular. */
+  .app-topbar > div:first-child {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
   .topbar-actions {
     width: 100%;
     justify-content: flex-start;

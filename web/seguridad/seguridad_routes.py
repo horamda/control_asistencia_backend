@@ -185,20 +185,28 @@ def photo(photo_id):
 @permission_required('seguridad_higiene','ver')
 def catalogs():
     empresa,_=scope()
+    error=None
     if request.method=='POST':
         from web.auth.decorators import can_access_module
         from flask import abort
         rid=request.form.get('id',type=int)
         if not can_access_module(session['user_id'],'seguridad_higiene','editar' if rid else 'crear'): abort(403)
-        s.save_catalog(empresa,session['user_id'],request.form,rid)
-        return redirect(url_for('seguridad_web.catalogs',empresa_id=empresa))
+        try:
+            s.save_catalog(empresa,session['user_id'],request.form,rid)
+        except s.Error as exc:
+            # Como en el resto de los catalogos: el dialogo se reabre con el error y lo cargado.
+            error=str(exc)
+        else:
+            flash('Dato actualizado.' if rid else 'Dato creado.','success')
+            return redirect(url_for('seguridad_web.catalogs',empresa_id=empresa))
     ctx=context(empresa,include_employees=False,include_externals=False)
     query=request.args.get('q','').strip()[:180]
     kind=request.args.get('tipo','');state=request.args.get('estado','')
     if kind and kind not in s.TIPOS or state not in ('','0','1'): raise s.Error('Filtro inválido.')
     ctx['catalogos']=[r for r in ctx['catalogos'] if (not query or query.casefold() in r['nombre'].casefold())
         and (not kind or r['tipo']==kind) and (not state or str(r['activo'])==state)]
-    return render_template('seguridad/catalogos.html',**ctx,clases=s.CLASES,query=query,kind=kind,state=state)
+    return render_template('seguridad/catalogos.html',**ctx,clases=s.CLASES,query=query,kind=kind,state=state,
+                           error=error,values=request.form.to_dict() if error else {}),(400 if error else 200)
 
 
 @seguridad_web_bp.post('/eventos/<int:event_id>/acciones')

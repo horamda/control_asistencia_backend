@@ -1,5 +1,5 @@
 {% extends 'epp/layout.html' %}
-{% block extra_head %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/reintegros_concepts.css') }}">{% endblock %}
+{% block extra_head %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/catalogo.css') }}">{% endblock %}
 {% block epp_content %}
 {# Mismo componente que Conceptos de viaticos (Reintegros): tabla con busqueda y alta/edicion en un dialogo. #}
 <div class="concept-page">
@@ -51,5 +51,5 @@
     <footer><button type="button" class="concept-secondary" data-close-concept>Cancelar</button><button type="submit" id="concept-save">{{ 'Guardar cambios' if values.get('id') else 'Crear concepto' }}</button></footer>
   </form>
 </dialog>
-<script src="{{ url_for('static', filename='js/reintegros_concepts.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/catalogo.js') }}" defer></script>
 {% endblock %}

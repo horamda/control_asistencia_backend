@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Conceptos de viáticos{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/reintegros_concepts.css') }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/catalogo.css') }}">{% endblock %}
 {% block content %}
 <div class="content-stack concept-page">
   <a href="{{ url_for('reintegros_web.index') }}" class="btn btn-secondary ui-action-link">← Volver a solicitudes</a>
@@ -52,5 +52,5 @@
     <footer><button type="button" class="concept-secondary" data-close-concept>Cancelar</button><button type="submit" id="concept-save">{{ 'Guardar cambios' if values.get('id') else 'Crear concepto' }}</button></footer>
   </form>
 </dialog>
-<script src="{{ url_for('static', filename='js/reintegros_concepts.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/catalogo.js') }}" defer></script>
 {% endblock %}

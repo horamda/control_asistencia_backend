@@ -26,6 +26,8 @@
 .concept-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;border-bottom:1px solid var(--border)}
 .concept-dialog h3{margin:0}.concept-dialog header button{font-size:22px;padding:4px 12px}
 .concept-dialog-body{padding:24px}.concept-dialog input:not([type=hidden]),.concept-dialog select{width:100%;min-height:44px}
+/* Separacion entre campos tambien cuando estan agrupados (p. ej. campos solo para el alta). */
+.concept-dialog-body :is(input:not([type=hidden]),select){margin-bottom:16px}.concept-dialog-body #concept-active{margin-bottom:0}.concept-dialog-body label small{color:var(--muted);font-weight:400}
 #concept-name{margin-bottom:20px}.concept-help{font-size:.82rem;color:var(--muted);margin:8px 0 0}
 .concept-dialog footer{display:flex;justify-content:flex-end;gap:10px;padding:18px 24px;border-top:1px solid var(--border);background:var(--surface-soft)}
 #concept-error{color:var(--danger);padding:12px;border:1px solid var(--danger);border-radius:8px;margin:0 0 20px}

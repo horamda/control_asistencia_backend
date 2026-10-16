@@ -590,8 +590,12 @@ def edit_mobile(pid):
 @permission_required("epp_responsables", "editar")
 def categories():
     if request.method == "POST":
-        s.save_category(actor(), data())
-        flash("Categoría guardada.", "success")
+        values = data()
+        try:
+            s.save_category(actor(), values)
+        except s.Error as error:
+            return render("categories", items=s.categories(actor()), error=str(error), values=values), error.status
+        flash("Categoría actualizada." if values.get("id") else "Categoría creada.", "success")
         return redirect(url_for("epp_web.categories"))
     return render("categories", items=s.categories(actor()))
 

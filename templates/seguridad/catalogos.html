@@ -1,5 +1,71 @@
-{% extends 'base.html' %}{% block title %}Catálogos de seguridad{% endblock %}{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static',filename='css/seguridad.css') }}">{% endblock %}{% block content %}<div class="content-stack sh-page"><h2>Catálogos de Seguridad e Higiene</h2>{% include 'seguridad/_nav.html' %}<p>Los cambios de nombres no alteran las descripciones históricas de los eventos. Desactivar evita nuevos usos.</p>
-{% if can_web('seguridad_higiene','crear') %}<details class="sh-panel"><summary>+ Nueva categoría o dato de catálogo</summary><form method="post" class="form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="empresa_id" value="{{ empresa_id }}"><label>Catálogo<select name="clase">{% for c in clases %}<option>{{ c }}</option>{% endfor %}</select></label><label>Tipo (para categorías)<select name="tipo">{% for k,v in tipos.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label><label>Nombre<input name="nombre" maxlength="180" required></label><button class="btn">Crear</button></form></details>{% endif %}
-<form method="get" class="sh-panel sh-toolbar"><input type="hidden" name="empresa_id" value="{{ empresa_id }}"><label>Buscar<input name="q" type="search" value="{{ query }}" placeholder="Nombre de categoría o dato"></label><label>Tipo<select name="tipo"><option value="">Todos</option>{% for k,v in tipos.items() %}<option value="{{ k }}" {% if kind==k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label><label>Estado<select name="estado"><option value="">Todos</option><option value="1" {% if state=='1' %}selected{% endif %}>Activos</option><option value="0" {% if state=='0' %}selected{% endif %}>Inactivos</option></select></label><button class="btn">Filtrar</button><a class="btn btn-secondary" href="{{ url_for('seguridad_web.catalogs',empresa_id=empresa_id) }}">Limpiar</a></form>
-<p>{{ catalogos|length }} resultados</p><div class="table-responsive"><table class="sh-table"><thead><tr><th>Nombre</th><th>Catálogo / tipo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
-{% for c in catalogos %}<tr><td><strong>{{ c.nombre }}</strong></td><td>{{ c.clase|replace('_',' ')|capitalize }}<div class="sh-muted">{{ tipos.get(c.tipo,'General') }}</div></td><td><span class="sh-badge {{ 'sh-badge-activo' if c.activo else '' }}">{{ 'Activo' if c.activo else 'Inactivo' }}</span></td><td>{% if can_web('seguridad_higiene','editar') %}<details class="sh-editor"><summary>Editar</summary><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="empresa_id" value="{{ empresa_id }}"><input type="hidden" name="id" value="{{ c.id }}"><input type="hidden" name="clase" value="{{ c.clase }}"><input type="hidden" name="tipo" value="{{ c.tipo }}"><label>Nombre<input name="nombre" value="{{ c.nombre }}" maxlength="180" required></label><label>Estado<select name="activo"><option value="1" {% if c.activo %}selected{% endif %}>Activo</option><option value="0" {% if not c.activo %}selected{% endif %}>Inactivo</option></select></label><button class="btn">Guardar cambios</button></form></details>{% else %}Solo lectura{% endif %}</td></tr>{% else %}<tr><td colspan="4" class="sh-empty">No hay categorías para estos filtros.</td></tr>{% endfor %}</tbody></table></div></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Catálogos de seguridad{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static',filename='css/seguridad.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/catalogo.css') }}">{% endblock %}
+{% block content %}
+<div class="content-stack sh-page concept-page">
+  {% include 'seguridad/_nav.html' %}
+  {# Mismo componente de catalogo que el resto del panel: tabla con filtros + alta/edicion en un dialogo. #}
+  <header class="concept-heading">
+    <div><h2>Catálogos de Seguridad e Higiene</h2><p>Categorías y datos que se eligen al cargar reportes. Cambiar un nombre no altera los reportes ya cargados; un dato inactivo deja de ofrecerse.</p></div>
+    {% if can_web('seguridad_higiene','crear') %}<button type="button" id="concept-create">+ Nuevo dato</button>{% endif %}
+  </header>
+  <section class="concept-catalog" aria-label="Catálogos de Seguridad e Higiene">
+    <div class="concept-toolbar">
+      <label class="concept-search">Buscar<input type="search" id="concept-search" placeholder="Nombre de categoría o dato"></label>
+      <label>Catálogo<select data-row-filter="clase"><option value="">Todos</option>{% for c in clases %}<option value="{{ c }}">{{ c|replace('_',' ')|capitalize }}</option>{% endfor %}</select></label>
+      <label>Tipo<select data-row-filter="tipo"><option value="">Todos</option>{% for k,v in tipos.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+      <label>Estado<select id="concept-filter"><option value="">Todos</option><option value="1">Activos</option><option value="0">Inactivos</option></select></label>
+      <span id="concept-count" aria-live="polite"></span>
+    </div>
+    <table class="concept-table">
+      <thead><tr><th scope="col">Nombre</th><th scope="col">Catálogo / tipo</th><th scope="col">Estado</th><th scope="col"><span class="concept-sr">Acciones</span></th></tr></thead>
+      <tbody>
+      {% for c in catalogos %}
+        <tr data-concept-row data-name="{{ c.nombre }}" data-active="{{ 1 if c.activo else 0 }}" data-clase="{{ c.clase }}" data-tipo="{{ c.tipo or '' }}">
+          <td><strong>{{ c.nombre }}</strong></td>
+          <td>{{ c.clase|replace('_',' ')|capitalize }}<div class="sh-muted">{{ tipos.get(c.tipo,'General') }}</div></td>
+          <td><span class="concept-badge {{ 'is-active' if c.activo else 'is-inactive' }}">● {{ 'Activo' if c.activo else 'Inactivo' }}</span></td>
+          <td class="concept-actions">{% if can_web('seguridad_higiene','editar') %}<button type="button" class="concept-secondary" data-edit-concept data-id="{{ c.id }}" data-name="{{ c.nombre }}" data-active="{{ 1 if c.activo else 0 }}" data-clase="{{ c.clase }}" data-tipo="{{ c.tipo or '' }}" aria-label="Editar {{ c.nombre }}">Editar</button>{% else %}<span class="sh-muted">Solo lectura</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div id="concept-empty" class="concept-empty" {% if catalogos %}hidden{% endif %}>
+      <h3>{{ 'No encontramos datos' if catalogos else 'Todavía no hay datos de catálogo' }}</h3>
+      <p>{{ 'Probá con otro nombre o cambiá los filtros.' if catalogos else 'Creá categorías (actos seguros e inseguros) y datos como lugares o partes del cuerpo.' }}</p>
+      <button type="button" id="concept-empty-action" class="concept-secondary">{{ 'Limpiar filtros' if catalogos else 'Crear dato' }}</button>
+    </div>
+  </section>
+  <noscript>Activá JavaScript para buscar, crear y editar datos de catálogo.</noscript>
+</div>
+{% set values = values or {} %}
+<dialog id="concept-dialog" class="concept-dialog" aria-labelledby="concept-dialog-title" data-reopen="{{ 1 if error else 0 }}"
+        data-singular="dato" data-plural="datos">
+  <form method="post" action="{{ url_for('seguridad_web.catalogs', empresa_id=empresa_id) }}" id="concept-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
+    <input type="hidden" name="id" id="concept-id" value="{{ values.get('id', '') }}">
+    <header><h3 id="concept-dialog-title">{{ 'Editar dato' if values.get('id') else 'Nuevo dato' }}</h3><button type="button" class="concept-secondary" data-close-concept aria-label="Cerrar">×</button></header>
+    <div class="concept-dialog-body">
+      <p id="concept-error" role="alert" {% if not error %}hidden{% endif %}>{{ error or '' }}</p>
+      <div data-create-only>
+        <label for="concept-clase">Catálogo</label>
+        <select id="concept-clase" name="clase">{% for c in clases %}<option value="{{ c }}" {{ 'selected' if values.get('clase') == c }}>{{ c|replace('_',' ')|capitalize }}</option>{% endfor %}</select>
+        <label for="concept-tipo">Tipo <small>(solo para categorías)</small></label>
+        <select id="concept-tipo" name="tipo">{% for k,v in tipos.items() %}<option value="{{ k }}" {{ 'selected' if values.get('tipo') == k }}>{{ v }}</option>{% endfor %}</select>
+      </div>
+      <div data-edit-only hidden>
+        <input type="hidden" name="clase" data-concept-field="clase" value="{{ values.get('clase', '') }}">
+        <input type="hidden" name="tipo" data-concept-field="tipo" value="{{ values.get('tipo', '') }}">
+      </div>
+      <label for="concept-name">Nombre</label>
+      <input id="concept-name" name="nombre" maxlength="180" required placeholder="Ej. Uso correcto de EPP" value="{{ values.get('nombre', '') }}">
+      <label for="concept-active">Estado</label>
+      <select id="concept-active" name="activo"><option value="1" {{ 'selected' if values.get('activo', '1') == '1' }}>Activo</option><option value="0" {{ 'selected' if values.get('activo') == '0' }}>Inactivo</option></select>
+      <p class="concept-help">Los datos inactivos dejan de ofrecerse en los reportes nuevos.</p>
+    </div>
+    <footer><button type="button" class="concept-secondary" data-close-concept>Cancelar</button><button type="submit" id="concept-save">{{ 'Guardar cambios' if values.get('id') else 'Crear dato' }}</button></footer>
+  </form>
+</dialog>
+<script src="{{ url_for('static', filename='js/catalogo.js') }}" defer></script>
+{% endblock %}

@@ -257,3 +257,17 @@ def test_web_requires_csrf(client):
     response=client.post('/seguridad-higiene/nuevo',data=payload())
     assert response.status_code==400
     assert s.history(1)['total']==0
+
+
+def test_catalogo_tabla_y_dialogo_reabierto_con_error(client):
+    html = client.get('/seguridad-higiene/catalogos').get_data(as_text=True)
+    assert 'data-concept-row' in html and 'data-edit-concept' in html and 'id="concept-dialog"' in html
+    response = client.post('/seguridad-higiene/catalogos', data={'empresa_id': '1', 'clase': 'categoria', 'tipo': 'seguro', 'nombre': ''})
+    body = response.get_data(as_text=True)
+    assert response.status_code == 400 and 'data-reopen="1"' in body and 'role="alert"' in body
+    assert client.post('/seguridad-higiene/catalogos', data={'empresa_id': '1', 'clase': 'lugar', 'tipo': 'seguro', 'nombre': 'Depósito'}).status_code == 302
+
+
+def test_catalogo_guardado_muestra_confirmacion(client):
+    response = client.post('/seguridad-higiene/catalogos', data={'empresa_id': '1', 'clase': 'lugar', 'tipo': 'seguro', 'nombre': 'Playón'}, follow_redirects=True)
+    assert response.status_code == 200 and 'Dato creado.' in response.get_data(as_text=True)
