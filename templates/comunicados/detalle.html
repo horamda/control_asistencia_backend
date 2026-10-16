@@ -1,0 +1,67 @@
+{% extends 'comunicados/layout.html' %}
+{% block comunicados_content %}
+{% set total = comunicado.destinatarios %}
+{% set pct = (100 * leidos / total)|round|int if total else 0 %}
+<section class="epp-card">
+  <header class="epp-section-heading">
+    <div>
+      <h3>{{ comunicado.titulo }}</h3>
+      <p>Enviado el {{ comunicado.creado_at.strftime('%d/%m/%Y a las %H:%M') }} · {{ comunicado.alcance }}</p>
+    </div>
+    {% if can_web('comunicados', 'eliminar') %}
+      <form method="post" action="{{ url_for('comunicados.eliminar', comunicado_id=comunicado.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-danger" type="submit" data-confirm="¿Quitar este comunicado de la bandeja de la app? La notificación ya enviada no se puede retirar.">Quitar de la app</button>
+      </form>
+    {% endif %}
+  </header>
+  <p class="com-mensaje">{{ comunicado.mensaje }}</p>
+</section>
+
+<div class="grid-kpis">
+  <div class="kpi-card">
+    <div class="kpi-label">Destinatarios</div>
+    <div class="kpi-value">{{ total }}</div>
+    <div class="helper-text">empleados activos al enviarlo</div>
+  </div>
+  <div class="kpi-card {{ 'tone-ok' if pct >= 80 else ('tone-warn' if pct >= 40 else '') }}">
+    <div class="kpi-label">Leído</div>
+    <div class="kpi-value">{{ pct }}%</div>
+    <div class="helper-text">{{ leidos }} de {{ total }} lo abrieron en la app</div>
+  </div>
+</div>
+
+<form method="get" class="epp-staff-search">
+  <label>Mostrar
+    <select name="estado">
+      <option value="">Todos</option>
+      <option value="leidos" {{ 'selected' if estado == 'leidos' }}>Lo leyeron</option>
+      <option value="pendientes" {{ 'selected' if estado == 'pendientes' }}>No lo leyeron</option>
+    </select>
+  </label>
+  <button class="btn" type="submit">Filtrar</button>
+</form>
+
+{% if personas %}
+  <div class="table-responsive table-cards">
+    <table>
+      <thead><tr><th>Empleado</th><th>Sector</th><th>Sucursal</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for p in personas %}
+          <tr>
+            <td data-label="Empleado">{{ p.apellido }} {{ p.nombre }}{% if p.legajo %} <small class="helper-text">· {{ p.legajo }}</small>{% endif %}</td>
+            <td data-label="Sector">{{ p.sector_nombre or '—' }}</td>
+            <td data-label="Sucursal">{{ p.sucursal_nombre or '—' }}</td>
+            <td data-label="Estado">
+              {% if p.leido_at %}<span class="badge ok">Leído</span> <small class="helper-text">{{ p.leido_at.strftime('%d/%m %H:%M') }}</small>
+              {% else %}<span class="badge neutral">Sin leer</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="empty-state">No hay empleados con ese filtro.</div>
+{% endif %}
+{% endblock %}

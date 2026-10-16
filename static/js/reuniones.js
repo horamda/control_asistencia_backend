@@ -1,10 +1,11 @@
-// Formulario de reuniones: campos segun la frecuencia, sector completo que incluye
-// sus puestos, busqueda de personas y cobertura en vivo de convocados.
+// Formulario de reuniones (y de comunicados, que usa el mismo selector de destinatarios):
+// campos segun la frecuencia, sector completo que incluye sus puestos, busqueda de personas
+// y cobertura en vivo de convocados.
 (() => {
   const form = document.querySelector('[data-reu-form]');
   if (!form) return;
 
-  // --- Frecuencia ------------------------------------------------------------
+  // --- Frecuencia (solo reuniones) ----------------------------------------------
   const frecuencia = form.querySelector('[data-reu-frecuencia]');
   const mensual = form.querySelector('[data-reu-mensual]');
   function toggleFrecuencia() {
@@ -16,15 +17,17 @@
       el.querySelectorAll('input,select').forEach((input) => { input.disabled = !visible; });
     });
   }
-  frecuencia.addEventListener('change', () => {
-    // Diaria: por defecto de lunes a viernes.
-    if (frecuencia.value === 'diaria' && !form.querySelector('input[name="dias_semana"]:checked')) {
-      form.querySelectorAll('input[name="dias_semana"]').forEach((input) => { input.checked = Number(input.value) < 5; });
-    }
+  if (frecuencia) {
+    frecuencia.addEventListener('change', () => {
+      // Diaria: por defecto de lunes a viernes.
+      if (frecuencia.value === 'diaria' && !form.querySelector('input[name="dias_semana"]:checked')) {
+        form.querySelectorAll('input[name="dias_semana"]').forEach((input) => { input.checked = Number(input.value) < 5; });
+      }
+      toggleFrecuencia();
+    });
+    mensual.addEventListener('change', toggleFrecuencia);
     toggleFrecuencia();
-  });
-  mensual.addEventListener('change', toggleFrecuencia);
-  toggleFrecuencia();
+  }
 
   // --- Participantes -----------------------------------------------------------
   const box = form.querySelector('[data-reu-participantes]');
@@ -32,6 +35,13 @@
   const todos = box.querySelector('[data-reu-todos]');
   const reglas = box.querySelector('[data-reu-reglas]');
   const contador = box.querySelector('[data-reu-personas-count]');
+  // Textos de la cobertura: el formulario de comunicados dice "Llega a" en vez de "Convoca a".
+  const verbo = box.dataset.reuVerbo || 'Convoca a';
+  const vacio = box.dataset.reuVacio || 'Todavía no hay convocados. Elegí toda la empresa, sectores, puestos o personas.';
+  const enviar = form.querySelector('[data-reu-enviar]');
+  function confirmar(n) {
+    if (enviar) enviar.dataset.confirm = `¿Enviar el comunicado a ${n} empleado${n === 1 ? '' : 's'}? Les llega como notificación y queda en su bandeja de la app.`;
+  }
   let empleados = [];
   try {
     empleados = JSON.parse(box.querySelector('[data-reu-coverage-data]').textContent || '[]');
@@ -78,18 +88,20 @@
     output.classList.remove('is-warning');
     if (empresa) {
       output.textContent = sucursales.size
-        ? `Convoca a todos los empleados de las sucursales elegidas: ${total}.`
-        : `Convoca a toda la empresa: ${total} empleados.`;
+        ? `${verbo} todos los empleados de las sucursales elegidas: ${total}.`
+        : `${verbo} toda la empresa: ${total} empleados.`;
+      confirmar(total);
       return;
     }
     const alcance = base.filter((e) => personas.has(e.id)
       || e.c.some((combo) => rules.some((rule) => matches(rule, combo)))).length;
     if (!alcance) {
-      output.textContent = 'Todavía no hay convocados. Elegí toda la empresa, sectores, puestos o personas.';
+      output.textContent = vacio;
       output.classList.add('is-warning');
     } else {
-      output.textContent = `Convoca a ${alcance} de ${total} empleados${sucursales.size ? ' de las sucursales elegidas' : ''}.`;
+      output.textContent = `${verbo} ${alcance} de ${total} empleados${sucursales.size ? ' de las sucursales elegidas' : ''}.`;
     }
+    confirmar(alcance);
   }
   box.addEventListener('change', update);
 

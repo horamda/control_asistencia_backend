@@ -1,0 +1,40 @@
+{% extends 'comunicados/layout.html' %}
+{% block comunicados_content %}
+{% if items %}
+  <div class="table-responsive table-cards">
+    <table>
+      <thead><tr><th>Fecha</th><th>Comunicado</th><th>Para</th><th>Leído</th><th></th></tr></thead>
+      <tbody>
+        {% for c in items %}
+          <tr>
+            <td data-label="Fecha">{{ c.creado_at.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td data-label="Comunicado">
+              <a href="{{ url_for('comunicados.detalle', comunicado_id=c.id) }}"><strong>{{ c.titulo }}</strong></a><br>
+              <small class="helper-text">{{ c.mensaje|truncate(110) }}</small>
+            </td>
+            <td data-label="Para">{{ c.alcance }}<br><small class="helper-text">{{ c.destinatarios }} empleado{{ '' if c.destinatarios == 1 else 's' }}</small></td>
+            <td data-label="Leído">
+              <span class="badge {{ 'ok' if c.leidos_pct >= 80 else ('warning' if c.leidos_pct >= 40 else 'neutral') }}">{{ c.leidos_pct }}%</span>
+              <small class="helper-text">{{ c.leidos }} de {{ c.destinatarios }}</small>
+            </td>
+            <td data-label=""><a class="btn btn-secondary" href="{{ url_for('comunicados.detalle', comunicado_id=c.id) }}">Ver</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if pages > 1 %}
+    <nav class="actions" aria-label="Páginas">
+      {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('comunicados.index', page=page - 1) }}">Anterior</a>{% endif %}
+      <span class="helper-text">Página {{ page }} de {{ pages }}</span>
+      {% if page < pages %}<a class="btn btn-secondary" href="{{ url_for('comunicados.index', page=page + 1) }}">Siguiente</a>{% endif %}
+    </nav>
+  {% endif %}
+{% else %}
+  <div class="epp-card epp-catalog-empty">
+    <h3>Todavía no enviaste comunicados</h3>
+    <p>Avisá un corte de luz, un cambio de uniforme o una novedad a toda la empresa, a un sector o a personas puntuales.</p>
+    {% if can_web('comunicados', 'crear') %}<a class="btn" href="{{ url_for('comunicados.nuevo') }}">Nuevo comunicado</a>{% endif %}
+  </div>
+{% endif %}
+{% endblock %}

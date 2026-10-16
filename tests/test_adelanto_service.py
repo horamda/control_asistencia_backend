@@ -167,3 +167,13 @@ def test_rechazar_adelanto_rechaza_estado_no_pendiente(monkeypatch):
 
     with pytest.raises(ValueError, match="rechazar"):
         adelanto_service.rechazar_adelanto(81)
+
+
+def test_aprobar_y_rechazar_avisan_por_push(monkeypatch):
+    avisados = []
+    monkeypatch.setattr(adelanto_service, "_require_record", lambda adelanto_id: {"id": adelanto_id, "estado": "pendiente"})
+    monkeypatch.setattr(adelanto_service, "update_estado", lambda *a, **kw: None)
+    monkeypatch.setattr(adelanto_service.avisos_push, "adelanto_resuelto", avisados.append)
+    adelanto_service.aprobar_adelanto(5, actor_id=1)
+    adelanto_service.rechazar_adelanto(6, actor_id=1)
+    assert avisados == [5, 6]

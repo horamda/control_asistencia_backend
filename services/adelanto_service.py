@@ -7,6 +7,7 @@ Regla principal:
 
 import datetime
 
+from services import avisos_push
 from repositories.adelanto_repository import create, get_by_empleado_periodo, get_by_id, update_estado
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 
@@ -94,6 +95,7 @@ def aprobar_adelanto(adelanto_id: int, *, actor_id: int | None = None) -> None:
             f"No se puede aprobar un adelanto en estado '{estado_actual}'."
         )
     update_estado(adelanto_id, "aprobado", resuelto_by_usuario_id=actor_id)
+    avisos_push.adelanto_resuelto(adelanto_id)
 
 
 def rechazar_adelanto(adelanto_id: int, *, actor_id: int | None = None) -> None:
@@ -104,3 +106,4 @@ def rechazar_adelanto(adelanto_id: int, *, actor_id: int | None = None) -> None:
             f"No se puede rechazar un adelanto en estado '{estado_actual}'."
         )
     update_estado(adelanto_id, "rechazado", resuelto_by_usuario_id=actor_id)
+    avisos_push.adelanto_resuelto(adelanto_id)

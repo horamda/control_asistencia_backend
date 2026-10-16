@@ -1,5 +1,5 @@
-"""Notificaciones push: envia la cola cada minuto y encola recordatorios de reuniones cada 5 minutos.
-Sin Firebase configurado los trabajos no hacen nada."""
+"""Notificaciones push: envia la cola cada minuto; cada 5 minutos encola los recordatorios de reuniones
+y los avisos de salida sin fichar. Sin Firebase configurado los trabajos no hacen nada."""
 
 import logging
 from datetime import datetime, timedelta
@@ -25,6 +25,14 @@ def recordar():
         logging.getLogger(__name__).exception("Error encolando recordatorios de reuniones")
 
 
+def salidas():
+    try:
+        from services.avisos_push import salidas_pendientes
+        salidas_pendientes()
+    except Exception:
+        logging.getLogger(__name__).exception("Error encolando avisos de salida pendiente")
+
+
 def init_push_scheduler(app):
     global _scheduler
     if _scheduler is not None:
@@ -34,6 +42,8 @@ def init_push_scheduler(app):
     inicio = datetime.now(zone) + timedelta(seconds=30)
     _scheduler.add_job(recordar, "interval", minutes=5, id="push_recordatorios", max_instances=1, coalesce=True,
                        next_run_time=inicio)
+    _scheduler.add_job(salidas, "interval", minutes=5, id="push_salidas", max_instances=1, coalesce=True,
+                       next_run_time=inicio + timedelta(seconds=5))
     _scheduler.add_job(enviar, "interval", minutes=1, id="push_cola", max_instances=1, coalesce=True,
                        next_run_time=inicio + timedelta(seconds=15))
     _scheduler.start()

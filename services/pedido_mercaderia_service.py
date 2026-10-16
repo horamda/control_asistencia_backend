@@ -1,6 +1,7 @@
 import datetime
 
 from repositories.articulo_catalogo_pedido_repository import get_by_ids as get_articulos_by_ids
+from services import avisos_push
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.pedido_mercaderia_repository import (
     create,
@@ -193,6 +194,7 @@ def aprobar_pedido(pedido_id: int, *, actor_id: int | None = None) -> None:
     if estado_actual != "pendiente":
         raise ValueError(f"No se puede aprobar un pedido en estado '{estado_actual}'.")
     update_estado(pedido_id, "aprobado", resuelto_by_usuario_id=actor_id)
+    avisos_push.pedido_mercaderia_resuelto(pedido_id)
 
 
 def rechazar_pedido(
@@ -211,3 +213,4 @@ def rechazar_pedido(
         resuelto_by_usuario_id=actor_id,
         motivo_rechazo=motivo_rechazo,
     )
+    avisos_push.pedido_mercaderia_resuelto(pedido_id)

@@ -1,3 +1,8 @@
+## 1.44.0 — 2026-10-16
+
+- Comunicados: `GET /comunicados` (bandeja con `no_leidos`), `GET /comunicados/{id}` (lo marca leído), `POST /comunicados/{id}/leido` y `POST /comunicados/leer-todos`. RR. HH. los envía desde el panel; llegan por push (`tipo: comunicado`). Guía: `comunicados_mobile.md`.
+- Push, tipos nuevos (aditivos; un tipo desconocido se ignora): `salida_pendiente` (jornada abierta 30 min después de la salida prevista), `epp_resuelto`, `epp_entregado`, `reintegro` (aprobada, rechazada, devuelta, pagada), `reintegro_recordatorio` (día 5), `adelanto` y `pedido_mercaderia` (aprobado o rechazado). Cada uno trae `ruta` y el id del registro. Guía: `push_mobile.md`.
+
 ## 1.43.1 — 2026-10-16
 
 - Notificaciones push **activas en producción**: Firebase configurado (proyecto `fichaya-917d5`). `GET /push/config` devuelve `activo: true`, la configuración web y la clave VAPID; el servidor ya envía avisos de reuniones y el recordatorio de 30 min. Sin cambios de rutas ni campos. OpenAPI: se documentan `GET /push/config` y `POST`/`DELETE /push/dispositivo`. La app debe registrar el token y, con push activo, dejar de programar el recordatorio local de 30 min. Guía: `push_mobile.md`.

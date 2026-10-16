@@ -1,0 +1,107 @@
+{% extends 'comunicados/layout.html' %}
+{% block comunicados_content %}
+<section class="epp-card epp-editor">
+  <header class="epp-section-heading">
+    <div>
+      <h3>Nuevo comunicado</h3>
+      <p>Escribí el mensaje y elegí a quién le llega. Se envía en el momento: no se puede editar después.</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('comunicados.index') }}">Cancelar</a>
+  </header>
+
+  <form method="post" class="epp-catalog-form reu-form" data-reu-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <fieldset class="epp-fieldset">
+      <legend>Mensaje</legend>
+      <div class="epp-fields">
+        <label class="epp-full">Título<input name="titulo" required maxlength="120" value="{{ v.titulo or '' }}" placeholder="Ej.: Corte de luz el jueves"></label>
+        <label class="epp-full">Mensaje<textarea name="mensaje" required maxlength="2000" rows="5" aria-describedby="com-mensaje-help" placeholder="Qué pasa, cuándo y qué tiene que hacer cada uno…">{{ v.mensaje or '' }}</textarea>
+          <small id="com-mensaje-help">La notificación muestra el comienzo; el texto completo queda en la bandeja de la app.</small>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="epp-fieldset reu-section">
+      <legend>Sucursales</legend>
+      <p class="helper-text">Opcional: marcá sucursales para que solo les llegue a sus empleados. Sin marcar ninguna: todas.</p>
+      {% if sucursales %}
+        <div class="epp-sector-grid">
+          {% for su in sucursales %}
+            <div class="epp-sector reu-sede" data-reu-sede>
+              <label class="epp-sector-all">
+                <input type="checkbox" name="sede" value="{{ su.id }}" data-reu-sede-check {{ 'checked' if su.sede }}>
+                <span><strong>{{ su.nombre }}</strong> <small>{{ su.empleados }} empleado{{ '' if su.empleados == 1 else 's' }}</small></span>
+              </label>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="helper-text">La empresa no tiene sucursales cargadas.</p>
+      {% endif %}
+    </fieldset>
+
+    <fieldset class="epp-fieldset epp-eligibility" data-reu-participantes data-reu-verbo="Llega a"
+              data-reu-vacio="Todavía no le llega a nadie. Elegí toda la empresa, sectores, puestos o personas.">
+      <legend>Destinatarios</legend>
+      <p>Elegí toda la empresa, sectores o puestos y/o personas puntuales. Cuenta el puesto principal y los puestos adicionales.</p>
+      <p class="epp-coverage" data-reu-coverage role="status" aria-live="polite"></p>
+      <label class="reu-todos"><input type="checkbox" name="regla" value="todos" data-reu-todos {{ 'checked' if todos }}><span><strong>Toda la empresa</strong> <small>{{ cobertura|length }} empleados activos</small></span></label>
+
+      <div class="epp-sector-grid" data-reu-reglas>
+        {% for sector in eligibility.sectores %}
+          <div class="epp-sector" data-epp-sector>
+            <label class="epp-sector-all">
+              <input type="checkbox" name="regla" value="{{ sector.id }}" data-epp-sector-all {% if sector.todo %}checked{% endif %}>
+              <span><strong>{{ sector.nombre }}</strong> <small>todo el sector · {{ sector.empleados }} empleado{{ '' if sector.empleados == 1 else 's' }}</small></span>
+            </label>
+            {% if sector.puestos %}
+              <div class="epp-sector-puestos">
+                {% for puesto in sector.puestos %}
+                  <label class="{{ 'epp-sin-empleados' if not puesto.empleados }}">
+                    <input type="checkbox" name="regla" value="{{ sector.id }}:{{ puesto.id }}" {% if puesto.marcado %}checked{% endif %}>
+                    <span>{{ puesto.nombre }} <small>{{ puesto.empleados if puesto.empleados else 'sin empleados' }}</small></span>
+                  </label>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+        {% if eligibility.cualquier_sector %}
+          <div class="epp-sector">
+            <span class="epp-sector-all"><strong>Puesto en cualquier sector</strong></span>
+            <div class="epp-sector-puestos">
+              {% for puesto in eligibility.cualquier_sector %}
+                <label><input type="checkbox" name="regla" value=":{{ puesto.id }}" checked><span>{{ puesto.nombre }}</span></label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="reu-people" data-reu-personas>
+        <div class="reu-people-head">
+          <strong>Personas puntuales</strong>
+          <span data-reu-personas-count></span>
+        </div>
+        <label class="reu-people-search">Buscar empleado<input type="search" data-reu-buscar placeholder="Apellido, nombre, legajo o sector" autocomplete="off"></label>
+        <div class="reu-people-list">
+          {% for e in empleados %}
+            <label data-reu-persona data-texto="{{ (e.apellido ~ ' ' ~ e.nombre ~ ' ' ~ (e.legajo or '') ~ ' ' ~ (e.sector_nombre or ''))|lower }}">
+              <input type="checkbox" name="empleado" value="{{ e.id }}" {{ 'checked' if e.id in marcados }}>
+              <span>{{ e.apellido }} {{ e.nombre }} <small>{{ e.legajo or '' }}{% if e.sector_nombre %} · {{ e.sector_nombre }}{% endif %}</small></span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+      <script type="application/json" data-reu-coverage-data>{{ cobertura | tojson }}</script>
+    </fieldset>
+
+    <footer class="epp-form-footer">
+      <span>Les llega como notificación a quien tenga la app con avisos activados, y a todos en la bandeja de Comunicados.</span>
+      <button class="btn" type="submit" data-reu-enviar data-confirm="¿Enviar el comunicado?">Enviar comunicado</button>
+    </footer>
+  </form>
+</section>
+<script src="{{ url_for('static', filename='js/reuniones.js') }}" defer></script>
+{% endblock %}

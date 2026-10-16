@@ -516,3 +516,14 @@ def test_admin_manager_can_only_create_for_direct_reports():
     assert s.detail(OWNER, rid)["estado"] == "pendiente"
     with pytest.raises(s.Error):
         s.store(employee(10), payload(), photos(), web_actor=BOSS)
+
+
+def test_avisos_push_en_revision_y_pago(monkeypatch):
+    avisados = []
+    monkeypatch.setattr(s.avisos_push, "reintegro_actualizado", avisados.append)
+    rid = create()
+    assert avisados == []  # enviar la rendicion no avisa al propio empleado
+    resolve(rid)
+    s.transition(HR, rid, dict(accion="pagar", revision=2, fecha_pago=str(s.now_local().date()),
+                               referencia_pago="Transferencia 9"))
+    assert avisados == [rid, rid]  # aprobada y pagada

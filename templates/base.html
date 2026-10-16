@@ -154,7 +154,7 @@
             </div>
             {% endif %}
 
-            {% if (can_web("empleados") or can_web("legajos")) or (can_web("pedidos_empleados")) or (can_web("reintegros")) or (can_web('seguridad_higiene') or can_web('epp')) or (can_web('validacion_carga')) %}<div class="nav-label nav-section-label">Personal</div>{% endif %}
+            {% if (can_web("empleados") or can_web("legajos")) or (can_web("comunicados")) or (can_web("pedidos_empleados")) or (can_web("reintegros")) or (can_web('seguridad_higiene') or can_web('epp')) or (can_web('validacion_carga')) %}<div class="nav-label nav-section-label">Personal</div>{% endif %}
 
             {% if can_web("empleados") or can_web("legajos") %}
               <div class="nav-group" data-collapsible="1">
@@ -174,6 +174,22 @@
                     <a class="nav-link" href="/legajos/tipos-evento/">Tipos evento legajo</a>
                     <a class="nav-link" href="/legajos/permisos-mobile">Permisos mobile legajo</a>
                   {% endif %}
+                </div>
+              </div>
+            {% endif %}
+
+            {% if can_web("comunicados") %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-comunicados">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 8a5 5 0 0 1 0 8"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+                    <span class="nav-label">Comunicados</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-comunicados">
+                  <a class="nav-link" href="/comunicados/">Enviados</a>
+                  {% if can_web("comunicados", "crear") %}<a class="nav-link" href="/comunicados/nuevo">Nuevo comunicado</a>{% endif %}
                 </div>
               </div>
             {% endif %}

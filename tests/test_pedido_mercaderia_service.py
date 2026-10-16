@@ -264,3 +264,13 @@ def test_rechazar_pedido_desde_pendiente(monkeypatch):
         "actor_id": 7,
         "motivo_rechazo": "Sin stock",
     }
+
+
+def test_aprobar_y_rechazar_avisan_por_push(monkeypatch):
+    avisados = []
+    monkeypatch.setattr(pedido_service, "_require_record", lambda pedido_id: {"id": pedido_id, "estado": "pendiente"})
+    monkeypatch.setattr(pedido_service, "update_estado", lambda *a, **kw: None)
+    monkeypatch.setattr(pedido_service.avisos_push, "pedido_mercaderia_resuelto", avisados.append)
+    pedido_service.aprobar_pedido(7, actor_id=1)
+    pedido_service.rechazar_pedido(8, actor_id=1, motivo_rechazo="Sin stock")
+    assert avisados == [7, 8]

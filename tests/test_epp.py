@@ -401,3 +401,18 @@ def test_habilitaciones_respect_sector_puesto_pairs_and_additional_positions(sch
     guardado = next(a for a in s.catalogs(ADMIN) if a["id"] == aid)
     assert guardado["habilitaciones"] == [{"p": None, "s": 1}]
     assert guardado["sectores"] == [1] and guardado["puestos"] == []
+
+
+def test_avisos_push_al_resolver_y_entregar(schema, monkeypatch):
+    llamadas = []
+    monkeypatch.setattr(s.avisos_push, "epp_resuelto", lambda pid: llamadas.append(("resuelto", pid)))
+    monkeypatch.setattr(s.avisos_push, "epp_entregado", lambda pid, did: llamadas.append(("entregado", pid, did)))
+    pid = order(schema)
+    assert llamadas == []  # crear el pedido no avisa al empleado
+    approve(pid)
+    did, _ = s.deliver(ADMIN, pid, delivery(pid))
+    assert llamadas == [("resuelto", pid), ("entregado", pid, did)]
+    otro = order(schema)
+    row = s.detail(OWNER, otro)
+    s.action(OWNER, otro, dict(accion="cancelar", revision=row["revision"], motivo="Ya no lo necesito"))
+    assert len(llamadas) == 2  # la cancelacion del propio empleado no genera aviso

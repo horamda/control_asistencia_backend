@@ -118,6 +118,7 @@ _PATH_MODULES = [
     ("/justificaciones/", "justificaciones"),
     ("/qr-puerta/", "qr_puerta"),
     ("/reuniones/", "reuniones"),
+    ("/comunicados/", "comunicados"),
     ("/notificaciones-push/", "configuracion"),
     ("/francos/", "francos"),
     ("/vacaciones/", "vacaciones"),

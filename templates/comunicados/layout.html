@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Comunicados{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/epp.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reuniones.css') }}">
+{% endblock %}
+{% block content %}
+<div class="content-stack epp-page reu-page">
+  <header>
+    <h2>Comunicados</h2>
+    <p>Mensajes a los empleados: llegan como notificación a la app y quedan en su bandeja. Ves quién lo leyó.</p>
+  </header>
+  <nav class="actions" aria-label="Comunicados">
+    <a class="btn btn-secondary" href="{{ url_for('comunicados.index') }}">Enviados</a>
+    {% if can_web('comunicados', 'crear') %}<a class="btn" href="{{ url_for('comunicados.nuevo') }}">Nuevo comunicado</a>{% endif %}
+  </nav>
+  {% block comunicados_content %}{% endblock %}
+</div>
+{% endblock %}

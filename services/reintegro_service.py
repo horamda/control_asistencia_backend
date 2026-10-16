@@ -7,6 +7,7 @@ from decimal import Decimal
 from datetime import timedelta
 from uuid import UUID
 from repositories import carga_repository as db
+from services import avisos_push
 from services import reintegro_monthly_service as monthly
 from services.carga_service import (
     CargaError as Error,
@@ -745,3 +746,5 @@ def transition(actor, rid, data):
             user=actor.get("user_id"),
             employee=actor.get("empleado_id"),
         )
+    if state in ("aprobada", "rechazada", "devuelta", "pagada"):
+        avisos_push.reintegro_actualizado(rid)

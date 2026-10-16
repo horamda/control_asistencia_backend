@@ -4,6 +4,7 @@ import hashlib
 import json
 from uuid import UUID
 from repositories import carga_repository as db
+from services import avisos_push
 from services.carga_service import (
     CargaError as Error,
     now_local,
@@ -526,6 +527,8 @@ def action(who, pid, data):
             (state, pid),
         )
         audit(c, who, action, data, pid)
+    if action == "resolver":
+        avisos_push.epp_resuelto(pid)
 
 
 def deliver(who, pid, data):
@@ -621,6 +624,7 @@ def deliver(who, pid, data):
             ("parcial" if remaining else "entregado", pid),
         )
         audit(c, who, "entregar", dict(entrega_id=did, **data), pid)
+    avisos_push.epp_entregado(pid, did)
     return did, True
 
 

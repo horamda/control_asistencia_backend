@@ -1,6 +1,6 @@
 # Notificaciones push — contrato para Flutter (Android) y la app web
 
-Versión de contrato: 1.43.1 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
+Versión de contrato: 1.44.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
 
 El backend envía los avisos; la app solo tiene que registrar su token y abrir la pantalla correcta al tocar
 la notificación. Si Firebase no está configurado en el servidor, `GET /push/config` devuelve `activo: false`
@@ -97,10 +97,23 @@ Todos traen `notification` (título y texto listos para mostrar) y `data` con st
 | `reunion_horario` | Cambió el horario de una fecha | `reunion_id`, `fecha`, `ruta` |
 | `recordatorio` | 30 min antes, si todavía no registró | `reunion_id`, `fecha`, `ruta` |
 | `prueba` | Botón "Enviar prueba" del panel | `ruta` |
+| `salida_pendiente` (1.44.0) | La jornada de hoy sigue abierta 30 min después de la salida prevista (una vez por jornada) | `asistencia_id`, `fecha`, `ruta` = `/asistencia` |
+| `epp_resuelto` (1.44.0) | Pedido de EPP aprobado, aprobado con menos unidades o rechazado | `pedido_id`, `estado`, `ruta` = `/epp/{id}` |
+| `epp_entregado` (1.44.0) | Entrega parcial o completa registrada | `pedido_id`, `estado` (`parcial`/`entregado`), `ruta` = `/epp/{id}` |
+| `reintegro` (1.44.0) | Rendición de viáticos aprobada, rechazada, devuelta para corregir o pagada | `solicitud_id`, `estado`, `ruta` = `/reintegros/{id}` |
+| `reintegro_recordatorio` (1.44.0) | Día 5: completar los viáticos del mes anterior (mismo texto que `/reintegros/recordatorios`) | `periodo`, `ruta` = `/reintegros` |
+| `adelanto` (1.44.0) | Adelanto aprobado o rechazado | `adelanto_id`, `estado`, `ruta` = `/adelantos` |
+| `pedido_mercaderia` (1.44.0) | Pedido de mercadería aprobado o rechazado | `pedido_id`, `estado`, `ruta` = `/pedidos-mercaderia` |
+| `comunicado` (1.44.0) | Comunicado enviado desde el panel | `comunicado_id`, `ruta` = `/comunicados/{id}` |
 
-- `ruta` es la pantalla a abrir (`/reuniones/{id}`). Al tocar la notificación: navegar a esa ruta
-  (`onMessageOpenedApp` y `getInitialMessage`).
-- Con la app abierta (`onMessage`), mostrar un aviso dentro de la app y refrescar `/reuniones/proximas`.
+- `ruta` identifica la pantalla a abrir; la app la traduce a su navegación (no hace falta que exista como ruta
+  con nombre). Al tocar la notificación: navegar a esa pantalla (`onMessageOpenedApp` y `getInitialMessage`).
+  En la web, `FRONTEND_WEB_URL + ruta` es la URL que abre el navegador.
+- Sugerencia de pantallas: `/asistencia` → inicio/fichada; `/epp/{id}` → detalle del pedido de EPP;
+  `/reintegros/{id}` → detalle de la rendición; `/adelantos` y `/pedidos-mercaderia` → sus listados;
+  `/comunicados/{id}` → el comunicado (abrirlo con `GET /comunicados/{id}`, que lo marca leído).
+- Con la app abierta (`onMessage`), mostrar un aviso dentro de la app y refrescar la pantalla afectada
+  (`/reuniones/proximas`, la bandeja de comunicados, el pedido, etc.).
 - Un `tipo` desconocido se ignora sin error (pueden sumarse tipos nuevos).
 
 ## Recordatorios: push y avisos locales

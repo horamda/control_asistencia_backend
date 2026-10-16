@@ -3,6 +3,7 @@
 import re
 from datetime import date, timedelta
 from repositories import carga_repository as db
+from services import avisos_push
 from services.carga_service import CargaError as Error, now_local, positive_int
 
 
@@ -173,7 +174,9 @@ def generate_reminders():
             WHERE e.activo=1 AND (r.id IS NULL OR r.estado IN ('borrador','devuelta'))""",
             (month, message, now, month),
         )
-        return c.rowcount
+        creados = c.rowcount
+    avisos_push.recordatorio_viaticos(month, message)
+    return creados
 
 
 def reminders(employee):

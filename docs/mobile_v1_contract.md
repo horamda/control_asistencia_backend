@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.43.1
+Version de contrato: 1.44.0
+
+- **Comunicados y más avisos push (1.44.0):** bandeja de comunicados del panel en `/comunicados` (ver [contrato](comunicados_mobile.md)) y avisos push nuevos: salida sin fichar, EPP, viáticos, adelantos y pedidos de mercadería resueltos, recordatorio de viáticos del día 5. Ver [tipos de aviso](push_mobile.md#contenido-de-cada-aviso).
 
 - **Push activo en producción (1.43.1):** Firebase configurado; `GET /push/config` ya devuelve `activo: true`. La app tiene que registrar el token (`POST /push/dispositivo`) y no duplicar el recordatorio local de 30 min. Ver [contrato push](push_mobile.md#estado-1431-activo-en-producción).
 

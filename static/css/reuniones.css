@@ -73,3 +73,6 @@
   .epp-page .reu-qr-img{width:12cm}
   .reu-no-print{display:none}
 }
+
+/* Comunicados: el mensaje respeta los saltos de linea que escribio RR. HH. */
+.com-mensaje { margin: 0; white-space: pre-line; line-height: 1.55; }

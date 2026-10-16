@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.43.1
+  version: 1.44.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.44.0: Comunicados (/comunicados, bandeja y lectura) y tipos push nuevos (salida_pendiente, epp_resuelto, epp_entregado, reintegro, reintegro_recordatorio, adelanto, pedido_mercaderia, comunicado); ver comunicados_mobile.md y push_mobile.md.
     Version 1.43.1: push activo en produccion (Firebase fichaya-917d5); se documentan /push/config y /push/dispositivo.
     Version 1.43.0: notificaciones push (Android y web) en /push; ver push_mobile.md.
     Version 1.42.0: Reuniones superpuestas (superpuesta_con en /reuniones/proximas; ausencia justificada si asistio a la otra).
@@ -2234,6 +2235,27 @@ components:
       properties:
         error:
           type: string
+
+    Comunicado:
+      type: object
+      properties:
+        id: {type: integer}
+        titulo: {type: string}
+        mensaje: {type: string, description: Texto plano con saltos de linea (hasta 2000).}
+        fecha: {type: string, format: date-time, description: Envio (hora Argentina).}
+        leido: {type: boolean}
+        leido_at: {type: string, format: date-time, nullable: true}
+    ComunicadosPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comunicado'
+        no_leidos: {type: integer}
+        total: {type: integer}
+        page: {type: integer}
+        pages: {type: integer}
 
     PushConfig:
       type: object
@@ -7395,6 +7417,114 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       tags:
       - Push
+
+  /comunicados:
+    get:
+      summary: Bandeja de comunicados del empleado
+      description: 20 por pagina, el mas nuevo primero. `no_leidos` sirve para el badge. Ver comunicados_mobile.md.
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+      responses:
+        '200':
+          description: Respuesta exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComunicadosPage'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Comunicados
+  /comunicados/{comunicado_id}:
+    get:
+      summary: Ver un comunicado (lo marca como leido)
+      parameters:
+      - name: comunicado_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Comunicado; `leido` queda en true.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comunicado'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No existe, se quito o no era para este empleado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Comunicados
+  /comunicados/{comunicado_id}/leido:
+    post:
+      summary: Marcar un comunicado como leido sin abrirlo
+      parameters:
+      - name: comunicado_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Comunicado marcado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comunicado'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No existe, se quito o no era para este empleado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Comunicados
+  /comunicados/leer-todos:
+    post:
+      summary: Marcar todos los comunicados como leidos
+      responses:
+        '200':
+          description: Cantidad marcada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  marcados:
+                    type: integer
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Comunicados
 
   /empleados/imagen/{dni}:
     servers:
