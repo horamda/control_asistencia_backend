@@ -54,6 +54,11 @@
 :root[data-theme="dark"] .app-sidebar .nav-group-safety > .nav-group-toggle {background:#3a3b3c}
 :root[data-theme="dark"] .app-sidebar .nav-group-safety.open > .nav-group-toggle {background:#263951}
 
+/* Subtitulos dentro de un submenu (p. ej. "Ropa y EPP" en Seguridad e Higiene): usaban --muted del
+   contenido, ilegible sobre el azul del menu. */
+.app-sidebar .nav-submenu .nav-module-heading {color:#fff;border-top-color:rgba(255,255,255,.3)}
+:root[data-theme="dark"] .app-sidebar .nav-submenu .nav-module-heading {color:#b0b3b8;border-top-color:#3e4042}
+
 /* Titulos de seccion del menu (Operacion diaria, Personal, Gestion, Configuracion). */
 .app-sidebar .nav-section-label {display:block;margin:14px 4px 4px;padding-top:12px;border-top:1px solid rgba(255,255,255,.25);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
 .app-sidebar .nav-section-label[hidden] {display:none}
