@@ -1,9 +1,12 @@
 """Comunicados: envio desde el panel (aviso push + bandeja en la app) y API del empleado."""
 
+import logging
+
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, session, url_for
 from mysql.connector import ProgrammingError
 
 from routes.carga_routes import employee, private_photo
+from services import avisos_push
 from services import comunicado_programado_service as programados
 from services import comunicado_service as s
 from services import push_reglas_service as reglas_push
@@ -13,6 +16,7 @@ from web.auth.decorators import _cached_web_user, permission_required
 # Mismo selector de destinatarios que Reuniones (sucursales, sectores/puestos y personas).
 from web.reuniones.routes import _form_context as _contexto_destinatarios
 
+logger = logging.getLogger(__name__)
 web = Blueprint("comunicados", __name__, url_prefix="/comunicados")
 mobile = Blueprint("comunicados_mobile", __name__, url_prefix="/api/v1/mobile/comunicados")
 
@@ -129,7 +133,16 @@ def configuracion():
         log_audit(session, "push_reglas_guardar", "push_reglas", actor["empresa_id"])
         flash("Configuración de avisos guardada. Rige para los avisos nuevos.", "success")
         return redirect(url_for("comunicados.configuracion"))
-    return render_template("comunicados/configuracion.html", **reglas_push.vista(actor))
+    return render_template("comunicados/configuracion.html", cobertura=_cobertura(actor), **reglas_push.vista(actor))
+
+
+def _cobertura(actor):
+    """La revision de «¿Llegan los avisos?» es informativa: si falla, la configuracion se muestra igual."""
+    try:
+        return avisos_push.cobertura(actor["empresa_id"])
+    except Exception:
+        logger.warning("cobertura_avisos_error", exc_info=True)
+        return None
 
 
 @web.route("/nuevo", methods=["GET", "POST"])

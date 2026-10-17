@@ -371,6 +371,71 @@ def destinatarios_revision(c, empresa_id, modulo, solicitante_id, destinatarios)
     return sorted(ids)
 
 
+# --- Para el panel: a quien no le pueden llegar los avisos de solicitudes ------------------------------
+
+_MODULOS_REVISION = {"justificaciones": "Justificaciones", "vacaciones": "Vacaciones", "pedidos_empleados": "Pedidos",
+                     "reintegros": "Viáticos", "epp": "EPP", "seguridad_higiene": "Seguridad e Higiene"}
+
+
+def _con_app(c, empleado_ids):
+    """Empleados con al menos un dispositivo activo (la app instalada y la sesion iniciada)."""
+    ids = sorted({int(i) for i in empleado_ids if i})
+    if not ids:
+        return set()
+    marcas = ",".join(["%s"] * len(ids))
+    filas = db.all_rows(c, f"SELECT DISTINCT empleado_id FROM push_dispositivos WHERE activo = 1 AND empleado_id IN ({marcas})",
+                        tuple(ids))
+    return {int(f["empleado_id"]) for f in filas}
+
+
+def cobertura(empresa_id):
+    """Revision de los datos que usan los avisos de solicitudes, con lo mismo que usa destinatarios_revision:
+    el «Reporta a» de cada empleado, los dispositivos registrados y los usuarios del panel que pueden aprobar."""
+    from web.auth.decorators import can_access_module  # import tardio: la capa web importa servicios
+
+    with db.transaction(read_only=True) as c:
+        empleados = db.all_rows(c, """SELECT e.id, e.apellido, e.nombre, e.legajo, e.reporta_a_empleado_id AS jefe_id,
+                                             j.apellido AS jefe_apellido, j.nombre AS jefe_nombre, j.activo AS jefe_activo
+                                      FROM empleados e LEFT JOIN empleados j ON j.id = e.reporta_a_empleado_id
+                                      WHERE e.empresa_id = %s AND e.activo = 1
+                                      ORDER BY e.apellido, e.nombre""", (empresa_id,))
+        usuarios = db.all_rows(c, """SELECT u.id, u.usuario, u.rol, u.empleado_id, e.apellido, e.nombre,
+                                            e.activo AS empleado_activo
+                                     FROM usuarios u LEFT JOIN empleados e ON e.id = u.empleado_id
+                                     WHERE u.activo = 1 AND u.empresa_id = %s
+                                     ORDER BY u.usuario""", (empresa_id,))
+        jefes = {}
+        sin_jefe = []
+        for e in empleados:
+            if e["jefe_id"] and e["jefe_activo"]:
+                jefe = jefes.setdefault(int(e["jefe_id"]), dict(
+                    id=int(e["jefe_id"]), nombre=f"{e['jefe_apellido']} {e['jefe_nombre']}".strip(), a_cargo=0))
+                jefe["a_cargo"] += 1
+            else:
+                sin_jefe.append(dict(id=e["id"], nombre=_nombre(e), legajo=e["legajo"],
+                                     motivo="El jefe asignado está inactivo" if e["jefe_id"] else None))
+        aprobadores = []
+        for u in usuarios:
+            modulos = [nombre for modulo, nombre in _MODULOS_REVISION.items() if can_access_module(u["id"], modulo, "aprobar")]
+            if modulos:
+                vinculado = bool(u["empleado_id"] and u["empleado_activo"])
+                aprobadores.append(dict(id=u["id"], usuario=u["usuario"], rol=u["rol"], modulos=modulos,
+                                        empleado_id=u["empleado_id"] if vinculado else None,
+                                        empleado=_nombre(u) if vinculado else None,
+                                        motivo="El empleado vinculado está inactivo" if u["empleado_id"] and not vinculado else None))
+        con_app = _con_app(c, list(jefes) + [a["empleado_id"] for a in aprobadores])
+    vinculados = [a for a in aprobadores if a["empleado_id"]]
+    return dict(
+        empleados=len(empleados),
+        sin_jefe=sin_jefe,
+        jefes=len(jefes),
+        jefes_sin_app=sorted((j for j in jefes.values() if j["id"] not in con_app), key=lambda j: j["nombre"]),
+        aprobadores=len(aprobadores),
+        sin_vincular=[a for a in aprobadores if not a["empleado_id"]],
+        aprobadores_sin_app=[a for a in vinculados if a["empleado_id"] not in con_app],
+    )
+
+
 def _para_revisar(modulo, fila, titulo, cuerpo, clave):
     clave_regla = f"revision:{modulo}"
     regla = reglas_push.regla(fila["empresa_id"], clave_regla)

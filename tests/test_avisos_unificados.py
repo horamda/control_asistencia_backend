@@ -256,3 +256,50 @@ def test_sin_revisores_no_encola(revisores, monkeypatch):
     estado["fila"] = dict(id=3, empresa_id=1, empleado_id=10, apellido="Perez", nombre="Ana", estado="pendiente",
                           periodo_month=10)
     assert avisos.revision_adelanto(3) == 0 and encolados == []
+
+
+# --- ¿Llegan los avisos? (Configuracion de avisos) ---------------------------------------------------
+
+def test_cobertura_detecta_sin_jefe_sin_app_y_sin_vincular(monkeypatch):
+    import web.auth.decorators as auth
+
+    @contextmanager
+    def transaction(read_only=False):
+        yield None
+
+    empleados = [
+        dict(id=10, apellido="Perez", nombre="Ana", legajo="10", jefe_id=50, jefe_apellido="Gomez", jefe_nombre="Luis", jefe_activo=1),
+        dict(id=11, apellido="Ruiz", nombre="Eva", legajo="11", jefe_id=50, jefe_apellido="Gomez", jefe_nombre="Luis", jefe_activo=1),
+        dict(id=12, apellido="Sosa", nombre="Juan", legajo="12", jefe_id=None, jefe_apellido=None, jefe_nombre=None, jefe_activo=None),
+        dict(id=13, apellido="Diaz", nombre="Mia", legajo="13", jefe_id=60, jefe_apellido="Baja", jefe_nombre="Ex", jefe_activo=0),
+        dict(id=50, apellido="Gomez", nombre="Luis", legajo="50", jefe_id=70, jefe_apellido="Lopez", jefe_nombre="Sara", jefe_activo=1),
+    ]
+    usuarios = [
+        dict(id=1, usuario="rrhh", rol="rrhh", empleado_id=None, apellido=None, nombre=None, empleado_activo=None),
+        dict(id=2, usuario="seguridad", rol="supervisor", empleado_id=70, apellido="Lopez", nombre="Sara", empleado_activo=1),
+        dict(id=3, usuario="consulta", rol="supervisor", empleado_id=None, apellido=None, nombre=None, empleado_activo=None),
+    ]
+    consultas = []
+
+    def all_rows(c, sql, args):
+        consultas.append(args)
+        if "FROM empleados e" in sql:
+            return empleados
+        if "FROM usuarios u" in sql:
+            return usuarios
+        return [{"empleado_id": 70}]  # solo Sara tiene la app
+
+    monkeypatch.setattr(avisos.db, "transaction", transaction)
+    monkeypatch.setattr(avisos.db, "all_rows", all_rows)
+    permisos = {1: {"justificaciones", "vacaciones"}, 2: {"seguridad_higiene"}, 3: set()}
+    monkeypatch.setattr(auth, "can_access_module", lambda uid, modulo, accion: accion == "aprobar" and modulo in permisos[uid])
+
+    r = avisos.cobertura(1)
+
+    assert r["empleados"] == 5 and r["jefes"] == 2
+    assert [(f["nombre"], f["motivo"]) for f in r["sin_jefe"]] == [("Sosa Juan", None), ("Diaz Mia", "El jefe asignado está inactivo")]
+    assert [(j["nombre"], j["a_cargo"]) for j in r["jefes_sin_app"]] == [("Gomez Luis", 2)]
+    assert r["aprobadores"] == 2  # "consulta" no aprueba nada: no cuenta
+    assert [(u["usuario"], u["modulos"]) for u in r["sin_vincular"]] == [("rrhh", ["Justificaciones", "Vacaciones"])]
+    assert r["aprobadores_sin_app"] == []
+    assert consultas[-1] == (50, 70)  # dispositivos: solo de jefes y aprobadores vinculados

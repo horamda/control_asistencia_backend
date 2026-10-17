@@ -1,5 +1,73 @@
 {% extends 'comunicados/layout.html' %}
 {% block comunicados_content %}
+{#- Revision de los datos que usan los avisos de solicitudes (services/avisos_push.cobertura). -#}
+{% macro cob_item(cantidad, titulo, detalle, ok_texto, ok_detalle, filas, enlace, accion) %}
+  {#- enlace: 'empleado' (ficha del empleado) o 'usuario' (Usuarios panel). -#}
+  {% if cantidad %}
+    <details class="com-cob-item is-warn">
+      <summary>
+        <span class="com-cob-num">{{ cantidad }}</span>
+        <span class="com-cob-text"><strong>{{ titulo }}</strong><small>{{ detalle }}</small></span>
+      </summary>
+      <ul class="com-cob-list">
+        {% for f in filas[:100] %}
+          <li>
+            <span>{{ caller(f) }}</span>
+            <a class="btn btn-sm btn-secondary" href="{{ url_for('empleados.editar', emp_id=f.id) if enlace == 'empleado' else url_for('usuarios.editar', user_id=f.id) }}">{{ accion }}</a>
+          </li>
+        {% endfor %}
+        {% if filas|length > 100 %}<li class="com-cob-more">Y {{ filas|length - 100 }} más.</li>{% endif %}
+      </ul>
+    </details>
+  {% else %}
+    <div class="com-cob-item is-ok">
+      <span class="com-cob-num" aria-hidden="true">✓</span>
+      <span class="com-cob-text"><strong>{{ ok_texto }}</strong><small>{{ ok_detalle }}</small></span>
+    </div>
+  {% endif %}
+{% endmacro %}
+
+{% if cobertura %}
+  <section class="epp-card com-cobertura">
+    <header class="epp-section-heading">
+      <div>
+        <h3>¿Llegan los avisos?</h3>
+        <p>Revisión de los datos que usan los avisos de solicitudes: el jefe directo de cada empleado, la app instalada y los usuarios de RR. HH. y Seguridad vinculados a su empleado. Se calcula al abrir esta página.</p>
+      </div>
+    </header>
+    <div class="com-cob-grid">
+      {% call(f) cob_item(cobertura.sin_jefe|length, "Empleados sin jefe directo",
+            "De " ~ cobertura.empleados ~ " activos. Sus solicitudes no le avisan a ningún jefe. Si es la cabeza de la empresa, está bien que no tenga.",
+            "Todos los empleados tienen jefe directo",
+            cobertura.empleados ~ " empleados activos con su «Reporta a» cargado.", cobertura.sin_jefe,
+            'empleado', "Asignar jefe") -%}
+        {{ f.nombre }}{% if f.legajo %} · Legajo {{ f.legajo }}{% endif %}{% if f.motivo %} <em>({{ f.motivo }})</em>{% endif %}
+      {%- endcall %}
+      {% call(f) cob_item(cobertura.jefes_sin_app|length, "Jefes sin la app",
+            "De " ~ cobertura.jefes ~ " jefes directos. No tienen la app FichaYa instalada con su sesión iniciada: no les llega ningún aviso.",
+            "Todos los jefes tienen la app",
+            cobertura.jefes ~ " jefes directos con la app FichaYa y la sesión iniciada.", cobertura.jefes_sin_app,
+            'empleado', "Ver ficha") -%}
+        {{ f.nombre }} · {{ f.a_cargo }} a cargo
+      {%- endcall %}
+      {% call(f) cob_item(cobertura.sin_vincular|length, "Usuarios que aprueban sin empleado vinculado",
+            "De " ~ cobertura.aprobadores ~ " usuarios del panel que pueden aprobar solicitudes. Sin empleado vinculado, los avisos «para revisar» no les llegan.",
+            "Todos los usuarios que aprueban están vinculados",
+            cobertura.aprobadores ~ " usuarios del panel que pueden aprobar, cada uno con su empleado.", cobertura.sin_vincular,
+            'usuario', "Vincular") -%}
+        {{ f.usuario }} · {{ f.modulos|join(", ") }}{% if f.motivo %} <em>({{ f.motivo }})</em>{% endif %}
+      {%- endcall %}
+      {% call(f) cob_item(cobertura.aprobadores_sin_app|length, "Usuarios que aprueban sin la app",
+            "Están vinculados, pero su empleado no tiene la app FichaYa con la sesión iniciada.",
+            "Todos los usuarios vinculados tienen la app",
+            "A RR. HH. y Seguridad les llegan los avisos «para revisar» en la app de su empleado.", cobertura.aprobadores_sin_app,
+            'usuario', "Ver usuario") -%}
+        {{ f.usuario }} → {{ f.empleado }}
+      {%- endcall %}
+    </div>
+  </section>
+{% endif %}
+
 <form method="post" class="epp-catalog-form com-config">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 

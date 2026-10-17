@@ -153,6 +153,32 @@
 
 /* Configuracion de avisos */
 .com-config { display: grid; gap: 16px; }
+/* ¿Llegan los avisos? (Configuracion de avisos) */
+.com-cobertura { margin-bottom: 16px; }
+.com-cob-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); align-items: start; gap: 10px; }
+.com-cob-item { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.com-cob-item > summary, .com-cob-item.is-ok { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; }
+.com-cob-item > summary { cursor: pointer; list-style: none; }
+.com-cob-item > summary::-webkit-details-marker { display: none; }
+.com-cob-item.is-warn { border-color: #f0c36d; background: #fff8e8; }
+.com-cob-num { flex: 0 0 auto; min-width: 36px; height: 36px; display: inline-grid; place-items: center; padding: 0 8px;
+  border-radius: 999px; font-weight: 700; font-size: 1rem; box-sizing: border-box; }
+.com-cob-item.is-warn .com-cob-num { background: #f7d58b; color: #6b4300; }
+.com-cob-item.is-ok .com-cob-num { background: #d7f0df; color: #17663a; }
+.com-cob-text { display: grid; gap: 2px; min-width: 0; }
+.com-cob-text strong { color: var(--text); font-size: .9375rem; }
+.com-cob-text small { color: var(--muted); font-size: .8125rem; line-height: 1.35; }
+.com-cob-item.is-warn > summary .com-cob-text strong::after { content: " · Ver"; color: var(--primary); font-weight: 600; }
+.com-cob-item[open].is-warn > summary .com-cob-text strong::after { content: " · Ocultar"; }
+.com-cob-list { list-style: none; margin: 0; padding: 0 14px 12px; display: grid; gap: 6px; max-height: 320px; overflow-y: auto; }
+.com-cob-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px;
+  border-top: 1px solid var(--border); font-size: .875rem; color: var(--text); }
+.com-cob-list li > span { min-width: 0; overflow-wrap: break-word; }
+.com-cob-list em { color: var(--muted); }
+.com-cob-more { color: var(--muted) !important; }
+:root[data-theme="dark"] .com-cob-item.is-warn { border-color: #7a5a1c; background: #2e2616; }
+:root[data-theme="dark"] .com-cob-item.is-warn .com-cob-num { background: #5c4413; color: #ffe2a6; }
+:root[data-theme="dark"] .com-cob-item.is-ok .com-cob-num { background: #1d3d2a; color: #a8e5bd; }
 .com-config-grupo { margin: 0 0 6px; }
 .com-silencio { display: flex; flex-wrap: wrap; gap: 12px; }
 .epp-page .com-silencio label { display: grid; gap: 4px; max-width: 180px; }

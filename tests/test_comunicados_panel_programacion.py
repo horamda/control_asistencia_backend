@@ -77,11 +77,25 @@ def test_configuracion_se_muestra_y_se_guarda(client, monkeypatch):
     reglas = rutas.reglas_push
     monkeypatch.setattr(reglas, "_leer", lambda empresa_id: (
         {m["clave"]: reglas._defecto(m) for m in reglas.CATALOGO}, (None, None)))
+    monkeypatch.setattr(rutas.avisos_push, "cobertura", lambda empresa_id: dict(
+        empleados=3, sin_jefe=[dict(id=12, nombre="Sosa Juan", legajo="12", motivo=None)], jefes=1, jefes_sin_app=[],
+        aprobadores=1, sin_vincular=[dict(id=1, usuario="rrhh", modulos=["Vacaciones"], motivo=None)], aprobadores_sin_app=[]))
     html = client.get("/comunicados/configuracion").get_data(as_text=True)
     assert "Solicitudes para revisar" in html and "Responsable de Seguridad e Higiene" in html
+    assert "¿Llegan los avisos?" in html and "Sosa Juan" in html and "/empleados/editar/12" in html
+    assert "/usuarios/editar/1" in html and "Todos los jefes tienen la app" in html
     assert 'name="parametro:salida_pendiente" value="30"' in html
 
     guardado = {}
     monkeypatch.setattr(reglas, "guardar", lambda actor, form: guardado.update(form=form) or 1)
     resp = client.post("/comunicados/configuracion", data={"silencio_desde": "22:00", "silencio_hasta": "07:00"})
     assert resp.status_code == 302 and guardado["form"]["silencio_desde"] == "22:00"
+
+
+def test_configuracion_se_muestra_aunque_falle_la_cobertura(client, monkeypatch):
+    reglas = rutas.reglas_push
+    monkeypatch.setattr(reglas, "_leer", lambda empresa_id: (
+        {m["clave"]: reglas._defecto(m) for m in reglas.CATALOGO}, (None, None)))
+    monkeypatch.setattr(rutas.avisos_push, "cobertura", lambda empresa_id: 1 / 0)
+    resp = client.get("/comunicados/configuracion")
+    assert resp.status_code == 200 and "¿Llegan los avisos?" not in resp.get_data(as_text=True)
