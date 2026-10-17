@@ -154,7 +154,7 @@ def test_full_app_templates_csrf_and_navigation(monkeypatch):
         session["user_id"] = 99
     response = c.get("/feedback/correccion-fechas")
     assert response.status_code == 200
-    assert "Corrección FDBK" in response.get_data(as_text=True)
+    assert "Corrección de fechas de feedback" in response.get_data(as_text=True)
     response = c.get("/feedback/correccion-fechas/1")
     assert response.status_code == 200
     assert c.post("/feedback/correccion-fechas/1", data=form(record())).status_code == 400

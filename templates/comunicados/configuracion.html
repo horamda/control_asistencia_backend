@@ -2,7 +2,7 @@
 {% block comunicados_content %}
 {#- Revision de los datos que usan los avisos de solicitudes (services/avisos_push.cobertura). -#}
 {% macro cob_item(cantidad, titulo, detalle, ok_texto, ok_detalle, filas, enlace, accion) %}
-  {#- enlace: 'empleado' (ficha del empleado) o 'usuario' (Usuarios panel). -#}
+  {#- enlace: 'empleado' (ficha del empleado) o 'usuario' (Usuarios del panel). -#}
   {% if cantidad %}
     <details class="com-cob-item is-warn">
       <summary>
@@ -93,7 +93,7 @@
     <section class="epp-card">
       <h3 class="com-config-grupo">{{ grupo.titulo }}</h3>
       {% if grupo.clave == 'revision' %}
-        <p class="helper-text">Cuando un empleado envía algo desde la app. «RR. HH.» son los usuarios del panel con permiso de aprobar ese módulo y un empleado vinculado (Usuarios panel). El jefe directo es el «Reporta a» de la ficha del empleado.</p>
+        <p class="helper-text">Cuando un empleado envía algo desde la app. «RR. HH.» son los usuarios del panel con permiso de aprobar ese módulo y un empleado vinculado (Usuarios del panel). El jefe directo es el «Reporta a» de la ficha del empleado.</p>
       {% elif grupo.clave == 'seguridad' %}
         <p class="helper-text">«Responsable de Seguridad e Higiene» son los usuarios del panel con permiso de aprobar Seguridad e Higiene y un empleado vinculado.</p>
       {% endif %}

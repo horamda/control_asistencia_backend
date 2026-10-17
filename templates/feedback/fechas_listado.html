@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Corrección FDBK{% endblock %}
+{% block title %}Corrección de fechas de feedback{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/feedback-fechas.css') }}">{% endblock %}
 {% block content %}
 <div class="content-stack fdbk-dates">
-  <div class="section-head"><div><div class="section-kicker">Sistema · Administración</div>
-    <h2>Corrección FDBK</h2><p class="module-intro">Revisá y corregí las fechas de los feedbacks cargados.</p></div></div>
+  <div class="section-head"><div><div class="section-kicker">Feedback · Administración</div>
+    <h2>Corrección de fechas de feedback</h2><p class="module-intro">Revisá y corregí las fechas de los feedbacks cargados.</p></div></div>
   {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
   <form method="get" class="panel">
     <div class="form-grid">

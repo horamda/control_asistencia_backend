@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Corrección FDBK{% endblock %}
+{% block title %}Corrección de fechas de feedback{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/feedback-fechas.css') }}">{% endblock %}
 {% block content %}
 <div class="content-stack fdbk-dates">
-  <div class="section-head"><div><div class="section-kicker">Sistema · Corrección FDBK</div><h2>Fechas de {{ row.numero or row.id }}</h2>
+  <div class="section-head"><div><div class="section-kicker">Feedback · Corrección de fechas</div><h2>Fechas de {{ row.numero or row.id }}</h2>
     <p>{{ row.empleado_nombre }} · {{ row.motivo_nombre or row.motivo_nombre_snapshot }} · {{ row.estado_actual }}</p></div></div>
   {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
   {% if guardado and not error %}<div class="alert alert-success" role="status">Fechas actualizadas. La corrección quedó registrada en auditoría.</div>{% endif %}
