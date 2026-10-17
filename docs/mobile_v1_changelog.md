@@ -1,3 +1,7 @@
+## 1.47.0 — 2026-10-16
+
+- Acuses de push: cada aviso trae `data.envio_id` y `data.acuse`. Nueva `POST /push/acuse` (sin JWT) con `evento` = `recibido` (al llegar, también en segundo plano) o `abierto` (al tocarla). El panel muestra Recibido / Abierto en Avisos automáticos y en cada comunicado. Cambios aditivos. Guía: `push_mobile.md#acuses-recibido-y-abierto-1470`.
+
 ## 1.46.0 — 2026-10-16
 
 - Push con sonido propio de FichaYa: el backend usa el canal Android `fichaya` (antes `reuniones`) y `sound: "fichaya"`. `GET /push/config` devuelve `canal_android: "fichaya"`. La app crea ese canal con el tono `res/raw/fichaya`. Una app vieja sin el canal sigue recibiendo los avisos con el sonido del sistema. En web suena el sonido del navegador. Guía: `push_mobile.md#sonido-propio-de-fichaya-146`.

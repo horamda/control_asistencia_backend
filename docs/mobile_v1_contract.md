@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.46.0
+Version de contrato: 1.47.0
+
+- **Acuses de push (1.47.0):** la app confirma con `POST /push/acuse` cuando el aviso llega y cuando lo tocan. Ver [push](push_mobile.md#acuses-recibido-y-abierto-1470).
 
 - **Sonido propio en los push (1.46.0):** canal Android `fichaya` con el tono de FichaYa. Ver [push](push_mobile.md#sonido-propio-de-fichaya-146).
 

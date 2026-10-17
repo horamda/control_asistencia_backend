@@ -237,10 +237,12 @@ def _obtener(c, who, cid):
 def detalle(who, cid, estado=None):
     with db.transaction(read_only=True) as c:
         comunicado = _obtener(c, who, cid)
+        # El push de cada destinatario tiene clave "comunicado:<id>:<empleado>" (unica, indexada).
         sql = """SELECT e.id, e.apellido, e.nombre, e.legajo, s.nombre AS sector_nombre, su.nombre AS sucursal_nombre,
-                        d.leido_at
+                        d.leido_at, p.estado AS push_estado, p.recibido_at, p.abierto_at
                  FROM comunicado_destinatarios d JOIN empleados e ON e.id = d.empleado_id
                  LEFT JOIN sectores s ON s.id = e.sector_id LEFT JOIN sucursales su ON su.id = e.sucursal_id
+                 LEFT JOIN push_envios p ON p.clave = CONCAT('comunicado:', d.comunicado_id, ':', d.empleado_id)
                  WHERE d.comunicado_id=%s"""
         if estado == "leidos":
             sql += " AND d.leido_at IS NOT NULL"
@@ -249,7 +251,12 @@ def detalle(who, cid, estado=None):
         personas = db.all_rows(c, sql + " ORDER BY d.leido_at IS NULL, e.apellido, e.nombre", (comunicado["id"],))
         leidos = int(db.one(c, """SELECT COUNT(*) AS n FROM comunicado_destinatarios
                                   WHERE comunicado_id=%s AND leido_at IS NOT NULL""", (comunicado["id"],))["n"])
-    return dict(comunicado=comunicado, personas=personas, leidos=leidos, estado=estado or "")
+        recibidos = int(db.one(c, """SELECT COUNT(*) AS n FROM push_envios
+                                     WHERE clave LIKE %s AND recibido_at IS NOT NULL""",
+                               (f"comunicado:{comunicado['id']}:%",))["n"])
+    for persona in personas:
+        persona["push_estado"] = _estado_envio(persona["push_estado"]) if persona["push_estado"] else None
+    return dict(comunicado=comunicado, personas=personas, leidos=leidos, recibidos=recibidos, estado=estado or "")
 
 
 def imagen(who, cid, version="app"):
@@ -305,6 +312,8 @@ TIPOS_AUTOMATICOS = {
     "pedido_mercaderia": "Pedido de mercadería",
 }
 ESTADOS_ENVIO = {"enviado": "Enviado", "sin_dispositivo": "Sin dispositivo", "error": "Error", "pendiente": "En cola"}
+# Confirmados por la app (ver push_service.registrar_acuse); un enviado sin acuse puede no haber llegado.
+ACUSES = {"recibido": "Recibido", "abierto": "Abierto"}
 _EN_COLA = ("pendiente", "reintentar", "enviando")
 HISTORIAL_POR_PAGINA = 50
 HISTORIAL_DIAS = 30
@@ -329,7 +338,7 @@ def automaticos(who, filtros):
     if desde > hasta:
         desde, hasta = hasta, desde
     tipo = filtros.get("tipo") if filtros.get("tipo") in TIPOS_AUTOMATICOS else ""
-    estado = filtros.get("estado") if filtros.get("estado") in ESTADOS_ENVIO else ""
+    estado = filtros.get("estado") if filtros.get("estado") in {**ESTADOS_ENVIO, **ACUSES} else ""
     buscar = str(filtros.get("q") or "").strip()[:80]
     try:
         page = max(1, int(filtros.get("page") or 1))
@@ -347,11 +356,19 @@ def automaticos(who, filtros):
     base = "FROM push_envios p LEFT JOIN empleados e ON e.id = p.empleado_id WHERE " + " AND ".join(where)
 
     with db.transaction(read_only=True) as c:
-        resumen = dict.fromkeys(ESTADOS_ENVIO, 0)
-        for fila in db.all_rows(c, f"SELECT p.estado, COUNT(*) AS n {base} GROUP BY p.estado", tuple(args)):
+        resumen = dict.fromkeys({**ESTADOS_ENVIO, **ACUSES}, 0)
+        for fila in db.all_rows(c, f"""SELECT p.estado, COUNT(*) AS n, COALESCE(SUM(p.recibido_at IS NOT NULL), 0) AS recibidos,
+                                              COALESCE(SUM(p.abierto_at IS NOT NULL), 0) AS abiertos
+                                       {base} GROUP BY p.estado""", tuple(args)):
             clave = _estado_envio(fila["estado"])
             resumen[clave] = resumen.get(clave, 0) + int(fila["n"])
-        if estado == "pendiente":
+            resumen["recibido"] = resumen.get("recibido", 0) + int(fila["recibidos"])
+            resumen["abierto"] = resumen.get("abierto", 0) + int(fila["abiertos"])
+        if estado == "recibido":
+            base += " AND p.recibido_at IS NOT NULL"
+        elif estado == "abierto":
+            base += " AND p.abierto_at IS NOT NULL"
+        elif estado == "pendiente":
             base += f" AND p.estado IN ({_marcas(_EN_COLA)})"
             args += list(_EN_COLA)
         elif estado:
@@ -359,14 +376,14 @@ def automaticos(who, filtros):
             args.append(estado)
         total = int(db.one(c, f"SELECT COUNT(*) AS n {base}", tuple(args))["n"])
         items = db.all_rows(c, f"""SELECT p.id, p.tipo, p.titulo, p.cuerpo, p.estado, p.error, p.creado_at, p.enviado_at,
-                                          p.empleado_id, e.apellido, e.nombre, e.legajo
+                                          p.recibido_at, p.abierto_at, p.empleado_id, e.apellido, e.nombre, e.legajo
                                    {base} ORDER BY p.id DESC LIMIT %s OFFSET %s""",
                             (*args, HISTORIAL_POR_PAGINA, (page - 1) * HISTORIAL_POR_PAGINA))
     for item in items:
         item["tipo_nombre"] = TIPOS_AUTOMATICOS.get(item["tipo"], item["tipo"])
         item["estado"] = _estado_envio(item["estado"])
     return dict(items=items, page=page, pages=max(1, -(-total // HISTORIAL_POR_PAGINA)), total=total,
-                resumen=resumen, tipos=TIPOS_AUTOMATICOS, estados=ESTADOS_ENVIO,
+                resumen=resumen, tipos=TIPOS_AUTOMATICOS, estados=ESTADOS_ENVIO, acuses=ACUSES,
                 filtros=dict(tipo=tipo, estado=estado, q=buscar, desde=desde.isoformat(), hasta=hasta.isoformat()))
 
 

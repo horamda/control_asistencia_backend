@@ -80,6 +80,8 @@
               <td data-label="Aviso"><strong>{{ e.titulo }}</strong><br><small class="helper-text">{{ e.cuerpo }}</small></td>
               <td data-label="Estado">
                 <span class="badge {{ {'enviado': 'ok', 'error': 'danger', 'reintentar': 'warning', 'pendiente': 'neutral', 'enviando': 'neutral'}.get(e.estado, 'neutral') }}">{{ {'enviado': 'Enviado', 'error': 'Error', 'reintentar': 'Reintentando', 'pendiente': 'En cola', 'enviando': 'Enviando', 'sin_dispositivo': 'Sin dispositivo'}.get(e.estado, e.estado) }}</span>
+                {% if e.abierto_at %}<br><small class="helper-text">Abierto {{ e.abierto_at.strftime('%d/%m %H:%M') }}</small>
+                {% elif e.recibido_at %}<br><small class="helper-text">Recibido {{ e.recibido_at.strftime('%d/%m %H:%M') }}</small>{% endif %}
                 {% if e.error %}<br><small class="helper-text">{{ e.error }}</small>{% endif %}
               </td>
             </tr>

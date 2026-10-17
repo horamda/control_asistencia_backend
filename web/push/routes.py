@@ -6,6 +6,7 @@ from routes.carga_routes import employee
 from services import push_service as s
 from utils.audit import log_audit
 from utils.jwt_guard import mobile_auth_required
+from utils.limiter import limiter
 from web.auth.decorators import _cached_web_user, permission_required
 
 web = Blueprint("push_web", __name__, url_prefix="/notificaciones-push")
@@ -33,6 +34,17 @@ def dispositivo():
     if request.method == "DELETE":
         return jsonify(quitado=s.quitar_dispositivo(employee(), body.get("token")))
     return jsonify(s.registrar_dispositivo(employee(), body.get("token"), body.get("plataforma"), body.get("app_version")))
+
+
+@mobile.post("/acuse")
+@limiter.limit("120 per minute")
+def acuse():
+    """Sin JWT: la app confirma con data.envio_id y data.acuse del push que llego (recibido) o que tocaron
+    (abierto). Tambien desde el manejador en segundo plano, donde no hay sesion."""
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        raise s.Error("Envíe un objeto JSON.")
+    return jsonify(s.registrar_acuse(body.get("envio_id"), body.get("acuse"), body.get("evento")))
 
 
 def who():

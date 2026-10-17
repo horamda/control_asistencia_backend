@@ -6,7 +6,8 @@
     <div>
       <h3>Avisos automáticos</h3>
       <p>Notificaciones que el sistema manda solo: salida sin fichar, reuniones, EPP, viáticos, adelantos y pedidos de mercadería.
-        «Sin dispositivo» es un empleado sin la app con notificaciones activadas.</p>
+        «Sin dispositivo» es un empleado sin la app con notificaciones activadas. «Recibido» y «Abierto» los confirma la app del empleado;
+        un aviso enviado sin confirmar puede no haber llegado (celular apagado o app bloqueada por ahorro de batería).</p>
     </div>
   </header>
 
@@ -25,6 +26,11 @@
         {% for clave, nombre in estados.items() %}
           <option value="{{ clave }}" {{ 'selected' if filtros.estado == clave }}>{{ nombre }}</option>
         {% endfor %}
+        <optgroup label="Confirmado por la app">
+          {% for clave, nombre in acuses.items() %}
+            <option value="{{ clave }}" {{ 'selected' if filtros.estado == clave }}>{{ nombre }}</option>
+          {% endfor %}
+        </optgroup>
       </select>
     </label>
     <label>Desde<input type="date" name="desde" value="{{ filtros.desde }}"></label>
@@ -35,7 +41,7 @@
 </section>
 
 <div class="grid-kpis com-kpis">
-  {% for clave, nombre in estados.items() %}
+  {% for clave, nombre in estados.items()|list + acuses.items()|list %}
     <div class="kpi-card">
       <div class="kpi-label">{{ nombre }}</div>
       <div class="kpi-value">{{ resumen.get(clave, 0) }}</div>
@@ -62,7 +68,9 @@
             </td>
             <td data-label="Estado">
               <span class="badge {{ tono_estado.get(a.estado, 'neutral') }}">{{ estados.get(a.estado, a.estado) }}</span>
-              {% if a.estado == 'enviado' and a.enviado_at %}<br><small class="helper-text">{{ a.enviado_at.strftime('%d/%m %H:%M') }}</small>{% endif %}
+              {% if a.abierto_at %}<br><span class="badge ok">Abierto</span> <small class="helper-text">{{ a.abierto_at.strftime('%d/%m %H:%M') }}</small>
+              {% elif a.recibido_at %}<br><span class="badge ok">Recibido</span> <small class="helper-text">{{ a.recibido_at.strftime('%d/%m %H:%M') }}</small>
+              {% elif a.estado == 'enviado' and a.enviado_at %}<br><small class="helper-text">{{ a.enviado_at.strftime('%d/%m %H:%M') }} · sin confirmar</small>{% endif %}
               {% if a.error %}<br><small class="helper-text">{{ a.error }}</small>{% endif %}
             </td>
           </tr>

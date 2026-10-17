@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.46.0
+  version: 1.47.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.47.0: acuses de push (POST /push/acuse, data.envio_id y data.acuse en cada aviso).
     Version 1.46.0: push con sonido propio (canal_android = fichaya); ver push_mobile.md.
     Version 1.45.0: Comunicados con imagen (imagen_url, GET /comunicados/{comunicado_id}/imagen e imagen en el push); ver comunicados_mobile.md.
     Version 1.44.0: Comunicados (/comunicados, bandeja y lectura) y tipos push nuevos (salida_pendiente, epp_resuelto, epp_entregado, reintegro, reintegro_recordatorio, adelanto, pedido_mercaderia, comunicado); ver comunicados_mobile.md y push_mobile.md.
@@ -7419,6 +7420,48 @@ paths:
                     description: false si el token no estaba registrado para este empleado.
         '401':
           description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Push
+
+  /push/acuse:
+    post:
+      summary: Confirmar que un push llego (recibido) o que lo tocaron (abierto)
+      description: |
+        Sin JWT: valida con la firma `data.acuse` que trae cada push, para poder confirmarlo desde el manejador
+        en segundo plano. Idempotente (queda la primera hora). Abierto implica recibido. Desde 1.47.0.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [envio_id, acuse, evento]
+              properties:
+                envio_id: {type: string, description: data.envio_id del push, example: '41'}
+                acuse: {type: string, description: data.acuse del push}
+                evento: {type: string, enum: [recibido, abierto]}
+      responses:
+        '200':
+          description: Registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+        '400':
+          description: Falta el envio o el evento no es valido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: La firma no corresponde al envio.
           content:
             application/json:
               schema:

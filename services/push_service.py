@@ -12,6 +12,7 @@ Firebase. Los tokens que Firebase da por invalidos se desactivan solos."""
 import base64
 import datetime as dt
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -147,6 +148,42 @@ def encolar_ahora(empresa_id, empleado_ids, tipo, titulo, cuerpo, datos=None, cl
         return 0
 
 
+# --- Acuses: la app confirma recibido / abierto -------------------------------------------------------
+
+ACUSE_EVENTOS = ("recibido", "abierto")
+
+
+def firma_acuse(envio_id):
+    """Firma que viaja en el push (data.acuse). La app la devuelve sin JWT: asi confirma aunque este cerrada
+    o con la sesion vencida, y nadie puede marcar envios ajenos. Usa SECRET_KEY porque el scheduler que envia
+    no corre dentro de Flask."""
+    clave = str(os.getenv("SECRET_KEY") or "").encode()
+    if not clave:
+        return None
+    return hmac.new(clave, f"push-acuse:{int(envio_id)}".encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def registrar_acuse(envio_id, firma, evento):
+    """Marca la primera vez que el aviso llego al celular o que lo tocaron (abierto implica recibido)."""
+    if evento not in ACUSE_EVENTOS:
+        raise Error("Evento inválido (recibido o abierto).")
+    try:
+        envio_id = int(envio_id)
+    except (TypeError, ValueError):
+        raise Error("Acuse inválido.") from None
+    esperada = firma_acuse(envio_id)
+    if not esperada or not hmac.compare_digest(str(firma or ""), esperada):
+        raise Error("Acuse inválido.", 403)
+    ahora = now_local().replace(microsecond=0)
+    with db.transaction() as c:
+        if evento == "abierto":
+            c.execute("""UPDATE push_envios SET recibido_at=COALESCE(recibido_at, %s), abierto_at=COALESCE(abierto_at, %s)
+                         WHERE id=%s""", (ahora, ahora, envio_id))
+        else:
+            c.execute("UPDATE push_envios SET recibido_at=COALESCE(recibido_at, %s) WHERE id=%s", (ahora, envio_id))
+    return {"ok": True}
+
+
 # --- Envio (FCM HTTP v1) ---------------------------------------------------------------------------
 
 def _post(url, data, headers, timeout=10):
@@ -243,6 +280,9 @@ def procesar_cola(limite=200, *, enviar=None):
             except ValueError:
                 datos = {}
             datos = {str(k): str(v) for k, v in dict(datos, tipo=envio["tipo"]).items()}
+            firma = firma_acuse(envio["id"])
+            if firma:
+                datos.update(envio_id=str(envio["id"]), acuse=firma)
             ok, errores = 0, []
             for d in dispositivos:
                 try:

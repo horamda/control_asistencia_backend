@@ -1,6 +1,6 @@
 # Notificaciones push — contrato para Flutter (Android) y la app web
 
-Versión de contrato: 1.46.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
+Versión de contrato: 1.47.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
 
 El backend envía los avisos; la app solo tiene que registrar su token y abrir la pantalla correcta al tocar
 la notificación. Si Firebase no está configurado en el servidor, `GET /push/config` devuelve `activo: false`
@@ -67,6 +67,24 @@ Falta:
 5. Handler de segundo plano (`FirebaseMessaging.onBackgroundMessage`, función top-level) aunque no haga nada:
    la notificación la muestra el sistema porque el mensaje trae `notification`.
 
+### Acuses: recibido y abierto (1.47.0)
+
+Cada push trae `data.envio_id` y `data.acuse` (firma). La app avisa al servidor:
+
+```http
+POST /api/v1/mobile/push/acuse        (sin Authorization)
+{"envio_id": "41", "acuse": "<data.acuse>", "evento": "recibido" | "abierto"}
+→ 200 {"ok": true}   ·   403 {"error": "Acuse inválido."}   ·   400 si falta algo
+```
+
+- **`recibido`**: apenas llega el mensaje, en primer plano (`onMessage`) y en el manejador de segundo plano
+  (`onBackgroundMessage`, que en Android corre aunque la app esté cerrada). No lleva JWT a propósito: en segundo
+  plano no hay sesión. La firma impide marcar envíos ajenos.
+- **`abierto`**: al tocar la notificación (`onMessageOpenedApp` y `getInitialMessage`). Abierto implica recibido.
+- Es idempotente (queda la primera hora) y no debe bloquear nada: si falla, se ignora sin reintentos.
+- El panel muestra «Recibido» / «Abierto» en Avisos automáticos y en el detalle de cada comunicado. Un aviso
+  «Enviado» sin acuse puede no haber llegado o la app no pudo confirmarlo (cerrada a la fuerza, ahorro de batería).
+
 ### Sonido propio de FichaYa (1.46.0)
 
 Los avisos suenan con un tono propio (`android/app/src/main/res/raw/fichaya.wav`, menos de 1 s):
@@ -121,6 +139,8 @@ Todos traen `notification` (título y texto listos para mostrar) y `data` con st
 | `adelanto` (1.44.0) | Adelanto aprobado o rechazado | `adelanto_id`, `estado`, `ruta` = `/adelantos` |
 | `pedido_mercaderia` (1.44.0) | Pedido de mercadería aprobado o rechazado | `pedido_id`, `estado`, `ruta` = `/pedidos-mercaderia` |
 | `comunicado` (1.44.0) | Comunicado enviado desde el panel | `comunicado_id`, `ruta` = `/comunicados/{id}`, `imagen` (1.45.0, solo si tiene imagen) |
+
+Desde 1.47.0 **todos** los tipos traen además `envio_id` y `acuse` (ver [acuses](#acuses-recibido-y-abierto-1470)).
 
 - `ruta` identifica la pantalla a abrir; la app la traduce a su navegación (no hace falta que exista como ruta
   con nombre). Al tocar la notificación: navegar a esa pantalla (`onMessageOpenedApp` y `getInitialMessage`).

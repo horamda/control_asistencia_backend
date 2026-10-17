@@ -30,8 +30,10 @@ def base(monkeypatch):
         consultas.append((" ".join(sql.split()), args))
         assert sql.count("%s") == len(args)
         if "GROUP BY p.estado" in sql:
-            return [{"estado": "enviado", "n": 5}, {"estado": "reintentar", "n": 1}, {"estado": "enviando", "n": 2},
-                    {"estado": "sin_dispositivo", "n": 4}]
+            return [{"estado": "enviado", "n": 5, "recibidos": 4, "abiertos": 2},
+                    {"estado": "reintentar", "n": 1, "recibidos": 0, "abiertos": 0},
+                    {"estado": "enviando", "n": 2, "recibidos": 1, "abiertos": 0},
+                    {"estado": "sin_dispositivo", "n": 4, "recibidos": 0, "abiertos": 0}]
         return [dict(f) for f in filas]
 
     def one(c, sql, args):
@@ -57,7 +59,14 @@ def test_por_defecto_ultimos_30_dias_sin_comunicados_ni_pruebas(base):
 
 def test_resumen_agrupa_la_cola_como_en_cola(base):
     resultado = s.automaticos(WHO, {})
-    assert resultado["resumen"] == {"enviado": 5, "sin_dispositivo": 4, "error": 0, "pendiente": 3}
+    assert resultado["resumen"] == {"enviado": 5, "sin_dispositivo": 4, "error": 0, "pendiente": 3,
+                                    "recibido": 5, "abierto": 2}
+
+
+def test_filtro_por_acuse_de_la_app(base):
+    resultado = s.automaticos(WHO, {"estado": "recibido"})
+    assert resultado["filtros"]["estado"] == "recibido"
+    assert "p.recibido_at IS NOT NULL" in base[-1][0]
 
 
 def test_items_con_nombre_de_tipo_y_estado_normalizado(base):

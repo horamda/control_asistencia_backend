@@ -2,6 +2,7 @@
 {% block comunicados_content %}
 {% set total = comunicado.destinatarios %}
 {% set pct = (100 * leidos / total)|round|int if total else 0 %}
+{% set pct_recibido = (100 * recibidos / total)|round|int if total else 0 %}
 <div class="com-detalle-layout{{ ' con-vistas' if comunicado.tiene_imagen }}">
   <section class="epp-card com-detalle-mensaje">
     <header class="epp-section-heading">
@@ -50,6 +51,11 @@
       <div class="kpi-value">{{ total }}</div>
       <div class="helper-text">empleados activos al enviarlo</div>
     </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Le llegó</div>
+      <div class="kpi-value">{{ pct_recibido }}%</div>
+      <div class="helper-text">{{ recibidos }} de {{ total }} confirmaron la notificación</div>
+    </div>
     <div class="kpi-card {{ 'tone-ok' if pct >= 80 else ('tone-warn' if pct >= 40 else '') }}">
       <div class="kpi-label">Leído</div>
       <div class="kpi-value">{{ pct }}%</div>
@@ -74,14 +80,23 @@
     {% if personas %}
       <div class="table-responsive table-cards">
         <table>
-          <thead><tr><th>Empleado</th><th>Sector</th><th>Sucursal</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Empleado</th><th>Sector</th><th>Sucursal</th><th>Notificación</th><th>Lectura</th></tr></thead>
           <tbody>
             {% for p in personas %}
               <tr>
                 <td data-label="Empleado">{{ p.apellido }} {{ p.nombre }}{% if p.legajo %} <small class="helper-text">· {{ p.legajo }}</small>{% endif %}</td>
                 <td data-label="Sector">{{ p.sector_nombre or '—' }}</td>
                 <td data-label="Sucursal">{{ p.sucursal_nombre or '—' }}</td>
-                <td data-label="Estado">
+                <td data-label="Notificación">
+                  {% if p.abierto_at %}<span class="badge ok">Abierta</span> <small class="helper-text">{{ p.abierto_at.strftime('%d/%m %H:%M') }}</small>
+                  {% elif p.recibido_at %}<span class="badge ok">Recibida</span> <small class="helper-text">{{ p.recibido_at.strftime('%d/%m %H:%M') }}</small>
+                  {% elif p.push_estado == 'enviado' %}<span class="badge neutral">Enviada</span> <small class="helper-text">sin confirmar</small>
+                  {% elif p.push_estado == 'sin_dispositivo' %}<span class="badge neutral">Sin app</span>
+                  {% elif p.push_estado == 'pendiente' %}<span class="badge warning">En cola</span>
+                  {% elif p.push_estado == 'error' %}<span class="badge danger">Error</span>
+                  {% else %}<span class="helper-text">—</span>{% endif %}
+                </td>
+                <td data-label="Lectura">
                   {% if p.leido_at %}<span class="badge ok">Leído</span> <small class="helper-text">{{ p.leido_at.strftime('%d/%m %H:%M') }}</small>
                   {% else %}<span class="badge neutral">Sin leer</span>{% endif %}
                 </td>
