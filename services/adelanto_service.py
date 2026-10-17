@@ -71,7 +71,7 @@ def solicitar_adelanto(
         raise ValueError("Empleado invalido o sin empresa asignada.")
 
     try:
-        return create(
+        adelanto_id = create(
             {
                 "empresa_id": resolved_empresa_id,
                 "empleado_id": empleado_id,
@@ -85,6 +85,8 @@ def solicitar_adelanto(
         if _is_duplicate_period_error(exc):
             raise AdelantoAlreadyRequestedError("Ya solicitaste un adelanto en este mes.") from exc
         raise
+    avisos_push.revision_adelanto(adelanto_id)
+    return adelanto_id
 
 
 def aprobar_adelanto(adelanto_id: int, *, actor_id: int | None = None) -> None:

@@ -13,6 +13,8 @@ All other transitions are rejected with ValueError.
 
 import datetime as _dt
 
+from services import avisos_push
+
 from repositories.asistencia_repository import get_by_id as get_asistencia_by_id
 from repositories.empleado_repository import get_by_id as get_empleado_by_id
 from repositories.justificacion_repository import (
@@ -324,6 +326,7 @@ def aprobar_justificacion(
         resuelto_by_usuario_id=actor_id,
         comentario_resolucion=comentario_resolucion,
     )
+    avisos_push.justificacion_resuelta(justificacion_id)
 
 
 def rechazar_justificacion(
@@ -352,6 +355,7 @@ def rechazar_justificacion(
         resuelto_by_usuario_id=actor_id,
         motivo_rechazo=motivo,
     )
+    avisos_push.justificacion_resuelta(justificacion_id)
 
 
 def revertir_justificacion(justificacion_id: int) -> None:

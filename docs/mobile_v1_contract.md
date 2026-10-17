@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.47.0
+Version de contrato: 1.48.0
+
+- **Todos los avisos por push (1.48.0):** justificaciones, vacaciones, feedback y trivias se suman a la cola de push, y RR. HH. recibe `revision_pendiente` cuando un empleado envía una solicitud que puede aprobar. Ver [tipos de aviso](push_mobile.md#contenido-de-cada-aviso).
 
 - **Acuses de push (1.47.0):** la app confirma con `POST /push/acuse` cuando el aviso llega y cuando lo tocan. Ver [push](push_mobile.md#acuses-recibido-y-abierto-1470).
 

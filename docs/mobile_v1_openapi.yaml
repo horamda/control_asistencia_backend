@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.47.0
+  version: 1.48.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.48.0: push tambien para justificaciones, vacaciones, feedback y trivias (tipos nuevos, aditivo).
     Version 1.47.0: acuses de push (POST /push/acuse, data.envio_id y data.acuse en cada aviso).
     Version 1.46.0: push con sonido propio (canal_android = fichaya); ver push_mobile.md.
     Version 1.45.0: Comunicados con imagen (imagen_url, GET /comunicados/{comunicado_id}/imagen e imagen en el push); ver comunicados_mobile.md.

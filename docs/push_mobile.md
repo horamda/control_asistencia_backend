@@ -1,6 +1,6 @@
 # Notificaciones push — contrato para Flutter (Android) y la app web
 
-Versión de contrato: 1.47.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
+Versión de contrato: 1.48.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
 
 El backend envía los avisos; la app solo tiene que registrar su token y abrir la pantalla correcta al tocar
 la notificación. Si Firebase no está configurado en el servidor, `GET /push/config` devuelve `activo: false`
@@ -138,6 +138,13 @@ Todos traen `notification` (título y texto listos para mostrar) y `data` con st
 | `reintegro_recordatorio` (1.44.0) | Día 5: completar los viáticos del mes anterior (mismo texto que `/reintegros/recordatorios`) | `periodo`, `ruta` = `/reintegros` |
 | `adelanto` (1.44.0) | Adelanto aprobado o rechazado | `adelanto_id`, `estado`, `ruta` = `/adelantos` |
 | `pedido_mercaderia` (1.44.0) | Pedido de mercadería aprobado o rechazado | `pedido_id`, `estado`, `ruta` = `/pedidos-mercaderia` |
+| `justificacion` (1.48.0) | Justificación aprobada o rechazada (con el motivo) | `justificacion_id`, `estado`, `ruta` = `/justificaciones` |
+| `vacaciones` (1.48.0) | Vacaciones, compensatorio o ajuste aprobado o rechazado | `movimiento_id`, `estado`, `ruta` = `/vacaciones` |
+| `feedback_asignado` (1.48.0) | Al responsable: tiene un feedback nuevo para resolver | `feedback_id`, `ruta` = `/feedback/{id}` |
+| `feedback_resuelto` (1.48.0) | Al que lo cargó: su feedback se resolvió | `feedback_id`, `ruta` = `/feedback/{id}` |
+| `trivia_nueva` (1.48.0) | Se abrió una trivia (a quien todavía no jugó) | `trivia_id`, `ruta` = `/trivia/{id}` |
+| `trivia_recordatorio` (1.48.0) | Quedan 24 h o 2 h para participar (a quien todavía no jugó) | `trivia_id`, `ruta` = `/trivia/{id}` |
+| `revision_pendiente` (1.48.0) | Para RR. HH.: un empleado envió una justificación, vacaciones, adelanto, pedido de mercadería, viáticos o EPP | `modulo`, `registro_id`, `ruta` = `/revisiones/{modulo}` |
 | `comunicado` (1.44.0) | Comunicado enviado desde el panel | `comunicado_id`, `ruta` = `/comunicados/{id}`, `imagen` (1.45.0, solo si tiene imagen) |
 
 Desde 1.47.0 **todos** los tipos traen además `envio_id` y `acuse` (ver [acuses](#acuses-recibido-y-abierto-1470)).
@@ -151,6 +158,11 @@ Desde 1.47.0 **todos** los tipos traen además `envio_id` y `acuse` (ver [acuses
 - Con la app abierta (`onMessage`), mostrar un aviso dentro de la app y refrescar la pantalla afectada
   (`/reuniones/proximas`, la bandeja de comunicados, el pedido, etc.).
 - Un `tipo` desconocido se ignora sin error (pueden sumarse tipos nuevos).
+- `revision_pendiente` llega a los usuarios del panel **vinculados a un empleado** (Usuarios → empleado) con
+  permiso de aprobar ese módulo, en la app de ese empleado. No hay pantalla de aprobación en la app: alcanza
+  con mostrar la notificación (se aprueba en el panel). Nunca le llega al mismo que hizo la solicitud.
+- Desde 1.48.0 todo aviso al empleado sale por push. Las bandejas de la app (comunicados, recordatorios de
+  viáticos, `/trivia/notificaciones`) siguen funcionando igual para quien no tiene las notificaciones activadas.
 
 ### Notificaciones con imagen
 

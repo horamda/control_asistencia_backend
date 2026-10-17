@@ -22,7 +22,7 @@ from mysql.connector import IntegrityError, ProgrammingError
 from web.auth.decorators import permission_required, can_access_module, _cached_web_user
 from utils.jwt_guard import mobile_auth_required
 from routes.carga_routes import employee, serialize, private_photo
-from services import epp_service as s
+from services import avisos_push, epp_service as s
 from web.carga.carga_routes import csv_safe
 
 web = Blueprint("epp_web", __name__, url_prefix="/epp")
@@ -518,6 +518,8 @@ def orders_mobile():
     if request.method == "GET":
         return jsonify(serialize(s.history(who, request.args)))
     pid, created = s.create(who, who["empleado_id"], data())
+    if created:
+        avisos_push.revision_epp(pid)  # solo si quedo pendiente (no borrador)
     return jsonify(serialize(dict(pedido=s.detail(who, pid), repetido=not created))), (
         201 if created else 200
     )
@@ -533,6 +535,7 @@ def detail_mobile(pid):
 @mobile_auth_required
 def action_mobile(pid):
     s.action(actor(), pid, data())
+    avisos_push.revision_epp(pid)  # un borrador enviado pasa a pendiente
     return jsonify(serialize(s.detail(actor(), pid)))
 
 
@@ -583,6 +586,7 @@ def edit(pid):
 @mobile_auth_required
 def edit_mobile(pid):
     s.edit_order(actor(), pid, data())
+    avisos_push.revision_epp(pid)
     return jsonify(serialize(s.detail(actor(), pid)))
 
 

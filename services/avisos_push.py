@@ -4,10 +4,17 @@
 - Resoluciones: EPP (aprobado, aprobado con menos, rechazado, entregado), viaticos y reintegros (aprobada,
   rechazada, devuelta, pagada), adelantos y pedidos de mercaderia (aprobado, rechazado).
 - Recordatorio mensual de viaticos (dia 5) por push ademas del aviso dentro de la app.
+- Justificaciones y vacaciones (aprobadas o rechazadas), feedback (al responsable cuando se lo asignan y al
+  empleado cuando se resuelve) y trivias (nueva y recordatorios de 24 h y 2 h antes del cierre).
+- Para RR. HH.: solicitud nueva para revisar (justificacion, vacaciones, adelanto, mercaderia, viaticos, EPP)
+  a los usuarios del panel vinculados a un empleado que pueden aprobar ese modulo.
 
 Cada aviso lleva data.tipo, data.ruta (pantalla a abrir) y el id del registro."""
 
+import datetime as dt
 import logging
+from collections import defaultdict
+from decimal import Decimal
 
 from repositories import carga_repository as db
 from services import push_service
@@ -205,3 +212,230 @@ def pedido_mercaderia_resuelto(pedido_id):
                    cuerpo, {"pedido_id": p["id"], "estado": p["estado"], "ruta": "/pedidos-mercaderia"},
                    f"mercaderia:{p['id']}:{p['estado']}")
 
+
+# --- Justificaciones y vacaciones -------------------------------------------------------------------
+
+def _dia(valor):
+    if isinstance(valor, str):
+        valor = dt.date.fromisoformat(valor[:10])
+    return valor.strftime("%d/%m")
+
+
+def _rango(desde, hasta):
+    if not desde:
+        return ""
+    inicio, fin = _dia(desde), _dia(hasta or desde)
+    return f" del {inicio}" if inicio == fin else f" del {inicio} al {fin}"
+
+
+@_seguro
+def justificacion_resuelta(justificacion_id):
+    with db.transaction(read_only=True) as c:
+        j = db.one(c, """SELECT j.id, j.empleado_id, e.empresa_id, j.estado, j.fecha, j.fecha_desde, j.fecha_hasta,
+                                j.motivo_rechazo
+                         FROM justificaciones j JOIN empleados e ON e.id = j.empleado_id
+                         WHERE j.id = %s""", (justificacion_id,))
+    if not j or j["estado"] not in ("aprobada", "rechazada"):
+        return 0
+    cuerpo = f"Tu justificación{_rango(j['fecha_desde'] or j['fecha'], j['fecha_hasta'] or j['fecha'])} fue {j['estado']}."
+    if j["estado"] == "rechazada" and j.get("motivo_rechazo"):
+        cuerpo += f" Motivo: {j['motivo_rechazo']}"
+    return _avisar(j["empresa_id"], j["empleado_id"], "justificacion", f"Justificación {j['estado']}", cuerpo,
+                   {"justificacion_id": j["id"], "estado": j["estado"], "ruta": "/justificaciones"},
+                   f"justificacion:{j['id']}:{j['estado']}")
+
+
+def _dias(valor):
+    valor = Decimal(str(valor or 0))
+    texto = str(int(valor)) if valor == valor.to_integral_value() else str(valor).rstrip("0").replace(".", ",")
+    return f"{texto} día" + ("" if valor == 1 else "s")
+
+
+@_seguro
+def vacaciones_resueltas(movimiento_id):
+    with db.transaction(read_only=True) as c:
+        v = db.one(c, """SELECT id, empresa_id, empleado_id, tipo, estado, dias, fecha_desde, fecha_hasta,
+                                motivo_resolucion
+                         FROM vacaciones_movimientos WHERE id = %s""", (movimiento_id,))
+    if not v or v["estado"] not in ("aprobado", "rechazado"):
+        return 0
+    detalle = f"{_rango(v['fecha_desde'], v['fecha_hasta'])} ({_dias(abs(Decimal(str(v['dias'] or 0))))})"
+    if v["tipo"] == "tomado":
+        estado = "aprobadas" if v["estado"] == "aprobado" else "rechazadas"
+        titulo, cuerpo = f"Vacaciones {estado}", f"Tus vacaciones{detalle} fueron {estado}."
+    else:
+        nombre = "días compensatorios" if v["tipo"] == "compensatorio" else "ajuste de vacaciones"
+        titulo, cuerpo = f"Pedido de {nombre} {v['estado']}", f"Tu pedido de {nombre}{detalle} fue {v['estado']}."
+    if v["estado"] == "rechazado" and v.get("motivo_resolucion"):
+        cuerpo += f" Motivo: {v['motivo_resolucion']}"
+    return _avisar(v["empresa_id"], v["empleado_id"], "vacaciones", titulo, cuerpo,
+                   {"movimiento_id": v["id"], "estado": v["estado"], "ruta": "/vacaciones"},
+                   f"vacaciones:{v['id']}:{v['estado']}")
+
+
+# --- Feedback ---------------------------------------------------------------------------------------
+
+def _feedback(feedback_id):
+    with db.transaction(read_only=True) as c:
+        return db.one(c, """SELECT id, numero, empresa_id, empleado_id, responsable_id, jefe_directo_id, estado,
+                                   resolucion_descripcion, motivo_nombre_snapshot AS motivo,
+                                   COALESCE(NULLIF(cliente_nombre_fantasia_snapshot, ''),
+                                            NULLIF(cliente_razon_social_snapshot, '')) AS cliente
+                            FROM feedbacks WHERE id = %s""", (feedback_id,))
+
+
+@_seguro
+def feedback_asignado(feedback_id):
+    """Al responsable (jefe directo): tiene un feedback nuevo para resolver."""
+    f = _feedback(feedback_id)
+    destino = f and (f["responsable_id"] or f["jefe_directo_id"])
+    if not destino or int(destino) == int(f["empleado_id"]):
+        return 0
+    cuerpo = " · ".join(x for x in (f["motivo"], f["cliente"]) if x) or "Revisalo y resolvelo antes del vencimiento."
+    return _avisar(f["empresa_id"], int(destino), "feedback_asignado", f"Nuevo feedback para resolver ({f['numero']})",
+                   cuerpo, {"feedback_id": f["id"], "ruta": f"/feedback/{f['id']}"}, f"feedback:{f['id']}:asignado")
+
+
+@_seguro
+def feedback_resuelto(feedback_id):
+    """Al empleado que lo cargo: ya se resolvio."""
+    f = _feedback(feedback_id)
+    if not f or f["estado"] != "resuelto":
+        return 0
+    sobre = f" sobre {f['cliente']}" if f["cliente"] else ""
+    cuerpo = f"Tu feedback {f['numero']}{sobre} fue resuelto."
+    if f.get("resolucion_descripcion"):
+        resolucion = str(f["resolucion_descripcion"]).strip()
+        cuerpo += " " + (resolucion if len(resolucion) <= 140 else resolucion[:137].rstrip() + "…")
+    return _avisar(f["empresa_id"], f["empleado_id"], "feedback_resuelto", "Feedback resuelto", cuerpo,
+                   {"feedback_id": f["id"], "ruta": f"/feedback/{f['id']}"}, f"feedback:{f['id']}:resuelto")
+
+
+# --- Trivias ----------------------------------------------------------------------------------------
+
+_TRIVIA = {
+    "nueva": ("trivia_nueva", "Nueva trivia", "Ya podés jugar «{titulo}». ¡Sumá puntos!"),
+    "recordatorio_24h": ("trivia_recordatorio", "Trivia: quedan 24 horas", "Tenés 24 horas para participar en «{titulo}»."),
+    "recordatorio_2h": ("trivia_recordatorio", "Trivia: quedan 2 horas", "¡Quedan 2 horas para participar en «{titulo}»!"),
+}
+
+
+@_seguro
+def trivia(trivia_row, empleados, momento):
+    """momento: nueva | recordatorio_24h | recordatorio_2h. empleados: filas con empleado_id y empresa_id."""
+    tipo, titulo, plantilla = _TRIVIA[momento]
+    cuerpo = plantilla.format(titulo=trivia_row.get("titulo") or "Trivia")
+    por_empresa = defaultdict(list)
+    for empleado in empleados:
+        if empleado.get("empresa_id"):
+            por_empresa[int(empleado["empresa_id"])].append(int(empleado["empleado_id"]))
+    datos = {"trivia_id": trivia_row["id"], "ruta": f"/trivia/{trivia_row['id']}"}
+    return sum(push_service.encolar_ahora(empresa_id, ids, tipo, titulo, cuerpo, datos, f"trivia:{trivia_row['id']}:{momento}")
+               for empresa_id, ids in por_empresa.items())
+
+
+# --- Para RR. HH.: solicitudes nuevas para revisar ----------------------------------------------------
+
+def _revisores(c, empresa_id, modulo, solicitante_id):
+    """Empleados de los usuarios del panel (activos, de la empresa) que pueden aprobar el modulo."""
+    from web.auth.decorators import can_access_module  # import tardio: la capa web importa servicios
+
+    filas = db.all_rows(c, """SELECT u.id AS usuario_id, u.empleado_id
+                              FROM usuarios u JOIN empleados e ON e.id = u.empleado_id
+                              WHERE u.activo = 1 AND u.empresa_id = %s AND e.activo = 1""", (empresa_id,))
+    return sorted({int(f["empleado_id"]) for f in filas
+                   if int(f["empleado_id"]) != int(solicitante_id or 0)
+                   and can_access_module(f["usuario_id"], modulo, "aprobar")})
+
+
+def _para_revisar(modulo, fila, titulo, cuerpo, clave):
+    with db.transaction(read_only=True) as c:
+        ids = _revisores(c, fila["empresa_id"], modulo, fila["empleado_id"])
+    if not ids:
+        return 0
+    datos = {"modulo": modulo, "registro_id": fila["id"], "ruta": f"/revisiones/{modulo}"}
+    return push_service.encolar_ahora(fila["empresa_id"], ids, "revision_pendiente", titulo, cuerpo, datos, clave)
+
+
+def _nombre(fila):
+    return f"{fila['apellido']} {fila['nombre']}".strip()
+
+
+@_seguro
+def revision_justificacion(justificacion_id):
+    with db.transaction(read_only=True) as c:
+        j = db.one(c, """SELECT j.id, j.empleado_id, e.empresa_id, e.apellido, e.nombre, j.estado, j.fecha,
+                                j.fecha_desde, j.fecha_hasta, j.motivo
+                         FROM justificaciones j JOIN empleados e ON e.id = j.empleado_id WHERE j.id = %s""",
+                   (justificacion_id,))
+    if not j or j["estado"] != "pendiente":
+        return 0
+    cuerpo = _nombre(j) + _rango(j["fecha_desde"] or j["fecha"], j["fecha_hasta"] or j["fecha"])
+    if j.get("motivo"):
+        motivo = str(j["motivo"]).strip()
+        cuerpo += " · " + (motivo if len(motivo) <= 80 else motivo[:77].rstrip() + "…")
+    return _para_revisar("justificaciones", j, "Justificación para revisar", cuerpo,
+                         f"revision:justificaciones:{j['id']}")
+
+
+@_seguro
+def revision_vacaciones(movimiento_id):
+    with db.transaction(read_only=True) as c:
+        v = db.one(c, """SELECT v.id, v.empresa_id, v.empleado_id, e.apellido, e.nombre, v.estado, v.dias,
+                                v.fecha_desde, v.fecha_hasta
+                         FROM vacaciones_movimientos v JOIN empleados e ON e.id = v.empleado_id WHERE v.id = %s""",
+                   (movimiento_id,))
+    if not v or v["estado"] != "pendiente":
+        return 0
+    cuerpo = f"{_nombre(v)}{_rango(v['fecha_desde'], v['fecha_hasta'])} ({_dias(abs(Decimal(str(v['dias'] or 0))))})"
+    return _para_revisar("vacaciones", v, "Vacaciones para revisar", cuerpo, f"revision:vacaciones:{v['id']}")
+
+
+@_seguro
+def revision_adelanto(adelanto_id):
+    with db.transaction(read_only=True) as c:
+        a = db.one(c, """SELECT a.id, a.empresa_id, a.empleado_id, e.apellido, e.nombre, a.estado, a.periodo_month
+                         FROM adelantos a JOIN empleados e ON e.id = a.empleado_id WHERE a.id = %s""", (adelanto_id,))
+    if not a or a["estado"] != "pendiente":
+        return 0
+    return _para_revisar("pedidos_empleados", a, "Adelanto para revisar",
+                         f"{_nombre(a)} pidió el adelanto de {_MESES[int(a['periodo_month']) - 1]}.",
+                         f"revision:adelanto:{a['id']}")
+
+
+@_seguro
+def revision_pedido_mercaderia(pedido_id):
+    with db.transaction(read_only=True) as c:
+        p = db.one(c, """SELECT p.id, p.empresa_id, p.empleado_id, e.apellido, e.nombre, p.estado, p.periodo_month
+                         FROM pedidos_mercaderia p JOIN empleados e ON e.id = p.empleado_id WHERE p.id = %s""",
+                   (pedido_id,))
+    if not p or p["estado"] != "pendiente":
+        return 0
+    return _para_revisar("pedidos_empleados", p, "Pedido de mercadería para revisar",
+                         f"{_nombre(p)} cargó el pedido de {_MESES[int(p['periodo_month']) - 1]}.",
+                         f"revision:mercaderia:{p['id']}")
+
+
+@_seguro
+def revision_reintegro(solicitud_id):
+    with db.transaction(read_only=True) as c:
+        r = db.one(c, """SELECT r.id, r.empresa_id, r.empleado_id, e.apellido, e.nombre, r.estado, r.revision,
+                                r.total_solicitado
+                         FROM reintegro_solicitudes r JOIN empleados e ON e.id = r.empleado_id WHERE r.id = %s""",
+                   (solicitud_id,))
+    if not r or r["estado"] != "pendiente":
+        return 0
+    return _para_revisar("reintegros", r, "Viáticos para revisar",
+                         f"{_nombre(r)} · rendición N° {r['id']} por {_pesos(r['total_solicitado'])}",
+                         f"revision:reintegros:{r['id']}:r{r['revision']}")
+
+
+@_seguro
+def revision_epp(pedido_id):
+    with db.transaction(read_only=True) as c:
+        p = db.one(c, """SELECT p.id, p.empresa_id, p.empleado_id, e.apellido, e.nombre, p.estado, p.revision
+                         FROM epp_pedidos p JOIN empleados e ON e.id = p.empleado_id WHERE p.id = %s""", (pedido_id,))
+    if not p or p["estado"] != "pendiente":
+        return 0
+    return _para_revisar("epp", p, "Pedido de EPP para revisar", f"{_nombre(p)} · pedido N° {p['id']}",
+                         f"revision:epp:{p['id']}:r{p['revision']}")

@@ -50,6 +50,7 @@ from repositories.empleado_horario_repository import (
     get_historial as get_horario_historial_by_empleado,
 )
 from repositories.horario_dia_repository import get_by_horario as get_dias_by_horario
+from services import avisos_push
 from services.egreso_automatico_service import efectividad_empleado
 from repositories.adelanto_repository import (
     get_by_id as get_adelanto_by_id,
@@ -1610,6 +1611,7 @@ def me_justificaciones_create():
         just_id = create_justificacion_svc(data)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    avisos_push.revision_justificacion(just_id)
 
     try:
         # En mobile autenticamos como empleado, pero estos campos apuntan a usuarios.

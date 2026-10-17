@@ -8,6 +8,7 @@ ranking, finalizar trivia completa, notificaciones y ranking anual.
 import datetime
 
 import repositories.trivia_repository as repo
+from services import avisos_push
 
 
 # ---------------------------------------------------------------------------
@@ -274,6 +275,9 @@ def generar_notificaciones(trivia_id: int):
     """
     Genera recordatorios (24h y 2h antes del fin) para empleados que
     no participaron. Usa INSERT IGNORE para evitar duplicados.
+
+    Ademas manda push (una vez por empleado y momento): "nueva" en las primeras
+    24 h de la trivia y el recordatorio mas urgente que corresponda.
     """
     trivia = repo.get_trivia_by_id(trivia_id)
     if not trivia or trivia["estado"] != "activa":
@@ -297,10 +301,20 @@ def generar_notificaciones(trivia_id: int):
     if segundos_restantes <= 86400:  # <= 24 horas
         tipos_a_enviar.append("recordatorio_24h")
 
-    if not tipos_a_enviar:
+    fecha_inicio = trivia.get("fecha_inicio")
+    if fecha_inicio is not None and not hasattr(fecha_inicio, "timestamp"):
+        fecha_inicio = datetime.datetime.fromisoformat(str(fecha_inicio))
+    # Solo trivias recien abiertas: al desplegar no se avisa de trivias viejas.
+    es_nueva = fecha_inicio is not None and 0 <= (ahora - fecha_inicio).total_seconds() <= 86400
+
+    if not tipos_a_enviar and not es_nueva:
         return
 
     empleados = repo.get_empleados_sin_participar(trivia_id)
+    momento_push = tipos_a_enviar[0] if tipos_a_enviar else "nueva"
+    avisos_push.trivia(trivia, empleados, momento_push)
+    if not tipos_a_enviar:
+        return
     notifications = []
     for emp in empleados:
         for tipo in tipos_a_enviar:

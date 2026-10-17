@@ -310,6 +310,13 @@ TIPOS_AUTOMATICOS = {
     "reintegro_recordatorio": "Recordatorio de viáticos",
     "adelanto": "Adelanto",
     "pedido_mercaderia": "Pedido de mercadería",
+    "justificacion": "Justificación",
+    "vacaciones": "Vacaciones",
+    "feedback_asignado": "Feedback asignado",
+    "feedback_resuelto": "Feedback resuelto",
+    "trivia_nueva": "Trivia nueva",
+    "trivia_recordatorio": "Recordatorio de trivia",
+    "revision_pendiente": "Para revisar (RR. HH.)",
 }
 ESTADOS_ENVIO = {"enviado": "Enviado", "sin_dispositivo": "Sin dispositivo", "error": "Error", "pendiente": "En cola"}
 # Confirmados por la app (ver push_service.registrar_acuse); un enviado sin acuse puede no haber llegado.

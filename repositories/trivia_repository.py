@@ -938,7 +938,7 @@ def get_empleados_sin_participar(trivia_id: int) -> list[dict]:
     try:
         cur.execute(
             """
-            SELECT e.id AS empleado_id, e.dni AS empleado_dni,
+            SELECT e.id AS empleado_id, e.dni AS empleado_dni, e.empresa_id,
                    CONCAT(e.apellido, ' ', e.nombre) AS empleado_nombre
             FROM empleados e
             WHERE e.activo = 1

@@ -408,6 +408,8 @@ def store(employee, data, files, rid=None, *, web_actor=None):
             user=web_actor["user_id"] if web_actor is not None else None,
             employee=eid,
         )
+    if web_actor is None and action == "enviar":
+        avisos_push.revision_reintegro(rid)
     return rid, True
 
 

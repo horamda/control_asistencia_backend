@@ -19,6 +19,7 @@ from repositories.feedback_repository import (
     update_estado,
 )
 from repositories.sector_repository import get_by_id as get_sector_by_id
+from services import avisos_push
 from werkzeug.utils import secure_filename
 
 
@@ -296,7 +297,7 @@ def create_feedback(
     fecha_vencimiento = fecha_limite.date().isoformat()
     evidencia = save_feedback_evidencia(evidencia_file)
 
-    return create_feedback_row(
+    feedback_id = create_feedback_row(
         {
             "empresa_id": empleado.get("empresa_id"),
             "numero": None,
@@ -327,6 +328,8 @@ def create_feedback(
             **(evidencia or {}),
         }
     )
+    avisos_push.feedback_asignado(feedback_id)
+    return feedback_id
 
 
 def tomar_feedback(feedback_id: int, *, actor_empleado_id: int) -> None:
@@ -372,6 +375,7 @@ def resolver_feedback(
         resolucion_descripcion=resolucion_descripcion,
         resuelto_en_sla=resuelto_en_sla,
     )
+    avisos_push.feedback_resuelto(feedback_id)
 
 
 def resolver_feedback_admin(
@@ -406,6 +410,7 @@ def resolver_feedback_admin(
         resolucion_descripcion=resolucion_descripcion,
         resuelto_en_sla=resuelto_en_sla,
     )
+    avisos_push.feedback_resuelto(feedback_id)
 
 
 def get_feedback_historial(

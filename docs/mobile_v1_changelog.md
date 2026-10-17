@@ -1,3 +1,7 @@
+## 1.48.0 — 2026-10-16
+
+- Todos los avisos al empleado por push (cambios aditivos, tipos nuevos): `justificacion` y `vacaciones` (aprobada o rechazada, con motivo), `feedback_asignado` (al responsable) y `feedback_resuelto` (al que lo cargó), `trivia_nueva` y `trivia_recordatorio` (24 h y 2 h antes del cierre, a quien no jugó) y `revision_pendiente` (a RR. HH. con permiso de aprobar, cuando un empleado envía una solicitud). `/trivia/notificaciones` sigue igual. Guía: `push_mobile.md`.
+
 ## 1.47.0 — 2026-10-16
 
 - Acuses de push: cada aviso trae `data.envio_id` y `data.acuse`. Nueva `POST /push/acuse` (sin JWT) con `evento` = `recibido` (al llegar, también en segundo plano) o `abierto` (al tocarla). El panel muestra Recibido / Abierto en Avisos automáticos y en cada comunicado. Cambios aditivos. Guía: `push_mobile.md#acuses-recibido-y-abierto-1470`.

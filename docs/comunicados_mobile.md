@@ -1,6 +1,10 @@
 # Comunicados — contrato para Flutter (Android y web)
 
-Versión de contrato: 1.45.0
+Versión de contrato: 1.48.0
+
+> 1.47.0: el push `comunicado` trae `data.envio_id` y `data.acuse` como todos los avisos; la app confirma con
+> `POST /push/acuse` (recibido / abierto) y el panel muestra a quién le llegó. Ver
+> [acuses](push_mobile.md#acuses-recibido-y-abierto-1470).
 
 RR. HH. envía comunicados desde el panel (Personal → Comunicados) a toda la empresa, a sectores, puestos,
 personas puntuales y/o sucursales. A cada destinatario le llega una notificación push (`data.tipo = "comunicado"`)

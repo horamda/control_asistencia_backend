@@ -29,6 +29,10 @@ def _activar_trivias():
         for t in pendientes:
             repo.set_trivia_estado(t["id"], "activa")
             logger.info(f"[trivia_scheduler] Trivia {t['id']} '{t['titulo']}' activada.")
+            try:
+                generar_notificaciones(t["id"])  # push "nueva trivia" sin esperar al job horario
+            except Exception:
+                logger.exception(f"[trivia_scheduler] Error avisando trivia {t['id']}")
     except Exception:
         logger.exception("[trivia_scheduler] Error en _activar_trivias")
 

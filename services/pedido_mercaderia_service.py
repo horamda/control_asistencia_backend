@@ -139,7 +139,7 @@ def solicitar_pedido(
         raise ValueError("Empleado invalido o sin empresa asignada.")
 
     try:
-        return create(
+        pedido_id = create(
             {
                 "empresa_id": resolved_empresa_id,
                 "empleado_id": empleado_id,
@@ -154,6 +154,8 @@ def solicitar_pedido(
         if _is_duplicate_period_error(exc):
             raise PedidoMercaderiaAlreadyRequestedError("Ya registraste un pedido de mercaderia en este mes.") from exc
         raise
+    avisos_push.revision_pedido_mercaderia(pedido_id)
+    return pedido_id
 
 
 def editar_pedido(

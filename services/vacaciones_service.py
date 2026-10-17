@@ -2,6 +2,7 @@ import datetime
 from bisect import bisect_left, bisect_right
 from collections import defaultdict
 from decimal import Decimal
+from services import avisos_push
 from repositories.compensatorios_repository import habilitado as compensatorios_habilitados
 
 from repositories.vacaciones_repository import (
@@ -363,6 +364,7 @@ def solicitar_vacaciones(
             "estado": "pendiente",
         }
     )
+    avisos_push.revision_vacaciones(movimiento_id)
 
     return {
         "id": movimiento_id,
@@ -632,6 +634,7 @@ def aprobar_movimiento_vacaciones(movimiento_id: int, *, actor_id: int | None = 
     row = get_movimiento_by_id(movimiento_id)
     if row:
         _ensure_legacy_vacacion_for_movimiento(row)
+    avisos_push.vacaciones_resueltas(movimiento_id)
 
 
 def cancelar_movimiento_vacaciones(
@@ -807,3 +810,4 @@ def rechazar_movimiento_vacaciones(
         expected_estado="pendiente",
     ):
         raise VacacionesError("El movimiento ya fue resuelto.")
+    avisos_push.vacaciones_resueltas(movimiento_id)
