@@ -75,7 +75,7 @@
     // Reenvio tras aceptar el dialogo: ya fue confirmado.
     if (confirmed.has(form)) { confirmed.delete(form); return; }
     const message = button?.dataset.confirm || form.dataset.confirm;
-    const dangerous = button?.classList.contains('btn-danger') || /\/eliminar(?:\/|$)/.test(form.action);
+    const dangerous = button?.classList.contains('btn-danger') || button?.classList.contains('btn-danger-soft') || /\/eliminar(?:\/|$)/.test(form.action);
     if (!message && !dangerous) return;
     event.preventDefault(); event.stopImmediatePropagation();
     askConfirmation(message || `¿Confirmás la acción «${button?.textContent.trim() || 'Eliminar registro'}»?`, dangerous)

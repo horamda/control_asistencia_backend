@@ -96,13 +96,13 @@
     </div>
   </form>
 
-  <div class="muted-box planilla-context-strip">
-    <strong>Empresa:</strong> {{ empresa_sel.razon_social if empresa_sel else "-" }} |
-    <strong>Sucursal:</strong> {{ sucursal_sel.nombre if sucursal_sel else "-" }} |
-    <strong>Sector:</strong> {{ sector_sel.nombre if sector_sel else "-" }} |
-    <strong>Jefe directo:</strong> {{ (jefe_directo_sel.apellido ~ " " ~ jefe_directo_sel.nombre) if jefe_directo_sel else "-" }} |
-    <strong>Fecha:</strong> {{ fecha }} |
-    <strong>Intervalo minimo:</strong> {{ intervalo_minimo_fichadas }} min
+  <div class="planilla-context" aria-label="Filtros aplicados">
+    <span class="planilla-context-item"><span>Empresa</span><strong>{{ empresa_sel.razon_social if empresa_sel else "Todas" }}</strong></span>
+    <span class="planilla-context-item"><span>Sucursal</span><strong>{{ sucursal_sel.nombre if sucursal_sel else "Todas" }}</strong></span>
+    <span class="planilla-context-item"><span>Sector</span><strong>{{ sector_sel.nombre if sector_sel else "Todos" }}</strong></span>
+    <span class="planilla-context-item"><span>Jefe directo</span><strong>{{ (jefe_directo_sel.apellido ~ " " ~ jefe_directo_sel.nombre) if jefe_directo_sel else "Todos" }}</strong></span>
+    <span class="planilla-context-item"><span>Fecha</span><strong>{{ fecha }}</strong></span>
+    <span class="planilla-context-item"><span>Intervalo mínimo</span><strong>{{ intervalo_minimo_fichadas }} min</strong></span>
   </div>
 
   <div class="results-bar">

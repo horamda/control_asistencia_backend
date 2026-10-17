@@ -23,7 +23,7 @@
     <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Volver</a>
   </div>
 
-  <div class="info-block" style="background:var(--surface-soft);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:0.82rem;color:var(--muted);">
+  <div class="info-block" style="background:var(--surface-soft);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:.8125rem;color:var(--muted);">
     <strong>Endpoint mobile:</strong> <code>GET /api/v1/version?platform=android</code>
     &nbsp;|&nbsp;
     Devuelve la configuración activa para la plataforma solicitada (si no hay específica, usa <code>all</code>).
@@ -76,7 +76,7 @@
               {% endif %}
             </td>
             <td data-label="Actualizado">
-              <span class="muted" style="font-size:0.8rem;">{{ c.updated_at.strftime('%d/%m/%Y %H:%M') if c.updated_at else '—' }}</span>
+              <span class="muted" style="font-size:.8125rem;">{{ c.updated_at.strftime('%d/%m/%Y %H:%M') if c.updated_at else '—' }}</span>
             </td>
             <td data-label="Acciones">
               <div class="inline-actions">

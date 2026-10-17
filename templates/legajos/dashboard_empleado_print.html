@@ -7,7 +7,7 @@
     <style>
       body { font-family: Arial, sans-serif; color: #111; margin: 16px; }
       h1, h2, h3 { margin: 0 0 8px; }
-      .meta { margin: 0 0 10px; font-size: 13px; }
+      .meta { margin: 0 0 10px; font-size: .8125rem; }
       .toolbar { margin: 12px 0; display: flex; gap: 8px; }
       .btn { border: 1px solid #444; background: #f8f8f8; padding: 6px 10px; text-decoration: none; color: #111; }
       @media screen {
@@ -17,13 +17,13 @@
       }
       .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 10px; }
       .box { border: 1px solid #666; padding: 8px; }
-      .box h3 { font-size: 14px; margin-bottom: 6px; }
+      .box h3 { font-size: .875rem; margin-bottom: 6px; }
       ul { margin: 0; padding-left: 18px; }
-      li { margin: 2px 0; font-size: 12px; }
-      table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+      li { margin: 2px 0; font-size: .75rem; }
+      table { width: 100%; border-collapse: collapse; font-size: .75rem; margin-top: 8px; }
       th, td { border: 1px solid #444; padding: 4px 6px; vertical-align: top; text-align: left; }
       th { background: #f0f0f0; }
-      .small { font-size: 11px; color: #444; }
+      .small { font-size: .75rem; color: #444; }
       .w-50 { width: 50%; }
       @media print {
         .toolbar { display: none; }
@@ -98,7 +98,7 @@
           <li>Periodo anulados (excluidos): {{ legajo.periodo.anulados }}</li>
         </ul>
         {% if legajo.por_tipo_historico %}
-          <h4 style="margin-top:8px; margin-bottom:4px; font-size:13px;">Eventos historicos por tipo</h4>
+          <h4 style="margin-top:8px; margin-bottom:4px; font-size:.8125rem;">Eventos historicos por tipo</h4>
           <table>
             <thead>
               <tr>

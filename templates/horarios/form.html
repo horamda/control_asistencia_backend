@@ -159,7 +159,7 @@
     row.innerHTML = `
       <input type="time" class="entrada" value="${normalizeHHMM(entrada)}">
       <input type="time" class="salida" value="${normalizeHHMM(salida)}">
-      <button type="button" class="remove">Quitar</button>
+      <button type="button" class="remove btn btn-sm btn-danger">Quitar</button>
     `;
     row.querySelector(".remove").addEventListener("click", () => row.remove());
     return row;

@@ -80,7 +80,7 @@
         </table>
       </div>
     {% else %}
-      <p style="color:var(--muted);font-size:.9rem;margin:1rem 0 0">No hay empleados excluidos del ranking anual {{ anio }}.</p>
+      <p style="color:var(--muted);font-size:.875rem;margin:1rem 0 0">No hay empleados excluidos del ranking anual {{ anio }}.</p>
     {% endif %}
   </div>
 </div>
@@ -95,9 +95,9 @@
       {% set r = top3[loop.index0] %}
       <div style="text-align:center;background:{{ bg }};border-radius:.75rem;padding:1rem .75rem;min-width:140px;max-width:180px;
                   border:1.5px solid var(--border);height:{{ height }};display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:.2rem">
-        <div style="font-size:1.8rem">{{ emoji }}</div>
-        <div style="font-weight:700;font-size:.9rem;line-height:1.2">{{ r.empleado_nombre }}</div>
-        <div style="font-size:.8rem;color:var(--muted)">{{ r.puntos_anuales }} pts</div>
+        <div style="font-size:1.875rem">{{ emoji }}</div>
+        <div style="font-weight:700;font-size:.875rem;line-height:1.2">{{ r.empleado_nombre }}</div>
+        <div style="font-size:.8125rem;color:var(--muted)">{{ r.puntos_anuales }} pts</div>
         <div style="font-size:.75rem;color:var(--muted)">{{ r.trivias_participadas }} trivia{{ 's' if r.trivias_participadas != 1 else '' }}</div>
       </div>
     {% endif %}

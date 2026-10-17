@@ -2,14 +2,14 @@
 .missing-overview { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:18px; }
 .missing-overview article { background:white; border:1px solid #d5dfd8; border-radius:12px; padding:18px 20px; }
 .missing-overview article:first-child { background:#eef3f8; border-color:#c8d6e3; }
-.missing-overview span { font-size:13px; font-weight:650; }
-.missing-overview strong { display:block; font-size:36px; margin:6px 0; font-variant-numeric:tabular-nums; }
-.missing-overview p { font-size:12px; color:#576860; line-height:1.5; }
-.control-help { font-size:12px; color:#52665b; line-height:1.6; margin:8px 0; }
+.missing-overview span { font-size:.8125rem; font-weight:650; }
+.missing-overview strong { display:block; font-size:2.25rem; margin:6px 0; font-variant-numeric:tabular-nums; }
+.missing-overview p { font-size:.75rem; color:#576860; line-height:1.5; }
+.control-help { font-size:.75rem; color:#52665b; line-height:1.6; margin:8px 0; }
 .control-help summary, .scope-note summary { cursor:pointer; width:fit-content; min-height:32px; padding:6px 0; font-weight:650; }
 .control-help p { padding:4px 0 10px; max-width:90ch; }
 summary:focus-visible { outline:3px solid #1b8271; outline-offset:3px; }
-.scope-note summary { font-size:12px; }
+.scope-note summary { font-size:.75rem; }
 @media screen {
   .single-branch .branches { grid-template-columns:minmax(0,1fr); }
   .single-branch .roster .branch { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -33,7 +33,7 @@ summary:focus-visible { outline:3px solid #1b8271; outline-offset:3px; }
   .missing-overview { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
   .missing-overview article:first-child { grid-column:1 / -1; }
   .missing-overview article { padding:12px; }
-  .missing-overview strong { font-size:30px; }
+  .missing-overview strong { font-size:1.875rem; }
 }
 @media print { .control-help, .scope-note details { display:none; } .macro-filter { margin:12px 0; } .macro-filter select { border:0; } }
 /* Adaptación de las tres vistas, sin ocultar contenido desbordado. */
@@ -44,9 +44,9 @@ summary:focus-visible { outline:3px solid #1b8271; outline-offset:3px; }
   .macro-filter > div { flex:1 1 260px; min-width:0; }
   .macro-filter { flex-wrap:wrap; }
   .macro-filter p { flex:1 1 260px; }
-  .macro-filter label { display:block; font-size:13px; font-weight:750; margin-bottom:6px; }
+  .macro-filter label { display:block; font-size:.8125rem; font-weight:750; margin-bottom:6px; }
   .macro-filter select { width:100%; background:white; padding:10px 12px; }
-  .macro-filter p { font-size:13px; color:#52665b; line-height:1.5; }
+  .macro-filter p { font-size:.8125rem; color:#52665b; line-height:1.5; }
   html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   main, section, .filters > *, .check-setup > *, .branch-head > *,
   .overview > *, .check-totals > *, .topbar > * { min-width: 0; }
@@ -71,32 +71,32 @@ summary:focus-visible { outline:3px solid #1b8271; outline-offset:3px; }
   .branches { grid-template-columns: minmax(0, 1fr); }
   .check-setup > div { max-width: none; }
   .view-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .view-tabs button { min-width: 0; padding: 10px 8px; font-size: 13px;
+  .view-tabs button { min-width: 0; padding: 10px 8px; font-size: .8125rem;
     white-space: normal; line-height: 1.35; }
   .view-tabs button:last-child { grid-column: auto; }
-  .person-name, .check-person-info strong { font-size: 16px; }
+  .person-name, .check-person-info strong { font-size: 1rem; }
 }
 
 @media screen and (max-width: 600px) {
   .macro-filter { display:block; padding:12px; margin-top:14px; }
-  .macro-filter select { font-size:16px; min-height:48px; }
-  .macro-filter p { margin-top:8px; font-size:12px; }
+  .macro-filter select { font-size:1rem; min-height:48px; }
+  .macro-filter p { margin-top:8px; font-size:.75rem; }
   .macro-filter > div + div { margin-top:12px; }
   main { padding: 18px max(12px, env(safe-area-inset-left)); }
   .topbar { padding: 12px; gap: 8px; flex-wrap: wrap; }
-  .brand { font-size: 10px; letter-spacing: .5px; gap: 8px; }
-  .brand small { font-size: 11px; }
-  .connection { font-size: 11px; max-width: 45%; padding: 7px 9px; }
+  .brand { font-size: .75rem; letter-spacing: .5px; gap: 8px; }
+  .brand small { font-size: .75rem; }
+  .connection { font-size: .75rem; max-width: 45%; padding: 7px 9px; }
   h1 { font-size: clamp(24px, 6.5vw, 30px); line-height: 1.2; }
   .page-heading { gap: 12px; }
-  .subtitle { font-size: 13px; }
+  .subtitle { font-size: .8125rem; }
   .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
-  .actions button { padding: 10px 8px; min-width: 0; font-size: 13px; }
+  .actions button { padding: 10px 8px; min-width: 0; font-size: .8125rem; }
   .view-tabs { gap: 5px; }
-  .view-tabs button { font-size: 12px; min-height: 52px; }
+  .view-tabs button { font-size: .75rem; min-height: 52px; }
   .view-tabs span { margin-left: 2px; }
   .scope-note { padding: 12px; margin: 14px 0 8px; gap: 8px; }
-  .scope-note strong { font-size: 13px; }
+  .scope-note strong { font-size: .8125rem; }
   .overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .overview .main-stat { grid-column: 1 / -1; }
   .overview article { padding: 12px; }
@@ -105,9 +105,9 @@ summary:focus-visible { outline:3px solid #1b8271; outline-offset:3px; }
   .roster-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
   .filters { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .search-field { grid-column: auto; }
-  .filters label, .check-setup label, .add-person > label { font-size: 14px; }
+  .filters label, .check-setup label, .add-person > label { font-size: .875rem; }
   .filters input, .filters select, .check-setup input, .add-person > input {
-    width: 100%; font-size: 16px; min-height: 48px;
+    width: 100%; font-size: 1rem; min-height: 48px;
   }
   .filters > button { width: 100%; }
   .pending-toggle { padding: 10px 12px; border: 1px solid #cbd6ce;
@@ -121,27 +121,27 @@ summary:focus-visible { outline:3px solid #1b8271; outline-offset:3px; }
   .check-totals article:first-child { grid-column: 1 / -1; display: flex;
     align-items: center; gap: 14px; }
   .check-totals article { padding: 12px 14px; }
-  .check-totals strong { font-size: 32px; }
-  .check-totals span { font-size: 13px; line-height: 1.4; }
+  .check-totals strong { font-size: 1.875rem; }
+  .check-totals span { font-size: .8125rem; line-height: 1.4; }
   .branch-head { padding: 14px; gap: 10px; }
-  .branch-head h3 { font-size: 20px; }
-  .branch-count strong { font-size: 32px; }
+  .branch-head h3 { font-size: 1.25rem; }
+  .branch-count strong { font-size: 1.875rem; }
   .person, .check-label { padding: 14px 0; gap: 10px; }
-  .person-name, .check-person-info strong { font-size: 16px; }
-  .check-person-info span, .check-person-info small { font-size: 12px; line-height: 1.5; }
+  .person-name, .check-person-info strong { font-size: 1rem; }
+  .check-person-info span, .check-person-info small { font-size: .75rem; line-height: 1.5; }
   .check-people { padding: 0 12px; }
   .add-person { padding: 14px; }
-  .add-person summary { font-size: 15px; }
+  .add-person summary { font-size: .9375rem; }
   .add-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 16px 0; }
-  .add-row strong { font-size: 16px; }
-  .add-row p { font-size: 13px; margin-top: 4px; }
-  .add-row button { width: 100%; min-height: 48px; font-size: 14px; }
+  .add-row strong { font-size: 1rem; }
+  .add-row p { font-size: .8125rem; margin-top: 4px; }
+  .add-row button { width: 100%; min-height: 48px; font-size: .875rem; }
 }
 
 @media screen and (max-width: 360px) {
   .brand small { display: none; }
-  .connection { max-width: 42%; font-size: 10px; }
-  .view-tabs button { font-size: 13px; padding: 8px 5px; min-height: 44px; }
+  .connection { max-width: 42%; font-size: .75rem; }
+  .view-tabs button { font-size: .8125rem; padding: 8px 5px; min-height: 44px; }
   .person { align-items: flex-start; }
   .person-time { padding-top: 2px; }
 }

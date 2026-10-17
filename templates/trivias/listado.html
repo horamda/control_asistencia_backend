@@ -33,7 +33,7 @@
   {% if filtro_estado or filtro_anio %}
     <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost">✕ Limpiar</a>
   {% endif %}
-  <span style="margin-left:auto;color:var(--muted);font-size:.85rem;align-self:center">
+  <span style="margin-left:auto;color:var(--muted);font-size:.875rem;align-self:center">
     {{ total }} resultado{{ 's' if total != 1 else '' }}
   </span>
 </form>

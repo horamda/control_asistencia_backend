@@ -6,7 +6,7 @@
 .page-content pre,.embedded-layout pre{max-width:100%;overflow:auto;overflow-wrap:anywhere}
 .page-content img,.embedded-layout img{max-width:100%;height:auto}
 .section-head,.results-bar,.sh-heading,.sh-pagination{flex-wrap:wrap}
-.page-content h1,.page-content h2,.page-content h3,.sh-heading{overflow-wrap:anywhere}
+.page-content h1,.page-content h2,.page-content h3,.sh-heading{overflow-wrap:break-word}
 .sh-page .sh-editor{min-width:0}
 .sh-page .sh-description{overflow-wrap:anywhere}
 .sh-page .sh-tabs,.sh-page .sh-module-nav{gap:8px}
@@ -33,14 +33,14 @@
   .notifications-panel{position:fixed;left:12px;right:12px;top:88px;width:auto;max-width:none;max-height:calc(100dvh - 108px);overflow-y:auto}
   .form-grid,.sh-page .sh-grid,.sh-page .sh-dashboard-filters{grid-template-columns:minmax(0,1fr)}
   .form-grid>.span-2,.form-grid>.span-3,.form-grid>.row.span-2,.form-grid>.row.span-3{grid-column:1/-1}
-  form input:not([type=checkbox]):not([type=radio]),form select,form textarea{min-width:0;max-width:100%!important;box-sizing:border-box;font-size:16px}
+  form input:not([type=checkbox]):not([type=radio]),form select,form textarea{min-width:0;max-width:100%!important;box-sizing:border-box;font-size:1rem}
   input[type=file]{overflow:hidden}
   select[multiple]{max-height:240px}
   .actions,.toolbar,.sh-toolbar{flex-wrap:wrap;gap:10px;min-width:0}
   .actions>*,.toolbar>*,.sh-toolbar>*{min-width:0;max-width:100%;box-sizing:border-box}
   .sh-page .sh-toolbar label{min-width:0;width:100%}
   .sh-page .sh-panel{padding:14px}
-  .sh-page .sh-table{font-size:.9rem}
+  .sh-page .sh-table{font-size:.875rem}
   .sh-page .sh-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
   .sh-page .sh-tabs>a{display:flex;justify-content:center;align-items:center;min-height:44px}
   .sh-module-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -75,7 +75,7 @@
 .sh-dashboard .sh-bar-row>strong,.sh-dashboard .sh-chart-scale{text-align:center}
 .kpi-card .kpi-label{justify-content:center}
 .sh-dashboard .sh-kpi{align-items:center}
-.sh-dashboard .sh-chart-scale{font-size:.85rem;line-height:1.7;margin:16px 0 0}
+.sh-dashboard .sh-chart-scale{font-size:.875rem;line-height:1.7;margin:16px 0 0}
 .sh-dashboard .sh-legend li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;text-align:center}
 .sh-dashboard .sh-legend strong{margin-left:0;text-align:center}
 
@@ -96,7 +96,7 @@
 .table-responsive.is-cards>table>tbody>tr>td[data-label="Foto"]{flex:0 0 auto}
 /* El dato principal (el que sigue a la foto: nombre, etc.) tiene mas lugar. */
 .table-responsive:is(.is-cards,.table-cards) td[data-label="Foto"]+td{flex-basis:220px}
-.table-responsive.is-cards>table>tbody>tr>td::before{content:attr(data-label);display:block;margin-bottom:4px;font-family:"Manrope",sans-serif;font-size:.7rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.table-responsive.is-cards>table>tbody>tr>td::before{content:attr(data-label);display:block;margin-bottom:4px;font-family:"Manrope",sans-serif;font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .table-responsive.is-cards>table>tbody>tr>td:not([data-label])::before,
 .table-responsive.is-cards>table>tbody>tr>td[data-label="Foto"]::before{display:none}
 /* Filas "sin resultados" (una sola celda que ocupa toda la tabla). */

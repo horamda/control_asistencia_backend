@@ -15,7 +15,7 @@
 .reu-todos small{color:var(--muted);font-weight:400}
 [data-reu-reglas].is-disabled{opacity:.5}
 .reu-sede-fields{display:grid;grid-template-columns:minmax(0,1fr) 120px;gap:8px}
-.epp-page .reu-sede-fields label{display:grid;gap:4px;margin:0;font-size:.85rem}
+.epp-page .reu-sede-fields label{display:grid;gap:4px;margin:0;font-size:.875rem}
 .epp-page .reu-form .reu-sede-fields input{min-height:38px}
 .reu-sede:not(.is-whole) .reu-sede-fields{opacity:.5}
 .reu-sede-list{display:flex;flex-wrap:wrap;gap:6px;margin:0;align-items:center}
@@ -38,7 +38,7 @@
 .reu-card h3{margin:0;overflow-wrap:anywhere}
 .reu-when{margin:0;color:var(--muted)}
 .reu-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
-.reu-facts dt{font-size:.8rem;color:var(--muted)}.reu-facts dd{margin:2px 0 0;font-weight:600}
+.reu-facts dt{font-size:.8125rem;color:var(--muted)}.reu-facts dd{margin:2px 0 0;font-weight:600}
 .reu-card-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:auto}
 .reu-card-actions form,.reu-inline-form{margin:0;padding:0;border:0;background:none;box-shadow:none}
 .reu-detail-facts{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -109,8 +109,8 @@
   .com-mensaje-layout > .com-vistas-form { grid-template-columns: minmax(0, 1fr); position: sticky; top: 16px; }
 }
 .com-vista { margin: 0; display: grid; gap: 6px; min-width: 0; }
-.com-vista figcaption { font-size: .8rem; font-weight: 600; color: var(--muted, #57606a); }
-.com-notif { display: grid; gap: 2px; padding: 12px; border-radius: 14px; background: var(--surface-soft, #f6f8fa); border: 1px solid var(--border, #d0d7de); font-size: .9rem; }
+.com-vista figcaption { font-size: .8125rem; font-weight: 600; color: var(--muted, #57606a); }
+.com-notif { display: grid; gap: 2px; padding: 12px; border-radius: 14px; background: var(--surface-soft, #f6f8fa); border: 1px solid var(--border, #d0d7de); font-size: .875rem; }
 .com-notif-app { font-size: .75rem; color: var(--muted, #57606a); }
 .com-notif-texto { color: var(--muted, #57606a); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .com-notif-img { display: block; width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 8px; margin-top: 8px; }
@@ -121,7 +121,7 @@
   padding: 18px 14px; border: 10px solid #1f2328; border-radius: 30px; background: var(--surface, #fff); }
 .com-telefono small { color: var(--muted, #57606a); }
 .com-telefono img { display: block; width: 100%; height: auto; border-radius: 8px; }
-.com-telefono .com-mensaje { font-size: .9rem; }
+.com-telefono .com-mensaje { font-size: .875rem; }
 /* Filtros compactos: los selects no se estiran a todo el ancho. form[method=get] de panel.css les pone
    fondo de panel; aca van en linea con el resto de la tarjeta. */
 .epp-page form.com-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
@@ -146,7 +146,10 @@
 .com-programar { display: grid; gap: 14px; margin-top: 14px; }
 .com-programar[hidden], .com-resumen[hidden], [data-com-frecuencia-show][hidden], [data-com-termina-show][hidden] { display: none; }
 .epp-page .com-habiles { border-radius: 10px; margin: 0 0 10px; }
-.com-acciones { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Acciones de una fila: botones del mismo ancho, uno debajo del otro. */
+.com-acciones { display: grid; gap: 6px; min-width: 112px; }
+.com-acciones > form { display: grid; margin: 0; }
+.com-acciones .btn { width: 100%; }
 
 /* Configuracion de avisos */
 .com-config { display: grid; gap: 16px; }
@@ -162,7 +165,7 @@
 .com-regla-activo small { color: var(--muted, #57606a); font-weight: 400; }
 .com-regla-opciones { display: grid; gap: 10px; align-content: start; }
 .com-regla-campo { display: grid; gap: 6px; margin: 0; }
-.com-regla-etiqueta { font-size: .8rem; font-weight: 600; color: var(--muted, #57606a); }
+.com-regla-etiqueta { font-size: .8125rem; font-weight: 600; color: var(--muted, #57606a); }
 .com-resumen { display: grid; gap: 8px; }
 .epp-page .com-resumen label, .epp-page .com-parametro { max-width: 280px; }
 @media (max-width: 760px) { .com-regla { grid-template-columns: minmax(0, 1fr); } }

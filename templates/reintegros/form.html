@@ -39,7 +39,7 @@
 
     {% macro expense(g,key) %}<section class="reintegros-expense" data-expense>
       <input type="hidden" name="linea" value="{{ key }}">
-      <header class="reintegros-expense-head"><h3>Gasto <span data-number></span></h3><button type="button" class="btn btn-secondary btn-sm" data-remove>Quitar gasto</button></header>
+      <header class="reintegros-expense-head"><h3>Gasto <span data-number></span></h3><button type="button" class="btn btn-danger btn-sm" data-remove>Quitar gasto</button></header>
       <div class="form-grid">
         <label>Fecha<input type="date" name="fecha_{{ key }}" value="{{ g.fecha }}" min="2000-01-01" max="{{ today }}" required></label>
         <label>Concepto<select name="categoria_{{ key }}" {{ 'required' if not row or row.periodo }}><option value="">Seleccionar concepto</option>{% for c in categories if c.activo %}<option value="{{ c.id }}" {{ 'selected' if c.id|string==g.categoria_id|default('')|string }}>{{ c.nombre }}</option>{% endfor %}</select></label>

@@ -47,7 +47,7 @@
   </div>
   {% if trivia.premio %}
   <div class="kpi-card tone-ok">
-    <span class="kpi-value" style="font-size:.9rem;line-height:1.3">{{ trivia.premio }}</span>
+    <span class="kpi-value" style="font-size:.875rem;line-height:1.3">{{ trivia.premio }}</span>
     <span class="kpi-label">Premio</span>
   </div>
   {% endif %}
@@ -58,35 +58,35 @@
   <div class="card-body">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.85rem 1.5rem">
       <div>
-        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Inicio</div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Inicio</div>
         <div>{{ trivia.fecha_inicio.strftime('%d/%m/%Y %H:%M') if trivia.fecha_inicio else '—' }}</div>
       </div>
       <div>
-        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Fin</div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Fin</div>
         <div>{{ trivia.fecha_fin.strftime('%d/%m/%Y %H:%M') if trivia.fecha_fin else '—' }}</div>
       </div>
       {% if trivia.descripcion %}
       <div style="grid-column:1/-1">
-        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Descripción</div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Descripción</div>
         <div>{{ trivia.descripcion }}</div>
       </div>
       {% endif %}
       {% if trivia.mensaje_ganador %}
       <div style="grid-column:1/-1">
-        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Mensaje para el ganador</div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.2rem">Mensaje para el ganador</div>
         <div>{{ trivia.mensaje_ganador }}</div>
       </div>
       {% endif %}
       <div style="grid-column:1/-1">
-        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.4rem">Sectores</div>
+        <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.4rem">Sectores</div>
         {% if trivia_sectores %}
           <div style="display:flex;flex-wrap:wrap;gap:.3rem">
             {% for s in trivia_sectores %}
-              <span style="display:inline-block;padding:.2rem .65rem;border:1px solid var(--border);border-radius:2rem;font-size:.84rem">{{ s.nombre }}</span>
+              <span style="display:inline-block;padding:.2rem .65rem;border:1px solid var(--border);border-radius:2rem;font-size:.8125rem">{{ s.nombre }}</span>
             {% endfor %}
           </div>
         {% else %}
-          <span style="color:var(--muted);font-size:.9rem">Todos los sectores</span>
+          <span style="color:var(--muted);font-size:.875rem">Todos los sectores</span>
         {% endif %}
       </div>
     </div>
@@ -99,8 +99,8 @@
   <div class="card-body" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
     <div style="font-size:2.5rem;line-height:1">🏆</div>
     <div style="flex:1;min-width:0">
-      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.15rem">Ganador</div>
-      <div style="font-size:1.1rem;font-weight:700">{{ ganador.empleado_nombre }}</div>
+      <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.15rem">Ganador</div>
+      <div style="font-size:1.125rem;font-weight:700">{{ ganador.empleado_nombre }}</div>
       <div style="font-size:.875rem;color:var(--muted)">DNI {{ ganador.empleado_dni }} · {{ ganador.puntos_total }} pts · {{ ganador.tiempo_total_segundos }}s</div>
     </div>
     {% if trivia.mensaje_ganador %}
@@ -115,7 +115,7 @@
 <div class="card" style="margin-bottom:1rem">
   <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
     <h3 class="card-title" style="margin:0">Ranking</h3>
-    <span style="font-size:.82rem;color:var(--muted)">{{ ranking|length }} participante{{ 's' if ranking|length != 1 else '' }}</span>
+    <span style="font-size:.8125rem;color:var(--muted)">{{ ranking|length }} participante{{ 's' if ranking|length != 1 else '' }}</span>
   </div>
   <div class="table-responsive table-cards">
     <table class="table">
@@ -147,7 +147,7 @@
   <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
     <h3 class="card-title" style="margin:0">
       Preguntas
-      <span style="font-weight:400;color:var(--muted);font-size:.9rem">({{ preguntas|length }})</span>
+      <span style="font-weight:400;color:var(--muted);font-size:.875rem">({{ preguntas|length }})</span>
     </h3>
     {% if trivia.estado in ('programada', 'activa') %}
     <button type="button" class="btn btn-primary btn-sm" data-toggle-agregar>
@@ -224,7 +224,7 @@
           <td data-label="Correcta">
             <span style="display:inline-flex;align-items:center;justify-content:center;
                          width:26px;height:26px;border-radius:50%;
-                         background:var(--primary-soft);color:var(--text);font-weight:700;font-size:.85rem">
+                         background:var(--primary-soft);color:var(--text);font-weight:700;font-size:.875rem">
               {{ p.respuesta_correcta }}
             </span>
           </td>
@@ -281,7 +281,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem">
       <h3 id="modal-ep-title" style="margin:0">Editar pregunta</h3>
       <button type="button" data-cerrar-modal aria-label="Cerrar"
-              style="background:none;border:none;font-size:1.4rem;cursor:pointer;
+              style="background:none;border:none;font-size:1.5rem;cursor:pointer;
                      color:var(--muted);line-height:1;padding:.2rem .4rem">✕</button>
     </div>
     <form id="form-editar-pregunta" method="post" action="#">

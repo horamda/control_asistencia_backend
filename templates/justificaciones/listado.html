@@ -168,7 +168,7 @@
                   <form method="post" action="/justificaciones/rechazar/{{ j.id }}" class="inline-actions">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input name="motivo_rechazo" placeholder="Motivo rechazo" required style="min-width: 160px;">
-                    <button class="btn-danger" type="submit">Rechazar</button>
+                    <button class="btn btn-danger" type="submit">Rechazar</button>
                   </form>
                 {% else %}
                   <form method="post" action="/justificaciones/revertir/{{ j.id }}">

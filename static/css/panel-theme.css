@@ -7,9 +7,20 @@
   --action-hover: #0757d6;
   --danger-bg: #b32135;
   --warning: #855000;
+  /* Acciones destructivas (eliminar, rechazar, anular, quitar): rojo suave en todo el panel. */
+  --danger-soft-bg: #fdecef;
+  --danger-soft-border: #efb3bf;
+  --danger-soft-text: #9b1c33;
+  --danger-soft-hover-bg: #f9d9df;
+  --danger-soft-hover-border: #e48a9c;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
+  --danger-soft-bg: #3d2229;
+  --danger-soft-border: #7a3c4a;
+  --danger-soft-text: #ffc7d0;
+  --danger-soft-hover-bg: #4d2a33;
+  --danger-soft-hover-border: #9b5163;
   --primary: #4599ff;
   --danger: #ff8fa3;
   --action-bg: #0866ff;
@@ -60,20 +71,21 @@
 :root[data-theme="dark"] .app-sidebar .nav-submenu .nav-module-heading {color:#b0b3b8;border-top-color:#3e4042}
 
 /* Titulos de seccion del menu (Operacion diaria, Personal, Gestion, Configuracion). */
-.app-sidebar .nav-section-label {display:block;margin:14px 4px 4px;padding-top:12px;border-top:1px solid rgba(255,255,255,.25);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.app-sidebar .nav-section-label {display:block;margin:14px 4px 4px;padding-top:12px;border-top:1px solid rgba(255,255,255,.25);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
 .app-sidebar .nav-section-label[hidden] {display:none}
 :root[data-theme="dark"] .app-sidebar .nav-section-label {border-top-color:#3e4042}
 
 /* Calendar days keep their laborable/non-laborable state colors. */
-:is(.page-content,.embedded-layout,.concept-dialog) :is(button,.btn,input[type=submit]):not(.btn-secondary):not(.btn-ghost):not(.btn-danger):not(.concept-secondary):not(.calendar-day) {
+:is(.page-content,.embedded-layout,.concept-dialog) :is(button,.btn,input[type=submit]):not(.btn-secondary):not(.btn-ghost):not(.btn-danger):not(.btn-danger-soft):not(.concept-secondary):not(.calendar-day) {
   background-color: var(--action-bg);
   color: #fff;
 }
-:is(.page-content,.embedded-layout,.concept-dialog) :is(button,.btn,input[type=submit]):not(.btn-secondary):not(.btn-ghost):not(.btn-danger):not(.concept-secondary):not(.calendar-day):hover {
+:is(.page-content,.embedded-layout,.concept-dialog) :is(button,.btn,input[type=submit]):not(.btn-secondary):not(.btn-ghost):not(.btn-danger):not(.btn-danger-soft):not(.concept-secondary):not(.calendar-day):hover {
   background-color: var(--action-hover);
   color: #fff;
 }
-:is(.page-content,.embedded-layout) .btn-danger {background:var(--danger-bg);border-color:var(--danger-bg);color:#fff}
+:is(.page-content,.embedded-layout) :is(.btn-danger,.btn-danger-soft) {background:var(--danger-soft-bg);border-color:var(--danger-soft-border);color:var(--danger-soft-text)}
+:is(.page-content,.embedded-layout) :is(.btn-danger,.btn-danger-soft):hover {background:var(--danger-soft-hover-bg);border-color:var(--danger-soft-hover-border);color:var(--danger-soft-text)}
 :is(.page-content,.embedded-layout) .btn :is(span,small),
 .concept-dialog button :is(span,small) {color:inherit}
 .concept-dialog .concept-secondary:hover {background:var(--surface-strong);color:var(--text)}

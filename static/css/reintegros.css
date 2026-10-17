@@ -5,7 +5,7 @@
 .reintegros-expense-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .reintegros-expense-head h3{margin:0;font-size:1rem}
 .reintegros-total-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:4px}
-.reintegros-total-row strong{font-size:1.1rem}
+.reintegros-total-row strong{font-size:1.125rem}
 .reintegros-inline{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 #reintegro-form-error:empty{display:none}
 #reintegro-form-error{color:var(--danger);font-weight:600}

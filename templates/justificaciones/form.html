@@ -107,11 +107,11 @@
             <div class="chip-row" style="flex-wrap: wrap;">
               {% for adjunto in adjuntos %}
                 <span class="chip">
-                  <a href="{{ url_for('media.legajo_adjunto', adjunto_id=adjunto.id) }}" target="_blank" rel="noopener" class="btn btn-secondary ui-action-link">
+                  <a href="{{ url_for('media.legajo_adjunto', adjunto_id=adjunto.id) }}" target="_blank" rel="noopener" class="btn btn-sm btn-secondary ui-action-link">
                     {{ adjunto.nombre_original or ('Adjunto ' ~ adjunto.id) }}
                   </a>
                   {% if (data.estado or 'pendiente') == 'pendiente' %}
-                    <button type="submit" class="btn-danger" style="margin-left:.35rem;" formaction="{{ url_for('justificaciones.eliminar_adjunto', justificacion_id=data.id, adjunto_id=adjunto.id) }}" formmethod="post">Quitar</button>
+                    <button type="submit" class="btn btn-sm btn-danger" formaction="{{ url_for('justificaciones.eliminar_adjunto', justificacion_id=data.id, adjunto_id=adjunto.id) }}" formmethod="post">Quitar</button>
                   {% endif %}
                 </span>
               {% endfor %}

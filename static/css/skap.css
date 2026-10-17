@@ -9,7 +9,7 @@
 .skap-module a:focus-visible, .skap-module summary:focus-visible,
 .skap-module input:focus-visible, .skap-module select:focus-visible,
 .skap-module textarea:focus-visible, .skap-module button:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
-.skap-module .btn, .skap-module input:not([type=hidden]), .skap-module select { min-height: 44px; }
+.skap-module input:not([type=hidden]), .skap-module select { min-height: 44px; }
 .skap-module input[type=checkbox] { min-height: 24px; width: 24px; accent-color: var(--primary); }
 .skap-module label { display: grid; gap: 8px; min-width: 0; font-weight: 600; }
 .skap-module input, .skap-module select, .skap-module textarea { max-width: 100%; min-width: 0; width: 100%; font: inherit; }
@@ -34,13 +34,13 @@
 .skap-action-form label:first-of-type, .skap-action-form label:last-of-type { grid-column: 1 / -1; }
 .skap-action-form button { justify-self: start; }
 .skap-table { width: 100%; border-collapse: collapse; }
-.skap-table th { color: var(--muted); font-size: .85rem; text-align: left; }
-.skap-table th, .skap-table td { padding: 15px 12px; vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+.skap-table th { color: var(--muted); font-size: .875rem; text-align: left; }
+.skap-table th, .skap-table td { padding: 15px 12px; vertical-align: top; white-space: normal; overflow-wrap: break-word; }
 .skap-table td { border-top: 1px solid var(--border); }
 .skap-table tbody tr:hover { background: var(--surface-soft); }
 .skap-table select { min-width: 190px; }
 .skap-empty { text-align: center; padding: 32px 16px; color: var(--muted); }
-.skap-empty strong { display: block; color: var(--text); font-size: 1.1rem; }
+.skap-empty strong { display: block; color: var(--text); font-size: 1.125rem; }
 .skap-steps { display: flex; flex-wrap: wrap; gap: 12px; padding: 0; list-style: none; }
 .skap-steps li { padding: 10px 16px; border-radius: 8px; background: var(--surface-soft); color: var(--muted); }
 .skap-steps [aria-current] { background: var(--primary-soft); color: var(--text); font-weight: 700; }
@@ -63,7 +63,7 @@
  .skap-table tr { display: block; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 16px; }
  .skap-table tr:last-child { margin-bottom: 0; }
  .skap-table td { display: grid; grid-template-columns: minmax(85px,32%) minmax(0,1fr); gap: 12px; padding: 10px 0; border: 0; }
- .skap-table td::before { content: attr(data-label); color: var(--muted); font-size: .85rem; font-weight: 600; }
+ .skap-table td::before { content: attr(data-label); color: var(--muted); font-size: .875rem; font-weight: 600; }
  .skap-table td[colspan] { display: block; }
  .skap-table td[colspan]::before { display: none; }
  .skap-table td[data-label="Legajo de FichaYa"], .skap-table td[data-label="Competencia"], .skap-table td[data-label="Persona / hoja"] { display: block; }
@@ -78,7 +78,7 @@
 @media (max-width: 760px) {
  .skap-module .table-responsive .skap-table { min-width: 0; width: 100%; }
 }
-.skap-cell-note { display: block; margin-top: 6px; font-size: .85rem; font-weight: 400; color: var(--muted); line-height: 1.5; }
+.skap-cell-note { display: block; margin-top: 6px; font-size: .875rem; font-weight: 400; color: var(--muted); line-height: 1.5; }
 .skap-block-summary { margin-bottom: 18px; }
 .skap-block-summary > strong + strong { margin-left: 18px; }
-.skap-module .skap-stat .skap-cell-note { font-size: .9rem; }
+.skap-module .skap-stat .skap-cell-note { font-size: .875rem; }

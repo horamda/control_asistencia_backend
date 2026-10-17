@@ -170,7 +170,7 @@
                     </form>
                     <form method="post" action="{{ url_for('adelantos.rechazar', adelanto_id=a.id) }}">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <button class="btn-danger" type="submit">Rechazar</button>
+                      <button class="btn btn-danger" type="submit">Rechazar</button>
                     </form>
                   </div>
                 {% else %}

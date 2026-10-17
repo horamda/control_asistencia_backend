@@ -38,7 +38,7 @@
       </div>
       <div class="epp-quick" data-epp-quick hidden>
         <button class="btn btn-secondary" type="button" data-epp-all="todo">Aprobar todo</button>
-        <button class="btn btn-secondary" type="button" data-epp-all="rechazar">Rechazar todo</button>
+        <button class="btn btn-danger" type="button" data-epp-all="rechazar">Rechazar todo</button>
       </div>
     </header>
     <form method="post" action="{{ url_for('epp_web.action',pid=row.id) }}" class="epp-detail-form" data-epp-resolution>

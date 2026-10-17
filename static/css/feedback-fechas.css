@@ -39,10 +39,6 @@
 }
 
 .fdbk-dates .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
   white-space: normal;
   text-align: center;
 }
@@ -63,7 +59,6 @@
 
   .fdbk-dates .fdbk-table .btn {
     width: 100%;
-    padding: 10px 6px;
     overflow-wrap: normal;
   }
 }
@@ -117,7 +112,7 @@
     content: attr(data-label);
     display: block;
     margin-bottom: 4px;
-    font-size: 0.8rem;
+    font-size: .8125rem;
     font-weight: 700;
     color: var(--muted);
   }
@@ -144,7 +139,7 @@
   .fdbk-dates input,
   .fdbk-dates select,
   .fdbk-dates textarea {
-    font-size: 16px;
+    font-size: 1rem;
     min-height: 44px;
   }
 

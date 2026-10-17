@@ -18,14 +18,18 @@
   text-align: center;
   text-decoration: none;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   vertical-align: middle;
 }
+/* En tablas, mismo tamaño compacto que .btn-sm y sin partir palabras ("Ver detalle" en una linea). */
 :is(.page-content,.embedded-layout) td a.ui-action-link {
-  min-height: 36px;
-  padding: 6px 10px;
-  font-size: .8125rem;
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: .875rem;
+  line-height: 1.2;
   margin-block: 2px;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 :is(.page-content,.embedded-layout) a.ui-action-link:hover {
   background: var(--surface-strong);
@@ -46,6 +50,17 @@
   :is(.page-content,.embedded-layout) a.ui-action-link,
   :is(.page-content,.embedded-layout) td a.ui-action-link {min-height:44px;min-width:44px}
 }
+/* Escala tipografica (todo el panel, incluido Presencia): 12 · 13 · 14 · 15 · 16 · 18 · 20 · 24 · 30 · 36 px
+   (.75 · .8125 · .875 · .9375 · 1 · 1.125 · 1.25 · 1.5 · 1.875 · 2.25 rem). Minimo legible 12 px: etiquetas,
+   badges; 13 px encabezados de tabla (mayusculas) y textos secundarios; 14 px etiquetas y botones compactos;
+   15 px menu, botones normales y celdas de tabla; 16 px texto.
+   Excepciones: textos dentro de SVG (se escalan con el grafico) y numeros de KPI de 38 px o mas.
+
+   Botones: un solo sistema de tamaños en todo el panel.
+   - Normal (40 px): acciones de página y formularios.
+   - Compacto (32 px): .btn-sm y cualquier botón dentro de una tabla (acciones por fila).
+   - Táctil: en pantallas táctiles o angostas, mínimo 44 px (más abajo).
+   Los módulos no deben redefinir alto, relleno ni tamaño de letra de .btn. */
 :is(.page-content,.embedded-layout) :is(button.btn,a.btn,input[type=submit]) {
   display: inline-flex;
   align-items: center;
@@ -54,14 +69,21 @@
   min-height: 40px;
   max-width: 100%;
   padding: 9px 14px;
+  font-weight: 600;
   white-space: normal;
   vertical-align: middle;
 }
-:is(.page-content,.embedded-layout) :is(.btn.btn-sm,.planilla-action-edit,.planilla-action-delete) {
-  min-height: 36px;
-  padding: 7px 10px;
-  font-size: .8125rem;
+:is(.page-content,.embedded-layout) :is(.btn.btn-sm,td .btn,td button.btn,td a.btn) {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: .875rem;
+  line-height: 1.2;
+  /* Nunca cortar palabras ("Ver detall / e"): la columna toma el ancho del botón. */
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
 }
+
 :is(.page-content,.embedded-layout) .btn-ghost {
   background: transparent;
   border-color: var(--border);
@@ -121,12 +143,7 @@
   background: var(--surface-strong);
   border-color: var(--primary);
 }
-:is(.page-content,.embedded-layout) .btn-danger {
-  color: #fff;
-  background: var(--danger);
-  border-color: var(--danger);
-}
-:is(.page-content,.embedded-layout) .btn-danger:hover {filter: brightness(.9)}
+/* .btn-danger / .btn-danger-soft: rojo suave en todo el panel, definido en panel-theme.css. */
 :is(.page-content,.embedded-layout) :is(button,.btn,.btn-secondary,.btn-danger,input[type=submit]):disabled {
   opacity: .55;
   cursor: not-allowed;
@@ -148,7 +165,7 @@
   padding: 6px 4px;
 }
 @media (max-width:760px), (pointer:coarse) {
-  :is(.page-content,.embedded-layout) :is(button.btn,a.btn,.btn.btn-sm,.planilla-action-edit,.planilla-action-delete,button[aria-label="Cerrar"]) {
+  :is(.page-content,.embedded-layout) :is(button.btn,a.btn,.btn.btn-sm,td .btn,button[aria-label="Cerrar"]) {
     min-height: 44px;
     min-width: 44px;
   }

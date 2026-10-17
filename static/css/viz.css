@@ -95,7 +95,7 @@
   padding: 0;
   list-style: none;
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: .875rem;
 }
 .viz-legend li { display: inline-flex; align-items: center; gap: 6px; }
 .viz-key {
@@ -118,16 +118,16 @@
   background: var(--surface);
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.16);
   color: var(--text);
-  font-size: 0.82rem;
+  font-size: .8125rem;
   pointer-events: none;
 }
 .viz-tooltip-title { margin-bottom: 4px; color: var(--muted); font-weight: 600; }
 .viz-tooltip-row { display: flex; align-items: center; gap: 6px; }
-.viz-tooltip-row strong { font-size: 0.95rem; }
+.viz-tooltip-row strong { font-size: .9375rem; }
 .viz-tooltip-name { color: var(--muted); }
-.viz-tooltip-note { margin-top: 4px; color: var(--muted); font-size: 0.78rem; }
+.viz-tooltip-note { margin-top: 4px; color: var(--muted); font-size: .75rem; }
 
-.viz-table { margin-top: 8px; font-size: 0.85rem; }
+.viz-table { margin-top: 8px; font-size: .875rem; }
 .viz-table summary { cursor: pointer; color: var(--primary); }
 .viz-table table { margin-top: 6px; font-variant-numeric: tabular-nums; }
 .viz-message { color: var(--muted); }

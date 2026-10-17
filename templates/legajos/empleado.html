@@ -154,7 +154,7 @@
                       {% if ev.estado == "vigente" %}
                         <form method="post" action="{{ url_for('legajos.eliminar_adjunto', emp_id=empleado.id, evento_id=ev.id, adjunto_id=a.id) }}">
                           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                          <button class="btn-danger" type="submit">Quitar</button>
+                          <button class="btn btn-danger" type="submit">Quitar</button>
                         </form>
                       {% endif %}
                     </li>
@@ -183,7 +183,7 @@
                   <form method="post" action="{{ url_for('legajos.anular_evento_route', emp_id=empleado.id, evento_id=ev.id, next=request.path) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="text" name="motivo_anulacion" placeholder="Motivo (opcional)" maxlength="255">
-                    <button class="btn-danger" type="submit">Anular</button>
+                    <button class="btn btn-danger" type="submit">Anular</button>
                   </form>
                 </div>
               {% else %}

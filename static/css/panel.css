@@ -87,11 +87,11 @@ h4 {
 }
 
 h2 {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
 }
 
 h3 {
-  font-size: 1.1rem;
+  font-size: 1.125rem;
 }
 
 p,
@@ -103,7 +103,7 @@ span {
 
 .note {
   margin-top: 5px;
-  font-size: 0.85rem;
+  font-size: .875rem;
   color: var(--muted);
 }
 
@@ -170,13 +170,13 @@ a:hover {
 .brand-title {
   color: #fff;
   font-family: "Manrope", sans-serif;
-  font-size: 0.95rem;
+  font-size: .9375rem;
   font-weight: 700;
 }
 
 .brand-sub {
   color: #a6b8d0;
-  font-size: 0.78rem;
+  font-size: .75rem;
   line-height: 1.2;
   max-width: 185px;
 }
@@ -202,7 +202,7 @@ a:hover {
   background: rgba(255, 255, 255, 0.07);
   color: #fff;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: .875rem;
 }
 
 .nav-search-input::-webkit-search-cancel-button {
@@ -239,7 +239,7 @@ a:hover {
 
 .nav-search-empty {
   margin: 8px 2px 0;
-  font-size: 0.85rem;
+  font-size: .875rem;
   color: #8ea2bd;
 }
 
@@ -253,7 +253,7 @@ a:hover {
 }
 
 .nav-label {
-  font-size: 0.72rem;
+  font-size: .75rem;
   color: #8ea2bd;
   margin-bottom: 6px;
   text-transform: uppercase;
@@ -273,9 +273,15 @@ a:hover {
   cursor: pointer;
 }
 
+/* Grupos del menu (Asistencia, Horarios...): en tipo oracion y del tamaño del menu, para leerse rapido.
+   Las mayusculas chicas quedan solo para los titulos de seccion (General, Operacion diaria...). */
 .nav-group-toggle .nav-label {
   margin: 0;
   color: #8ea2bd;
+  font-size: .9375rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .nav-group-toggle:hover .nav-label {
@@ -351,6 +357,8 @@ a:hover {
   border-radius: 10px;
   padding: 7px 10px;
   margin: 4px 0;
+  font-size: .9375rem;
+  line-height: 1.35;
   transition: all 0.2s ease;
 }
 
@@ -454,7 +462,7 @@ a:hover {
   border: 2px solid var(--surface);
   background: var(--success);
   color: #fff;
-  font-size: 0.72rem;
+  font-size: .75rem;
   line-height: 16px;
   font-weight: 700;
   text-align: center;
@@ -502,7 +510,7 @@ a:hover {
 .notifications-kicker {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 0.68rem;
+  font-size: .75rem;
   color: var(--muted);
   margin-bottom: 4px;
 }
@@ -510,7 +518,7 @@ a:hover {
 .notifications-title {
   color: var(--text);
   font-family: "Manrope", sans-serif;
-  font-size: 0.98rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -524,7 +532,7 @@ a:hover {
   border-radius: 999px;
   background: var(--primary-soft);
   color: var(--primary-strong);
-  font-size: 0.82rem;
+  font-size: .8125rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -565,13 +573,13 @@ a:hover {
 
 .notification-item-title {
   color: var(--text);
-  font-size: 0.92rem;
+  font-size: .9375rem;
   font-weight: 700;
 }
 
 .notification-item-description {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: .8125rem;
   line-height: 1.3;
 }
 
@@ -583,7 +591,7 @@ a:hover {
   height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  font-size: 0.84rem;
+  font-size: .8125rem;
   font-weight: 700;
   background: var(--primary-soft);
   color: var(--primary-strong);
@@ -614,7 +622,7 @@ a:hover {
   border-radius: 14px;
   background: var(--surface-soft);
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: .875rem;
 }
 
 @keyframes notifications-pulse {
@@ -629,7 +637,7 @@ a:hover {
 
 .kicker {
   text-transform: uppercase;
-  font-size: 0.68rem;
+  font-size: .75rem;
   letter-spacing: 0.1em;
   color: var(--muted);
   margin-bottom: 5px;
@@ -657,7 +665,7 @@ a:hover {
   background: var(--surface-soft);
   color: var(--text);
   padding: 7px 11px;
-  font-size: 0.86rem;
+  font-size: .875rem;
   font-weight: 600;
 }
 
@@ -717,7 +725,7 @@ form[method="get"] {
 
 label {
   display: block;
-  font-size: 0.88rem;
+  font-size: .875rem;
   margin-bottom: 4px;
 }
 
@@ -726,7 +734,7 @@ select,
 textarea,
 button {
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: .9375rem;
 }
 
 input,
@@ -799,7 +807,7 @@ th {
   color: var(--text);
   text-align: left;
   font-family: "Manrope", sans-serif;
-  font-size: 0.82rem;
+  font-size: .8125rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -809,6 +817,11 @@ td {
   border-bottom: 1px solid var(--border);
   padding: 10px 9px;
   vertical-align: middle;
+}
+
+/* Texto de tablas un paso por debajo del cuerpo (15 px); sus botones, 14 px. */
+td {
+  font-size: .9375rem;
 }
 
 tbody tr:hover {
@@ -850,7 +863,7 @@ tbody tr:hover {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: .75rem;
   padding: 3px 8px;
   border: 1px solid transparent;
 }
@@ -905,10 +918,10 @@ tbody tr:hover {
 }
 
 .gps-fraud-badge {
-  margin-top: 6px;
-  font-size: 0.74rem;
+  font-size: .75rem;
   font-weight: 700;
   letter-spacing: 0.01em;
+  line-height: 1.2;
 }
 
 .grid-kpis {
@@ -933,7 +946,7 @@ tbody tr:hover {
 }
 
 .kpi-label {
-  font-size: 0.76rem;
+  font-size: .75rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 0;
@@ -958,7 +971,7 @@ tbody tr:hover {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-size: 0.72rem;
+  font-size: .75rem;
   font-weight: 700;
   cursor: help;
   user-select: none;
@@ -991,7 +1004,7 @@ tbody tr:hover {
   border: 1px solid #253a56;
   background: #1e2f45;
   color: #f8fbff;
-  font-size: 0.72rem;
+  font-size: .75rem;
   font-weight: 500;
   line-height: 1.35;
   letter-spacing: 0;
@@ -1016,7 +1029,7 @@ tbody tr:hover {
 
 .kpi-value {
   font-family: "Manrope", sans-serif;
-  font-size: 1.55rem;
+  font-size: 1.5rem;
   color: var(--text);
   line-height: 1.1;
 }
@@ -1343,7 +1356,7 @@ tbody tr:hover {
 }
 
 .legajo-table td {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .legajo-directory-table,
@@ -1463,7 +1476,7 @@ tbody tr:hover {
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 10px;
-  font-size: 0.84rem;
+  font-size: .8125rem;
 }
 
 .rrhh-legend span {
@@ -1536,7 +1549,7 @@ tbody tr:hover {
 }
 
 .trend-label {
-  font-size: 0.78rem;
+  font-size: .75rem;
   color: var(--muted);
 }
 
@@ -1554,7 +1567,7 @@ tbody tr:hover {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.78rem;
+  font-size: .75rem;
   color: var(--muted);
 }
 
@@ -1585,7 +1598,7 @@ tbody tr:hover {
 
 .cal-col-label {
   text-align: center;
-  font-size: 0.72rem;
+  font-size: .75rem;
   font-weight: 600;
   color: var(--muted);
   text-transform: uppercase;
@@ -1606,7 +1619,7 @@ tbody tr:hover {
   position: absolute;
   top: -14px;
   left: 0;
-  font-size: 0.68rem;
+  font-size: .75rem;
   font-weight: 700;
   color: var(--primary);
   text-transform: uppercase;
@@ -1635,13 +1648,13 @@ tbody tr:hover {
 }
 
 .cal-num {
-  font-size: 0.72rem;
+  font-size: .75rem;
   font-weight: 600;
   line-height: 1;
 }
 
 .cal-hours {
-  font-size: 0.60rem;
+  font-size: .75rem;
   line-height: 1;
   opacity: 0.82;
 }
@@ -1701,7 +1714,7 @@ tbody tr:hover {
 .cal-heatmap-monthly .cal-day {
   min-width: 42px;
   min-height: 42px;
-  font-size: 0.82rem;
+  font-size: .8125rem;
 }
 
 /* Navegador de meses */
@@ -1711,10 +1724,7 @@ tbody tr:hover {
   gap: 8px;
 }
 
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 0.82rem;
-}
+/* .btn-sm: tamaño compacto definido en panel-controls.css (sistema de botones). */
 
 .cal-pad {
   background: transparent;
@@ -1736,7 +1746,7 @@ tbody tr:hover {
   flex-wrap: wrap;
   gap: 10px 14px;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: .75rem;
 }
 
 .kpi-calendar-legend span {
@@ -1778,7 +1788,7 @@ tbody tr:hover {
 
 .kpi-calendar-header > div {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: .75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-align: center;
@@ -1838,7 +1848,7 @@ tbody tr:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.72rem;
+  font-size: .75rem;
   line-height: 1.25;
 }
 
@@ -1872,7 +1882,7 @@ tbody tr:hover {
   gap: 6px;
   min-width: 0;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: .75rem;
   line-height: 1.2;
 }
 
@@ -1886,7 +1896,7 @@ tbody tr:hover {
 .kpi-calendar-meta code {
   max-width: 48%;
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: .75rem;
 }
 
 .kpi-calendar-more,
@@ -1928,7 +1938,7 @@ tbody tr:hover {
 .semanas-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.84rem;
+  font-size: .8125rem;
 }
 
 .semanas-table th,
@@ -1958,7 +1968,7 @@ tbody tr:hover {
 
 .semana-dates {
   display: block;
-  font-size: 0.72rem;
+  font-size: .75rem;
   color: var(--muted);
 }
 
@@ -1999,7 +2009,7 @@ tbody tr:hover {
 }
 
 .status-label {
-  font-size: 0.84rem;
+  font-size: .8125rem;
   color: var(--text);
 }
 
@@ -2088,7 +2098,7 @@ tbody tr:hover {
   border-bottom: 1px solid var(--border);
   padding-bottom: 4px;
   color: var(--text);
-  font-size: 0.82rem;
+  font-size: .8125rem;
 }
 
 .company-chart {
@@ -2104,7 +2114,7 @@ tbody tr:hover {
 }
 
 .company-name {
-  font-size: 0.86rem;
+  font-size: .875rem;
   color: var(--text);
 }
 
@@ -2135,7 +2145,7 @@ tbody tr:hover {
 }
 
 .company-bars small {
-  font-size: 0.76rem;
+  font-size: .75rem;
   color: var(--muted);
 }
 
@@ -2158,7 +2168,7 @@ tbody tr:hover {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 6px;
-  font-size: 0.82rem;
+  font-size: .8125rem;
 }
 
 .risk-track {
@@ -2200,7 +2210,7 @@ tbody tr:hover {
 }
 
 .mini-label {
-  font-size: 0.82rem;
+  font-size: .8125rem;
   color: var(--text);
 }
 
@@ -2265,7 +2275,7 @@ tbody tr:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  font-size: 0.8rem;
+  font-size: .8125rem;
   margin-bottom: 8px;
 }
 
@@ -2324,7 +2334,7 @@ tbody tr:hover {
   border: 1px dashed #bcd0e8;
   border-radius: 9px;
   background: #f8fbff;
-  font-size: 0.82rem;
+  font-size: .8125rem;
   color: var(--text);
 }
 
@@ -2350,7 +2360,7 @@ tbody tr:hover {
   border-radius: 999px;
   background: #f4f8fd;
   color: #2a4768;
-  font-size: 0.88rem;
+  font-size: .875rem;
   font-weight: 600;
   line-height: 1;
   min-height: 40px;
@@ -2420,7 +2430,7 @@ tbody tr:hover {
 }
 
 .executive-card span {
-  font-size: 0.74rem;
+  font-size: .75rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2434,7 +2444,7 @@ tbody tr:hover {
 }
 
 .executive-card small {
-  font-size: 0.78rem;
+  font-size: .75rem;
   line-height: 1.25;
 }
 
@@ -2494,13 +2504,13 @@ tbody tr:hover {
 .executive-alert strong {
   color: var(--text);
   font-family: "Manrope", sans-serif;
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   line-height: 1;
 }
 
 .executive-alert span {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: .75rem;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -2594,12 +2604,12 @@ tbody tr:hover {
 .section-kicker {
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 0.7rem;
+  font-size: .75rem;
   color: var(--muted);
 }
 
 .helper-text {
-  font-size: 0.82rem;
+  font-size: .8125rem;
   color: var(--muted);
   margin-top: 4px;
 }
@@ -2645,12 +2655,12 @@ tbody tr:hover {
 }
 
 .attendance-pill strong {
-  font-size: 0.8rem;
+  font-size: .8125rem;
   font-weight: 800;
 }
 
 .attendance-pill small {
-  font-size: 0.68rem;
+  font-size: .75rem;
   font-weight: 700;
 }
 
@@ -2691,7 +2701,7 @@ tbody tr:hover {
   color: var(--info);
   border-radius: 999px;
   padding: 5px 10px;
-  font-size: 0.8rem;
+  font-size: .8125rem;
 }
 
 .chip-muted {
@@ -2814,9 +2824,9 @@ tbody tr:hover {
 .feedback-month-bar { display: block; position: relative; width: 75%; max-width: 70px; height: max(3px, var(--bar-height)); background: var(--primary); border-radius: 6px 6px 0 0; }
 .feedback-month-bar.is-current { background: var(--info); border: 2px dashed var(--text); }
 .feedback-month-bar.is-zero { background: var(--border); border: none; }
-.feedback-month-bar strong { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); font-size: .85rem; }
-.feedback-month-label { display: block; font-size: .8rem; white-space: nowrap; }
-.feedback-month-column small { display: block; min-height: 18px; font-size: .7rem; color: var(--muted); }
+.feedback-month-bar strong { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); font-size: .875rem; }
+.feedback-month-label { display: block; font-size: .8125rem; white-space: nowrap; }
+.feedback-month-column small { display: block; min-height: 18px; font-size: .75rem; color: var(--muted); }
 .feedback-empty { background: var(--surface-soft); padding: 16px; border-radius: 8px; color: var(--muted); }
 .feedback-company { display: block; color: var(--muted); font-size: .75rem; }
 .feedback-resolution { display: flex; gap: 10px; align-items: center; }
@@ -2838,7 +2848,7 @@ tbody tr:hover {
   border-radius: 10px 10px 0 0;
   background: var(--surface-soft);
   color: var(--text);
-  font-size: 0.98rem;
+  font-size: 1rem;
 }
 
 .employee-form .section-title + .form-grid {
@@ -2913,13 +2923,13 @@ tbody tr:hover {
 }
 
 .employee-toggle-copy strong {
-  font-size: 0.86rem;
+  font-size: .875rem;
   line-height: 1.2;
 }
 
 .employee-toggle-copy small {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: .75rem;
   line-height: 1.25;
 }
 
@@ -2948,7 +2958,7 @@ tbody tr:hover {
 .employee-directory-table th:first-child { width: 24%; }
 .employee-directory-table th:nth-child(2) { width: 20%; }
 .employee-directory-table th:nth-child(5) { width: 9%; }
-.employee-directory-table td { overflow-wrap: anywhere; }
+.employee-directory-table td { overflow-wrap: break-word; }
 
 .employee-list-person {
   display: flex;
@@ -2975,11 +2985,6 @@ tbody tr:hover {
   gap: 6px;
 }
 
-.employee-directory .btn-sm {
-  min-height: 32px;
-  padding: 6px 9px;
-  font-size: 0.78rem;
-}
 
 .employee-form .section-title {
   position: relative;
@@ -3038,13 +3043,13 @@ tbody tr:hover {
 
 .org-banner-name {
   margin: 0 0 3px;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 800;
 }
 
 .org-banner-sub {
   margin: 0;
-  font-size: 0.81rem;
+  font-size: .8125rem;
   color: var(--muted);
 }
 
@@ -3068,14 +3073,14 @@ tbody tr:hover {
 
 .org-bkpi-num {
   font-family: "Manrope", sans-serif;
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 800;
   line-height: 1;
   color: var(--text);
 }
 
 .org-bkpi-lbl {
-  font-size: 0.67rem;
+  font-size: .75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -3113,7 +3118,7 @@ tbody tr:hover {
 }
 
 .org-filter-field label {
-  font-size: 0.72rem;
+  font-size: .75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .05em;
@@ -3125,7 +3130,7 @@ tbody tr:hover {
   margin: 0;
   height: 34px;
   padding: 0 8px;
-  font-size: 0.85rem;
+  font-size: .875rem;
 }
 
 .org-filter-actions {
@@ -3138,14 +3143,14 @@ tbody tr:hover {
 .org-filter-actions .btn {
   height: 34px;
   padding: 0 14px;
-  font-size: 0.82rem;
+  font-size: .8125rem;
 }
 
 /* ── Callout informativo ── */
 .info-callout {
   padding: 10px 14px;
   border-radius: 8px;
-  font-size: 0.83rem;
+  font-size: .8125rem;
   border: 1px solid var(--border);
   background: var(--surface-soft);
   color: var(--text);
@@ -3175,7 +3180,7 @@ tbody tr:hover {
   border-radius: 4px;
   background: var(--surface-strong);
   color: var(--muted);
-  font-size: 0.58rem;
+  font-size: .75rem;
   font-weight: 800;
   letter-spacing: .06em;
   border: 1px solid var(--border);
@@ -3309,7 +3314,7 @@ tbody tr:hover {
   border-radius: 5px;
   background: var(--oc1);
   color: #fff;
-  font-size: 0.62rem;
+  font-size: .75rem;
   font-weight: 800;
   letter-spacing: .02em;
   flex-shrink: 0;
@@ -3324,7 +3329,7 @@ tbody tr:hover {
   flex: 1;
   min-width: 0;
   font-family: "Manrope", sans-serif;
-  font-size: 0.85rem;
+  font-size: .875rem;
   font-weight: 800;
   color: var(--text);
   white-space: nowrap;
@@ -3388,14 +3393,14 @@ tbody tr:hover {
 
 .org-kpi strong {
   font-family: "Manrope", sans-serif;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--text);
   line-height: 1;
 }
 
 .org-kpi span {
-  font-size: 0.62rem;
+  font-size: .75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .05em;
@@ -3422,7 +3427,7 @@ tbody tr:hover {
   color: #fff;
   font-family: "Manrope", sans-serif;
   font-weight: 800;
-  font-size: 0.82rem;
+  font-size: .8125rem;
   object-fit: cover;
   border: 2px solid var(--surface);
   box-shadow: 0 0 0 1px var(--border);
@@ -3437,7 +3442,7 @@ tbody tr:hover {
 .org-resp-data { min-width: 0; }
 
 .org-resp-label {
-  font-size: 0.62rem;
+  font-size: .75rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: .06em;
@@ -3446,7 +3451,7 @@ tbody tr:hover {
 }
 
 .org-resp-name {
-  font-size: 0.8rem;
+  font-size: .8125rem;
   font-weight: 700;
   color: var(--text);
   line-height: 1.2;
@@ -3458,7 +3463,7 @@ tbody tr:hover {
 .org-resp-name--empty { color: var(--muted); font-weight: 400; font-style: italic; }
 
 .org-resp-role {
-  font-size: 0.7rem;
+  font-size: .75rem;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -3474,7 +3479,7 @@ tbody tr:hover {
   cursor: pointer;
   user-select: none;
   list-style: none;
-  font-size: 0.7rem;
+  font-size: .75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .05em;
@@ -3499,7 +3504,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   border-radius: 999px;
   background: var(--surface-strong);
   color: var(--text);
-  font-size: 0.65rem;
+  font-size: .75rem;
   font-weight: 800;
 }
 
@@ -3536,7 +3541,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   color: var(--primary);
   font-family: "Manrope", sans-serif;
   font-weight: 800;
-  font-size: 0.65rem;
+  font-size: .75rem;
   border: 1px solid var(--border);
 }
 
@@ -3547,7 +3552,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
 }
 
 .org-member-name {
-  font-size: 0.77rem;
+  font-size: .75rem;
   font-weight: 700;
   color: var(--text);
   line-height: 1.3;
@@ -3558,7 +3563,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
 }
 
 .org-member-role {
-  font-size: 0.68rem;
+  font-size: .75rem;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -3695,7 +3700,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   border-radius: 3px;
   background: var(--surface-strong);
   color: var(--muted);
-  font-size: 0.58rem;
+  font-size: .75rem;
   font-weight: 800;
   letter-spacing: .05em;
   vertical-align: middle;
@@ -3738,7 +3743,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   width: 22px;
   height: 22px;
   border-radius: 5px;
-  font-size: 1.1rem;
+  font-size: 1.125rem;
   font-weight: 700;
   line-height: 1;
   color: var(--muted);
@@ -3816,7 +3821,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   border-radius: 9px;
   background: var(--surface-strong);
   color: var(--muted);
-  font-size: 0.67rem;
+  font-size: .75rem;
   font-weight: 800;
   flex-shrink: 0;
   margin-left: 6px;
@@ -3987,28 +3992,6 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   background: linear-gradient(180deg, #1b2c41 0%, #18273a 100%);
 }
 
-:root[data-theme="dark"] .planilla-actions .planilla-action-add {
-  background: #213852;
-  border-color: #3f648a;
-  color: #c7def5;
-}
-
-:root[data-theme="dark"] .planilla-actions .planilla-action-add:hover {
-  background: #294568;
-  color: #d8eaff;
-}
-
-:root[data-theme="dark"] .planilla-actions .planilla-action-delete {
-  background: #442730;
-  border-color: #8c4958;
-  color: #ffc7d0;
-}
-
-:root[data-theme="dark"] .planilla-actions .planilla-action-delete:hover {
-  background: #55313b;
-  color: #ffd6dd;
-}
-
 :root[data-theme="dark"] .center-message-overlay {
   background: rgba(3, 8, 15, 0.6);
 }
@@ -4129,7 +4112,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
 }
 
 .center-message-text {
-  font-size: 1.08rem;
+  font-size: 1.125rem;
   line-height: 1.45;
   margin-bottom: 16px;
 }
@@ -4176,7 +4159,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
 .key-value-grid .v {
   color: var(--text);
   font-family: "Manrope", sans-serif;
-  font-size: 0.95rem;
+  font-size: .9375rem;
 }
 
 .inline-actions {
@@ -4221,7 +4204,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
 }
 
 .planilla-chip-row .chip {
-  font-size: 0.84rem;
+  font-size: .8125rem;
   padding: 6px 12px;
 }
 
@@ -4231,20 +4214,40 @@ details[open] .org-team-arr { transform: rotate(180deg); }
     linear-gradient(180deg, rgba(248, 252, 255, 0.96) 0%, rgba(239, 247, 255, 0.96) 100%);
 }
 
-.planilla-context-strip {
-  font-size: 0.86rem;
+.planilla-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.planilla-context-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: .8125rem;
+}
+
+.planilla-context-item > span {
+  color: var(--muted);
 }
 
 .planilla-table-wrap {
   border-radius: 12px;
 }
 
+/* Planilla en pantalla: tabla compacta, una fila por persona y una linea por fichada
+   (hora + botones de icono). En el celular (<= 760px) pasa a tarjetas. */
 .planilla-table {
-  min-width: 1020px;
+  width: 100%;
 }
 
 .planilla-table thead th {
-  font-size: 0.72rem;
+  font-size: .75rem;
+  white-space: nowrap;
 }
 
 .planilla-table td {
@@ -4252,77 +4255,118 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   padding-bottom: 8px;
 }
 
+.planilla-table tbody tr.has-errors {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.planilla-table .planilla-mark-head,
+.planilla-mark-cell {
+  white-space: nowrap;
+}
+
 .planilla-employee-cell {
-  min-width: 220px;
+  min-width: 200px;
+  max-width: 280px;
 }
 
 .planilla-employee-name {
   font-weight: 700;
-  font-size: 0.88rem;
+  font-size: .875rem;
   line-height: 1.25;
 }
 
-.planilla-employee-dni {
+.planilla-employee-meta {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: .8125rem;
+  line-height: 1.3;
 }
 
 .planilla-errors {
   margin-top: 6px;
 }
 
+.planilla-mark {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
 .planilla-time-value {
   font-family: "JetBrains Mono", "Fira Code", monospace;
-  font-size: 0.84rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  min-height: 18px;
-}
-
-.planilla-actions {
-  margin-top: 6px;
-  gap: 6px;
-}
-
-.planilla-actions a,
-.planilla-actions button {
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 0.72rem;
+  font-size: .9375rem;
   font-weight: 700;
-  min-height: 30px;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
 }
 
-.planilla-actions .planilla-action-add {
-  background: #e9f2ff;
-  border-color: #a6c3e6;
-  color: #16486f;
+.planilla-mark-cell.is-empty .planilla-time-value {
+  color: var(--muted);
+  font-weight: 500;
 }
 
-.planilla-actions .planilla-action-add:hover {
-  background: #dcecff;
-  color: #103f63;
+.planilla-gps {
+  padding: 2px 6px;
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: help;
 }
 
-.planilla-actions .planilla-action-edit {
-  background: var(--primary);
-  border-color: var(--primary);
+/* Editar y eliminar debajo de la hora: columnas angostas, la tabla entra sin desplazarse. */
+.planilla-actions {
+  display: flex;
+  flex-basis: 100%;
+  gap: 4px;
 }
 
-.planilla-actions .planilla-action-edit:hover {
-  background: var(--primary-strong);
+.planilla-action-form {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
 }
 
-.planilla-actions .planilla-action-delete {
-  background: #f6dfe4;
-  border-color: #e8aeb8;
-  color: #7f2435;
+/* Botones de icono: cuadrados del alto compacto (32 px; 44 px en pantallas tactiles). */
+:is(.page-content,.embedded-layout) .planilla-actions .btn.btn-icon {
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
 }
 
-.planilla-actions .planilla-action-delete:hover {
-  background: #f2d0d7;
-  color: #6e1f2f;
+.planilla-actions .btn-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.planilla-add {
+  border-style: dashed;
+  color: var(--primary);
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+  :is(.page-content,.embedded-layout) .planilla-actions .btn.btn-icon {
+    width: 44px;
+    min-width: 44px;
+  }
+}
+
+@media (max-width: 760px) {
+  .table-responsive.table-cards .planilla-mark-cell.is-void {
+    display: none;
+  }
+
+  .planilla-table tbody tr.has-errors {
+    box-shadow: none;
+  }
+}
+
+.planilla-errors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .planilla-footer-actions {
@@ -4635,11 +4679,11 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   }
 
   .module-intro {
-    font-size: 0.9rem;
+    font-size: .875rem;
   }
 
   .section-kicker {
-    font-size: 0.66rem;
+    font-size: .75rem;
   }
 
   .chip-row {
@@ -4647,28 +4691,21 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   }
 
   .chip {
-    font-size: 0.73rem;
+    font-size: .75rem;
     padding: 4px 8px;
   }
 
   .planilla-chip-row .chip {
-    font-size: 0.76rem;
+    font-size: .75rem;
     padding: 5px 9px;
   }
 
   .planilla-time-value {
-    font-size: 0.78rem;
-  }
-
-  .planilla-actions a,
-  .planilla-actions button {
-    font-size: 0.68rem;
-    padding: 5px 8px;
-    min-height: 28px;
+    font-size: .875rem;
   }
 
   #page-title {
-    font-size: 1.08rem;
+    font-size: 1.125rem;
   }
 
   .grid-kpis {
@@ -4693,11 +4730,11 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   }
 
   .center-message-title {
-    font-size: 1.12rem;
+    font-size: 1.125rem;
   }
 
   .center-message-text {
-    font-size: 0.98rem;
+    font-size: 1rem;
   }
 
   .dashboard-jump {
@@ -4715,7 +4752,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
     scroll-snap-align: start;
     min-height: 38px;
     min-width: 88px;
-    font-size: 0.84rem;
+    font-size: .8125rem;
     padding: 8px 12px;
   }
 
@@ -4739,13 +4776,13 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   }
 
   .kpi-label {
-    font-size: 0.67rem;
+    font-size: .75rem;
     letter-spacing: 0.05em;
     line-height: 1.2;
   }
 
   .kpi-value {
-    font-size: 1.22rem;
+    font-size: 1.25rem;
   }
 
   .panel-grid {
@@ -4788,7 +4825,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   }
 
   .cal-week[data-mes]::before {
-    font-size: 0.60rem;
+    font-size: .75rem;
     top: -12px;
   }
 
@@ -4796,7 +4833,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
   .semanas-table th,
   .semanas-table td {
     padding: 4px 5px;
-    font-size: 0.78rem;
+    font-size: .75rem;
   }
 
   .semana-dates {
@@ -4983,7 +5020,7 @@ details[open] .org-team-arr { transform: rotate(180deg); }
     content: attr(data-label);
     display: block;
     margin-bottom: 4px;
-    font-size: 0.72rem;
+    font-size: .75rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--muted);
@@ -5247,7 +5284,7 @@ input[type="submit"][data-loading="1"] {
 
 /* KPI card description — small hint below value */
 .kpi-desc {
-  font-size: 0.71rem;
+  font-size: .75rem;
   color: var(--muted);
   line-height: 1.3;
   text-align: center;
@@ -5276,7 +5313,7 @@ input[type="submit"][data-loading="1"] {
   gap: 8px;
   background: var(--surface);
   padding: 8px 10px;
-  font-size: 0.83rem;
+  font-size: .8125rem;
 }
 
 .stat-row-label {
@@ -5363,7 +5400,7 @@ input[type="submit"][data-loading="1"] {
   color: #fff;
   font-family: "Manrope", sans-serif;
   font-weight: 700;
-  font-size: 0.72rem;
+  font-size: .75rem;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -5376,13 +5413,13 @@ input[type="submit"][data-loading="1"] {
 }
 
 .user-chip-name {
-  font-size: 0.82rem;
+  font-size: .8125rem;
   font-weight: 600;
   color: var(--text);
 }
 
 .user-chip-role {
-  font-size: 0.72rem;
+  font-size: .75rem;
   color: var(--muted);
   text-transform: capitalize;
 }
@@ -5423,12 +5460,12 @@ input[type="submit"][data-loading="1"] {
 .auth-brand-name {
   font-family: "Manrope", sans-serif;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1rem;
   color: var(--text);
 }
 
 .auth-brand-sub {
-  font-size: 0.82rem;
+  font-size: .8125rem;
   color: var(--muted);
   line-height: 1.25;
   max-width: 280px;
@@ -5446,12 +5483,12 @@ input[type="submit"][data-loading="1"] {
 
 .auth-card h2 {
   margin-bottom: 4px;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
 }
 
 .auth-card > p {
   margin-bottom: 18px;
-  font-size: 0.88rem;
+  font-size: .875rem;
 }
 
 /* ── Password toggle ────────────────────────────────────── */
@@ -5524,7 +5561,7 @@ input[type="submit"][data-loading="1"] {
   }
 
   .kpi-value {
-    font-size: 1.16rem;
+    font-size: 1.125rem;
   }
 
   .table-responsive.table-cards td,
@@ -5535,7 +5572,7 @@ input[type="submit"][data-loading="1"] {
 
   .table-responsive.table-cards td::before,
   table.table-cards td::before {
-    font-size: 0.68rem;
+    font-size: .75rem;
   }
 
   .dashboard-mobile-compact td {
@@ -5613,7 +5650,7 @@ input[type="submit"][data-loading="1"] {
 
   /* results-bar: texto más chico */
   .results-bar .summary {
-    font-size: 0.82rem;
+    font-size: .8125rem;
   }
 
   /* Pager: botones al 100% en móvil muy chico */
@@ -5631,7 +5668,7 @@ input[type="submit"][data-loading="1"] {
 
   .pager .summary {
     text-align: center;
-    font-size: 0.82rem;
+    font-size: .8125rem;
   }
 
   /* Calendar — tiny phones: minimal cells, hide S.A. column in semanas */
@@ -5646,7 +5683,7 @@ input[type="submit"][data-loading="1"] {
   }
 
   .cal-num {
-    font-size: 0.62rem;
+    font-size: .75rem;
   }
 
   .col-salida,
@@ -5689,7 +5726,7 @@ input[type="submit"][data-loading="1"] {
   z-index: 1;
   background: var(--surface-muted);
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: .75rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -5705,7 +5742,7 @@ input[type="submit"][data-loading="1"] {
   padding: 0.45rem 0.7rem;
   background: color-mix(in srgb, var(--primary) 8%, var(--surface));
   color: var(--primary);
-  font-size: 0.72rem;
+  font-size: .75rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -5718,7 +5755,7 @@ input[type="submit"][data-loading="1"] {
 .permissions-module small {
   margin-top: 0.1rem;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: .75rem;
 }
 
 .permission-check {
@@ -5736,7 +5773,7 @@ input[type="submit"][data-loading="1"] {
 
 .permission-check span {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: .75rem;
   font-weight: 800;
 }
 
@@ -5798,7 +5835,7 @@ input[type="submit"][data-loading="1"] {
   margin-bottom: 10px;
 }
 .alertas-header .alertas-icon {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   line-height: 1;
 }
 .alertas-list {
@@ -5815,7 +5852,7 @@ input[type="submit"][data-loading="1"] {
   gap: 8px;
   padding: 8px 12px;
   border-radius: 8px;
-  font-size: 0.88rem;
+  font-size: .875rem;
   font-weight: 500;
   flex-wrap: wrap;
 }
@@ -5828,7 +5865,7 @@ input[type="submit"][data-loading="1"] {
   min-width: 0;
 }
 .alerta-link {
-  font-size: 0.82rem;
+  font-size: .8125rem;
   white-space: nowrap;
   text-decoration: underline;
   opacity: 0.85;
@@ -5929,7 +5966,7 @@ input[type="submit"][data-loading="1"] {
     content: attr(data-label);
     display: block;
     margin-bottom: 5px;
-    font-size: .72rem;
+    font-size: .75rem;
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: .04em;
@@ -5965,7 +6002,7 @@ input[type="submit"][data-loading="1"] {
   .toolbar .btn, .actions .btn, .actions button { min-height: 44px; }
 }
 
-.nav-submenu .nav-module-heading{padding:14px 10px 6px;font-size:11px;font-weight:700;line-height:1.5;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;white-space:normal}.nav-submenu .nav-module-heading:not(:first-child){border-top:1px solid var(--border);margin-top:10px}
+.nav-submenu .nav-module-heading{padding:14px 10px 6px;font-size:.75rem;font-weight:700;line-height:1.5;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;white-space:normal}.nav-submenu .nav-module-heading:not(:first-child){border-top:1px solid var(--border);margin-top:10px}
 
 /* Mientras htmx actualiza filtros o pagina se conserva el contenido atenuado. */
 #page-content.htmx-request {

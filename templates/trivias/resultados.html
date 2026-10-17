@@ -114,7 +114,7 @@
         </table>
       </div>
     {% else %}
-      <p style="color:var(--muted);font-size:.9rem;margin:1rem 0 0">No hay empleados excluidos para esta trivia.</p>
+      <p style="color:var(--muted);font-size:.875rem;margin:1rem 0 0">No hay empleados excluidos para esta trivia.</p>
     {% endif %}
   </div>
 </div>
@@ -122,7 +122,7 @@
 <div class="card" style="margin-bottom:1rem">
   <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
     <h3 class="card-title" style="margin:0">Participacion</h3>
-    <span style="font-size:.82rem;color:var(--muted)">{{ resultados|length }} empleado{{ 's' if resultados|length != 1 else '' }}</span>
+    <span style="font-size:.8125rem;color:var(--muted)">{{ resultados|length }} empleado{{ 's' if resultados|length != 1 else '' }}</span>
   </div>
   <div class="table-responsive table-cards">
     <table class="table">
@@ -208,7 +208,7 @@
               {% else %}
                 <span class="badge inactivo">No</span>
               {% endif %}
-              <span style="color:var(--muted);font-size:.82rem">({{ r.respuesta_correcta }})</span>
+              <span style="color:var(--muted);font-size:.8125rem">({{ r.respuesta_correcta }})</span>
             </td>
             <td data-label="Puntos">{{ r.puntos_obtenidos }}</td>
             <td data-label="Tiempo">{{ (r.tiempo_respuesta_segundos ~ 's') if r.tiempo_respuesta_segundos is not none else '-' }}</td>

@@ -112,11 +112,11 @@
                 </td>
                 <td data-label="Condicion">
                   {% if condicion_actual == 'between' and k.valor_min is not none and k.valor_max is not none %}
-                    <strong style="font-size:1.05rem">
+                    <strong style="font-size:1rem">
                       {{ k.valor_min | float | round(2) }} – {{ k.valor_max | float | round(2) }} {{ k.unidad }}
                     </strong>
                   {% elif condicion_actual != 'between' and k.objetivo_valor is not none %}
-                    <strong style="font-size:1.05rem">
+                    <strong style="font-size:1rem">
                       {{ simbolo }} {{ k.objetivo_valor | float | round(2) }} {{ k.unidad }}
                     </strong>
                   {% else %}
@@ -171,7 +171,7 @@
                     <span style="color:var(--text-muted)">{{ k.unidad }}</span>
                     <button class="btn" type="submit" name="action" value="guardar">Guardar</button>
                     {% if tiene_objetivo %}
-                      <button class="btn-danger" type="submit" name="action" value="eliminar"
+                      <button class="btn btn-danger" type="submit" name="action" value="eliminar"
                         data-confirm="Quitar objetivo de {{ k.kpi_nombre }} para {{ anio }}?">✕</button>
                     {% endif %}
                   </form>

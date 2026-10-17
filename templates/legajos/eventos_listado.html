@@ -182,7 +182,7 @@
                   <a href="{{ url_for('legajos.editar_evento', emp_id=ev.empleado_id, evento_id=ev.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-secondary">Editar</a>
                   <form method="post" action="{{ url_for('legajos.anular_evento_route', emp_id=ev.empleado_id, evento_id=ev.id, next=request.full_path if request.query_string else request.path) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button class="btn-danger" type="submit" data-confirm="Confirma anular este evento?">Anular</button>
+                    <button class="btn btn-danger" type="submit" data-confirm="Confirma anular este evento?">Anular</button>
                   </form>
                 {% endif %}
               </div>

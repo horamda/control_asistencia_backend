@@ -44,7 +44,7 @@
 
 .dashboard-labor-calendar-head h3 {
   margin-bottom: 2px;
-  font-size: 0.98rem;
+  font-size: 1rem;
 }
 
 .dashboard-calendar-readonly .calendar-day {
@@ -116,7 +116,7 @@
 .attendance-report-toolbar h2 {
   min-width: 130px;
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
 }
 
 .attendance-icon-btn {
@@ -128,7 +128,7 @@
   border-radius: 8px;
   background: var(--surface);
   color: var(--primary);
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 700;
 }
 
@@ -201,7 +201,7 @@
   margin-top: 4px;
   color: #175d9f;
   font-family: "Manrope", sans-serif;
-  font-size: 1.95rem;
+  font-size: 1.875rem;
   line-height: 1.05;
 }
 
@@ -242,7 +242,7 @@
 
 .attendance-calendar-panel h3 {
   margin-bottom: 12px;
-  font-size: 0.95rem;
+  font-size: .9375rem;
 }
 
 .attendance-calendar-panel h3 small {
@@ -292,7 +292,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 0.82rem;
+  font-size: .8125rem;
   color: var(--muted);
 }
 
@@ -329,7 +329,7 @@
   gap: 0.85rem;
   align-items: center;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: .75rem;
   margin: 0.35rem 0 1rem;
 }
 
@@ -359,7 +359,7 @@
   min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 0.78rem;
+  font-size: .75rem;
 }
 
 .attendance-board-table th,
@@ -375,7 +375,7 @@
   top: 0;
   z-index: 3;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: .75rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -407,7 +407,7 @@
 
 .attendance-board-table .employee-col small {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: .75rem;
   margin-top: 0.15rem;
 }
 

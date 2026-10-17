@@ -3,7 +3,7 @@
 .panel-message[data-tone=success],.panel-message[data-tone=ok]{border-left-color:var(--success)}
 .panel-message[data-tone=error],.panel-message[data-tone=danger]{border-left-color:var(--danger)}
 .panel-message[data-tone=warning]{border-left-color:var(--warning)}
-.panel-message strong{display:block;margin-bottom:4px}.panel-message button{position:absolute;right:4px;top:4px;min-width:44px;min-height:44px;padding:6px;background:transparent;color:var(--text);font-size:22px}
+.panel-message strong{display:block;margin-bottom:4px}.panel-message button{position:absolute;right:4px;top:4px;min-width:44px;min-height:44px;padding:6px;background:transparent;color:var(--text);font-size:1.5rem}
 .panel-message button:hover{background:var(--surface-strong);color:var(--text)}
 .panel-message button:focus-visible{outline:3px solid var(--primary)}
 .panel-field-error{color:var(--danger);font-size:.875rem;margin:6px 0}

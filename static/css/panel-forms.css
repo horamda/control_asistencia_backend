@@ -90,7 +90,7 @@
 .form-section {border:0;margin:0;padding:0;min-width:0}
 /* Separador con sombra interior: un border-top de fieldset se dibuja a la altura de la legend. */
 .form-section + .form-section {margin-top:22px;padding-top:22px;border-top:0;box-shadow:inset 0 1px 0 var(--border)}
-.form-section > legend {padding:0;margin:0 0 14px;font-size:1.05rem;font-weight:700;color:var(--text)}
+.form-section > legend {padding:0;margin:0 0 14px;font-size:1rem;font-weight:700;color:var(--text)}
 .form-section > :is(p.helper-text,.helper-text) {margin:-6px 0 14px;color:var(--muted)}
 :is(.page-content,.embedded-layout) form:is(.form-card,:not([method="get" i])) .form-grid > label:not([class*=check]) {
   display:grid;gap:6px;margin:0;min-width:0;font-size:.875rem;font-weight:600;color:var(--text)
@@ -216,6 +216,6 @@
     margin-right: 0;
   }
   :is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid .row :is(input,select,textarea) {
-    font-size: 16px; /* evita el zoom automatico de iOS al enfocar */
+    font-size: 1rem; /* evita el zoom automatico de iOS al enfocar */
   }
 }
