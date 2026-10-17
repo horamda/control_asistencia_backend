@@ -77,12 +77,37 @@
 /* Comunicados: el mensaje respeta los saltos de linea que escribio RR. HH. */
 .com-mensaje { margin: 0; white-space: pre-line; line-height: 1.55; }
 /* Comunicados: vista de celular (detalle y vista previa del formulario) */
-.com-detalle { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 24px; align-items: start; }
-@media (max-width: 900px) { .com-detalle { grid-template-columns: minmax(0, 1fr); } }
-.com-vistas { display: grid; gap: 16px; width: 100%; max-width: 340px; }
-.com-vistas-form { max-width: 720px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); align-items: start; }
-.com-vistas-form[hidden] { display: none; }
+.com-vistas { display: grid; gap: 16px; width: 100%; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); align-items: start; }
+.com-vistas[hidden] { display: none; }
 .com-vistas-form > p { grid-column: 1 / -1; margin: 0; }
+.com-vista > .com-telefono { justify-self: center; }
+
+/* Pestanas: la activa se distingue (mismo criterio que Seguridad e Higiene) */
+.com-nav { gap: 8px; }
+.com-nav a.btn-secondary[aria-current="page"] { background: var(--primary-soft, #e8f0fe); border-color: var(--action-bg, #1f6feb); color: var(--action-bg, #1f6feb); font-weight: 700; }
+.com-nav a.btn[aria-current="page"]:not(.btn-secondary) { box-shadow: 0 0 0 3px var(--primary-soft, #e8f0fe); }
+
+/* Detalle: contenido a la izquierda y vista de celular fija a la derecha; apilado en pantallas angostas */
+.com-detalle-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+.com-detalle-layout > * { min-width: 0; margin: 0; }
+.com-detalle-mensaje .com-mensaje { max-width: 75ch; }
+.com-lectura-head { display: grid; gap: 12px; margin-bottom: 12px; }
+.com-lectura-head h3 { margin: 0; }
+.epp-page .com-kpis { grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
+@media (min-width: 1100px) {
+  .com-detalle-layout.con-vistas { grid-template-columns: minmax(0, 1fr) 340px; }
+  .com-detalle-layout.con-vistas > * { grid-column: 1; }
+  .com-detalle-layout.con-vistas > .com-detalle-vistas { grid-column: 2; grid-row: 1 / span 3; position: sticky; top: 16px; }
+  .com-detalle-vistas .com-vistas { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Formulario: la vista previa va al costado de los campos cuando hay lugar */
+.com-mensaje-layout { display: grid; gap: 24px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+.com-push-armada[hidden], .com-telefono img[hidden] { display: none; }
+@media (min-width: 1100px) {
+  .com-mensaje-layout { grid-template-columns: minmax(0, 1fr) 340px; }
+  .com-mensaje-layout > .com-vistas-form { grid-template-columns: minmax(0, 1fr); position: sticky; top: 16px; }
+}
 .com-vista { margin: 0; display: grid; gap: 6px; min-width: 0; }
 .com-vista figcaption { font-size: .8rem; font-weight: 600; color: var(--muted, #57606a); }
 .com-notif { display: grid; gap: 2px; padding: 12px; border-radius: 14px; background: var(--surface-soft, #f6f8fa); border: 1px solid var(--border, #d0d7de); font-size: .9rem; }
@@ -97,4 +122,17 @@
 .com-telefono small { color: var(--muted, #57606a); }
 .com-telefono img { display: block; width: 100%; height: auto; border-radius: 8px; }
 .com-telefono .com-mensaje { font-size: .9rem; }
-.epp-page .com-filtros label { min-width: min(100%, 170px); }
+/* Filtros compactos: los selects no se estiran a todo el ancho. form[method=get] de panel.css les pone
+   fondo de panel; aca van en linea con el resto de la tarjeta. */
+.epp-page form.com-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
+.epp-page .com-filtros label { flex: 1 1 180px; min-width: min(100%, 170px); max-width: 280px; margin: 0; }
+.epp-page .com-filtros label :is(select, input) { width: 100%; box-sizing: border-box; }
+.epp-page .com-filtros label:has(input[type="search"]) { max-width: 360px; }
+@media (max-width: 600px) {
+  .epp-page .com-filtros label { max-width: none; }
+  .epp-page nav.com-nav { display: grid; grid-template-columns: 1fr 1fr; }
+  /* panel-controls.css alinea los botones de .actions al inicio (place-self): aca ocupan su celda. */
+  .page-content .epp-page nav.com-nav > a.btn { display: flex; align-items: center; justify-content: center; width: 100%; max-width: none; place-self: stretch; box-sizing: border-box; text-align: center; white-space: normal; min-height: 44px; margin: 0; }
+  .epp-page nav.com-nav > a:first-child:nth-last-child(3) { grid-column: 1 / -1; }
+  .com-telefono { max-height: none; }
+}

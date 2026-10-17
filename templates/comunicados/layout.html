@@ -10,10 +10,10 @@
     <h2>Comunicados</h2>
     <p>Mensajes a los empleados: llegan como notificación a la app y quedan en su bandeja. Ves quién lo leyó.</p>
   </header>
-  <nav class="actions" aria-label="Comunicados">
-    <a class="btn btn-secondary" href="{{ url_for('comunicados.index') }}">Enviados</a>
-    <a class="btn btn-secondary" href="{{ url_for('comunicados.automaticos') }}">Avisos automáticos</a>
-    {% if can_web('comunicados', 'crear') %}<a class="btn" href="{{ url_for('comunicados.nuevo') }}">Nuevo comunicado</a>{% endif %}
+  <nav class="actions com-nav" aria-label="Comunicados">
+    {% if can_web('comunicados', 'crear') %}<a class="btn" {% if request.endpoint == 'comunicados.nuevo' %}aria-current="page"{% endif %} href="{{ url_for('comunicados.nuevo') }}">Nuevo comunicado</a>{% endif %}
+    <a class="btn btn-secondary" {% if request.endpoint in ('comunicados.index', 'comunicados.detalle') %}aria-current="page"{% endif %} href="{{ url_for('comunicados.index') }}">Enviados</a>
+    <a class="btn btn-secondary" {% if request.endpoint == 'comunicados.automaticos' %}aria-current="page"{% endif %} href="{{ url_for('comunicados.automaticos') }}">Avisos automáticos</a>
   </nav>
   {% block comunicados_content %}{% endblock %}
 </div>

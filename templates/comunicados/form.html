@@ -14,6 +14,7 @@
 
     <fieldset class="epp-fieldset">
       <legend>Mensaje</legend>
+      <div class="com-mensaje-layout">
       <div class="epp-fields">
         <label class="epp-full">Título<input name="titulo" required maxlength="120" value="{{ v.titulo or '' }}" placeholder="Ej.: Corte de luz el jueves"></label>
         <label class="epp-full">Mensaje<textarea name="mensaje" required maxlength="2000" rows="5" aria-describedby="com-mensaje-help" placeholder="Qué pasa, cuándo y qué tiene que hacer cada uno…">{{ v.mensaje or '' }}</textarea>
@@ -22,15 +23,16 @@
         <label class="epp-full">Imagen (opcional)<input type="file" name="imagen" accept="image/jpeg,image/png,image/webp" aria-describedby="com-imagen-help" data-com-imagen>
           <small id="com-imagen-help">JPG, PNG o WEBP de hasta 5 MB. Se ajusta sola al celular. En la notificación va apaisada (2:1) y entera, con un fondo desenfocado a los costados. Si el envío marca un error, volvé a elegirla.</small>
         </label>
-        <div class="epp-full com-vistas com-vistas-form" data-com-preview hidden>
-          <p class="helper-text" data-com-preview-info role="status" aria-live="polite"></p>
+      </div>
+        <div class="com-vistas com-vistas-form" data-com-preview aria-label="Vista previa en el celular">
+          <p class="helper-text" data-com-preview-info role="status" aria-live="polite">Así lo van a ver. La imagen es opcional.</p>
           <figure class="com-vista">
             <figcaption>Notificación en Android (expandida)</figcaption>
             <div class="com-notif">
               <span class="com-notif-app">FichaYa · ahora</span>
               <strong data-com-preview-titulo>Título</strong>
               <span class="com-notif-texto" data-com-preview-texto></span>
-              <div class="com-notif-img com-push-armada">
+              <div class="com-notif-img com-push-armada" data-com-preview-conimagen hidden>
                 <div class="com-push-fondo" data-com-preview-fondo></div>
                 <img data-com-preview-img alt="">
               </div>
@@ -40,7 +42,7 @@
             <figcaption>En la app</figcaption>
             <div class="com-telefono">
               <strong data-com-preview-titulo>Título</strong>
-              <img data-com-preview-img alt="Vista previa de la imagen">
+              <img data-com-preview-img data-com-preview-conimagen alt="Vista previa de la imagen" hidden>
               <p class="com-mensaje" data-com-preview-mensaje></p>
             </div>
           </figure>

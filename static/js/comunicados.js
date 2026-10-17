@@ -1,4 +1,4 @@
-// Nuevo comunicado: vista previa de como se ve la imagen en el celular antes de enviarlo.
+// Nuevo comunicado: vista previa en vivo de como se ve en el celular (con o sin imagen).
 // La notificacion de Android la muestra apaisada (2:1); el servidor la arma igual que aca:
 // la imagen entera, centrada sobre un fondo desenfocado de ella misma.
 (() => {
@@ -10,7 +10,12 @@
   const titulo = form.querySelector('[name="titulo"]');
   const mensaje = form.querySelector('[name="mensaje"]');
   const info = preview.querySelector('[data-com-preview-info]');
+  const ayuda = info.textContent;
   let url = null;
+
+  function conImagen(visible) {
+    preview.querySelectorAll('[data-com-preview-conimagen]').forEach((el) => { el.hidden = !visible; });
+  }
 
   function textos() {
     const t = titulo.value.trim() || 'Título';
@@ -34,7 +39,8 @@
     const archivo = input.files && input.files[0];
     if (!archivo) {
       url = null;
-      preview.hidden = true;
+      conImagen(false);
+      info.textContent = ayuda;
       return;
     }
     url = URL.createObjectURL(archivo);
@@ -44,9 +50,9 @@
     prueba.onload = () => avisoTamano(prueba.naturalWidth, prueba.naturalHeight);
     prueba.onerror = () => { info.textContent = 'No se pudo leer la imagen. Probá con un JPG, PNG o WEBP.'; };
     prueba.src = url;
-    textos();
-    preview.hidden = false;
+    conImagen(true);
   });
   titulo.addEventListener('input', textos);
   mensaje.addEventListener('input', textos);
+  textos();
 })();
