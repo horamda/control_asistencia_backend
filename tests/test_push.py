@@ -48,7 +48,8 @@ def test_credenciales_y_config(monkeypatch, firebase):
     monkeypatch.setenv("FIREBASE_WEB_CONFIG", '{"apiKey": "pub", "projectId": "fichaya-test"}')
     monkeypatch.setenv("FIREBASE_WEB_VAPID_KEY", "BAbc")
     assert push.config_web() == {"activo": False, "web": {"apiKey": "pub", "projectId": "fichaya-test"},
-                                 "vapid_key": "BAbc", "canal_android": "fichaya"}
+                                 "vapid_key": "BAbc", "canal_android": "fichaya",
+                                 "canal_android_urgente": "fichaya_urgente"}
 
 
 def test_token_oauth_y_envio(monkeypatch, firebase, clave_rsa):

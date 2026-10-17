@@ -1,6 +1,6 @@
 # Notificaciones push — contrato para Flutter (Android) y la app web
 
-Versión de contrato: 1.49.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
+Versión de contrato: 1.50.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
 
 El backend envía los avisos; la app solo tiene que registrar su token y abrir la pantalla correcta al tocar
 la notificación. Si Firebase no está configurado en el servidor, `GET /push/config` devuelve `activo: false`
@@ -36,7 +36,7 @@ Base `/api/v1/mobile/push`, con `Authorization: Bearer <token>` como el resto de
 
 ```json
 GET /push/config
-{"activo": true, "canal_android": "fichaya", "vapid_key": "BF2u4_…",
+{"activo": true, "canal_android": "fichaya", "canal_android_urgente": "fichaya_urgente", "vapid_key": "BF2u4_…",
  "web": {"apiKey": "AIza…", "authDomain": "fichaya-917d5.firebaseapp.com", "projectId": "fichaya-917d5",
          "storageBucket": "fichaya-917d5.firebasestorage.app", "messagingSenderId": "885761435547",
          "appId": "1:885761435547:web:d9d260b374b68eeccfe33e"}}
@@ -75,6 +75,21 @@ tiempos, más un horario de silencio. Para la app no cambia nada, salvo dos cosa
 - Un aviso puede llegar **más tarde** que el hecho (horario de silencio o resumen). La pantalla a abrir sigue en `ruta`.
 - **Resumen**: varias solicitudes del mismo horario llegan en **un solo push** («Tenés 3 solicitudes para revisar»)
   con `data.cantidad` y la `ruta`/`envio_id`/`acuse` de la primera. El acuse de ese push vale para todas.
+
+### Vibración y canal de urgentes (1.50.0)
+
+La app crea **dos canales** (en Android 8+ el sonido y la vibración quedan fijos al crearlos):
+
+| Canal | Para | Importancia | Vibración (ms: espera, vibra, pausa…) |
+|---|---|---|---|
+| `fichaya` — «Avisos de FichaYa» | todo lo demás | alta | `[0, 180, 120, 180]` (dos pulsos cortos) |
+| `fichaya_urgente` — «Avisos urgentes de FichaYa» | `salida_pendiente` y `recordatorio` (reunión por empezar) | máxima | `[0, 450, 200, 450, 200, 450]` (tres largos) |
+
+- Los dos con el tono `res/raw/fichaya`. El backend elige el canal por `data.tipo` y manda los mismos patrones en
+  `vibrate_timings` para Android 7 o anterior. `GET /push/config` devuelve `canal_android_urgente`.
+- Con la app abierta y en los recordatorios locales de reunión, la app usa el mismo criterio.
+- El permiso `VIBRATE` lo declara `flutter_local_notifications`. En modo silencio o No molestar el sistema no vibra.
+- Una app vieja sin `fichaya_urgente` recibe esos avisos en el canal por defecto del manifest.
 
 ### Acuses: recibido y abierto (1.47.0)
 

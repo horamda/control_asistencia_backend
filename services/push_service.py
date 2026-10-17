@@ -39,6 +39,14 @@ MAX_INTENTOS = 3
 # por defecto del manifest y el sonido del sistema.
 CANAL_ANDROID = "fichaya"
 SONIDO_ANDROID = "fichaya"
+# Urgentes (salida sin fichar, reunion por empezar): canal aparte con prioridad maxima y vibracion mas larga.
+# Los tipos salen de las reglas marcadas como urgentes (push_reglas_service).
+CANAL_ANDROID_URGENTE = "fichaya_urgente"
+TIPOS_URGENTES = frozenset(tipo for tipo, regla in reglas_push.TIPO_REGLA.items()
+                           if reglas_push.POR_CLAVE[regla]["urgente"])
+# Vibracion propia para Android 7 o anterior (en 8+ la define el canal que crea la app; mismos valores).
+VIBRACION = ["0s", "0.18s", "0.12s", "0.18s"]
+VIBRACION_URGENTE = ["0s", "0.45s", "0.2s", "0.45s", "0.2s", "0.45s"]
 _token_cache = {"valor": None, "vence": 0.0}
 _lock = threading.Lock()
 
@@ -77,7 +85,8 @@ def config_web():
     except ValueError:
         web = None
     return dict(activo=activo(), web=web if isinstance(web, dict) else None,
-                vapid_key=os.getenv("FIREBASE_WEB_VAPID_KEY") or None, canal_android=CANAL_ANDROID)
+                vapid_key=os.getenv("FIREBASE_WEB_VAPID_KEY") or None, canal_android=CANAL_ANDROID,
+                canal_android_urgente=CANAL_ANDROID_URGENTE)
 
 
 # --- Dispositivos ------------------------------------------------------------------------------
@@ -234,11 +243,20 @@ def _access_token(cred):
 
 
 def _mensaje(token, titulo, cuerpo, datos):
+    urgente = datos.get("tipo") in TIPOS_URGENTES
+    notificacion_android = {
+        "channel_id": CANAL_ANDROID_URGENTE if urgente else CANAL_ANDROID,
+        "sound": SONIDO_ANDROID,
+        "default_vibrate_timings": False,
+        "vibrate_timings": VIBRACION_URGENTE if urgente else VIBRACION,
+    }
+    if urgente:
+        notificacion_android["notification_priority"] = "PRIORITY_MAX"
     mensaje = {
         "token": token,
         "notification": {"title": titulo, "body": cuerpo},
         "data": datos,
-        "android": {"priority": "HIGH", "notification": {"channel_id": CANAL_ANDROID, "sound": SONIDO_ANDROID}},
+        "android": {"priority": "HIGH", "notification": notificacion_android},
     }
     imagen = datos.get("imagen") or ""
     if imagen.startswith("https://"):

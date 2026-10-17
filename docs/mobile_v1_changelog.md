@@ -1,3 +1,7 @@
+## 1.50.0 — 2026-10-17
+
+- Vibración propia: canal `fichaya` con dos pulsos cortos y canal nuevo `fichaya_urgente` (importancia máxima, tres pulsos largos) para `salida_pendiente` y `recordatorio`. `GET /push/config` agrega `canal_android_urgente`. Para Android 7 o anterior el push trae `vibrate_timings`. Aditivo. Guía: `push_mobile.md#vibración-y-canal-de-urgentes-1500`.
+
 ## 1.49.0 — 2026-10-17
 
 - Push de Seguridad e Higiene: `revision_pendiente` con `modulo = seguridad_higiene` (reporte nuevo, al responsable de SH), `seguridad_resultado` (a quien reportó) y `seguridad_accion` (acción correctiva asignada, por vencer y vencida, al responsable).

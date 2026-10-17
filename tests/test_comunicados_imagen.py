@@ -136,3 +136,16 @@ def test_item_de_la_app_trae_url_de_imagen():
     fila = {"id": 5, "titulo": "T", "mensaje": "M", "creado_at": dt.datetime(2026, 10, 16, 9, 30), "leido_at": None}
     assert s._item(dict(fila, tiene_imagen=1))["imagen_url"] == "/api/v1/mobile/comunicados/5/imagen"
     assert s._item(dict(fila, tiene_imagen=0))["imagen_url"] is None
+
+
+@pytest.mark.parametrize("tipo,canal,prioridad,pulsos", [
+    ("salida_pendiente", "fichaya_urgente", "PRIORITY_MAX", 6),
+    ("recordatorio", "fichaya_urgente", "PRIORITY_MAX", 6),
+    ("comunicado", "fichaya", None, 4),
+    ("revision_pendiente", "fichaya", None, 4),
+])
+def test_canal_y_vibracion_segun_urgencia(tipo, canal, prioridad, pulsos):
+    android = push_service._mensaje("token", "T", "C", {"tipo": tipo})["message"]["android"]["notification"]
+    assert android["channel_id"] == canal and android["sound"] == "fichaya"
+    assert android.get("notification_priority") == prioridad
+    assert android["default_vibrate_timings"] is False and len(android["vibrate_timings"]) == pulsos
