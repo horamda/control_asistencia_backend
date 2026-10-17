@@ -40,15 +40,15 @@ def _pesos(valor):
     return "$ " + f"{float(valor or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _avisar(empresa_id, empleado_id, tipo, titulo, cuerpo, datos, clave):
-    return push_service.encolar_ahora(empresa_id, [empleado_id], tipo, titulo, cuerpo, datos, clave)
+def _avisar(empresa_id, empleado_id, tipo, titulo, cuerpo, datos, clave, bandeja=None):
+    extra = {} if bandeja is None else {"bandeja": bandeja}  # None: lo decide el tipo (notificaciones_service)
+    return push_service.encolar_ahora(empresa_id, [empleado_id], tipo, titulo, cuerpo, datos, clave, **extra)
 
 
 def _seguro(funcion):
-    """Un aviso que falla (consulta, tabla) se registra y no interrumpe la accion del panel o la app."""
+    """Un aviso que falla (consulta, tabla) se registra y no interrumpe la accion del panel o la app.
+    Corre aunque Firebase no este configurado: la novedad queda en la bandeja (notificaciones_service)."""
     def envoltura(*args, **kwargs):
-        if not push_service.activo():
-            return 0
         try:
             return funcion(*args, **kwargs)
         except Exception:
@@ -67,6 +67,8 @@ def salidas_pendientes(ahora=None):
     (fin del bloque de su horario o ingreso + horas de la empresa, la misma que usaria el egreso automatico)."""
     from services import egreso_automatico_service as egreso  # importa el calculo de horarios solo aca
 
+    if not push_service.activo():  # solo push (sin bandeja): sin Firebase no hay nada que calcular
+        return 0
     ahora = ahora or now_local()
     hoy = ahora.date()
     if _previstas["fecha"] != hoy:
@@ -173,7 +175,9 @@ def reintegro_actualizado(solicitud_id):
 
 @_seguro
 def recordatorio_viaticos(periodo, mensaje):
-    """Dia 5: el mismo recordatorio que ve la app, por push, a quien todavia no lo leyo."""
+    """Dia 5: el mismo recordatorio que ve la app, por push, a quien todavia no lo leyo. Solo push."""
+    if not push_service.activo():
+        return 0
     with db.transaction(read_only=True) as c:
         filas = db.all_rows(c, """SELECT empresa_id, empleado_id FROM reintegro_recordatorios
                                   WHERE periodo = %s AND leido_at IS NULL""", (periodo,))
@@ -329,8 +333,11 @@ _TRIVIA = {
 
 @_seguro
 def trivia(trivia_row, empleados, momento):
-    """momento: nueva | recordatorio_24h | recordatorio_2h. empleados: filas con empleado_id y empresa_id."""
+    """momento: nueva | recordatorio_24h | recordatorio_2h. empleados: filas con empleado_id y empresa_id.
+    La trivia nueva va tambien a la bandeja; los recordatorios son solo push."""
     tipo, titulo, plantilla = _TRIVIA[momento]
+    if momento != "nueva" and not push_service.activo():
+        return 0
     cuerpo = plantilla.format(titulo=trivia_row.get("titulo") or "Trivia")
     por_empresa = defaultdict(list)
     for empleado in empleados:
@@ -598,7 +605,9 @@ def seguridad_accion(accion_id):
 @_seguro
 def acciones_por_vencer(hoy=None):
     """Una vez por dia: al responsable, N dias antes del vencimiento (regla seguridad_accion) y el dia despues
-    si la accion sigue abierta."""
+    si la accion sigue abierta. Recordatorio: solo push, sin bandeja (la asignacion ya esta en la bandeja)."""
+    if not push_service.activo():
+        return 0
     hoy = hoy or now_local().date()
     with db.transaction(read_only=True) as c:
         filas = db.all_rows(c, """SELECT a.id, a.evento_id, a.descripcion, a.responsable_id, a.vencimiento, ev.empresa_id
@@ -618,5 +627,6 @@ def acciones_por_vencer(hoy=None):
         else:
             continue
         total += _avisar(a["empresa_id"], a["responsable_id"], "seguridad_accion", titulo, cuerpo,
-                         {"accion_id": a["id"], "evento_id": a["evento_id"], "ruta": f"/seguridad/{a['evento_id']}"}, clave)
+                         {"accion_id": a["id"], "evento_id": a["evento_id"], "ruta": f"/seguridad/{a['evento_id']}"}, clave,
+                         bandeja=False)
     return total

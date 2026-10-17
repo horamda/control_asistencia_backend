@@ -23,9 +23,10 @@ def cola(monkeypatch):
     monkeypatch.setattr(avisos.db, "transaction", transaction)
     monkeypatch.setattr(avisos.db, "one", lambda c, sql, args: estado["fila"])
     monkeypatch.setattr(push_service, "encolar_ahora",
-                        lambda empresa_id, ids, tipo, titulo, cuerpo, datos=None, clave=None, regla=None:
+                        lambda empresa_id, ids, tipo, titulo, cuerpo, datos=None, clave=None, regla=None, bandeja=None:
                         encolados.append(dict(empresa_id=empresa_id, ids=list(ids), tipo=tipo, titulo=titulo,
-                                              cuerpo=cuerpo, datos=datos, clave=clave, regla=regla)) or len(ids))
+                                              cuerpo=cuerpo, datos=datos, clave=clave, regla=regla,
+                                              bandeja=bandeja)) or len(ids))
     # Reglas por defecto (sin base): solicitudes al jefe directo y a RR. HH.
     monkeypatch.setattr(avisos.reglas_push, "configuracion", lambda empresa_id: (
         {m["clave"]: avisos.reglas_push._defecto(m) for m in avisos.reglas_push.CATALOGO}, (None, None)))
@@ -106,10 +107,24 @@ def test_trivia_agrupa_por_empresa(cola):
     assert encolados[0]["cuerpo"] == "¡Quedan 2 horas para participar en «Seguridad vial»!"
 
 
-def test_sin_firebase_no_consulta_nada(monkeypatch):
+def test_sin_firebase_la_novedad_igual_va_a_la_bandeja(cola, monkeypatch):
+    """La bandeja no depende del push: sin Firebase la novedad se registra igual (encolar guarda la notificacion)."""
+    estado, encolados = cola
+    monkeypatch.setattr(push_service, "activo", lambda: False)
+    estado["fila"] = dict(id=5, empleado_id=10, empresa_id=1, estado="aprobada", fecha=dt.date(2026, 10, 1),
+                          fecha_desde=None, fecha_hasta=None, motivo_rechazo=None)
+    assert avisos.justificacion_resuelta(5) == 1
+    assert encolados[0]["tipo"] == "justificacion"
+
+
+@pytest.mark.parametrize("recordatorio", [
+    lambda: avisos.salidas_pendientes(), lambda: avisos.acciones_por_vencer(), lambda: avisos.recordatorio_viaticos(dt.date(2026, 10, 1), "x")])
+def test_sin_firebase_los_recordatorios_no_consultan(monkeypatch, recordatorio):
+    """Los recordatorios son solo push: sin Firebase no hay nada que calcular."""
     monkeypatch.setattr(push_service, "activo", lambda: False)
     monkeypatch.setattr(avisos.db, "transaction", lambda **k: (_ for _ in ()).throw(AssertionError("no debe consultar")))
-    assert avisos.justificacion_resuelta(1) == 0
+    monkeypatch.setattr(avisos.logger, "warning", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no debe fallar")))
+    assert recordatorio() == 0
 
 
 # --- Trivia: que aviso corresponde en cada momento ---------------------------------------------------
@@ -229,6 +244,7 @@ def test_acciones_por_vencer_y_vencidas(cola, monkeypatch):
     assert [(a["ids"], a["titulo"]) for a in encolados] == [
         ([30], "Acción de seguridad por vencer"), ([31], "Acción de seguridad vencida")]
     assert encolados[0]["cuerpo"] == "Señalizar la escalera · vence mañana"
+    assert all(a["bandeja"] is False for a in encolados)  # recordatorio: solo push, sin bandeja
 
 
 def test_epp_en_borrador_no_avisa(revisores):

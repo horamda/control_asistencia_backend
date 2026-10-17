@@ -20,6 +20,7 @@ from flask import current_app, url_for
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps, UnidentifiedImageError
 
 from repositories import carga_repository as db
+from services import notificaciones_service as notificaciones
 from services import push_service
 from services.carga_service import MAX_PHOTO_BYTES, CargaError as Error, now_local
 from services.reunion_service import _marcas, _participantes
@@ -206,11 +207,12 @@ def enviar_contenido(who, data, contenido=None, contenido_push=None, *, programa
             lote = ids[i:i + 500]
             c.executemany("INSERT INTO comunicado_destinatarios (comunicado_id, empleado_id) VALUES (%s, %s)",
                           [(cid, eid) for eid in lote])
-    cuerpo = mensaje if len(mensaje) <= 180 else mensaje[:177].rstrip() + "…"
-    datos = {"comunicado_id": cid, "ruta": f"/comunicados/{cid}"}
-    if contenido:
-        datos["imagen"] = url_imagen_push(cid, base_url=base_url)
-    push_service.encolar_ahora(who["empresa_id"], ids, "comunicado", titulo, cuerpo, datos, f"comunicado:{cid}")
+        cuerpo = mensaje if len(mensaje) <= 180 else mensaje[:177].rstrip() + "…"
+        datos = {"comunicado_id": cid, "ruta": f"/comunicados/{cid}"}
+        if contenido:
+            datos["imagen"] = url_imagen_push(cid, base_url=base_url)
+        # En la misma transaccion: el comunicado, su notificacion en la bandeja de cada uno y el push.
+        push_service.encolar(c, who["empresa_id"], ids, "comunicado", titulo, cuerpo, datos, f"comunicado:{cid}")
     return cid, len(ids)
 
 
@@ -297,6 +299,7 @@ def eliminar(who, cid):
         comunicado = _obtener(c, who, cid)
         c.execute("DELETE FROM comunicado_destinatarios WHERE comunicado_id=%s", (comunicado["id"],))
         c.execute("DELETE FROM comunicados WHERE id=%s", (comunicado["id"],))
+        notificaciones.eliminar_referencia(c, who["empresa_id"], "comunicado", comunicado["id"])
         c.execute("DELETE FROM push_envios WHERE clave LIKE %s AND estado IN ('pendiente','reintentar')",
                   (f"comunicado:{comunicado['id']}:%",))
     return comunicado
@@ -445,6 +448,8 @@ def leer(empleado, cid):
             fila["leido_at"] = now_local().replace(microsecond=0)
             c.execute("UPDATE comunicado_destinatarios SET leido_at=%s WHERE comunicado_id=%s AND empleado_id=%s",
                       (fila["leido_at"], fila["id"], empleado["id"]))
+        # Leido desde la pantalla de comunicados = leido en la bandeja (y viceversa, notificaciones_service.leer).
+        notificaciones.marcar_referencia_leida(c, empleado["id"], "comunicado", [fila["id"]], fila["leido_at"])
     return _item(fila)
 
 
@@ -461,8 +466,12 @@ def imagen_empleado(empleado, cid):
 
 
 def leer_todos(empleado):
+    cuando = now_local().replace(microsecond=0)
     with db.transaction() as c:
-        c.execute("""UPDATE comunicado_destinatarios d JOIN comunicados c ON c.id = d.comunicado_id
-                     SET d.leido_at=%s WHERE d.empleado_id=%s AND c.empresa_id=%s AND d.leido_at IS NULL""",
-                  (now_local().replace(microsecond=0), empleado["id"], empleado["empresa_id"]))
-        return c.rowcount
+        c.execute("""UPDATE comunicado_destinatarios SET leido_at=%s
+                     WHERE empleado_id=%s AND leido_at IS NULL
+                       AND comunicado_id IN (SELECT id FROM comunicados WHERE empresa_id=%s)""",
+                  (cuando, empleado["id"], empleado["empresa_id"]))
+        marcados = c.rowcount
+        notificaciones.marcar_tipo_leido(c, empleado, "comunicado", cuando)
+        return marcados

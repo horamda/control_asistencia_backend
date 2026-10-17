@@ -1,7 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.50.0
+Version de contrato: 1.51.0
 
+- **Bandeja de notificaciones (1.51.0):** campana persistente en `/me/notificaciones` (listado, resumen, detalle, leer y leer-todas con corte) y `data.notificacion_id` en el push. Reemplaza las alertas calculadas en la app. Ver [contrato](notificaciones_mobile.md).
 - **Vibración y canal de urgentes (1.50.0):** patrón de vibración propio y canal `fichaya_urgente` para salida sin fichar y reunión por empezar. Ver [push](push_mobile.md#vibración-y-canal-de-urgentes-1500).
 
 - **Seguridad e Higiene y configuración de avisos (1.49.0):** push al responsable de SH por reportes nuevos, a quien reportó con el resultado y al responsable de cada acción correctiva. Los avisos pueden salir en resúmenes (`data.cantidad`) o al terminar el horario de silencio de la empresa. Ver [push](push_mobile.md#configuración-por-empresa-y-resúmenes-1490).

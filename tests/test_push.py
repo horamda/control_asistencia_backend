@@ -97,6 +97,9 @@ def push_db(reuniones_db, firebase):  # noqa: F811
     from scripts.migrate_20261017_01_push_reglas import migrate_cursor as migrate_reglas
     migrate_reglas(c)
     migrate_reglas(c)  # idempotente
+    from scripts.migrate_20261017_02_notificaciones import migrate_cursor as migrate_notificaciones
+    migrate_notificaciones(c)
+    migrate_notificaciones(c)  # idempotente
     conn.commit()
     c.close()
     conn.close()
@@ -152,7 +155,8 @@ def test_avisos_de_reuniones(push_db):
     assert avisos.reunion_guardada(ADMIN, rid, nueva=True) == 5  # toda la empresa 1
     aviso = _envios()[0]
     assert aviso["titulo"] == "Nueva reunión" and aviso["cuerpo"].startswith("Seguridad: Todos los miércoles a las 09:00")
-    assert json.loads(aviso["datos"]) == {"reunion_id": str(rid), "ruta": f"/reuniones/{rid}"}
+    datos = json.loads(aviso["datos"])
+    assert datos == {"reunion_id": str(rid), "ruta": f"/reuniones/{rid}", "notificacion_id": datos["notificacion_id"]}
 
     # Editar sin cambiar horario/dias/lugar no avisa; cambiar el horario si.
     antes = avisos.firma(ADMIN, rid)
@@ -185,12 +189,15 @@ def test_avisos_de_reuniones(push_db):
     assert recordatorio["cuerpo"] == "Empieza en 14 min en Sala 1. Escaneá el QR al llegar."
 
 
-def test_sin_firebase_no_encola(push_db, monkeypatch):
+def test_sin_firebase_no_encola_push_pero_guarda_en_la_bandeja(push_db, monkeypatch):
     monkeypatch.delenv("FIREBASE_SERVICE_ACCOUNT")
     rid = crear(reglas=["todos"], empleados=[])
-    assert avisos.reunion_guardada(ADMIN, rid, nueva=True) == 0
+    assert avisos.reunion_guardada(ADMIN, rid, nueva=True) == 5  # los 5 convocados, en la bandeja
     assert push.procesar_cola() == {"enviados": 0, "errores": 0, "sin_dispositivo": 0}
     assert _envios() == []
+    with svc.db.transaction(read_only=True) as c:
+        notas = svc.db.all_rows(c, "SELECT empleado_id, tipo FROM empleado_notificaciones ORDER BY empleado_id")
+    assert [(n["empleado_id"], n["tipo"]) for n in notas] == [(e, "reunion_nueva") for e in (10, 11, 12, 13, 14)]
 
 
 def test_endpoints_app_y_panel(push_db, monkeypatch):

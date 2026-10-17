@@ -23,6 +23,7 @@ from scripts.migrate_20261016_09_push_envios_empresa import migrate_cursor as mi
 from scripts.migrate_20261016_10_comunicados_imagen_push import migrate_cursor as migrate_announcement_push_image
 from scripts.migrate_20261016_11_push_acuses import migrate_cursor as migrate_push_receipts
 from scripts.migrate_20261017_01_push_reglas import migrate_cursor as migrate_push_rules
+from scripts.migrate_20261017_02_notificaciones import migrate_cursor as migrate_employee_notifications
 
 
 def main():
@@ -173,6 +174,13 @@ def main():
         if not cursor.fetchone():
             cursor.execute('SET SESSION lock_wait_timeout=5')
             migrate_push_rules(cursor)
+            cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
+            db.commit()
+        version = '20261017_notificaciones'
+        cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
+        if not cursor.fetchone():
+            cursor.execute('SET SESSION lock_wait_timeout=5')
+            migrate_employee_notifications(cursor)
             cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
             db.commit()
     finally:

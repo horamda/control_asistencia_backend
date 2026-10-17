@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.50.0
+  version: 1.51.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.51.0: bandeja de notificaciones persistente (/me/notificaciones: listado, resumen, detalle, leer y leer-todas con corte) y data.notificacion_id en el push; ver notificaciones_mobile.md.
     Version 1.50.0: canal_android_urgente (fichaya_urgente) y vibracion propia; ver push_mobile.md.
     Version 1.49.0: push de Seguridad e Higiene (seguridad_resultado, seguridad_accion, revision_pendiente con modulo seguridad_higiene) y resumenes (data.cantidad).
     Version 1.48.0: push tambien para justificaciones, vacaciones, feedback y trivias (tipos nuevos, aditivo).
@@ -28,8 +29,9 @@ info:
     Las rutas de foto de perfil por DNI son publicas.
     Los modulos complementarios Feedback (`/api/v1/feedback`) y SKAP (`/api/skap`)
     usan el mismo Bearer JWT mobile, aunque no cuelgan del prefijo `/api/v1/mobile`.
-    La campana de Alertas del home agrupa adelantos, pedidos de mercaderia y feedback
-    para mostrar novedades o aprobaciones pendientes sin cambiar los flujos existentes.
+    La campana del home usa la bandeja de notificaciones (`/me/notificaciones`, desde 1.51.0): cada novedad
+    (comunicado, solicitud resuelta, feedback, viaticos, reuniones...) queda guardada aunque el push falle.
+    Reemplaza a las alertas que la app calculaba con los resumenes de cada modulo.
   contact:
     name: Equipo Backend
 servers:
@@ -2267,6 +2269,64 @@ components:
         total: {type: integer}
         page: {type: integer}
         pages: {type: integer}
+
+    Notificacion:
+      type: object
+      description: Una novedad de la bandeja del empleado. Desde 1.51.0. Ver notificaciones_mobile.md.
+      properties:
+        id: {type: integer, description: "Estable; tambien llega en el push como data.notificacion_id."}
+        tipo:
+          type: string
+          description: Tipo de evento (mismos valores que data.tipo del push).
+          example: adelanto
+        modulo:
+          type: string
+          description: Modulo de origen; sirve de filtro.
+          enum: [comunicados, adelantos, pedidos_mercaderia, feedback, reintegros, reuniones, justificaciones, vacaciones, epp, seguridad, trivias, revisiones]
+        titulo: {type: string}
+        mensaje: {type: string, description: "Texto corto (hasta 500). El completo de un comunicado esta en GET /comunicados/{id}."}
+        creado_at: {type: string, format: date-time, description: "Hora Argentina, sin zona."}
+        leida: {type: boolean}
+        leido_at: {type: string, format: date-time, nullable: true}
+        referencia:
+          type: object
+          nullable: true
+          description: Registro relacionado (null si el evento no tiene uno).
+          properties:
+            tipo:
+              type: string
+              enum: [comunicado, adelanto, pedido_mercaderia, feedback, reintegro, reunion, justificacion, vacaciones, epp, seguridad_evento, seguridad_accion, trivia]
+            id: {type: integer}
+            disponible:
+              type: boolean
+              nullable: true
+              description: Solo en el detalle. false = el tramite ya no existe o dejo de ser accesible (mostrar el mensaje igual); null = no se pudo verificar.
+        destino:
+          type: object
+          description: A donde navegar al tocarla.
+          properties:
+            ruta: {type: string, example: /adelantos, description: "Misma ruta que data.ruta del push; /notificaciones si no hay otra."}
+            parametros:
+              type: object
+              additionalProperties: {type: string}
+              description: Datos del evento (ids, estado, fecha), como texto.
+    NotificacionesPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notificacion'
+        no_leidas: {type: integer, description: "Total de no leidas del empleado (no depende de filtros ni pagina)."}
+        corte: {type: integer, nullable: true, description: "Id de la notificacion mas nueva al consultar. Mandarlo como hasta_id en leer-todas."}
+        siguiente: {type: integer, nullable: true, description: "Cursor de la pagina siguiente (antes_de); null si no hay mas."}
+        limite: {type: integer}
+    NotificacionLeida:
+      allOf:
+      - $ref: '#/components/schemas/Notificacion'
+      - type: object
+        properties:
+          no_leidas: {type: integer, description: "Contador actualizado."}
 
     PushConfig:
       type: object
@@ -7616,6 +7676,186 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       tags:
       - Comunicados
+
+  /me/notificaciones:
+    get:
+      summary: Bandeja de notificaciones del empleado
+      description: |
+        De la mas nueva a la mas vieja (orden estable por id). No marca nada como leido.
+        Paginado por cursor: la primera pagina sin antes_de; la siguiente con antes_de = siguiente.
+        Guardar `corte` para "leer todas". Desde 1.51.0.
+      parameters:
+      - name: estado
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [todas, no_leidas, leidas]
+          default: todas
+      - name: modulo
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: antes_de
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: limite
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+          maximum: 50
+      responses:
+        '200':
+          description: Pagina de notificaciones.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificacionesPage'
+        '400':
+          description: Parametro invalido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Notificaciones
+  /me/notificaciones/resumen:
+    get:
+      summary: Contador de no leidas (campana)
+      description: Liviano, para el badge y para saber si hay algo nuevo (ultima_id). Desde 1.51.0.
+      responses:
+        '200':
+          description: Contadores.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  no_leidas: {type: integer}
+                  por_modulo:
+                    type: object
+                    additionalProperties: {type: integer}
+                  ultima_id: {type: integer, nullable: true}
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Notificaciones
+  /me/notificaciones/{notificacion_id}:
+    get:
+      summary: Detalle de una notificacion (no la marca como leida)
+      description: Incluye referencia.disponible y el contador. Desde 1.51.0.
+      parameters:
+      - name: notificacion_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Notificacion.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificacionLeida'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No existe o es de otro empleado o empresa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Notificaciones
+  /me/notificaciones/{notificacion_id}/leer:
+    post:
+      summary: Marcar como leida (idempotente)
+      description: La primera lectura guarda la fecha; las siguientes devuelven la misma. No cambia el tramite relacionado. Si es un comunicado, tambien queda leido en /comunicados. Desde 1.51.0.
+      parameters:
+      - name: notificacion_id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Notificacion leida y contador actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificacionLeida'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No existe o es de otro empleado o empresa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Notificaciones
+  /me/notificaciones/leer-todas:
+    post:
+      summary: Marcar como leidas hasta el corte
+      description: Marca solo las notificaciones con id <= hasta_id (el `corte` del listado); las que llegaron despues siguen sin leer. Idempotente. Desde 1.51.0.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hasta_id]
+              properties:
+                hasta_id: {type: integer}
+                modulo: {type: string, description: "Opcional, solo ese modulo."}
+      responses:
+        '200':
+          description: Cantidad marcada y contador actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  marcadas: {type: integer}
+                  no_leidas: {type: integer}
+                  hasta_id: {type: integer}
+        '400':
+          description: Parametro invalido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: JWT ausente, invalido o empleado inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+      - Notificaciones
 
   /empleados/imagen/{dni}:
     servers:

@@ -144,7 +144,11 @@ def test_avisos_de_resoluciones(base):
         ("adelanto", "Adelanto aprobado", "Tu pedido de adelanto de octubre fue aprobado."),
         ("pedido_mercaderia", "Pedido de mercadería rechazado", "Tu pedido de mercadería de octubre fue rechazado. Motivo: Sin stock"),
     ]
-    assert json.loads(_envios()[0]["datos"]) == {"pedido_id": str(pid), "estado": "aprobado", "ruta": f"/epp/{pid}"}
+    datos = json.loads(_envios()[0]["datos"])
+    assert datos == {"pedido_id": str(pid), "estado": "aprobado", "ruta": f"/epp/{pid}", "notificacion_id": datos["notificacion_id"]}
+    with svc.db.transaction(read_only=True) as c:  # el push lleva el id de la notificacion de la bandeja
+        nota = svc.db.one(c, "SELECT * FROM empleado_notificaciones WHERE id=%s", (int(datos["notificacion_id"]),))
+    assert (nota["tipo"], nota["referencia_tipo"], nota["referencia_id"], nota["leido_at"]) == ("epp_resuelto", "epp", pid, None)
 
 
 def test_recordatorio_de_viaticos_y_sin_firebase(base, monkeypatch):
@@ -184,7 +188,8 @@ def test_comunicados_destinatarios_bandeja_y_lectura(base):
     assert guardado["alcance"] == "Almacen · Picker; 1 persona" and guardado["destinatarios"] == 3
     push_enviados = _avisos("comunicado")
     assert sorted(e["empleado_id"] for e in push_enviados) == [10, 13, 14]
-    assert json.loads(push_enviados[0]["datos"]) == {"comunicado_id": str(cid), "ruta": f"/comunicados/{cid}"}
+    datos = json.loads(push_enviados[0]["datos"])
+    assert datos == {"comunicado_id": str(cid), "ruta": f"/comunicados/{cid}", "notificacion_id": datos["notificacion_id"]}
 
     bandeja = com.mis_comunicados(emp(10))
     assert bandeja["no_leidos"] == 1 and bandeja["items"][0]["titulo"] == "Corte de luz"

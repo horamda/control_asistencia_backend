@@ -1,6 +1,6 @@
 # Notificaciones push — contrato para Flutter (Android) y la app web
 
-Versión de contrato: 1.50.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
+Versión de contrato: 1.51.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
 
 El backend envía los avisos; la app solo tiene que registrar su token y abrir la pantalla correcta al tocar
 la notificación. Si Firebase no está configurado en el servidor, `GET /push/config` devuelve `activo: false`
@@ -174,6 +174,11 @@ Todos traen `notification` (título y texto listos para mostrar) y `data` con st
 | `comunicado` (1.44.0) | Comunicado enviado desde el panel | `comunicado_id`, `ruta` = `/comunicados/{id}`, `imagen` (1.45.0, solo si tiene imagen) |
 
 Desde 1.47.0 **todos** los tipos traen además `envio_id` y `acuse` (ver [acuses](#acuses-recibido-y-abierto-1470)).
+
+Desde 1.51.0 los avisos que quedan en la bandeja traen `notificacion_id`: al tocarlo, marcarla con
+`POST /me/notificaciones/{notificacion_id}/leer`. No lo traen los recordatorios (`recordatorio`, `salida_pendiente`,
+`trivia_recordatorio`, `reintegro_recordatorio`, `seguridad_accion` por vencer), la `prueba` ni un resumen de
+varios avisos. Recibir el push no es leer. Ver [bandeja de notificaciones](notificaciones_mobile.md).
 
 - `ruta` identifica la pantalla a abrir; la app la traduce a su navegación (no hace falta que exista como ruta
   con nombre). Al tocar la notificación: navegar a esa pantalla (`onMessageOpenedApp` y `getInitialMessage`).

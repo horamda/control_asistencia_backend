@@ -26,6 +26,7 @@ from collections import Counter
 import jwt
 
 from repositories import carga_repository as db
+from services import notificaciones_service as notificaciones
 from services import push_reglas_service as reglas_push
 from services.carga_service import CargaError as Error, now_local
 
@@ -128,39 +129,46 @@ def quitar_dispositivo(empleado, token):
 
 # --- Cola ----------------------------------------------------------------------------------------
 
-def encolar(c, empresa_id, empleado_ids, tipo, titulo, cuerpo, datos=None, clave=None, regla=None):
-    """Agrega avisos a la cola dentro de la transaccion del llamador. clave evita duplicados
-    (se le suma el empleado). Sin Firebase configurado no hace nada. Devuelve cuantos encolo.
+def encolar(c, empresa_id, empleado_ids, tipo, titulo, cuerpo, datos=None, clave=None, regla=None, bandeja=None):
+    """Registra el aviso dentro de la transaccion del llamador: la notificacion de la bandeja (si el tipo va a la
+    bandeja; notificaciones_service) y, con Firebase configurado, el push en la cola con su notificacion_id.
+    clave evita duplicados en los dos (se le suma el empleado). Devuelve cuantos avisos nuevos registro.
 
-    La regla de la empresa (push_reglas_service; por defecto la del tipo) decide si el aviso esta activo y si
-    sale ahora, al terminar el horario de silencio o en el proximo resumen (lote)."""
+    La regla de la empresa (push_reglas_service; por defecto la del tipo) decide si el aviso esta activo (si no lo
+    esta, no hay push ni bandeja) y si el push sale ahora, al terminar el horario de silencio o en el proximo
+    resumen (lote). La bandeja se actualiza siempre al momento. bandeja=False: solo push (recordatorios)."""
     ids = sorted({int(i) for i in empleado_ids or [] if i})
-    if not ids or not activo():
+    if not ids:
         return 0
     clave_regla = regla or reglas_push.TIPO_REGLA.get(tipo)
     enviar, programado, lote = reglas_push.planificar(empresa_id, clave_regla) if clave_regla else (True, None, None)
     if not enviar:
         return 0
+    guardar = notificaciones.en_bandeja(tipo) if bandeja is None else bandeja
+    notificacion_de, nuevas = (notificaciones.guardar(c, empresa_id, ids, tipo, titulo, cuerpo, datos, clave)
+                               if guardar else ({}, 0))
+    if not activo():
+        return nuevas
     ahora = now_local()
-    texto = json.dumps({k: str(v) for k, v in (datos or {}).items() if v is not None}, ensure_ascii=False)
+    base = {k: str(v) for k, v in (datos or {}).items() if v is not None}
     nuevos = 0
     for eid in ids:
+        datos_empleado = dict(base, notificacion_id=str(notificacion_de[eid])) if eid in notificacion_de else base
         c.execute("""INSERT IGNORE INTO push_envios (empresa_id, empleado_id, tipo, clave, titulo, cuerpo, datos,
                                                     estado, creado_at, programado_para, lote)
                      VALUES (%s,%s,%s,%s,%s,%s,%s,'pendiente',%s,%s,%s)""",
                   (empresa_id, eid, tipo, f"{clave}:{eid}"[:150] if clave else None, titulo[:120], cuerpo[:500],
-                   texto, ahora, programado, lote))
+                   json.dumps(datos_empleado, ensure_ascii=False), ahora, programado, lote))
         nuevos += c.rowcount
-    return nuevos
+    return max(nuevos, nuevas)
 
 
-def encolar_ahora(empresa_id, empleado_ids, tipo, titulo, cuerpo, datos=None, clave=None, regla=None):
-    """Igual que encolar, en su propia transaccion. Un error de push nunca rompe la accion del panel."""
-    if not activo():
-        return 0
+def encolar_ahora(empresa_id, empleado_ids, tipo, titulo, cuerpo, datos=None, clave=None, regla=None, bandeja=None):
+    """Igual que encolar, en su propia transaccion. Un error nunca rompe la accion del panel o la app.
+    Corre aunque Firebase no este configurado: la bandeja no depende del push."""
     try:
         with db.transaction() as c:
-            return encolar(c, empresa_id, empleado_ids, tipo, titulo, cuerpo, datos, clave, regla)
+            return encolar(c, empresa_id, empleado_ids, tipo, titulo, cuerpo, datos, clave, regla, bandeja)
     except Exception:
         logger.warning("push_encolar_error", exc_info=True, extra={"extra": {"tipo": tipo}})
         return 0
@@ -308,6 +316,8 @@ def _contenido(envios):
     if len(envios) == 1:
         return primero["titulo"], primero["cuerpo"], datos
     cantidad = len(envios)
+    # Un resumen junta varias notificaciones: sin notificacion_id, la app abre la bandeja (o data.ruta).
+    datos.pop("notificacion_id", None)
     revisiones = all(e["tipo"] == "revision_pendiente" for e in envios)
     titulo = f"Tenés {cantidad} solicitudes para revisar" if revisiones else f"Tenés {cantidad} avisos nuevos"
     cuerpo = ", ".join(f"{t} ({n})" if n > 1 else t for t, n in Counter(e["titulo"] for e in envios).items())

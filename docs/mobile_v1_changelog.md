@@ -1,3 +1,9 @@
+## 1.51.0 — 2026-10-17
+
+- Bandeja de notificaciones persistente para la campana: `GET /me/notificaciones` (paginado por cursor, filtros `estado` y `modulo`, `no_leidas` y `corte`), `GET /me/notificaciones/resumen`, `GET /me/notificaciones/{id}` (con `referencia.disponible`), `POST /me/notificaciones/{id}/leer` (idempotente) y `POST /me/notificaciones/leer-todas` con `hasta_id` (no marca lo que llegó después). Cada novedad queda guardada aunque el push falle; los recordatorios siguen solo por push.
+- Push: los avisos con notificación traen `data.notificacion_id`. Recibir el push no marca como leído.
+- Comunicados: misma lectura en `/comunicados` y en la bandeja (en los dos sentidos). Sin cambios de rutas. Reemplaza las alertas calculadas en la app. Guía: `notificaciones_mobile.md`.
+
 ## 1.50.0 — 2026-10-17
 
 - Vibración propia: canal `fichaya` con dos pulsos cortos y canal nuevo `fichaya_urgente` (importancia máxima, tres pulsos largos) para `salida_pendiente` y `recordatorio`. `GET /push/config` agrega `canal_android_urgente`. Para Android 7 o anterior el push trae `vibrate_timings`. Aditivo. Guía: `push_mobile.md#vibración-y-canal-de-urgentes-1500`.

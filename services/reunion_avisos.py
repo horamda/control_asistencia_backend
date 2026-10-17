@@ -40,8 +40,7 @@ def firma(who, reunion_id):
 
 
 def reunion_guardada(who, reunion_id, *, nueva, antes=None):
-    if not push_service.activo():
-        return 0
+    # Sin Firebase igual se calcula: el cambio queda en la bandeja de cada convocado.
     try:
         actual = firma(who, reunion_id)
         if not actual or not actual[0] or (not nueva and actual == antes):
@@ -64,9 +63,8 @@ def reunion_guardada(who, reunion_id, *, nueva, antes=None):
 
 
 def _por_sede(who, reunion_id, fecha, sucursal_id, armar, tipo):
-    """Encola un aviso por cada sede afectada (sucursal_id None = todas las que tienen esa fecha)."""
-    if not push_service.activo():
-        return 0
+    """Encola un aviso por cada sede afectada (sucursal_id None = todas las que tienen esa fecha). Va tambien a la
+    bandeja, por eso corre aunque Firebase no este configurado."""
     try:
         total = 0
         with db.transaction() as c:
