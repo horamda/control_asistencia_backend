@@ -9,3 +9,16 @@ limiter = Limiter(
     strategy="fixed-window",
     default_limits=[],
 )
+
+
+def mobile_login_account_key():
+    # Hash identifiers so Redis keys do not expose employee DNI values.
+    import hashlib
+    from flask import request
+    payload = request.get_json(silent=True)
+    dni = str(payload.get("dni") or "").strip() if isinstance(payload, dict) else ""
+    return "mobile-login:" + hashlib.sha256(dni.encode()).hexdigest()
+
+
+def failed_login(response):
+    return response.status_code in (400, 401)

@@ -1,5 +1,6 @@
 import datetime
 import re
+from utils.limiter import limiter, mobile_login_account_key, failed_login
 
 from flask import Blueprint, Response, current_app, g, jsonify, request, send_file
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -439,6 +440,8 @@ def _client_ip() -> str | None:
 
 
 @mobile_v1_bp.route("/auth/login", methods=["POST"])
+@limiter.limit("60 per minute", deduct_when=failed_login, error_message="Demasiados intentos fallidos. Esperá un minuto y volvé a intentar.")
+@limiter.limit("10 per minute", key_func=mobile_login_account_key, deduct_when=failed_login, error_message="Demasiados intentos fallidos. Esperá un minuto y volvé a intentar.")
 def auth_login():
     from repositories.mobile_sesiones_repository import create_sesion
 
