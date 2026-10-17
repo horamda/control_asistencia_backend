@@ -3167,7 +3167,7 @@ Badges: `Oro`, `Plata`, `Bronce` o `null`.
 ---
 
 #### 55E. `GET /api/skap/ranking?anio=YYYY` (deshabilitado)
-- Con sesion valida devuelve 403: `{"success": false, "error": "Los rankings no est?n disponibles en la consulta personal."}`.
+- Con sesion valida devuelve 403: `{"success": false, "error": "Los rankings no están disponibles en la consulta personal."}`.
 - Flutter no debe llamar este endpoint ni mostrar comparaciones entre empleados.
 
 ---

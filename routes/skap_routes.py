@@ -286,7 +286,7 @@ def mi_matriz_detalle(evaluation_id):
         return _err(INVALID_SESSION_MESSAGE, 401)
     ev = matriz_repo.get_evaluation(evaluation_id,_matriz_actor(empleado),own=True)
     if not ev:
-        return _err('Evaluaci?n no encontrada.',404)
+        return _err('Evaluación no encontrada.',404)
     return _ok({'id': ev['id'], 'rol': ev['rol'], 'anio': ev['anio'], 'sucursal': ev['sucursal_nombre'],
                 'escala': ev['escala'], 'fecha_evaluacion': str(ev['fecha_evaluacion']) if ev['fecha_evaluacion'] else None,
                 'resumen': ev['payload']['resumen'], 'respuestas': ev['payload']['respuestas'],
