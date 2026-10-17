@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from utils.jwt_guard import mobile_auth_required
 from routes.carga_routes import employee, serialize, private_photo
-from services import seguridad_service as s
+from services import avisos_push, seguridad_service as s
 from services import seguridad_mobile_dashboard_service as dashboard
 
 seguridad_mobile_bp=Blueprint('seguridad_mobile',__name__,url_prefix='/api/v1/mobile/seguridad')
@@ -46,6 +46,8 @@ def events():
         data=request.get_json(silent=True) if request.is_json else request.form
         if not hasattr(data,'get'): raise s.Error('Envíe un objeto JSON o formulario multipart.')
         event_id,created=s.create(emp['empresa_id'],data,request.files.getlist('fotos'),reporter=emp)
+        if created:
+            avisos_push.revision_seguridad(event_id)
         state=s.detail(emp['empresa_id'],event_id,emp['id'])['estado']
         return jsonify(id=event_id,estado=state,repetido=not created),201 if created else 200
     mode=request.args.get('vista','propio')

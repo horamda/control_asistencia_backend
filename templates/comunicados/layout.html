@@ -13,7 +13,9 @@
   <nav class="actions com-nav" aria-label="Comunicados">
     {% if can_web('comunicados', 'crear') %}<a class="btn" {% if request.endpoint == 'comunicados.nuevo' %}aria-current="page"{% endif %} href="{{ url_for('comunicados.nuevo') }}">Nuevo comunicado</a>{% endif %}
     <a class="btn btn-secondary" {% if request.endpoint in ('comunicados.index', 'comunicados.detalle') %}aria-current="page"{% endif %} href="{{ url_for('comunicados.index') }}">Enviados</a>
+    <a class="btn btn-secondary" {% if request.endpoint == 'comunicados.lista_programados' %}aria-current="page"{% endif %} href="{{ url_for('comunicados.lista_programados') }}">Programados</a>
     <a class="btn btn-secondary" {% if request.endpoint == 'comunicados.automaticos' %}aria-current="page"{% endif %} href="{{ url_for('comunicados.automaticos') }}">Avisos automáticos</a>
+    {% if can_web('comunicados', 'editar') %}<a class="btn btn-secondary" {% if request.endpoint == 'comunicados.configuracion' %}aria-current="page"{% endif %} href="{{ url_for('comunicados.configuracion') }}">Configuración de avisos</a>{% endif %}
   </nav>
   {% block comunicados_content %}{% endblock %}
 </div>

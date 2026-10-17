@@ -4,7 +4,7 @@
   <header class="epp-section-heading">
     <div>
       <h3>Nuevo comunicado</h3>
-      <p>Escribí el mensaje y elegí a quién le llega. Se envía en el momento: no se puede editar después.</p>
+      <p>Escribí el mensaje, elegí a quién le llega y si sale ahora o programado. Un comunicado enviado no se puede editar.</p>
     </div>
     <a class="btn btn-secondary" href="{{ url_for('comunicados.index') }}">Cancelar</a>
   </header>
@@ -47,6 +47,50 @@
             </div>
           </figure>
         </div>
+      </div>
+    </fieldset>
+
+    <fieldset class="epp-fieldset reu-section com-cuando" data-com-cuando>
+      <legend>Cuándo</legend>
+      <div class="com-chips">
+        <label class="com-chip"><input type="radio" name="cuando" value="ahora" data-com-cuando-opcion {{ 'checked' if (v.cuando or 'ahora') == 'ahora' }}><span>Enviar ahora</span></label>
+        <label class="com-chip"><input type="radio" name="cuando" value="programar" data-com-cuando-opcion {{ 'checked' if v.cuando == 'programar' }}><span>Programar</span></label>
+      </div>
+      <div class="com-programar" data-com-programar {{ 'hidden' if v.cuando != 'programar' }}>
+        <div class="epp-fields">
+          <label>Frecuencia
+            <select name="frecuencia" data-com-frecuencia>
+              {% for clave, nombre in frecuencias.items() %}
+                <option value="{{ clave }}" {{ 'selected' if (v.frecuencia or 'una_vez') == clave }}>{{ nombre }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label><span data-com-frecuencia-show="una_vez">Fecha</span><span data-com-frecuencia-show="diaria semanal mensual">Desde</span>
+            <input type="date" name="fecha_inicio" value="{{ v.fecha_inicio or hoy }}" min="{{ hoy }}">
+          </label>
+          <label>Hora<input type="time" name="hora" value="{{ v.hora or '09:00' }}"></label>
+          <label data-com-frecuencia-show="mensual">Día del mes<input type="number" name="dia_mes" min="1" max="31" value="{{ v.dia_mes or 1 }}"></label>
+        </div>
+        <div class="com-chips com-dias" data-com-frecuencia-show="semanal">
+          {% for n, nombre in dias_nombres.items() %}
+            <label class="com-chip"><input type="checkbox" name="dias_semana" value="{{ n }}" {{ 'checked' if n|string in (v.dias_semana or []) }}><span>{{ nombre|capitalize }}</span></label>
+          {% endfor %}
+        </div>
+        <div data-com-frecuencia-show="diaria semanal mensual">
+          <label class="com-chip com-habiles"><input type="checkbox" name="solo_habiles" value="1" {{ 'checked' if v.solo_habiles }}><span>Solo días hábiles <small>(saltea domingos y no laborables del calendario; en mensual pasa al siguiente hábil)</small></span></label>
+          <div class="epp-fields">
+            <label>Termina
+              <select name="termina" data-com-termina>
+                <option value="nunca" {{ 'selected' if (v.termina or 'nunca') == 'nunca' }}>Nunca</option>
+                <option value="fecha" {{ 'selected' if v.termina == 'fecha' }}>En una fecha</option>
+                <option value="cantidad" {{ 'selected' if v.termina == 'cantidad' }}>Después de una cantidad de envíos</option>
+              </select>
+            </label>
+            <label data-com-termina-show="fecha">Hasta<input type="date" name="fecha_fin" value="{{ v.fecha_fin or '' }}" min="{{ hoy }}"></label>
+            <label data-com-termina-show="cantidad">Cantidad de envíos<input type="number" name="max_envios" min="1" max="1000" value="{{ v.max_envios or '' }}"></label>
+          </div>
+        </div>
+        <p class="helper-text">Los destinatarios se calculan en cada envío: quien ingrese después recibe los siguientes. Lo podés pausar o eliminar desde «Programados».</p>
       </div>
     </fieldset>
 
@@ -127,7 +171,7 @@
 
     <footer class="epp-form-footer">
       <span>Les llega como notificación a quien tenga la app con avisos activados, y a todos en la bandeja de Comunicados.</span>
-      <button class="btn" type="submit" data-reu-enviar data-confirm="¿Enviar el comunicado?">Enviar comunicado</button>
+      <button class="btn" type="submit" data-reu-enviar data-com-enviar data-confirm="¿Enviar el comunicado?">Enviar comunicado</button>
     </footer>
   </form>
 </section>

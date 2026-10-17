@@ -21,10 +21,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import Counter
 
 import jwt
 
 from repositories import carga_repository as db
+from services import push_reglas_service as reglas_push
 from services.carga_service import CargaError as Error, now_local
 
 logger = logging.getLogger(__name__)
@@ -117,32 +119,39 @@ def quitar_dispositivo(empleado, token):
 
 # --- Cola ----------------------------------------------------------------------------------------
 
-def encolar(c, empresa_id, empleado_ids, tipo, titulo, cuerpo, datos=None, clave=None):
+def encolar(c, empresa_id, empleado_ids, tipo, titulo, cuerpo, datos=None, clave=None, regla=None):
     """Agrega avisos a la cola dentro de la transaccion del llamador. clave evita duplicados
-    (se le suma el empleado). Sin Firebase configurado no hace nada. Devuelve cuantos encolo."""
+    (se le suma el empleado). Sin Firebase configurado no hace nada. Devuelve cuantos encolo.
+
+    La regla de la empresa (push_reglas_service; por defecto la del tipo) decide si el aviso esta activo y si
+    sale ahora, al terminar el horario de silencio o en el proximo resumen (lote)."""
     ids = sorted({int(i) for i in empleado_ids or [] if i})
     if not ids or not activo():
+        return 0
+    clave_regla = regla or reglas_push.TIPO_REGLA.get(tipo)
+    enviar, programado, lote = reglas_push.planificar(empresa_id, clave_regla) if clave_regla else (True, None, None)
+    if not enviar:
         return 0
     ahora = now_local()
     texto = json.dumps({k: str(v) for k, v in (datos or {}).items() if v is not None}, ensure_ascii=False)
     nuevos = 0
     for eid in ids:
         c.execute("""INSERT IGNORE INTO push_envios (empresa_id, empleado_id, tipo, clave, titulo, cuerpo, datos,
-                                                    estado, creado_at)
-                     VALUES (%s,%s,%s,%s,%s,%s,%s,'pendiente',%s)""",
+                                                    estado, creado_at, programado_para, lote)
+                     VALUES (%s,%s,%s,%s,%s,%s,%s,'pendiente',%s,%s,%s)""",
                   (empresa_id, eid, tipo, f"{clave}:{eid}"[:150] if clave else None, titulo[:120], cuerpo[:500],
-                   texto, ahora))
+                   texto, ahora, programado, lote))
         nuevos += c.rowcount
     return nuevos
 
 
-def encolar_ahora(empresa_id, empleado_ids, tipo, titulo, cuerpo, datos=None, clave=None):
+def encolar_ahora(empresa_id, empleado_ids, tipo, titulo, cuerpo, datos=None, clave=None, regla=None):
     """Igual que encolar, en su propia transaccion. Un error de push nunca rompe la accion del panel."""
     if not activo():
         return 0
     try:
         with db.transaction() as c:
-            return encolar(c, empresa_id, empleado_ids, tipo, titulo, cuerpo, datos, clave)
+            return encolar(c, empresa_id, empleado_ids, tipo, titulo, cuerpo, datos, clave, regla)
     except Exception:
         logger.warning("push_encolar_error", exc_info=True, extra={"extra": {"tipo": tipo}})
         return 0
@@ -176,11 +185,18 @@ def registrar_acuse(envio_id, firma, evento):
         raise Error("Acuse inválido.", 403)
     ahora = now_local().replace(microsecond=0)
     with db.transaction() as c:
+        fila = db.one(c, "SELECT lote, empleado_id FROM push_envios WHERE id=%s", (envio_id,))
+        if not fila:
+            return {"ok": True}
+        # Un resumen salio como un solo aviso: el acuse vale para todos los envios que junto.
+        donde, args = "id=%s", [envio_id]
+        if fila["lote"]:
+            donde, args = "(id=%s OR (lote=%s AND empleado_id=%s))", [envio_id, fila["lote"], fila["empleado_id"]]
         if evento == "abierto":
-            c.execute("""UPDATE push_envios SET recibido_at=COALESCE(recibido_at, %s), abierto_at=COALESCE(abierto_at, %s)
-                         WHERE id=%s""", (ahora, ahora, envio_id))
+            c.execute(f"""UPDATE push_envios SET recibido_at=COALESCE(recibido_at, %s), abierto_at=COALESCE(abierto_at, %s)
+                          WHERE {donde}""", (ahora, ahora, *args))
         else:
-            c.execute("UPDATE push_envios SET recibido_at=COALESCE(recibido_at, %s) WHERE id=%s", (ahora, envio_id))
+            c.execute(f"UPDATE push_envios SET recibido_at=COALESCE(recibido_at, %s) WHERE {donde}", (ahora, *args))
     return {"ok": True}
 
 
@@ -248,26 +264,68 @@ def enviar_a_token(cred, token, titulo, cuerpo, datos):
     return False, f"{status} {error.get('status') or ''} {error.get('message') or ''}".strip()[:255], invalido
 
 
+def _grupos(pendientes):
+    """Los envios de un mismo resumen (lote) y empleado salen juntos, en un solo aviso."""
+    grupos, por_lote = [], {}
+    for envio in pendientes:
+        if not envio.get("lote"):
+            grupos.append([envio])
+            continue
+        clave = (envio["empleado_id"], envio["lote"])
+        if clave not in por_lote:
+            por_lote[clave] = []
+            grupos.append(por_lote[clave])
+        por_lote[clave].append(envio)
+    return grupos
+
+
+def _contenido(envios):
+    """(titulo, cuerpo, datos) del aviso. Varios del mismo resumen se cuentan por tipo en uno solo."""
+    primero = envios[0]
+    try:
+        datos = json.loads(primero["datos"] or "{}")
+    except ValueError:
+        datos = {}
+    datos = dict(datos, tipo=primero["tipo"])
+    if len(envios) == 1:
+        return primero["titulo"], primero["cuerpo"], datos
+    cantidad = len(envios)
+    revisiones = all(e["tipo"] == "revision_pendiente" for e in envios)
+    titulo = f"Tenés {cantidad} solicitudes para revisar" if revisiones else f"Tenés {cantidad} avisos nuevos"
+    cuerpo = ", ".join(f"{t} ({n})" if n > 1 else t for t, n in Counter(e["titulo"] for e in envios).items())
+    datos["cantidad"] = cantidad
+    return titulo, cuerpo[:500], datos
+
+
 def procesar_cola(limite=200, *, enviar=None):
-    """Envia los avisos pendientes. Llamado por el scheduler cada minuto."""
+    """Envia los avisos pendientes cuya hora llego (programado_para). Llamado por el scheduler cada minuto."""
     enviar = enviar or enviar_a_token  # se resuelve al llamar (no al definir la funcion)
     cred = credenciales()
     if not cred:
         return dict(enviados=0, errores=0, sin_dispositivo=0)
     resumen = dict(enviados=0, errores=0, sin_dispositivo=0)
+    ahora = now_local()
     with db.transaction() as c:
         # Un envio que quedo 'enviando' (proceso cortado a mitad) vuelve a la cola.
-        c.execute("UPDATE push_envios SET estado='reintentar' WHERE estado='enviando' AND creado_at < %s",
-                  (now_local() - dt.timedelta(minutes=10),))
-        pendientes = db.all_rows(c, """SELECT * FROM push_envios WHERE estado IN ('pendiente','reintentar') AND intentos < %s
-                                       ORDER BY id LIMIT %s""", (MAX_INTENTOS, int(limite)))
-    for envio in pendientes:
+        c.execute("""UPDATE push_envios SET estado='reintentar'
+                     WHERE estado='enviando' AND COALESCE(programado_para, creado_at) < %s""",
+                  (ahora - dt.timedelta(minutes=10),))
+        pendientes = db.all_rows(c, """SELECT * FROM push_envios
+                                       WHERE estado IN ('pendiente','reintentar') AND intentos < %s
+                                         AND (programado_para IS NULL OR programado_para <= %s)
+                                       ORDER BY id LIMIT %s""", (MAX_INTENTOS, ahora, int(limite)))
+    for grupo in _grupos(pendientes):
         # Reserva atomica: si otro proceso (scheduler / boton de prueba) ya lo tomo, se saltea.
-        with db.transaction() as c:
-            c.execute("UPDATE push_envios SET estado='enviando' WHERE id=%s AND estado IN ('pendiente','reintentar')",
-                      (envio["id"],))
-            if not c.rowcount:
-                continue
+        reservados = []
+        for candidato in grupo:
+            with db.transaction() as c:
+                c.execute("UPDATE push_envios SET estado='enviando' WHERE id=%s AND estado IN ('pendiente','reintentar')",
+                          (candidato["id"],))
+                if c.rowcount:
+                    reservados.append(candidato)
+        if not reservados:
+            continue
+        envio = reservados[0]
         with db.transaction(read_only=True) as c:
             dispositivos = db.all_rows(c, "SELECT id, token FROM push_dispositivos WHERE empleado_id=%s AND activo=1",
                                        (envio["empleado_id"],))
@@ -275,18 +333,15 @@ def procesar_cola(limite=200, *, enviar=None):
             estado, error, ok = "sin_dispositivo", None, 0
             resumen["sin_dispositivo"] += 1
         else:
-            try:
-                datos = json.loads(envio["datos"] or "{}")
-            except ValueError:
-                datos = {}
-            datos = {str(k): str(v) for k, v in dict(datos, tipo=envio["tipo"]).items()}
+            titulo, cuerpo, datos = _contenido(reservados)
+            datos = {str(k): str(v) for k, v in datos.items()}
             firma = firma_acuse(envio["id"])
             if firma:
                 datos.update(envio_id=str(envio["id"]), acuse=firma)
             ok, errores = 0, []
             for d in dispositivos:
                 try:
-                    exito, error, invalido = enviar(cred, d["token"], envio["titulo"], envio["cuerpo"], datos)
+                    exito, error, invalido = enviar(cred, d["token"], titulo, cuerpo, datos)
                 except Exception as exc:  # red, autenticacion
                     exito, error, invalido = False, str(exc)[:255], False
                 if exito:
@@ -304,9 +359,10 @@ def procesar_cola(limite=200, *, enviar=None):
                 error = (errores[0] if errores else None)
                 resumen["errores"] += 1
         with db.transaction() as c:
-            c.execute("""UPDATE push_envios SET estado=%s, error=%s, intentos=intentos+1, dispositivos=%s,
-                         enviado_at=%s WHERE id=%s""",
-                      (estado, error, ok, now_local() if estado == "enviado" else None, envio["id"]))
+            for fila in reservados:
+                c.execute("""UPDATE push_envios SET estado=%s, error=%s, intentos=intentos+1, dispositivos=%s,
+                             enviado_at=%s WHERE id=%s""",
+                          (estado, error, ok, now_local() if estado == "enviado" else None, fila["id"]))
     if any(resumen.values()):
         logger.info("push_cola", extra={"extra": resumen})
     return resumen

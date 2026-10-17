@@ -1,3 +1,8 @@
+## 1.49.0 — 2026-10-17
+
+- Push de Seguridad e Higiene: `revision_pendiente` con `modulo = seguridad_higiene` (reporte nuevo, al responsable de SH), `seguridad_resultado` (a quien reportó) y `seguridad_accion` (acción correctiva asignada, por vencer y vencida, al responsable).
+- Configuración de avisos por empresa en el panel: activos, destinatarios (jefe directo, RR. HH., responsable de SH), resumen a horarios fijos y horario de silencio. Un resumen llega como un solo push con `data.cantidad`. Sin cambios de rutas. Guía: `push_mobile.md#configuración-por-empresa-y-resúmenes-1490`.
+
 ## 1.48.0 — 2026-10-16
 
 - Todos los avisos al empleado por push (cambios aditivos, tipos nuevos): `justificacion` y `vacaciones` (aprobada o rechazada, con motivo), `feedback_asignado` (al responsable) y `feedback_resuelto` (al que lo cargó), `trivia_nueva` y `trivia_recordatorio` (24 h y 2 h antes del cierre, a quien no jugó) y `revision_pendiente` (a RR. HH. con permiso de aprobar, cuando un empleado envía una solicitud). `/trivia/notificaciones` sigue igual. Guía: `push_mobile.md`.

@@ -4,7 +4,9 @@ from flask import Blueprint, abort, flash, jsonify, redirect, render_template, r
 from mysql.connector import ProgrammingError
 
 from routes.carga_routes import employee, private_photo
+from services import comunicado_programado_service as programados
 from services import comunicado_service as s
+from services import push_reglas_service as reglas_push
 from utils.audit import log_audit
 from utils.jwt_guard import mobile_auth_required
 from web.auth.decorators import _cached_web_user, permission_required
@@ -36,7 +38,7 @@ def invalid(error):
 def missing(error):
     if error.errno not in (1146, 1054):
         raise error
-    return invalid(s.Error("Comunicados requiere la migración 20261016_06_comunicados (se aplica al reiniciar).", 503))
+    return invalid(s.Error("Comunicados requiere sus migraciones (20261016_06 y 20261017_01); se aplican al reiniciar.", 503))
 
 
 @web.after_request
@@ -53,12 +55,19 @@ def _form_data():
     sucursales = form.getlist("sede")
     return dict(titulo=form.get("titulo", ""), mensaje=form.get("mensaje", ""), reglas=form.getlist("regla"),
                 empleados=form.getlist("empleado"), sucursales=sucursales,
-                sedes=[dict(sucursal_id=x) for x in sucursales])
+                sedes=[dict(sucursal_id=x) for x in sucursales],
+                # Programacion (si se eligio "Programar"); se devuelve al formulario si hay un error.
+                cuando=form.get("cuando", "ahora"), frecuencia=form.get("frecuencia", "una_vez"),
+                fecha_inicio=form.get("fecha_inicio", ""), hora=form.get("hora", ""),
+                dias_semana=form.getlist("dias_semana"), dia_mes=form.get("dia_mes", ""),
+                solo_habiles=bool(form.get("solo_habiles")), termina=form.get("termina", "nunca"),
+                fecha_fin=form.get("fecha_fin", ""), max_envios=form.get("max_envios", ""))
 
 
 def _form(actor, data=None, status=200):
     contexto = _contexto_destinatarios(actor, data=data)
-    return render_template("comunicados/form.html", v=data or {}, **contexto), status
+    return render_template("comunicados/form.html", v=data or {}, frecuencias=programados.FRECUENCIAS,
+                           dias_nombres=programados.DIAS, hoy=s.now_local().date().isoformat(), **contexto), status
 
 
 @web.get("/")
@@ -73,6 +82,56 @@ def automaticos():
     return render_template("comunicados/automaticos.html", **s.automaticos(who(), request.args))
 
 
+@web.get("/programados")
+@permission_required("comunicados", "ver")
+def lista_programados():
+    return render_template("comunicados/programados.html", **programados.listado(who()))
+
+
+@web.post("/programados/<int:programado_id>/pausar")
+@permission_required("comunicados", "crear")
+def pausar_programado(programado_id):
+    prog = programados.pausar(who(), programado_id)
+    log_audit(session, "comunicado_programado_pausar", "comunicados_programados", programado_id)
+    flash(f"«{prog['titulo']}» quedó en pausa.", "success")
+    return redirect(url_for("comunicados.lista_programados"))
+
+
+@web.post("/programados/<int:programado_id>/reanudar")
+@permission_required("comunicados", "crear")
+def reanudar_programado(programado_id):
+    prog, siguiente = programados.reanudar(who(), programado_id)
+    log_audit(session, "comunicado_programado_reanudar", "comunicados_programados", programado_id)
+    flash(f"«{prog['titulo']}» se reanudó. Próximo envío: {siguiente:%d/%m/%Y a las %H:%M}." if siguiente
+          else f"«{prog['titulo']}» ya no tiene envíos por hacer: quedó finalizado.", "success")
+    return redirect(url_for("comunicados.lista_programados"))
+
+
+@web.post("/programados/<int:programado_id>/eliminar")
+@permission_required("comunicados", "eliminar")
+def eliminar_programado(programado_id):
+    prog = programados.eliminar(who(), programado_id)
+    log_audit(session, "comunicado_programado_eliminar", "comunicados_programados", programado_id)
+    flash(f"Se eliminó la programación «{prog['titulo']}». Lo ya enviado sigue en Enviados.", "success")
+    return redirect(url_for("comunicados.lista_programados"))
+
+
+@web.route("/configuracion", methods=["GET", "POST"])
+@permission_required("comunicados", "editar")
+def configuracion():
+    actor = who()
+    if request.method == "POST":
+        try:
+            reglas_push.guardar(actor, request.form)
+        except s.Error as error:
+            flash(str(error), "error")
+            return render_template("comunicados/configuracion.html", **reglas_push.vista(actor)), 400
+        log_audit(session, "push_reglas_guardar", "push_reglas", actor["empresa_id"])
+        flash("Configuración de avisos guardada. Rige para los avisos nuevos.", "success")
+        return redirect(url_for("comunicados.configuracion"))
+    return render_template("comunicados/configuracion.html", **reglas_push.vista(actor))
+
+
 @web.route("/nuevo", methods=["GET", "POST"])
 @permission_required("comunicados", "crear")
 def nuevo():
@@ -80,6 +139,16 @@ def nuevo():
     if request.method == "GET":
         return _form(actor)
     data = _form_data()
+    if data["cuando"] == "programar":
+        try:
+            pid, primero = programados.programar(actor, data, request.form, request.files.get("imagen"),
+                                                 base_url=request.url_root)
+        except s.Error as error:
+            flash(str(error), "error")
+            return _form(actor, data, 400)
+        log_audit(session, "comunicado_programar", "comunicados_programados", pid)
+        flash(f"Comunicado programado. Primer envío: {primero:%d/%m/%Y a las %H:%M}.", "success")
+        return redirect(url_for("comunicados.lista_programados"))
     try:
         cid, total = s.enviar(actor, data, request.files.get("imagen"))
     except s.Error as error:

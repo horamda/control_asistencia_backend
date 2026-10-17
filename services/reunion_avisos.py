@@ -8,6 +8,7 @@ import datetime as dt
 import logging
 
 from repositories import carga_repository as db
+from services import push_reglas_service as push_reglas
 from services import push_service
 from services import reunion_service as s
 from services.carga_service import now_local
@@ -108,17 +109,19 @@ def fecha_reprogramada(who, reunion_id, fecha, sucursal_id, *, restaurada=False)
     return _por_sede(who, reunion_id, fecha, sucursal_id, armar, "reunion_horario")
 
 
-def recordatorios(ahora=None, anticipacion=ANTICIPACION_MIN):
+def recordatorios(ahora=None, anticipacion=None):
     """Encola el recordatorio de las reuniones que empiezan en los proximos minutos, a quien todavia no
     registro. Una sola vez por fecha, sede y empleado (clave)."""
     if not push_service.activo():
         return 0
     ahora = ahora or now_local()
-    hasta = ahora + dt.timedelta(minutes=anticipacion)
     total = 0
     with db.transaction(read_only=True) as c:
         reuniones = db.all_rows(c, "SELECT * FROM reuniones WHERE activa = 1")
     for base in reuniones:
+        # Minutos de anticipacion de la empresa (regla recordatorio_reunion), salvo que se pidan explicitos.
+        minutos_antes = anticipacion if anticipacion is not None else push_reglas.parametro(base["empresa_id"], "recordatorio_reunion")
+        hasta = ahora + dt.timedelta(minutes=minutos_antes)
         try:
             with db.transaction() as c:
                 for x in s.sedes_efectivas(c, base):

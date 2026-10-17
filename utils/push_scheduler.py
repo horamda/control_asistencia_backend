@@ -1,5 +1,7 @@
-"""Notificaciones push: envia la cola cada minuto; cada 5 minutos encola los recordatorios de reuniones
-y los avisos de salida sin fichar. Sin Firebase configurado los trabajos no hacen nada."""
+"""Notificaciones push: envia la cola y los comunicados programados cada minuto; cada 5 minutos encola los
+recordatorios de reuniones y los avisos de salida sin fichar; a las 8 los de acciones de seguridad por vencer.
+Sin Firebase configurado los trabajos de push no hacen nada (los comunicados programados igual quedan en la
+bandeja de la app)."""
 
 import logging
 from datetime import datetime, timedelta
@@ -33,6 +35,22 @@ def salidas():
         logging.getLogger(__name__).exception("Error encolando avisos de salida pendiente")
 
 
+def comunicados_programados():
+    try:
+        from services.comunicado_programado_service import ejecutar_vencidos
+        ejecutar_vencidos()
+    except Exception:
+        logging.getLogger(__name__).exception("Error enviando comunicados programados")
+
+
+def acciones_seguridad():
+    try:
+        from services.avisos_push import acciones_por_vencer
+        acciones_por_vencer()
+    except Exception:
+        logging.getLogger(__name__).exception("Error encolando avisos de acciones de seguridad")
+
+
 def init_push_scheduler(app):
     global _scheduler
     if _scheduler is not None:
@@ -46,6 +64,12 @@ def init_push_scheduler(app):
                        next_run_time=inicio + timedelta(seconds=5))
     _scheduler.add_job(enviar, "interval", minutes=1, id="push_cola", max_instances=1, coalesce=True,
                        next_run_time=inicio + timedelta(seconds=15))
+    # Comunicados programados: antes de vaciar la cola, para que salgan en ese mismo minuto.
+    _scheduler.add_job(comunicados_programados, "interval", minutes=1, id="push_comunicados_programados",
+                       max_instances=1, coalesce=True, next_run_time=inicio + timedelta(seconds=10))
+    # Acciones correctivas por vencer / vencidas: una vez por dia, a las 8 (la clave evita repetir).
+    _scheduler.add_job(acciones_seguridad, "cron", hour=8, minute=0, id="push_acciones_seguridad", max_instances=1,
+                       coalesce=True)
     _scheduler.start()
 
 

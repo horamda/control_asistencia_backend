@@ -56,3 +56,49 @@
   mensaje.addEventListener('input', textos);
   textos();
 })();
+
+// Nuevo comunicado: "Enviar ahora" o "Programar" (frecuencia, dias, fin) y el texto del boton.
+(() => {
+  const caja = document.querySelector('[data-com-cuando]');
+  if (!caja) return;
+  const programar = caja.querySelector('[data-com-programar]');
+  const frecuencia = caja.querySelector('[data-com-frecuencia]');
+  const termina = caja.querySelector('[data-com-termina]');
+  const boton = document.querySelector('[data-com-enviar]');
+
+  function actualizar() {
+    const elegido = caja.querySelector('[data-com-cuando-opcion]:checked');
+    const programado = elegido && elegido.value === 'programar';
+    programar.hidden = !programado;
+    caja.querySelectorAll('[data-com-frecuencia-show]').forEach((el) => {
+      el.hidden = !el.dataset.comFrecuenciaShow.split(' ').includes(frecuencia.value);
+    });
+    caja.querySelectorAll('[data-com-termina-show]').forEach((el) => {
+      el.hidden = el.dataset.comTerminaShow !== termina.value;
+    });
+    if (!boton) return;
+    boton.textContent = programado ? 'Programar comunicado' : 'Enviar comunicado';
+    const n = Number(boton.dataset.comEmpleados || 0);
+    const empleados = `${n} empleado${n === 1 ? '' : 's'}`;
+    boton.dataset.confirm = programado
+      ? `¿Programar el comunicado? Hoy le llegaría a ${empleados}; los destinatarios se recalculan en cada envío.`
+      : `¿Enviar el comunicado a ${empleados}? Les llega como notificación y queda en su bandeja de la app.`;
+  }
+
+  caja.addEventListener('change', actualizar);
+  actualizar();
+})();
+
+// Configuracion de avisos: los horarios del resumen solo se muestran si se elige "Resumen".
+(() => {
+  document.querySelectorAll('[data-com-regla]').forEach((regla) => {
+    const resumen = regla.querySelector('[data-com-resumen]');
+    if (!resumen) return;
+    const actualizar = () => {
+      const elegido = regla.querySelector('[data-com-momento]:checked');
+      resumen.hidden = !elegido || elegido.value !== 'resumen';
+    };
+    regla.addEventListener('change', actualizar);
+    actualizar();
+  });
+})();

@@ -39,8 +39,15 @@
   const verbo = box.dataset.reuVerbo || 'Convoca a';
   const vacio = box.dataset.reuVacio || 'Todavía no hay convocados. Elegí toda la empresa, sectores, puestos o personas.';
   const enviar = form.querySelector('[data-reu-enviar]');
+  // Comunicados: con "Programar" elegido, la confirmacion habla de programar (ver comunicados.js).
+  const programado = form.querySelector('[data-com-cuando-opcion][value="programar"]');
   function confirmar(n) {
-    if (enviar) enviar.dataset.confirm = `¿Enviar el comunicado a ${n} empleado${n === 1 ? '' : 's'}? Les llega como notificación y queda en su bandeja de la app.`;
+    if (!enviar) return;
+    const empleados = `${n} empleado${n === 1 ? '' : 's'}`;
+    enviar.dataset.confirm = programado && programado.checked
+      ? `¿Programar el comunicado? Hoy le llegaría a ${empleados}; los destinatarios se recalculan en cada envío.`
+      : `¿Enviar el comunicado a ${empleados}? Les llega como notificación y queda en su bandeja de la app.`;
+    enviar.dataset.comEmpleados = String(n);
   }
   let empleados = [];
   try {

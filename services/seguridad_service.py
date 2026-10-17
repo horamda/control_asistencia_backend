@@ -2,6 +2,7 @@
 import hashlib
 import json
 import re
+from services import avisos_push
 from datetime import date
 from uuid import UUID
 from repositories import carga_repository as db
@@ -316,6 +317,8 @@ def review(empresa, event_id, user, state, revision, reason):
         c.execute('UPDATE sh_eventos SET estado=%s,motivo=%s,revisor_id=%s,revisado_at=%s,revision=revision+1 WHERE id=%s',
             (state,str(reason or '').strip(),user,now_local(),event_id))
         audit(c,empresa,user,state,dict(anterior=row['estado'],motivo=reason),event_id)
+    if state in ('aprobado','rechazado'):
+        avisos_push.seguridad_resultado(event_id)
 
 
 def edit(empresa,event_id,user,data,files=()):
@@ -441,3 +444,5 @@ def save_action(empresa,event_id,user,data,record_id=None):
         else:
             record_id=db.insert(c,'sh_acciones',dict(evento_id=event_id,descripcion=description,responsable_id=responsable,vencimiento=deadline,estado=state,evidencia=evidence))
         audit(c,empresa,user,'accion_correctiva',dict(id=record_id,datos=dict(data)),event_id)
+    avisos_push.seguridad_accion(record_id)
+    return record_id

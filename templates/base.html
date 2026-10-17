@@ -190,7 +190,9 @@
                 <div class="nav-submenu" id="nav-submenu-comunicados">
                   {% if can_web("comunicados", "crear") %}<a class="nav-link" href="/comunicados/nuevo">Nuevo comunicado</a>{% endif %}
                   <a class="nav-link" href="/comunicados/">Enviados</a>
+                  <a class="nav-link" href="/comunicados/programados">Programados</a>
                   <a class="nav-link" href="/comunicados/automaticos">Avisos automáticos</a>
+                  {% if can_web("comunicados", "editar") %}<a class="nav-link" href="/comunicados/configuracion">Configuración de avisos</a>{% endif %}
                 </div>
               </div>
             {% endif %}

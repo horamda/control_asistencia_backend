@@ -1,6 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.48.0
+Version de contrato: 1.49.0
+
+- **Seguridad e Higiene y configuración de avisos (1.49.0):** push al responsable de SH por reportes nuevos, a quien reportó con el resultado y al responsable de cada acción correctiva. Los avisos pueden salir en resúmenes (`data.cantidad`) o al terminar el horario de silencio de la empresa. Ver [push](push_mobile.md#configuración-por-empresa-y-resúmenes-1490).
 
 - **Todos los avisos por push (1.48.0):** justificaciones, vacaciones, feedback y trivias se suman a la cola de push, y RR. HH. recibe `revision_pendiente` cuando un empleado envía una solicitud que puede aprobar. Ver [tipos de aviso](push_mobile.md#contenido-de-cada-aviso).
 

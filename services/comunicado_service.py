@@ -166,22 +166,31 @@ def firma_imagen(cid, vence):
     return hmac.new(clave, f"comunicado-imagen:{int(cid)}:{int(vence)}".encode(), hashlib.sha256).hexdigest()[:32]
 
 
-def url_imagen_push(cid, ahora=None):
-    """Link publico y firmado a la imagen, para que Firebase la muestre en la notificacion."""
+def url_imagen_push(cid, ahora=None, base_url=None):
+    """Link publico y firmado a la imagen, para que Firebase la muestre en la notificacion. Fuera de un request
+    (comunicados programados, que envia el scheduler) se arma con la base guardada al programarlo."""
     vence = int(ahora if ahora is not None else time.time()) + IMAGEN_PUSH_DIAS * 86400
-    try:
-        url = url_for("comunicados.imagen_push", comunicado_id=int(cid), vence=vence,
-                      firma=firma_imagen(cid, vence), _external=True)
-    except RuntimeError:  # fuera de un request no hay URL publica conocida
-        return None
+    firma = firma_imagen(cid, vence)
+    if base_url:
+        url = f"{base_url.rstrip('/')}/comunicados/imagen-push/{int(cid)}/{vence}/{firma}.jpg"
+    else:
+        try:
+            url = url_for("comunicados.imagen_push", comunicado_id=int(cid), vence=vence, firma=firma, _external=True)
+        except RuntimeError:  # fuera de un request no hay URL publica conocida
+            return None
     # Firebase solo descarga imagenes por HTTPS.
     return url if url.startswith("https://") else None
 
 
 def enviar(who, data, imagen=None):
+    contenido, contenido_push = _imagen_subida(imagen)
+    return enviar_contenido(who, data, contenido, contenido_push)
+
+
+def enviar_contenido(who, data, contenido=None, contenido_push=None, *, programado_id=None, base_url=None):
+    """Envia el comunicado con la imagen ya procesada (la usan el panel y los comunicados programados)."""
     titulo = _texto(data, "titulo", TITULO_MAX, "el título")
     mensaje = _texto(data, "mensaje", MENSAJE_MAX, "el mensaje")
-    contenido, contenido_push = _imagen_subida(imagen)
     with db.transaction() as c:
         reglas = _reglas(c, who["empresa_id"], data)
         sucursales = _sucursales(c, who["empresa_id"], data.get("sucursales"))
@@ -192,7 +201,7 @@ def enviar(who, data, imagen=None):
                                                 imagen=contenido, imagen_push=contenido_push,
                                                 alcance=_alcance(c, who["empresa_id"], reglas, sucursales),
                                                 destinatarios=len(ids), creado_por=who.get("user_id"),
-                                                creado_at=now_local()))
+                                                programado_id=programado_id, creado_at=now_local()))
         for i in range(0, len(ids), 500):
             lote = ids[i:i + 500]
             c.executemany("INSERT INTO comunicado_destinatarios (comunicado_id, empleado_id) VALUES (%s, %s)",
@@ -200,7 +209,7 @@ def enviar(who, data, imagen=None):
     cuerpo = mensaje if len(mensaje) <= 180 else mensaje[:177].rstrip() + "…"
     datos = {"comunicado_id": cid, "ruta": f"/comunicados/{cid}"}
     if contenido:
-        datos["imagen"] = url_imagen_push(cid)
+        datos["imagen"] = url_imagen_push(cid, base_url=base_url)
     push_service.encolar_ahora(who["empresa_id"], ids, "comunicado", titulo, cuerpo, datos, f"comunicado:{cid}")
     return cid, len(ids)
 
@@ -212,7 +221,7 @@ def listado(who, page=1):
     with db.transaction(read_only=True) as c:
         total = int(db.one(c, "SELECT COUNT(*) AS n FROM comunicados WHERE empresa_id=%s", (who["empresa_id"],))["n"])
         items = db.all_rows(c, """SELECT c.id, c.titulo, c.mensaje, c.alcance, c.destinatarios, c.creado_at,
-                                         MAX(c.imagen IS NOT NULL) AS tiene_imagen,
+                                         MAX(c.imagen IS NOT NULL) AS tiene_imagen, MAX(c.programado_id) AS programado_id,
                                          COALESCE(SUM(d.leido_at IS NOT NULL), 0) AS leidos
                                   FROM comunicados c
                                   LEFT JOIN comunicado_destinatarios d ON d.comunicado_id = c.id
@@ -316,7 +325,9 @@ TIPOS_AUTOMATICOS = {
     "feedback_resuelto": "Feedback resuelto",
     "trivia_nueva": "Trivia nueva",
     "trivia_recordatorio": "Recordatorio de trivia",
-    "revision_pendiente": "Para revisar (RR. HH.)",
+    "revision_pendiente": "Para revisar (RR. HH., jefes, seguridad)",
+    "seguridad_resultado": "Resultado de reporte de seguridad",
+    "seguridad_accion": "Acción de seguridad",
 }
 ESTADOS_ENVIO = {"enviado": "Enviado", "sin_dispositivo": "Sin dispositivo", "error": "Error", "pendiente": "En cola"}
 # Confirmados por la app (ver push_service.registrar_acuse); un enviado sin acuse puede no haber llegado.

@@ -23,9 +23,12 @@ def cola(monkeypatch):
     monkeypatch.setattr(avisos.db, "transaction", transaction)
     monkeypatch.setattr(avisos.db, "one", lambda c, sql, args: estado["fila"])
     monkeypatch.setattr(push_service, "encolar_ahora",
-                        lambda empresa_id, ids, tipo, titulo, cuerpo, datos=None, clave=None:
+                        lambda empresa_id, ids, tipo, titulo, cuerpo, datos=None, clave=None, regla=None:
                         encolados.append(dict(empresa_id=empresa_id, ids=list(ids), tipo=tipo, titulo=titulo,
-                                              cuerpo=cuerpo, datos=datos, clave=clave)) or len(ids))
+                                              cuerpo=cuerpo, datos=datos, clave=clave, regla=regla)) or len(ids))
+    # Reglas por defecto (sin base): solicitudes al jefe directo y a RR. HH.
+    monkeypatch.setattr(avisos.reglas_push, "configuracion", lambda empresa_id: (
+        {m["clave"]: avisos.reglas_push._defecto(m) for m in avisos.reglas_push.CATALOGO}, (None, None)))
     return estado, encolados
 
 
@@ -147,6 +150,7 @@ def revisores(cola, monkeypatch):
     monkeypatch.setattr(avisos.db, "all_rows", lambda c, sql, args: [
         {"usuario_id": 1, "empleado_id": 50}, {"usuario_id": 2, "empleado_id": 51}, {"usuario_id": 3, "empleado_id": 10}])
     monkeypatch.setattr(auth, "can_access_module", lambda uid, modulo, accion: uid in (1, 3) and accion == "aprobar")
+    monkeypatch.setattr(avisos, "_jefe", lambda c, empleado_id: set())  # sin jefe directo cargado
     return cola
 
 
@@ -160,6 +164,71 @@ def test_justificacion_para_revisar_va_a_quien_aprueba_y_no_al_que_pide(revisore
     assert aviso["titulo"] == "Justificación para revisar"
     assert aviso["cuerpo"] == "Perez Ana del 01/10 · Turno médico"
     assert aviso["datos"]["modulo"] == "justificaciones" and aviso["clave"] == "revision:justificaciones:9"
+    assert aviso["regla"] == "revision:justificaciones"
+
+
+def test_solicitud_tambien_al_jefe_directo(revisores, monkeypatch):
+    estado, encolados = revisores
+    monkeypatch.setattr(avisos, "_jefe", lambda c, empleado_id: {77})
+    estado["fila"] = dict(id=4, empresa_id=1, empleado_id=10, apellido="Perez", nombre="Ana", estado="pendiente",
+                          dias=Decimal("3"), fecha_desde=dt.date(2026, 11, 2), fecha_hasta=dt.date(2026, 11, 4))
+    avisos.revision_vacaciones(4)
+    assert encolados[0]["ids"] == [50, 77]
+
+
+def test_regla_solo_jefe_no_avisa_a_rrhh(revisores, monkeypatch):
+    estado, encolados = revisores
+    reglas = {m["clave"]: avisos.reglas_push._defecto(m) for m in avisos.reglas_push.CATALOGO}
+    reglas["revision:vacaciones"]["destinatarios"] = ["jefe_directo"]
+    monkeypatch.setattr(avisos.reglas_push, "configuracion", lambda empresa_id: (reglas, (None, None)))
+    monkeypatch.setattr(avisos, "_jefe", lambda c, empleado_id: {77})
+    estado["fila"] = dict(id=4, empresa_id=1, empleado_id=10, apellido="Perez", nombre="Ana", estado="pendiente",
+                          dias=Decimal("3"), fecha_desde=dt.date(2026, 11, 2), fecha_hasta=dt.date(2026, 11, 4))
+    avisos.revision_vacaciones(4)
+    assert encolados[0]["ids"] == [77]
+
+
+def test_regla_desactivada_no_avisa(revisores, monkeypatch):
+    estado, encolados = revisores
+    reglas = {m["clave"]: avisos.reglas_push._defecto(m) for m in avisos.reglas_push.CATALOGO}
+    reglas["revision:justificaciones"]["activo"] = False
+    monkeypatch.setattr(avisos.reglas_push, "configuracion", lambda empresa_id: (reglas, (None, None)))
+    estado["fila"] = dict(id=9, empleado_id=10, empresa_id=1, apellido="Perez", nombre="Ana", estado="pendiente",
+                          fecha=None, fecha_desde=dt.date(2026, 10, 1), fecha_hasta=dt.date(2026, 10, 1), motivo=None)
+    assert avisos.revision_justificacion(9) == 0 and encolados == []
+
+
+def test_reporte_de_seguridad_va_al_responsable_sh(revisores, monkeypatch):
+    import web.auth.decorators as auth
+
+    estado, encolados = revisores
+    monkeypatch.setattr(auth, "can_access_module", lambda uid, modulo, accion: uid == 2 and modulo == "seguridad_higiene")
+    estado["fila"] = dict(id=12, empresa_id=1, empleado_id=10, tipo="inseguro", categoria_nombre="Falta EPP",
+                          fecha_evento=dt.date(2026, 10, 16), estado="pendiente", apellido="Perez", nombre="Ana")
+    avisos.revision_seguridad(12)
+    assert encolados[0]["ids"] == [51] and encolados[0]["regla"] == "revision:seguridad_higiene"
+    assert encolados[0]["cuerpo"] == "Perez Ana · Comportamiento inseguro · Falta EPP (16/10)"
+
+
+def test_resultado_del_reporte_a_quien_reporto(cola):
+    estado, encolados = cola
+    estado["fila"] = dict(id=12, empresa_id=1, reportante_id=10, tipo="inseguro", estado="rechazado", motivo="Duplicado")
+    avisos.seguridad_resultado(12)
+    assert encolados[0]["ids"] == [10] and encolados[0]["tipo"] == "seguridad_resultado"
+    assert encolados[0]["cuerpo"] == "Tu reporte de comportamiento inseguro fue rechazado. Motivo: Duplicado"
+
+
+def test_acciones_por_vencer_y_vencidas(cola, monkeypatch):
+    _, encolados = cola
+    hoy = dt.date(2026, 10, 17)
+    monkeypatch.setattr(avisos.db, "all_rows", lambda c, sql, args: [
+        dict(id=1, evento_id=12, descripcion="Señalizar la escalera", responsable_id=30, vencimiento=dt.date(2026, 10, 18), empresa_id=1),
+        dict(id=2, evento_id=12, descripcion="Reparar baranda", responsable_id=31, vencimiento=dt.date(2026, 10, 16), empresa_id=1),
+        dict(id=3, evento_id=12, descripcion="Comprar matafuegos", responsable_id=32, vencimiento=dt.date(2026, 10, 25), empresa_id=1)])
+    assert avisos.acciones_por_vencer(hoy) == 2
+    assert [(a["ids"], a["titulo"]) for a in encolados] == [
+        ([30], "Acción de seguridad por vencer"), ([31], "Acción de seguridad vencida")]
+    assert encolados[0]["cuerpo"] == "Señalizar la escalera · vence mañana"
 
 
 def test_epp_en_borrador_no_avisa(revisores):

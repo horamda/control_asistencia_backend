@@ -1,0 +1,65 @@
+{% extends 'comunicados/layout.html' %}
+{% block comunicados_content %}
+{% set tono = {'activo': 'ok', 'pausado': 'warning', 'finalizado': 'neutral'} %}
+<section class="epp-card">
+  <header class="epp-section-heading">
+    <div>
+      <h3>Comunicados programados</h3>
+      <p>Se envían solos a la hora indicada. Los destinatarios se calculan en cada envío, así que quien ingresa después recibe los siguientes. Cada envío queda en «Enviados» con su lectura.</p>
+    </div>
+    {% if can_web('comunicados', 'crear') %}<a class="btn" href="{{ url_for('comunicados.nuevo') }}">Programar uno nuevo</a>{% endif %}
+  </header>
+
+  {% if programados %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Comunicado</th><th>Cuándo</th><th>Para</th><th>Próximo envío</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+          {% for p in programados %}
+            <tr>
+              <td data-label="Comunicado">
+                <strong>{{ p.titulo }}</strong>{% if p.tiene_imagen %} <span class="badge neutral">Con imagen</span>{% endif %}<br>
+                <small class="helper-text">{{ p.mensaje|truncate(90) }}</small>
+              </td>
+              <td data-label="Cuándo">{{ p.descripcion }}<br><small class="helper-text">{{ p.envios }} envío{{ '' if p.envios == 1 else 's' }} hechos</small></td>
+              <td data-label="Para">{{ p.alcance }}</td>
+              <td data-label="Próximo envío">
+                {% if p.estado == 'activo' and p.proximo_envio %}{{ p.proximo_envio.strftime('%d/%m/%Y %H:%M') }}
+                {% elif p.estado == 'pausado' %}<span class="helper-text">En pausa</span>
+                {% else %}<span class="helper-text">—</span>{% endif %}
+                {% if p.ultimo_envio %}<br><small class="helper-text">Último: {{ p.ultimo_envio.strftime('%d/%m %H:%M') }}</small>{% endif %}
+              </td>
+              <td data-label="Estado"><span class="badge {{ tono.get(p.estado, 'neutral') }}">{{ p.estado|capitalize }}</span></td>
+              <td data-label="">
+                <div class="com-acciones">
+                  {% if can_web('comunicados', 'crear') %}
+                    {% if p.estado == 'activo' %}
+                      <form method="post" class="reu-inline-form" action="{{ url_for('comunicados.pausar_programado', programado_id=p.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-secondary" type="submit">Pausar</button>
+                      </form>
+                    {% elif p.estado == 'pausado' %}
+                      <form method="post" class="reu-inline-form" action="{{ url_for('comunicados.reanudar_programado', programado_id=p.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-secondary" type="submit">Reanudar</button>
+                      </form>
+                    {% endif %}
+                  {% endif %}
+                  {% if can_web('comunicados', 'eliminar') %}
+                    <form method="post" class="reu-inline-form" action="{{ url_for('comunicados.eliminar_programado', programado_id=p.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn btn-danger" type="submit" data-confirm="¿Eliminar esta programación? Los comunicados ya enviados quedan en Enviados.">Eliminar</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="helper-text">Todavía no hay comunicados programados. En «Nuevo comunicado», elegí <strong>Programar</strong> para mandarlo más tarde o repetirlo cada día, semana o mes.</p>
+  {% endif %}
+</section>
+{% endblock %}

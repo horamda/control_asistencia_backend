@@ -15,16 +15,26 @@ def clave(monkeypatch):
     monkeypatch.setattr(s, "now_local", lambda: AHORA)
 
 
+class _Registro(list):
+    """Lista de UPDATE ejecutados, con la fila que devuelve el SELECT del envio."""
+
+
 @pytest.fixture
 def base(monkeypatch):
-    sentencias = []
+    """Solo registra los UPDATE; la fila del envio no es de un resumen (lote) salvo que el test lo cambie."""
+    sentencias = _Registro()
+    fila = sentencias.fila = {"lote": None, "empleado_id": 10}
 
     class Cursor:
         rowcount = 1
 
         def execute(self, sql, args=()):
             assert sql.count("%s") == len(args)
-            sentencias.append((" ".join(sql.split()), args))
+            if not sql.lstrip().startswith("SELECT"):
+                sentencias.append((" ".join(sql.split()), args))
+
+        def fetchone(self):
+            return dict(fila)
 
     @contextmanager
     def transaction(read_only=False):
@@ -57,6 +67,14 @@ def test_abierto_tambien_marca_recibido(base):
     sql, args = base[0]
     assert "recibido_at=COALESCE(recibido_at, %s)" in sql and "abierto_at=COALESCE(abierto_at, %s)" in sql
     assert args[-1] == 7
+
+
+def test_acuse_de_un_resumen_marca_todos_sus_envios(base):
+    base.fila.update(lote="revision:justificaciones:202610170800", empleado_id=50)
+    s.registrar_acuse(7, s.firma_acuse(7), "recibido")
+    sql, args = base[0]
+    assert "(id=%s OR (lote=%s AND empleado_id=%s))" in sql
+    assert args[1:] == (7, "revision:justificaciones:202610170800", 50)
 
 
 @pytest.mark.parametrize("envio_id,firma,evento,status", [

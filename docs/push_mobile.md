@@ -1,6 +1,6 @@
 # Notificaciones push — contrato para Flutter (Android) y la app web
 
-Versión de contrato: 1.48.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
+Versión de contrato: 1.49.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
 
 El backend envía los avisos; la app solo tiene que registrar su token y abrir la pantalla correcta al tocar
 la notificación. Si Firebase no está configurado en el servidor, `GET /push/config` devuelve `activo: false`
@@ -66,6 +66,15 @@ Falta:
    Escuchar `onTokenRefresh` y repetir el POST.
 5. Handler de segundo plano (`FirebaseMessaging.onBackgroundMessage`, función top-level) aunque no haga nada:
    la notificación la muestra el sistema porque el mensaje trae `notification`.
+
+### Configuración por empresa y resúmenes (1.49.0)
+
+RR. HH. configura en el panel (Comunicados → Configuración de avisos) qué avisos salen, a quién, cuándo y sus
+tiempos, más un horario de silencio. Para la app no cambia nada, salvo dos cosas:
+
+- Un aviso puede llegar **más tarde** que el hecho (horario de silencio o resumen). La pantalla a abrir sigue en `ruta`.
+- **Resumen**: varias solicitudes del mismo horario llegan en **un solo push** («Tenés 3 solicitudes para revisar»)
+  con `data.cantidad` y la `ruta`/`envio_id`/`acuse` de la primera. El acuse de ese push vale para todas.
 
 ### Acuses: recibido y abierto (1.47.0)
 
@@ -144,7 +153,9 @@ Todos traen `notification` (título y texto listos para mostrar) y `data` con st
 | `feedback_resuelto` (1.48.0) | Al que lo cargó: su feedback se resolvió | `feedback_id`, `ruta` = `/feedback/{id}` |
 | `trivia_nueva` (1.48.0) | Se abrió una trivia (a quien todavía no jugó) | `trivia_id`, `ruta` = `/trivia/{id}` |
 | `trivia_recordatorio` (1.48.0) | Quedan 24 h o 2 h para participar (a quien todavía no jugó) | `trivia_id`, `ruta` = `/trivia/{id}` |
-| `revision_pendiente` (1.48.0) | Para RR. HH.: un empleado envió una justificación, vacaciones, adelanto, pedido de mercadería, viáticos o EPP | `modulo`, `registro_id`, `ruta` = `/revisiones/{modulo}` |
+| `revision_pendiente` (1.48.0) | Para revisar: un empleado envió una justificación, vacaciones, adelanto, pedido de mercadería, viáticos, EPP o (1.49.0) un reporte de seguridad. Va al jefe directo, a RR. HH. y/o al responsable de Seguridad e Higiene según la configuración de la empresa | `modulo` (`seguridad_higiene` para reportes), `registro_id`, `ruta` = `/revisiones/{modulo}`; en un resumen, `cantidad` |
+| `seguridad_resultado` (1.49.0) | A quien reportó: su reporte de seguridad fue aprobado o rechazado (con motivo) | `evento_id`, `estado`, `ruta` = `/seguridad/{evento_id}` |
+| `seguridad_accion` (1.49.0) | Al responsable de una acción correctiva: asignada, por vencer y vencida | `accion_id`, `evento_id`, `ruta` = `/seguridad/{evento_id}` |
 | `comunicado` (1.44.0) | Comunicado enviado desde el panel | `comunicado_id`, `ruta` = `/comunicados/{id}`, `imagen` (1.45.0, solo si tiene imagen) |
 
 Desde 1.47.0 **todos** los tipos traen además `envio_id` y `acuse` (ver [acuses](#acuses-recibido-y-abierto-1470)).

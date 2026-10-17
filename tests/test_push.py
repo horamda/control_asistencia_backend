@@ -93,6 +93,9 @@ def push_db(reuniones_db, firebase):  # noqa: F811
     from scripts.migrate_20261016_11_push_acuses import migrate_cursor as migrate_acuses
     migrate_acuses(c)
     migrate_acuses(c)  # idempotente
+    from scripts.migrate_20261017_01_push_reglas import migrate_cursor as migrate_reglas
+    migrate_reglas(c)
+    migrate_reglas(c)  # idempotente
     conn.commit()
     c.close()
     conn.close()

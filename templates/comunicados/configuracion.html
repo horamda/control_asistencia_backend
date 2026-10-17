@@ -1,0 +1,91 @@
+{% extends 'comunicados/layout.html' %}
+{% block comunicados_content %}
+<form method="post" class="epp-catalog-form com-config">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <section class="epp-card">
+    <header class="epp-section-heading">
+      <div>
+        <h3>Configuración de avisos</h3>
+        <p>Qué avisos manda el sistema solo, a quién y cuándo. Los cambios rigen para los avisos nuevos. Los comunicados que mandás vos siempre salen al momento (o cuando los programes).</p>
+      </div>
+    </header>
+
+    <fieldset class="epp-fieldset">
+      <legend>Horario de silencio</legend>
+      <p class="helper-text">Lo que se genere en este horario sale cuando termina. Los avisos urgentes (salida sin fichar, reunión por empezar) se descartan porque ya no tienen sentido. Dejalo vacío para no usarlo.</p>
+      <div class="com-silencio">
+        <label>Desde<input type="time" name="silencio_desde" value="{{ silencio_desde.strftime('%H:%M') if silencio_desde else '' }}"></label>
+        <label>Hasta<input type="time" name="silencio_hasta" value="{{ silencio_hasta.strftime('%H:%M') if silencio_hasta else '' }}"></label>
+      </div>
+    </fieldset>
+  </section>
+
+  {% for grupo in grupos %}
+    <section class="epp-card">
+      <h3 class="com-config-grupo">{{ grupo.titulo }}</h3>
+      {% if grupo.clave == 'revision' %}
+        <p class="helper-text">Cuando un empleado envía algo desde la app. «RR. HH.» son los usuarios del panel con permiso de aprobar ese módulo y un empleado vinculado (Usuarios panel). El jefe directo es el «Reporta a» de la ficha del empleado.</p>
+      {% elif grupo.clave == 'seguridad' %}
+        <p class="helper-text">«Responsable de Seguridad e Higiene» son los usuarios del panel con permiso de aprobar Seguridad e Higiene y un empleado vinculado.</p>
+      {% endif %}
+      <div class="com-reglas">
+        {% for r in grupo.reglas %}
+          {% set a = r.actual %}
+          <div class="com-regla" data-com-regla>
+            <label class="com-regla-activo">
+              <input type="checkbox" name="activo:{{ r.clave }}" value="1" {{ 'checked' if a.activo }}>
+              <span><strong>{{ r.nombre }}</strong><small>{{ r.descripcion }}</small></span>
+            </label>
+            <div class="com-regla-opciones">
+              {% if r.posibles|length > 1 %}
+                <div class="com-regla-campo">
+                  <span class="com-regla-etiqueta">A quién</span>
+                  <div class="com-chips">
+                    {% for d in r.posibles %}
+                      <label class="com-chip"><input type="checkbox" name="destinatario:{{ r.clave }}" value="{{ d }}" {{ 'checked' if d in a.destinatarios }}><span>{{ destinatarios[d] }}</span></label>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endif %}
+              {% if r.resumen %}
+                <div class="com-regla-campo">
+                  <span class="com-regla-etiqueta">Cuándo</span>
+                  <div class="com-chips">
+                    <label class="com-chip"><input type="radio" name="momento:{{ r.clave }}" value="inmediato" data-com-momento {{ 'checked' if a.momento != 'resumen' }}><span>Al instante</span></label>
+                    <label class="com-chip"><input type="radio" name="momento:{{ r.clave }}" value="resumen" data-com-momento {{ 'checked' if a.momento == 'resumen' }}><span>Resumen a horarios fijos</span></label>
+                  </div>
+                  <div class="com-resumen" data-com-resumen {{ 'hidden' if a.momento != 'resumen' }}>
+                    <label>Horarios<input name="horarios:{{ r.clave }}" value="{% for h in a.horarios %}{{ h.strftime('%H:%M') }}{{ ', ' if not loop.last }}{% endfor %}" placeholder="08:00, 13:00"></label>
+                    <div class="com-chips com-dias">
+                      {% for n, nombre in dias.items() %}
+                        <label class="com-chip"><input type="checkbox" name="dias:{{ r.clave }}" value="{{ n }}" {{ 'checked' if n in a.dias }}><span>{{ nombre }}</span></label>
+                      {% endfor %}
+                    </div>
+                    <small class="helper-text">Junta lo que llega y manda un solo aviso por persona a cada horario («Tenés 3 solicitudes para revisar»). Sin días marcados: todos los días.</small>
+                  </div>
+                </div>
+              {% endif %}
+              {% if r.parametro %}
+                <label class="com-regla-campo com-parametro">
+                  <span class="com-regla-etiqueta">{{ r.parametro.etiqueta }}</span>
+                  <input type="number" name="parametro:{{ r.clave }}" value="{{ a.parametro }}" min="{{ r.parametro.min }}" max="{{ r.parametro.max }}">
+                </label>
+              {% endif %}
+              {% if r.posibles|length == 1 and not r.resumen and not r.parametro %}
+                <span class="helper-text">Va a: {{ destinatarios[r.posibles[0]]|lower }}.</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endfor %}
+
+  <footer class="epp-form-footer">
+    <span>Los avisos ya en cola no cambian.</span>
+    <button class="btn" type="submit">Guardar configuración</button>
+  </footer>
+</form>
+<script src="{{ url_for('static', filename='js/comunicados.js') }}" defer></script>
+{% endblock %}

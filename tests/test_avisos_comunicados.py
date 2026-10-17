@@ -51,6 +51,8 @@ def base(push_db, monkeypatch):  # noqa: F811
     from scripts.migrate_20261016_10_comunicados_imagen_push import migrate_cursor as migrate_imagen_push
     migrate_imagen_push(c)
     migrate_imagen_push(c)  # idempotente
+    from scripts.migrate_20261017_01_push_reglas import migrate_cursor as migrate_reglas
+    migrate_reglas(c)
     conn.commit()
     c.close()
     conn.close()

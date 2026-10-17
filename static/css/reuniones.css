@@ -133,6 +133,36 @@
   .epp-page nav.com-nav { display: grid; grid-template-columns: 1fr 1fr; }
   /* panel-controls.css alinea los botones de .actions al inicio (place-self): aca ocupan su celda. */
   .page-content .epp-page nav.com-nav > a.btn { display: flex; align-items: center; justify-content: center; width: 100%; max-width: none; place-self: stretch; box-sizing: border-box; text-align: center; white-space: normal; min-height: 44px; margin: 0; }
-  .epp-page nav.com-nav > a:first-child:nth-last-child(3) { grid-column: 1 / -1; }
+  .epp-page nav.com-nav > a:first-child { grid-column: 1 / -1; }
   .com-telefono { max-height: none; }
 }
+
+/* Comunicados: cuando se envia (programar) */
+.com-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.epp-page .com-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border, #d0d7de); border-radius: 999px; background: var(--surface, #fff); cursor: pointer; margin: 0; font-weight: 500; }
+.epp-page .com-chip input { width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; flex: none; }
+.epp-page .com-chip:has(input:checked) { border-color: var(--action-bg, #1f6feb); background: var(--primary-soft, #e8f0fe); }
+.com-chip small { font-weight: 400; color: var(--muted, #57606a); }
+.com-programar { display: grid; gap: 14px; margin-top: 14px; }
+.com-programar[hidden], .com-resumen[hidden], [data-com-frecuencia-show][hidden], [data-com-termina-show][hidden] { display: none; }
+.epp-page .com-habiles { border-radius: 10px; margin: 0 0 10px; }
+.com-acciones { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Configuracion de avisos */
+.com-config { display: grid; gap: 16px; }
+.com-config-grupo { margin: 0 0 6px; }
+.com-silencio { display: flex; flex-wrap: wrap; gap: 12px; }
+.epp-page .com-silencio label { display: grid; gap: 4px; max-width: 180px; }
+.com-reglas { display: grid; gap: 10px; margin-top: 10px; }
+.com-regla { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr); gap: 12px 20px; padding: 12px 14px; border: 1px solid var(--border, #d0d7de); border-radius: 12px; background: var(--surface, #fff); }
+.com-regla:has(.com-regla-activo input:not(:checked)) .com-regla-opciones { opacity: .45; }
+.epp-page .com-regla-activo { display: flex; gap: 10px; align-items: flex-start; margin: 0; cursor: pointer; }
+.epp-page .com-regla-activo input { width: 18px; height: 18px; min-height: 0; margin: 2px 0 0; flex: none; }
+.com-regla-activo span { display: grid; gap: 2px; }
+.com-regla-activo small { color: var(--muted, #57606a); font-weight: 400; }
+.com-regla-opciones { display: grid; gap: 10px; align-content: start; }
+.com-regla-campo { display: grid; gap: 6px; margin: 0; }
+.com-regla-etiqueta { font-size: .8rem; font-weight: 600; color: var(--muted, #57606a); }
+.com-resumen { display: grid; gap: 8px; }
+.epp-page .com-resumen label, .epp-page .com-parametro { max-width: 280px; }
+@media (max-width: 760px) { .com-regla { grid-template-columns: minmax(0, 1fr); } }

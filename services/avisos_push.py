@@ -6,8 +6,13 @@
 - Recordatorio mensual de viaticos (dia 5) por push ademas del aviso dentro de la app.
 - Justificaciones y vacaciones (aprobadas o rechazadas), feedback (al responsable cuando se lo asignan y al
   empleado cuando se resuelve) y trivias (nueva y recordatorios de 24 h y 2 h antes del cierre).
-- Para RR. HH.: solicitud nueva para revisar (justificacion, vacaciones, adelanto, mercaderia, viaticos, EPP)
-  a los usuarios del panel vinculados a un empleado que pueden aprobar ese modulo.
+- Solicitudes para revisar (justificacion, vacaciones, adelanto, mercaderia, viaticos, EPP, reporte de
+  seguridad): al jefe directo, a RR. HH. (usuarios del panel vinculados a un empleado que pueden aprobar el
+  modulo) y/o al responsable de Seguridad e Higiene, segun la regla de la empresa.
+- Seguridad e Higiene: resultado de la revision a quien reporto y acciones correctivas al responsable
+  (asignada, por vencer y vencida).
+
+Cada regla (push_reglas_service) decide si el aviso esta activo, a quien va y cuando sale.
 
 Cada aviso lleva data.tipo, data.ruta (pantalla a abrir) y el id del registro."""
 
@@ -17,6 +22,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from repositories import carga_repository as db
+from services import push_reglas_service as reglas_push
 from services import push_service
 from services.carga_service import now_local
 
@@ -86,7 +92,8 @@ def salidas_pendientes(ahora=None):
             hora, _ = egreso.calcular_egreso(row["hora_entrada"], egreso._bloques(row["empleado_id"], hoy),
                                              float(row["horas"]))
             fin = _previstas["fin"][row["id"]] = egreso._minutes(hora)
-        if fin >= egreso.FIN_DEL_DIA or minuto < fin + MARGEN_SALIDA_MIN:
+        margen = reglas_push.parametro(row["empresa_id"], "salida_pendiente")
+        if fin >= egreso.FIN_DEL_DIA or minuto < fin + margen:
             continue
         entrada = _hhmm(egreso._minutes(row["hora_entrada"]))
         cuerpo = f"Entraste a las {entrada} y tu salida prevista era a las {_hhmm(fin)}. Registrala en la app."
@@ -336,25 +343,46 @@ def trivia(trivia_row, empleados, momento):
 
 # --- Para RR. HH.: solicitudes nuevas para revisar ----------------------------------------------------
 
-def _revisores(c, empresa_id, modulo, solicitante_id):
+def _aprobadores(c, empresa_id, modulo):
     """Empleados de los usuarios del panel (activos, de la empresa) que pueden aprobar el modulo."""
     from web.auth.decorators import can_access_module  # import tardio: la capa web importa servicios
 
     filas = db.all_rows(c, """SELECT u.id AS usuario_id, u.empleado_id
                               FROM usuarios u JOIN empleados e ON e.id = u.empleado_id
                               WHERE u.activo = 1 AND u.empresa_id = %s AND e.activo = 1""", (empresa_id,))
-    return sorted({int(f["empleado_id"]) for f in filas
-                   if int(f["empleado_id"]) != int(solicitante_id or 0)
-                   and can_access_module(f["usuario_id"], modulo, "aprobar")})
+    return {int(f["empleado_id"]) for f in filas if can_access_module(f["usuario_id"], modulo, "aprobar")}
+
+
+def _jefe(c, empleado_id):
+    fila = db.one(c, """SELECT j.id FROM empleados e JOIN empleados j ON j.id = e.reporta_a_empleado_id
+                        WHERE e.id = %s AND j.activo = 1""", (empleado_id,))
+    return {int(fila["id"])} if fila else set()
+
+
+def destinatarios_revision(c, empresa_id, modulo, solicitante_id, destinatarios):
+    ids = set()
+    if reglas_push.RRHH in destinatarios:
+        ids |= _aprobadores(c, empresa_id, modulo)
+    if reglas_push.SEGURIDAD in destinatarios:
+        ids |= _aprobadores(c, empresa_id, "seguridad_higiene")
+    if reglas_push.JEFE in destinatarios:
+        ids |= _jefe(c, solicitante_id)
+    ids.discard(int(solicitante_id or 0))  # nunca al que pidio
+    return sorted(ids)
 
 
 def _para_revisar(modulo, fila, titulo, cuerpo, clave):
+    clave_regla = f"revision:{modulo}"
+    regla = reglas_push.regla(fila["empresa_id"], clave_regla)
+    if not regla or not regla["activo"]:
+        return 0
     with db.transaction(read_only=True) as c:
-        ids = _revisores(c, fila["empresa_id"], modulo, fila["empleado_id"])
+        ids = destinatarios_revision(c, fila["empresa_id"], modulo, fila["empleado_id"], regla["destinatarios"])
     if not ids:
         return 0
     datos = {"modulo": modulo, "registro_id": fila["id"], "ruta": f"/revisiones/{modulo}"}
-    return push_service.encolar_ahora(fila["empresa_id"], ids, "revision_pendiente", titulo, cuerpo, datos, clave)
+    return push_service.encolar_ahora(fila["empresa_id"], ids, "revision_pendiente", titulo, cuerpo, datos, clave,
+                                      regla=clave_regla)
 
 
 def _nombre(fila):
@@ -439,3 +467,91 @@ def revision_epp(pedido_id):
         return 0
     return _para_revisar("epp", p, "Pedido de EPP para revisar", f"{_nombre(p)} · pedido N° {p['id']}",
                          f"revision:epp:{p['id']}:r{p['revision']}")
+
+
+# --- Seguridad e Higiene ------------------------------------------------------------------------------
+
+def _tipo_sh(tipo):
+    from services.seguridad_service import TIPOS  # import tardio: seguridad_service usa estos avisos
+
+    return TIPOS.get(tipo, tipo)
+
+
+@_seguro
+def revision_seguridad(evento_id):
+    """Reporte nuevo cargado por un empleado: al responsable de Seguridad e Higiene (y al jefe, si la regla lo pide)."""
+    with db.transaction(read_only=True) as c:
+        e = db.one(c, """SELECT ev.id, ev.empresa_id, ev.reportante_id AS empleado_id, ev.tipo, ev.categoria_nombre,
+                                ev.fecha_evento, ev.estado, emp.apellido, emp.nombre
+                         FROM sh_eventos ev JOIN empleados emp ON emp.id = ev.reportante_id
+                         WHERE ev.id = %s""", (evento_id,))
+    if not e or e["estado"] != "pendiente":
+        return 0
+    cuerpo = f"{_nombre(e)} · {_tipo_sh(e['tipo'])}"
+    if e.get("categoria_nombre"):
+        cuerpo += f" · {e['categoria_nombre']}"
+    cuerpo += f" ({_dia(e['fecha_evento'])})"
+    return _para_revisar("seguridad_higiene", e, "Reporte de seguridad para revisar", cuerpo,
+                         f"revision:seguridad:{e['id']}")
+
+
+@_seguro
+def seguridad_resultado(evento_id):
+    """A quien reporto: su reporte fue aprobado o rechazado."""
+    with db.transaction(read_only=True) as c:
+        e = db.one(c, "SELECT id, empresa_id, reportante_id, tipo, estado, motivo FROM sh_eventos WHERE id = %s",
+                   (evento_id,))
+    if not e or not e["reportante_id"] or e["estado"] not in ("aprobado", "rechazado"):
+        return 0
+    cuerpo = f"Tu reporte de {_tipo_sh(e['tipo']).lower()} fue {e['estado']}."
+    if e["estado"] == "rechazado" and e.get("motivo"):
+        cuerpo += f" Motivo: {e['motivo']}"
+    return _avisar(e["empresa_id"], e["reportante_id"], "seguridad_resultado", f"Reporte de seguridad {e['estado']}",
+                   cuerpo, {"evento_id": e["id"], "estado": e["estado"], "ruta": f"/seguridad/{e['id']}"},
+                   f"seguridad:{e['id']}:{e['estado']}")
+
+
+def _accion_texto(descripcion):
+    texto = " ".join(str(descripcion or "").split())
+    return texto if len(texto) <= 100 else texto[:97].rstrip() + "…"
+
+
+@_seguro
+def seguridad_accion(accion_id):
+    """Al responsable de una accion correctiva cuando se la asignan (o se la reasignan)."""
+    with db.transaction(read_only=True) as c:
+        a = db.one(c, """SELECT a.id, a.evento_id, a.descripcion, a.responsable_id, a.vencimiento, a.estado, ev.empresa_id
+                         FROM sh_acciones a JOIN sh_eventos ev ON ev.id = a.evento_id WHERE a.id = %s""", (accion_id,))
+    if not a or a["estado"] not in ("pendiente", "en_curso"):
+        return 0
+    return _avisar(a["empresa_id"], a["responsable_id"], "seguridad_accion", "Acción de seguridad asignada",
+                   f"{_accion_texto(a['descripcion'])} · vence el {_dia(a['vencimiento'])}",
+                   {"accion_id": a["id"], "evento_id": a["evento_id"], "ruta": f"/seguridad/{a['evento_id']}"},
+                   f"sh-accion:{a['id']}:{a['responsable_id']}")
+
+
+@_seguro
+def acciones_por_vencer(hoy=None):
+    """Una vez por dia: al responsable, N dias antes del vencimiento (regla seguridad_accion) y el dia despues
+    si la accion sigue abierta."""
+    hoy = hoy or now_local().date()
+    with db.transaction(read_only=True) as c:
+        filas = db.all_rows(c, """SELECT a.id, a.evento_id, a.descripcion, a.responsable_id, a.vencimiento, ev.empresa_id
+                                  FROM sh_acciones a JOIN sh_eventos ev ON ev.id = a.evento_id
+                                  WHERE a.estado IN ('pendiente', 'en_curso') AND a.vencimiento BETWEEN %s AND %s""",
+                            (hoy - dt.timedelta(days=1), hoy + dt.timedelta(days=31)))
+    total = 0
+    for a in filas:
+        vencimiento = a["vencimiento"] if isinstance(a["vencimiento"], dt.date) else dt.date.fromisoformat(str(a["vencimiento"]))
+        faltan = (vencimiento - hoy).days
+        texto = _accion_texto(a["descripcion"])
+        if faltan == reglas_push.parametro(a["empresa_id"], "seguridad_accion"):
+            cuando = "hoy" if faltan == 0 else ("mañana" if faltan == 1 else f"el {_dia(vencimiento)}")
+            titulo, cuerpo, clave = "Acción de seguridad por vencer", f"{texto} · vence {cuando}", f"sh-accion:{a['id']}:vence:{vencimiento}"
+        elif faltan == -1:
+            titulo, cuerpo, clave = "Acción de seguridad vencida", f"{texto} · venció ayer", f"sh-accion:{a['id']}:vencida:{vencimiento}"
+        else:
+            continue
+        total += _avisar(a["empresa_id"], a["responsable_id"], "seguridad_accion", titulo, cuerpo,
+                         {"accion_id": a["id"], "evento_id": a["evento_id"], "ruta": f"/seguridad/{a['evento_id']}"}, clave)
+    return total

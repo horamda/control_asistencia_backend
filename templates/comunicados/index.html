@@ -10,7 +10,8 @@
             <td data-label="Fecha">{{ c.creado_at.strftime('%d/%m/%Y %H:%M') }}</td>
             <td data-label="Comunicado">
               <a href="{{ url_for('comunicados.detalle', comunicado_id=c.id) }}"><strong>{{ c.titulo }}</strong></a>
-              {% if c.tiene_imagen %}<span class="badge neutral">Con imagen</span>{% endif %}<br>
+              {% if c.tiene_imagen %}<span class="badge neutral">Con imagen</span>{% endif %}
+              {% if c.programado_id %}<span class="badge neutral">Programado</span>{% endif %}<br>
               <small class="helper-text">{{ c.mensaje|truncate(110) }}</small>
             </td>
             <td data-label="Para">{{ c.alcance }}<br><small class="helper-text">{{ c.destinatarios }} empleado{{ '' if c.destinatarios == 1 else 's' }}</small></td>
