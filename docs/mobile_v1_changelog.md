@@ -1,3 +1,17 @@
+## 1.52.0 — 2026-10-17
+
+- Mis reuniones:
+  - `GET /reuniones/calendario?mes=AAAA-MM`: calendario mensual con todas las ocurrencias, sin paginar.
+  - `GET /reuniones/estadisticas?mes=AAAA-MM`: dashboard del mes, con planificadas, realizadas, próximas, asistidas, ausencias definitivas y provisorias, justificadas, canceladas, porcentajes y minutos u horas planificados, realizados y asistidos.
+  - `GET /reuniones/estadisticas/evolucion`: serie mensual de hasta 12 meses.
+- `/reuniones/proximas`:
+  - Acepta `semanas=N` (1 a 8) y `dias` hasta 62.
+  - Trae `proxima` y `hay_proximas`, para distinguir "no hay esta semana" de "no hay próximas".
+  - Cada ocurrencia trae `id` estable, `ocurrencia_id`, `duracion_min`, `definitivo`, `puede_registrar`, `reprogramada` y `observaciones`.
+- El detalle de una reunión agrega `proximas_ocurrencias`.
+- Las horas son la duración programada (sin permanencia real): una llegada tarde suma la reunión completa. Las futuras no son ausencias.
+- Todo es aditivo: `/estadisticas` sin `mes` responde igual que antes. Guía: `reuniones_mobile.md`.
+
 ## 1.51.0 — 2026-10-17
 
 - Bandeja de notificaciones persistente para la campana: `GET /me/notificaciones` (paginado por cursor, filtros `estado` y `modulo`, `no_leidas` y `corte`), `GET /me/notificaciones/resumen`, `GET /me/notificaciones/{id}` (con `referencia.disponible`), `POST /me/notificaciones/{id}/leer` (idempotente) y `POST /me/notificaciones/leer-todas` con `hasta_id` (no marca lo que llegó después). Cada novedad queda guardada aunque el push falle; los recordatorios siguen solo por push.

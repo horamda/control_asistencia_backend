@@ -475,14 +475,37 @@ def mobile_listado():
     return jsonify(items=serialize(s.mis_reuniones(employee())))
 
 
+def _entero_api(nombre, minimo, maximo):
+    valor = request.args.get(nombre)
+    if valor in (None, ""):
+        return None
+    if not valor.strip().isdigit() or not minimo <= int(valor) <= maximo:
+        raise s.Error(f"'{nombre}' inválido: use un entero entre {minimo} y {maximo}.")
+    return int(valor)
+
+
 @mobile.get("/proximas")
 @mobile_auth_required
 def mobile_proximas():
-    # ?semana=actual: de lunes a domingo de esta semana (incluye las ya pasadas); si no, desde hoy.
+    """Precedencia: semana=actual (lunes a domingo de esta semana, incluye las ya pasadas) > semanas=N (N semanas
+    desde el lunes de esta semana, 1 a 8) > dias=N (desde hoy, 1 a 62; por defecto 7)."""
+    hoy = now_local().date()
+    lunes = hoy - dt.timedelta(days=hoy.weekday())
     if request.args.get("semana") == "actual":
-        hoy = now_local().date()
-        return jsonify(serialize(s.proximas(employee(), 7, desde=hoy - dt.timedelta(days=hoy.weekday()))))
-    return jsonify(serialize(s.proximas(employee(), request.args.get("dias", 7, type=int))))
+        return jsonify(serialize(s.proximas(employee(), 7, desde=lunes)))
+    semanas = _entero_api("semanas", 1, s.PROXIMAS_MAX_SEMANAS)
+    if semanas:
+        return jsonify(serialize(s.proximas(employee(), 7 * semanas, desde=lunes)))
+    dias = _entero_api("dias", 1, s.PROXIMAS_MAX_DIAS)
+    return jsonify(serialize(s.proximas(employee(), dias or 7)))
+
+
+@mobile.get("/calendario")
+@mobile_auth_required
+def mobile_calendario():
+    """?mes=AAAA-MM (por defecto el mes actual): todas las ocurrencias del mes, sin paginar."""
+    mes = request.args.get("mes") or now_local().strftime("%Y-%m")
+    return jsonify(serialize(s.calendario_mes(employee(), mes)))
 
 
 @mobile.post("/registrar")
@@ -522,8 +545,21 @@ def mobile_historial():
 @mobile.get("/estadisticas")
 @mobile_auth_required
 def mobile_estadisticas():
+    """?mes=AAAA-MM: dashboard del mes (formato nuevo). Sin mes: formato historico por desde/hasta (90 dias por
+    defecto), sin cambios. mes no se combina con desde/hasta."""
+    if request.args.get("mes"):
+        if request.args.get("desde") or request.args.get("hasta"):
+            raise s.Error("Usá 'mes' o 'desde'/'hasta', no los dos.")
+        return jsonify(serialize(s.estadisticas_mes(employee(), request.args["mes"])))
     desde, hasta = _rango_api(90)
     return jsonify(serialize(s.estadisticas_empleado(employee(), desde, hasta)))
+
+
+@mobile.get("/estadisticas/evolucion")
+@mobile_auth_required
+def mobile_evolucion():
+    """?desde_mes=AAAA-MM&hasta_mes=AAAA-MM (hasta 12 meses; por defecto los ultimos 6 hasta el actual)."""
+    return jsonify(serialize(s.evolucion(employee(), request.args.get("desde_mes"), request.args.get("hasta_mes"))))
 
 
 @mobile.get("/<int:reunion_id>")
@@ -539,6 +575,8 @@ def mobile_detalle(reunion_id):
     item["activa"] = bool(rows[0]["activa"])
     item["proximas_fechas"] = [f.isoformat() for f in s.fechas(rows[0], hoy, hoy + dt.timedelta(days=60))][:6] \
         if rows[0]["activa"] else []
+    # Mismas reglas que el calendario (sin canceladas). proximas_fechas queda por compatibilidad (solo la regla).
+    item["proximas_ocurrencias"] = s.proximas_ocurrencias(emp, reunion_id) if rows[0]["activa"] else []
     item["historial"] = s.historial_empleado(emp, reunion_id=reunion_id, per_page=10)["items"]
     item["mis_estadisticas"] = s.estadisticas_empleado(emp, hoy - dt.timedelta(days=89), hoy)["por_reunion"]
     item["mis_estadisticas"] = next((x for x in item["mis_estadisticas"] if x["reunion_id"] == reunion_id), None)

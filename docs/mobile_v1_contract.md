@@ -1,7 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.51.0
+Version de contrato: 1.52.0
 
+- **Mis reuniones: calendario, dashboard y evolución (1.52.0):** `/reuniones/calendario?mes=`, `/reuniones/estadisticas?mes=` y `/reuniones/estadisticas/evolucion`; `/reuniones/proximas` con `semanas`, `proxima` y `hay_proximas`. Ver [reuniones](reuniones_mobile.md).
 - **Bandeja de notificaciones (1.51.0):** campana persistente en `/me/notificaciones` (listado, resumen, detalle, leer y leer-todas con corte) y `data.notificacion_id` en el push. Reemplaza las alertas calculadas en la app. Ver [contrato](notificaciones_mobile.md).
 - **Vibración y canal de urgentes (1.50.0):** patrón de vibración propio y canal `fichaya_urgente` para salida sin fichar y reunión por empezar. Ver [push](push_mobile.md#vibración-y-canal-de-urgentes-1500).
 

@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.51.0
+  version: 1.52.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.52.0: Mis reuniones con calendario mensual, dashboard del mes y evolucion (rutas en reuniones_mobile_openapi.yaml; guia reuniones_mobile.md).
     Version 1.51.0: bandeja de notificaciones persistente (/me/notificaciones: listado, resumen, detalle, leer y leer-todas con corte) y data.notificacion_id en el push; ver notificaciones_mobile.md.
     Version 1.50.0: canal_android_urgente (fichaya_urgente) y vibracion propia; ver push_mobile.md.
     Version 1.49.0: push de Seguridad e Higiene (seguridad_resultado, seguridad_accion, revision_pendiente con modulo seguridad_higiene) y resumenes (data.cantidad).

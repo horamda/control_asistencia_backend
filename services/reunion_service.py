@@ -337,10 +337,23 @@ def reuniones_de_empleado(c, empleado, reunion_id=None, solo_activas=True):
 
 
 def _de_empleado_en_sede(c, empleado, **kw):
-    """Reuniones del empleado ya ubicadas en su sede (hora y lugar efectivos)."""
+    """Reuniones del empleado ya ubicadas en su sede (hora y lugar efectivos). Sedes y dias no laborables en
+    una consulta para todas (sin una por reunion)."""
+    reuniones = reuniones_de_empleado(c, empleado, **kw)
+    if not reuniones:
+        return []
+    ids = [r["id"] for r in reuniones]
+    sedes_de = {}
+    for fila in db.all_rows(c, f"""SELECT rs.reunion_id, rs.sucursal_id, rs.lugar, rs.hora_inicio, su.nombre AS sucursal_nombre
+                                   FROM reunion_sedes rs LEFT JOIN sucursales su ON su.id = rs.sucursal_id
+                                   WHERE rs.reunion_id IN ({_marcas(ids)}) ORDER BY su.nombre, rs.sucursal_id""",
+                            tuple(ids)):
+        sedes_de.setdefault(fila["reunion_id"], []).append(fila)
+    feriados = feriado_service.mapa(c, empleado["empresa_id"])
     salida = []
-    for r in reuniones_de_empleado(c, empleado, **kw):
-        item = sede_de_empleado(c, r, empleado)
+    for r in reuniones:
+        item = next((x for x in sedes_efectivas(c, r, sedes_de.get(r["id"], []), feriados)
+                     if x["sucursal_id"] in (SIN_SEDE, empleado.get("sucursal_id"))), None)
         if item:
             salida.append(item)
     return salida
@@ -1160,75 +1173,340 @@ def mis_reuniones(empleado, *, ahora=None):
     return items
 
 
-def proximas(empleado, dias=7, *, desde=None, ahora=None):
-    """Ocurrencias desde hoy (o desde la fecha dada, p. ej. el lunes de la semana) con el estado del
-    empleado y un resumen: cantidad, horas, registradas, pendientes, ausentes y canceladas."""
-    ahora = ahora or now_local()
-    dias = max(1, min(int(dias or 7), 31))
-    desde = desde or ahora.date()
-    hasta = desde + dt.timedelta(days=dias - 1)
-    with db.transaction(read_only=True) as c:
-        rows = _de_empleado_en_sede(c, empleado)
-        ids = [r["id"] for r in rows]
-        guardadas = {(o["reunion_id"], o["sucursal_id"], o["fecha"]): o for o in db.all_rows(
-            c, f"SELECT * FROM reunion_ocurrencias WHERE fecha BETWEEN %s AND %s AND reunion_id IN ({_marcas(ids)})",
-            (desde, hasta, *ids))} if ids else {}
-        mias = {row["ocurrencia_id"]: row for row in db.all_rows(
-            c, "SELECT * FROM reunion_asistencias WHERE empleado_id=%s AND fecha BETWEEN %s AND %s",
-            (empleado["id"], desde, hasta))}
-    items = []
-    for r in rows:
-        for dia in calendario(r, desde, hasta):
-            fecha = dia["fecha"]
-            occ = guardadas.get((r["id"], r["sucursal_id"], fecha))
-            if dia["omitida"] and occ:
-                continue  # el panel la registro igual: manda la ocurrencia guardada
-            h = occ or horarios(r, fecha)
-            reg = mias.get(occ["id"]) if occ else None
-            cambio = (occ or {}).get("motivo_cambio") or motivo_cambio(dia)
-            if reg:
-                estado = reg["estado"]
-            elif dia["omitida"]:
-                estado = "cancelada"
-            elif occ and occ["estado"] == "cancelada":
-                estado = "cancelada"
-            elif ahora > h["ventana_hasta"]:
-                estado = "ausente"
-            elif ahora >= h["ventana_desde"]:
-                estado = "abierta"
-            else:
-                estado = "pendiente"
-            items.append(dict(
-                _minutos=int((h["fin"] - h["inicio"]).total_seconds() // 60),
-                reunion_id=r["id"], nombre=r["nombre"], lugar=r.get("lugar"), descripcion=r.get("descripcion"),
-                sucursal_id=r["sucursal_id"] or None, sucursal_nombre=r.get("sucursal_nombre"),
-                fecha=fecha.isoformat(), inicio=_iso(h["inicio"]), fin=_iso(h["fin"]),
-                ventana_desde=_iso(h["ventana_desde"]), ventana_hasta=_iso(h["ventana_hasta"]),
-                tarde_desde=_iso(h["tarde_desde"]), estado=estado,
-                cancelada=bool(dia["omitida"] or (occ and occ["estado"] == "cancelada")),
-                motivo_cancelacion=(occ.get("motivo_cancelacion") if occ else None) or (cambio if dia["omitida"] else None),
-                fecha_original=_iso((occ or {}).get("fecha_original") or dia["original"]),
-                motivo_cambio=cambio,
-                registrado_at=_iso(reg["registrado_at"]) if reg else None, qr_modo=r["qr_modo"],
-            ))
-    items.sort(key=lambda x: (x["inicio"], x["nombre"]))
+# --- Ocurrencias del empleado: una sola regla para proximas, calendario, detalle y estadisticas ------------
+
+ZONA_HORARIA = "America/Argentina/Buenos_Aires"
+PROXIMAS_MAX_DIAS = 62
+PROXIMAS_MAX_SEMANAS = 8
+EVOLUCION_MAX_MESES = 12
+ESTADOS_REALIZADA = ("presente", "tarde", "ausente", "justificado")
+ESTADOS_PROXIMA = ("pendiente", "abierta")
+
+DEFINICIONES = {
+    "planificadas": "Reuniones del período no canceladas (realizadas + próximas).",
+    "realizadas": "Reuniones no canceladas cuya ventana de registro ya cerró o en las que el empleado ya registró "
+                  "(presente, tarde, ausente o justificado; incluye ausencias provisorias).",
+    "proximas": "Reuniones no canceladas que todavía no empezaron o tienen el registro abierto (pendiente o abierta).",
+    "asistidas": "presentes + tarde.",
+    "ausentes": "Ausencias definitivas: la reunión ya cerró y no registró. No incluye las provisorias.",
+    "ausentes_provisionales": "La ventana cerró pero el servidor todavía no cerró la reunión (cada 10 min): "
+                              "puede pasar a justificado. No cuentan en asistencia_pct.",
+    "justificados": "Ausencias justificadas (vacaciones, franco, reunión superpuesta o RR. HH.).",
+    "canceladas": "Canceladas desde el panel o que no se hacen por día no laborable. No suman horas ni convocatorias.",
+    "convocatorias": "Convocatorias exigibles ya definidas: asistidas + ausentes + justificados (misma base que "
+                     "/estadisticas por fechas).",
+    "asistencia_pct": "asistidas / (convocatorias − justificados) × 100 = asistidas / (asistidas + ausentes) × 100. "
+                      "Las justificadas, las futuras y las ausencias provisorias no entran en el denominador. "
+                      "null sin denominador.",
+    "puntualidad_pct": "presentes / asistidas × 100. null sin asistidas.",
+    "minutos_planificados": "Duración programada de las reuniones planificadas.",
+    "minutos_realizados": "Duración programada de las reuniones realizadas.",
+    "minutos_asistidos": "Duración programada completa de las reuniones con presente o tarde (no se descuenta la "
+                         "llegada tarde ni se mide la permanencia). Es el mismo valor que horas_asistidas.",
+    "horas_*": "minutos_* / 60 con un decimal, solo para mostrar. Calcular siempre con los minutos.",
+    "definitivo": "true si el estado ya no cambia solo (registrado, cerrado por el servidor, justificado o "
+                  "cancelado); false para pendiente, abierta y ausencia provisoria.",
+}
+
+
+def _clave_ocurrencia(reunion_id, sucursal_id, fecha):
+    """Id estable de la ocurrencia para la app (existe aunque la fila todavia no se haya creado)."""
+    return f"{int(reunion_id)}-{int(sucursal_id or 0)}-{_date(fecha).isoformat()}"
+
+
+def _registros_empleado(c, empleado, desde, hasta):
+    """Asistencias del empleado en el rango con su ocurrencia y reunion (una sola consulta)."""
+    return db.all_rows(
+        c, """SELECT a.id AS asistencia_id, a.reunion_id, a.sucursal_id, a.fecha, a.estado, a.registrado_at,
+                     a.metodo, a.observaciones, o.id AS ocurrencia_id, o.estado AS estado_ocurrencia, o.inicio, o.fin,
+                     o.ventana_desde, o.ventana_hasta, o.tarde_desde, o.fecha_original, o.motivo_cambio,
+                     o.motivo_cancelacion, o.reprogramada, r.nombre, r.descripcion, r.qr_modo,
+                     COALESCE(rs.lugar, r.lugar) AS lugar, su.nombre AS sucursal_nombre
+              FROM reunion_asistencias a
+              JOIN reunion_ocurrencias o ON o.id = a.ocurrencia_id
+              JOIN reuniones r ON r.id = a.reunion_id
+              LEFT JOIN reunion_sedes rs ON rs.reunion_id = a.reunion_id AND rs.sucursal_id = a.sucursal_id
+              LEFT JOIN sucursales su ON su.id = a.sucursal_id
+              WHERE a.empleado_id = %s AND a.empresa_id = %s AND a.fecha BETWEEN %s AND %s""",
+        (empleado["id"], empleado["empresa_id"], desde, hasta))
+
+
+def _item_ocurrencia(base, fecha, h, occ, reg, ahora, *, omitida=False, original=None, cambio=None):
+    """Una ocurrencia con el estado del empleado. base: la reunion en su sede (o la fila del registro)."""
+    cancelada = bool(omitida or (occ and occ.get("estado") == "cancelada"))
+    if cancelada:
+        estado, definitivo = "cancelada", True
+    elif reg:
+        estado, definitivo = reg["estado"], True
+    elif ahora > h["ventana_hasta"]:
+        estado, definitivo = "ausente", False  # provisoria hasta que el servidor cierre la reunion
+    elif ahora >= h["ventana_desde"]:
+        estado, definitivo = "abierta", False
+    else:
+        estado, definitivo = "pendiente", False
+    motivo_cancelacion = None
+    if cancelada:
+        motivo_cancelacion = (occ.get("motivo_cancelacion") if occ else None) or (cambio if omitida else None)
+    return dict(
+        id=_clave_ocurrencia(base["reunion_id"], base["sucursal_id"], fecha),
+        ocurrencia_id=int(occ["id"]) if occ and occ.get("id") else None,
+        reunion_id=int(base["reunion_id"]), nombre=base["nombre"], lugar=base.get("lugar"),
+        descripcion=base.get("descripcion"), sucursal_id=int(base["sucursal_id"] or 0) or None,
+        sucursal_nombre=base.get("sucursal_nombre"), fecha=fecha.isoformat(), inicio=_iso(h["inicio"]),
+        fin=_iso(h["fin"]), duracion_min=int((h["fin"] - h["inicio"]).total_seconds() // 60),
+        ventana_desde=_iso(h["ventana_desde"]), ventana_hasta=_iso(h["ventana_hasta"]),
+        tarde_desde=_iso(h["tarde_desde"]), estado=estado, definitivo=definitivo, cancelada=cancelada,
+        motivo_cancelacion=motivo_cancelacion, fecha_original=_iso(original), motivo_cambio=cambio,
+        reprogramada=bool(occ and occ.get("reprogramada")),
+        registrado_at=_iso(reg["registrado_at"]) if reg and reg.get("registrado_at") else None,
+        observaciones=reg.get("observaciones") if reg else None, qr_modo=base.get("qr_modo"),
+        puede_registrar=estado == "abierta" and ahora <= h["ventana_hasta"],
+    )
+
+
+def _marcar_superpuestas(items):
+    por_fecha = {}
+    for item in items:
+        por_fecha.setdefault(item["fecha"], []).append(item)
     for item in items:
         item["superpuesta_con"] = [
             dict(reunion_id=o["reunion_id"], nombre=o["nombre"], inicio=o["inicio"], fin=o["fin"])
-            for o in items if o is not item and o["estado"] != "cancelada" and item["estado"] != "cancelada"
-            and o["fecha"] == item["fecha"] and o["inicio"] < item["fin"] and item["inicio"] < o["fin"]]
-    minutos = [i.pop("_minutos") for i in items]
-    activas = [m for i, m in zip(items, minutos) if i["estado"] != "cancelada"]
+            for o in por_fecha[item["fecha"]] if o is not item and o["estado"] != "cancelada"
+            and item["estado"] != "cancelada" and o["inicio"] < item["fin"] and item["inicio"] < o["fin"]]
+
+
+def ocurrencias_empleado(c, empleado, desde, hasta, ahora):
+    """Ocurrencias del empleado entre desde y hasta (como mucho MAX_RANGO_DIAS), en orden cronologico.
+
+    - De las reglas: reuniones activas a las que esta convocado, en su sede, con recurrencia, dias no laborables,
+      cancelaciones y cambios de horario guardados (reunion_ocurrencias manda sobre la regla).
+    - Sus asistencias guardadas mandan sobre todo (definitivas). Las de reuniones que ya no le tocan (desactivadas,
+      otra sede, convocatoria cambiada) se agregan igual: son su historia.
+    - Igual que el cierre automatico: no cuentan fechas anteriores a la creacion de la reunion, y una fecha ya cerrada
+      sin registro suyo no era una convocatoria suya.
+    - Una fecha pospuesta por dia no laborable aparece una sola vez, en su fecha efectiva (con fecha_original)."""
+    if (hasta - desde).days > MAX_RANGO_DIAS:
+        raise Error("El rango máximo es de 366 días.")
+    reuniones = _de_empleado_en_sede(c, empleado)
+    ids = [r["id"] for r in reuniones]
+    guardadas = {(o["reunion_id"], o["sucursal_id"], _date(o["fecha"])): o for o in db.all_rows(
+        c, f"SELECT * FROM reunion_ocurrencias WHERE reunion_id IN ({_marcas(ids)}) AND fecha BETWEEN %s AND %s",
+        (*ids, desde, hasta))} if ids else {}
+    registros = {(r["reunion_id"], r["sucursal_id"], _date(r["fecha"])): r
+                 for r in _registros_empleado(c, empleado, desde, hasta)}
+    items, usadas = [], set()
+    for r in reuniones:
+        base = dict(r, reunion_id=r["id"])
+        creada = r.get("created_at")
+        for dia in calendario(r, desde, hasta):
+            fecha = dia["fecha"]
+            clave = (r["id"], r["sucursal_id"], fecha)
+            occ = guardadas.get(clave)
+            if clave in usadas or (dia["omitida"] and occ):
+                continue  # sin duplicados; si el panel la registro igual, manda la ocurrencia guardada
+            reg = registros.get(clave)
+            h = occ or horarios(r, fecha)
+            if not reg and not occ and creada and h["inicio"] < creada:
+                continue
+            if not reg and occ and occ["estado"] == "cerrada":
+                continue
+            usadas.add(clave)
+            items.append(_item_ocurrencia(
+                base, fecha, h, occ, reg, ahora, omitida=dia["omitida"],
+                original=(occ or {}).get("fecha_original") or dia["original"],
+                cambio=(occ or {}).get("motivo_cambio") or motivo_cambio(dia)))
+    for clave, reg in registros.items():
+        if clave in usadas:
+            continue
+        occ = dict(id=reg["ocurrencia_id"], estado=reg["estado_ocurrencia"], reprogramada=reg["reprogramada"],
+                   motivo_cancelacion=reg["motivo_cancelacion"])
+        items.append(_item_ocurrencia(reg, clave[2], reg, occ, reg, ahora, original=reg["fecha_original"],
+                                      cambio=reg["motivo_cambio"]))
+    items.sort(key=lambda x: (x["inicio"], x["nombre"], x["reunion_id"]))
+    _marcar_superpuestas(items)
+    return items
+
+
+def _horas(minutos):
+    return round(minutos / 60, 1)
+
+
+def metricas(items):
+    """Totales de un conjunto de ocurrencias (ver DEFINICIONES). Base en minutos; horas solo para mostrar."""
+    vigentes = [i for i in items if not i["cancelada"]]
+    realizadas = [i for i in vigentes if i["estado"] in ESTADOS_REALIZADA]
+    cuenta = {e: sum(1 for i in vigentes if i["estado"] == e) for e in ESTADOS_REALIZADA + ESTADOS_PROXIMA}
+    ausentes = sum(1 for i in vigentes if i["estado"] == "ausente" and i["definitivo"])
+    asistidas = cuenta["presente"] + cuenta["tarde"]
+    convocatorias = asistidas + ausentes + cuenta["justificado"]
+    minutos = dict(
+        planificados=sum(i["duracion_min"] for i in vigentes),
+        realizados=sum(i["duracion_min"] for i in realizadas),
+        asistidos=sum(i["duracion_min"] for i in vigentes if i["estado"] in ("presente", "tarde")),
+    )
+    return dict(
+        planificadas=len(vigentes), realizadas=len(realizadas), proximas=cuenta["pendiente"] + cuenta["abierta"],
+        convocatorias=convocatorias, asistidas=asistidas, presentes=cuenta["presente"], tarde=cuenta["tarde"],
+        ausentes=ausentes, ausentes_provisionales=cuenta["ausente"] - ausentes, justificados=cuenta["justificado"],
+        canceladas=len(items) - len(vigentes),
+        provisionales=sum(1 for i in vigentes if not i["definitivo"]),
+        asistencia_pct=pct(asistidas, convocatorias - cuenta["justificado"]),
+        puntualidad_pct=pct(cuenta["presente"], asistidas),
+        minutos_planificados=minutos["planificados"], horas_planificadas=_horas(minutos["planificados"]),
+        minutos_realizados=minutos["realizados"], horas_realizadas=_horas(minutos["realizados"]),
+        minutos_asistidos=minutos["asistidos"], horas_asistidas=_horas(minutos["asistidos"]),
+    )
+
+
+def _por_reunion(items):
+    grupos = {}
+    for item in items:
+        grupos.setdefault(item["reunion_id"], []).append(item)
+    salida = [dict(reunion_id=rid, nombre=lista[0]["nombre"], **metricas(lista)) for rid, lista in grupos.items()]
+    return sorted(salida, key=lambda x: (x["nombre"], x["reunion_id"]))
+
+
+def _meta(ahora, **periodo):
+    return dict(periodo=periodo, zona_horaria=ZONA_HORARIA, calculado_at=_iso(ahora.replace(microsecond=0)))
+
+
+def mes_param(valor, nombre="mes"):
+    """'AAAA-MM' -> (primer dia, ultimo dia)."""
+    texto = str(valor or "").strip()
+    if len(texto) != 7 or texto[4] != "-" or not (texto[:4].isdigit() and texto[5:].isdigit()):
+        raise Error(f"'{nombre}' inválido (use AAAA-MM).")
+    anio, mes = int(texto[:4]), int(texto[5:])
+    if not 2000 <= anio <= 2100 or not 1 <= mes <= 12:
+        raise Error(f"'{nombre}' inválido (use AAAA-MM).")
+    return dt.date(anio, mes, 1), dt.date(anio, mes, calendar.monthrange(anio, mes)[1])
+
+
+def _siguiente_proxima(c, empleado, desde, ahora):
+    """La primera reunion no cancelada que todavia no paso (para distinguir 'no hay esta semana' de 'no hay')."""
+    items = ocurrencias_empleado(c, empleado, desde, desde + dt.timedelta(days=MAX_RANGO_DIAS), ahora)
+    item = next((i for i in items if i["estado"] in ESTADOS_PROXIMA), None)
+    return dict(reunion_id=item["reunion_id"], nombre=item["nombre"], fecha=item["fecha"], inicio=item["inicio"],
+                lugar=item["lugar"], sucursal_nombre=item["sucursal_nombre"]) if item else None
+
+
+def proximas(empleado, dias=7, *, desde=None, ahora=None):
+    """Ocurrencias desde hoy (o desde la fecha dada, p. ej. el lunes de la semana) con el estado del
+    empleado y un resumen: cantidad, horas, registradas, pendientes, ausentes y canceladas.
+    proxima: la siguiente reunion por venir aunque este fuera del rango (null = no hay proximas reuniones)."""
+    ahora = ahora or now_local()
+    dias = max(1, min(int(dias or 7), PROXIMAS_MAX_DIAS))
+    desde = desde or ahora.date()
+    hasta = desde + dt.timedelta(days=dias - 1)
+    with db.transaction(read_only=True) as c:
+        items = ocurrencias_empleado(c, empleado, desde, hasta, ahora)
+        proxima = next((i for i in items if i["estado"] in ESTADOS_PROXIMA), None)
+        if proxima:
+            proxima = dict(reunion_id=proxima["reunion_id"], nombre=proxima["nombre"], fecha=proxima["fecha"],
+                           inicio=proxima["inicio"], lugar=proxima["lugar"], sucursal_nombre=proxima["sucursal_nombre"])
+        else:
+            proxima = _siguiente_proxima(c, empleado, max(hasta + dt.timedelta(days=1), ahora.date()), ahora)
+    activas = [i for i in items if not i["cancelada"]]
     cuenta = {e: sum(1 for i in items if i["estado"] == e) for e in
               ("presente", "tarde", "ausente", "justificado", "abierta", "pendiente", "cancelada")}
+    minutos = sum(i["duracion_min"] for i in activas)
     resumen = dict(
-        reuniones=len(activas), minutos=sum(activas), horas=round(sum(activas) / 60, 1),
+        reuniones=len(activas), minutos=minutos, horas=_horas(minutos),
         registradas=cuenta["presente"] + cuenta["tarde"], tarde=cuenta["tarde"],
         pendientes=cuenta["pendiente"] + cuenta["abierta"], ausentes=cuenta["ausente"],
         justificadas=cuenta["justificado"], canceladas=cuenta["cancelada"],
         superpuestas=sum(1 for i in items if i["superpuesta_con"]),
     )
-    return dict(desde=desde.isoformat(), hasta=hasta.isoformat(), resumen=resumen, items=items)
+    return dict(desde=desde.isoformat(), hasta=hasta.isoformat(), resumen=resumen, items=items,
+                proxima=proxima, hay_proximas=proxima is not None,
+                **_meta(ahora, desde=desde.isoformat(), hasta=hasta.isoformat(), dias=dias))
+
+
+def calendario_mes(empleado, mes, *, ahora=None):
+    """Todas las ocurrencias del mes (sin paginar ni truncar) y su resumen, con las mismas reglas del dashboard."""
+    ahora = ahora or now_local()
+    desde, hasta = mes_param(mes)
+    with db.transaction(read_only=True) as c:
+        items = ocurrencias_empleado(c, empleado, desde, hasta, ahora)
+    return dict(**_meta(ahora, mes=desde.strftime("%Y-%m"), desde=desde.isoformat(), hasta=hasta.isoformat()),
+                resumen=metricas(items), total=len(items), items=items)
+
+
+def _estado_periodo(desde, hasta, ahora):
+    if hasta < ahora.date():
+        return "pasado"
+    return "futuro" if desde > ahora.date() else "en_curso"
+
+
+def estadisticas_mes(empleado, mes, *, ahora=None):
+    """Dashboard personal del mes: totales, datos para los graficos y desglose por reunion."""
+    ahora = ahora or now_local()
+    desde, hasta = mes_param(mes)
+    with db.transaction(read_only=True) as c:
+        items = ocurrencias_empleado(c, empleado, desde, hasta, ahora)
+    totales = metricas(items)
+    return dict(
+        **_meta(ahora, mes=desde.strftime("%Y-%m"), desde=desde.isoformat(), hasta=hasta.isoformat()),
+        estado_periodo=_estado_periodo(desde, hasta, ahora), provisional=totales["provisionales"] > 0,
+        totales=totales,
+        graficos=dict(
+            # Torta / barras de estados: solo lo ya realizado (las futuras no son ausencias).
+            estados=[dict(estado=e, cantidad=totales[k]) for e, k in (
+                ("presente", "presentes"), ("tarde", "tarde"), ("ausente", "ausentes"),
+                ("ausente_provisional", "ausentes_provisionales"), ("justificado", "justificados"))],
+            # Horas: plan completo del mes, lo realizado, lo asistido y lo que falta por hacer (no incumplido).
+            minutos=dict(planificados=totales["minutos_planificados"], realizados=totales["minutos_realizados"],
+                         asistidos=totales["minutos_asistidos"],
+                         por_realizar=totales["minutos_planificados"] - totales["minutos_realizados"]),
+        ),
+        por_reunion=_por_reunion(items), definiciones=DEFINICIONES,
+    )
+
+
+def _meses(desde, hasta):
+    actual = desde
+    while actual <= hasta:
+        yield actual
+        actual = (actual.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
+
+
+def evolucion(empleado, desde_mes=None, hasta_mes=None, *, ahora=None):
+    """Serie mensual (hasta 12 meses, incluidos los meses sin actividad) con las mismas metricas del dashboard."""
+    ahora = ahora or now_local()
+    hasta = mes_param(hasta_mes, "hasta_mes")[0] if hasta_mes else ahora.date().replace(day=1)
+    if desde_mes:
+        desde = mes_param(desde_mes, "desde_mes")[0]
+    else:
+        desde = hasta
+        for _ in range(5):  # por defecto, 6 meses
+            desde = (desde - dt.timedelta(days=1)).replace(day=1)
+    if desde > hasta:
+        raise Error("'desde_mes' no puede ser posterior a 'hasta_mes'.")
+    meses = list(_meses(desde, hasta))
+    if len(meses) > EVOLUCION_MAX_MESES:
+        raise Error(f"El rango máximo es de {EVOLUCION_MAX_MESES} meses.")
+    ultimo = dt.date(hasta.year, hasta.month, calendar.monthrange(hasta.year, hasta.month)[1])
+    with db.transaction(read_only=True) as c:
+        items = ocurrencias_empleado(c, empleado, desde, ultimo, ahora)
+    serie = []
+    for inicio_mes in meses:
+        clave = inicio_mes.strftime("%Y-%m")
+        del_mes = [i for i in items if i["fecha"].startswith(clave)]
+        fin_mes = dt.date(inicio_mes.year, inicio_mes.month, calendar.monthrange(inicio_mes.year, inicio_mes.month)[1])
+        serie.append(dict(mes=clave, estado_periodo=_estado_periodo(inicio_mes, fin_mes, ahora), **metricas(del_mes)))
+    return dict(
+        **_meta(ahora, desde_mes=desde.strftime("%Y-%m"), hasta_mes=hasta.strftime("%Y-%m"),
+                desde=desde.isoformat(), hasta=ultimo.isoformat()),
+        limites=dict(max_meses=EVOLUCION_MAX_MESES), meses=serie, totales=metricas(items),
+        por_reunion=_por_reunion(items), definiciones=DEFINICIONES,
+    )
+
+
+def proximas_ocurrencias(empleado, reunion_id, *, dias=60, limite=6, ahora=None):
+    """Para el detalle de una reunion: sus proximas ocurrencias no canceladas (mismas reglas que el calendario)."""
+    ahora = ahora or now_local()
+    with db.transaction(read_only=True) as c:
+        items = ocurrencias_empleado(c, empleado, ahora.date(), ahora.date() + dt.timedelta(days=dias), ahora)
+    return [i for i in items if i["reunion_id"] == int(reunion_id) and i["estado"] in ESTADOS_PROXIMA][:limite]
 
 
 def historial_empleado(empleado, *, desde=None, hasta=None, reunion_id=None, page=1, per_page=20):

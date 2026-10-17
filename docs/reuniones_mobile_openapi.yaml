@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Reuniones FichaYa
-  version: 1.42.1
+  version: 1.52.0
   description: |
     Reuniones recurrentes con convocados obligatorios y asistencia por QR.
     Guia con ejemplos, estados y recordatorios locales: reuniones_mobile.md.
@@ -11,6 +11,10 @@ info:
     1.41.0: /proximas acepta semana=actual y trae resumen (reuniones, horas, registradas, pendientes...);
     estadisticas agregan minutos_asistidos y horas_asistidas.
     1.42.0: /proximas marca reuniones superpuestas (superpuesta_con, resumen.superpuestas).
+    1.52.0: calendario mensual (/reuniones/calendario?mes=), dashboard del mes (/reuniones/estadisticas?mes=) y
+    evolucion (/reuniones/estadisticas/evolucion, hasta 12 meses). /proximas acepta semanas=N (1 a 8), dias hasta 62
+    y trae proxima/hay_proximas; cada ocurrencia trae id estable, ocurrencia_id, duracion_min, definitivo,
+    puede_registrar, reprogramada y observaciones. Horas = duracion programada (sin permanencia real). Aditivo.
 servers:
   - url: /api/v1/mobile
 security:
@@ -41,11 +45,16 @@ paths:
       parameters:
         - name: semana
           in: query
-          description: actual = lunes a domingo de la semana en curso (ignora dias)
+          description: "actual = lunes a domingo de la semana en curso. Precedencia: semana > semanas > dias."
           schema: {type: string, enum: [actual]}
+        - name: semanas
+          in: query
+          description: "N semanas desde el lunes de la semana en curso (1.52.0)."
+          schema: {type: integer, minimum: 1, maximum: 8}
         - name: dias
           in: query
-          schema: {type: integer, minimum: 1, maximum: 31, default: 7}
+          description: "N dias desde hoy (maximo 62 desde 1.52.0; antes 31)."
+          schema: {type: integer, minimum: 1, maximum: 62, default: 7}
       responses:
         '200':
           description: Ocurrencias en orden cronologico.
@@ -57,6 +66,26 @@ paths:
                   desde: {type: string, format: date}
                   hasta: {type: string, format: date}
                   resumen: {$ref: '#/components/schemas/ResumenSemana'}
+                  proxima:
+                    type: object
+                    nullable: true
+                    description: "Siguiente reunion no cancelada por venir, aunque este fuera del rango (1.52.0). null = no hay proximas reuniones."
+                    properties:
+                      reunion_id: {type: integer}
+                      nombre: {type: string}
+                      fecha: {type: string, format: date}
+                      inicio: {type: string, format: date-time}
+                      lugar: {type: string, nullable: true}
+                      sucursal_nombre: {type: string, nullable: true}
+                  hay_proximas: {type: boolean, description: "proxima != null (1.52.0)."}
+                  periodo:
+                    type: object
+                    properties:
+                      desde: {type: string, format: date}
+                      hasta: {type: string, format: date}
+                      dias: {type: integer}
+                  zona_horaria: {type: string, example: America/Argentina/Buenos_Aires}
+                  calculado_at: {type: string, format: date-time}
                   items:
                     type: array
                     items:
@@ -129,13 +158,61 @@ paths:
   /reuniones/estadisticas:
     get:
       tags: [Reuniones]
-      summary: Estadisticas propias del periodo (por defecto 90 dias, maximo 366)
+      summary: Estadisticas propias del periodo (por defecto 90 dias, maximo 366) o dashboard del mes
+      description: |
+        Sin mes: formato historico por desde/hasta (sin cambios).
+        Con mes=AAAA-MM (1.52.0): dashboard del mes (EstadisticasMes). mes no se combina con desde/hasta (400).
       parameters:
         - {name: desde, in: query, schema: {type: string, format: date}}
         - {name: hasta, in: query, schema: {type: string, format: date}}
+        - {name: mes, in: query, description: "AAAA-MM (1.52.0).", schema: {type: string, pattern: '^[0-9]{4}-[0-9]{2}$'}}
       responses:
         '200':
-          description: Totales y detalle por reunion; no cuenta fechas canceladas.
+          description: "Historico: totales y detalle por reunion (no cuenta fechas canceladas). Con mes: EstadisticasMes."
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/EstadisticasMes'
+                  - $ref: '#/components/schemas/EstadisticasHistorico'
+        '400':
+          $ref: '#/components/responses/Error'
+  /reuniones/calendario:
+    get:
+      tags: [Reuniones]
+      summary: Calendario del mes del empleado (1.52.0)
+      description: Todas las ocurrencias del mes en orden cronologico, sin paginar ni truncar. Mismas reglas que el dashboard.
+      parameters:
+        - {name: mes, in: query, description: "AAAA-MM; por defecto el mes actual.", schema: {type: string, pattern: '^[0-9]{4}-[0-9]{2}$'}}
+      responses:
+        '200':
+          description: Ocurrencias y resumen del mes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  periodo: {$ref: '#/components/schemas/PeriodoMes'}
+                  zona_horaria: {type: string, example: America/Argentina/Buenos_Aires}
+                  calculado_at: {type: string, format: date-time}
+                  resumen: {$ref: '#/components/schemas/MetricasReuniones'}
+                  total: {type: integer, description: "Cantidad de items (todos los del mes)."}
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/ReunionProxima'}
+        '400':
+          $ref: '#/components/responses/Error'
+  /reuniones/estadisticas/evolucion:
+    get:
+      tags: [Reuniones]
+      summary: Serie mensual para graficos (1.52.0)
+      description: Hasta 12 meses, incluidos los meses sin actividad. Porcentajes null sin denominador.
+      parameters:
+        - {name: desde_mes, in: query, description: "AAAA-MM; por defecto 5 meses antes de hasta_mes.", schema: {type: string}}
+        - {name: hasta_mes, in: query, description: "AAAA-MM; por defecto el mes actual.", schema: {type: string}}
+      responses:
+        '200':
+          description: Serie mensual, totales y desglose por reunion.
           content:
             application/json:
               schema:
@@ -144,18 +221,30 @@ paths:
                   periodo:
                     type: object
                     properties:
+                      desde_mes: {type: string}
+                      hasta_mes: {type: string}
                       desde: {type: string, format: date}
                       hasta: {type: string, format: date}
-                  totales: {$ref: '#/components/schemas/EstadisticaReunion'}
-                  por_reunion:
+                  zona_horaria: {type: string}
+                  calculado_at: {type: string, format: date-time}
+                  limites:
+                    type: object
+                    properties:
+                      max_meses: {type: integer, example: 12}
+                  meses:
                     type: array
                     items:
                       allOf:
-                        - $ref: '#/components/schemas/EstadisticaReunion'
+                        - $ref: '#/components/schemas/MetricasReuniones'
                         - type: object
                           properties:
-                            reunion_id: {type: integer}
-                            nombre: {type: string}
+                            mes: {type: string, example: 2026-10}
+                            estado_periodo: {type: string, enum: [pasado, en_curso, futuro]}
+                  totales: {$ref: '#/components/schemas/MetricasReuniones'}
+                  por_reunion:
+                    type: array
+                    items: {$ref: '#/components/schemas/MetricasPorReunion'}
+                  definiciones: {type: object, additionalProperties: {type: string}}
         '400':
           $ref: '#/components/responses/Error'
   /reuniones/{id}:
@@ -177,7 +266,12 @@ paths:
                       activa: {type: boolean}
                       proximas_fechas:
                         type: array
+                        description: "Compatibilidad: solo la regla (no descuenta cancelaciones del panel)."
                         items: {type: string, format: date}
+                      proximas_ocurrencias:
+                        type: array
+                        description: "Hasta 6 proximas ocurrencias no canceladas de los proximos 60 dias, iguales al calendario (1.52.0)."
+                        items: {$ref: '#/components/schemas/ReunionProxima'}
                       historial:
                         type: array
                         items: {$ref: '#/components/schemas/HistorialReunion'}
@@ -256,6 +350,91 @@ components:
         feriado_accion: {type: string, enum: [posponer, omitir, mantener], description: Que pasa si cae en un dia no laborable (1.40.0)}
         proxima_fecha: {type: string, format: date, nullable: true}
         mis_estadisticas: {$ref: '#/components/schemas/EstadisticaReunion'}
+    PeriodoMes:
+      type: object
+      properties:
+        mes: {type: string, example: 2026-10}
+        desde: {type: string, format: date}
+        hasta: {type: string, format: date}
+    MetricasReuniones:
+      type: object
+      description: "Ver reuniones_mobile.md (Metricas y denominadores). Base en minutos; horas_* solo para mostrar (1.52.0)."
+      properties:
+        planificadas: {type: integer}
+        realizadas: {type: integer}
+        proximas: {type: integer}
+        convocatorias: {type: integer, description: "asistidas + ausentes + justificados."}
+        asistidas: {type: integer}
+        presentes: {type: integer}
+        tarde: {type: integer}
+        ausentes: {type: integer, description: "Definitivas."}
+        ausentes_provisionales: {type: integer}
+        justificados: {type: integer}
+        canceladas: {type: integer}
+        provisionales: {type: integer}
+        asistencia_pct: {type: number, nullable: true, description: "asistidas / (convocatorias - justificados) x 100."}
+        puntualidad_pct: {type: number, nullable: true, description: "presentes / asistidas x 100."}
+        minutos_planificados: {type: integer}
+        horas_planificadas: {type: number}
+        minutos_realizados: {type: integer}
+        horas_realizadas: {type: number}
+        minutos_asistidos: {type: integer, description: "Duracion programada completa de presente + tarde."}
+        horas_asistidas: {type: number}
+    MetricasPorReunion:
+      allOf:
+        - $ref: '#/components/schemas/MetricasReuniones'
+        - type: object
+          properties:
+            reunion_id: {type: integer}
+            nombre: {type: string}
+    EstadisticasMes:
+      type: object
+      properties:
+        periodo: {$ref: '#/components/schemas/PeriodoMes'}
+        zona_horaria: {type: string, example: America/Argentina/Buenos_Aires}
+        calculado_at: {type: string, format: date-time}
+        estado_periodo: {type: string, enum: [pasado, en_curso, futuro]}
+        provisional: {type: boolean}
+        totales: {$ref: '#/components/schemas/MetricasReuniones'}
+        graficos:
+          type: object
+          properties:
+            estados:
+              type: array
+              items:
+                type: object
+                properties:
+                  estado: {type: string, enum: [presente, tarde, ausente, ausente_provisional, justificado]}
+                  cantidad: {type: integer}
+            minutos:
+              type: object
+              properties:
+                planificados: {type: integer}
+                realizados: {type: integer}
+                asistidos: {type: integer}
+                por_realizar: {type: integer, description: "Lo que falta hacer; no son horas incumplidas."}
+        por_reunion:
+          type: array
+          items: {$ref: '#/components/schemas/MetricasPorReunion'}
+        definiciones: {type: object, additionalProperties: {type: string}}
+    EstadisticasHistorico:
+      type: object
+      properties:
+        periodo:
+          type: object
+          properties:
+            desde: {type: string, format: date}
+            hasta: {type: string, format: date}
+        totales: {$ref: '#/components/schemas/EstadisticaReunion'}
+        por_reunion:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/EstadisticaReunion'
+              - type: object
+                properties:
+                  reunion_id: {type: integer}
+                  nombre: {type: string}
     ReunionProxima:
       type: object
       properties:
@@ -278,6 +457,13 @@ components:
         qr_modo: {type: string, enum: [fijo, dinamico, ambos]}
         fecha_original: {type: string, format: date, nullable: true, description: Fecha antes de posponerse por un dia no laborable}
         motivo_cambio: {type: string, nullable: true, description: 'Texto listo para mostrar, p. ej. "Pospuesta del lunes 12/10 por dia no laborable."'}
+        id: {type: string, example: 1-0-2026-10-21, description: "Id estable de la ocurrencia: reunion-sucursal-fecha (1.52.0)."}
+        ocurrencia_id: {type: integer, nullable: true, description: "Fila guardada; null si todavia no se creo (1.52.0)."}
+        duracion_min: {type: integer, description: "Duracion programada en minutos (1.52.0)."}
+        definitivo: {type: boolean, description: "false = pendiente, abierta o ausencia provisoria (1.52.0)."}
+        puede_registrar: {type: boolean, description: "El registro QR esta abierto ahora (1.52.0)."}
+        reprogramada: {type: boolean, description: "Horario cambiado desde el panel para esa fecha (1.52.0)."}
+        observaciones: {type: string, nullable: true, description: "Motivo de una justificacion (1.52.0)."}
         superpuesta_con:
           type: array
           description: Otras reuniones propias que se pisan en horario ese dia (1.42.0)
