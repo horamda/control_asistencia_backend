@@ -331,48 +331,21 @@ def solicitar_vacaciones(
     fecha_hasta: str,
     observacion: str | None = None,
 ) -> dict:
-    desde = _parse_date(fecha_desde, "fecha_desde")
-    hasta = _parse_date(fecha_hasta, "fecha_hasta")
-    if desde > hasta:
-        raise VacacionesError("fecha_desde no puede ser posterior a fecha_hasta.")
-    if desde.year != hasta.year:
-        raise VacacionesError("La solicitud debe estar contenida dentro del mismo anio.")
+    """Pedido del empleado por fechas (endpoints anteriores a 1.53.0). Desde 1.53.0 el rango tiene que ser de semanas
+    completas: lunes a domingo, o desde el primer dia habil si el lunes es feriado (vacaciones_semanas_service)."""
+    from services import vacaciones_semanas_service as semanas  # import tardio: ese modulo importa este
 
-    dias_solicitados = (hasta - desde).days + 1
-    _validar_rango_tomado_sin_solape(
-        empleado_id=int(empleado_id),
-        fecha_desde=desde.isoformat(),
-        fecha_hasta=hasta.isoformat(),
-    )
-    resumen = calcular_resumen_vacaciones(int(empleado_id), desde.year)
-    vacaciones = resumen["vacaciones"]
-    saldo_reservado = Decimal(str(vacaciones.get("dias_disponibles_con_pendientes", 0)))
-
-    if Decimal(str(dias_solicitados)) > saldo_reservado:
-        raise VacacionesSaldoInsuficienteError("Saldo de vacaciones insuficiente.")
-
-    movimiento_id = create_movimiento(
-        {
-            "empleado_id": int(empleado_id),
-            "empresa_id": int(_get_empleado_activo(empleado_id)["empresa_id"]),
-            "anio": desde.year,
-            "tipo": "tomado",
-            "dias": dias_solicitados,
-            "observacion": (observacion or "").strip() or None,
-            "fecha_desde": desde.isoformat(),
-            "fecha_hasta": hasta.isoformat(),
-            "estado": "pendiente",
-        }
-    )
-    avisos_push.revision_vacaciones(movimiento_id)
-
+    lunes = semanas.semanas_de_rango(int(empleado_id), fecha_desde, fecha_hasta)
+    solicitud = semanas.crear_solicitud(int(empleado_id), lunes, observacion)
+    tanda = solicitud["tandas"][0]
     return {
-        "id": movimiento_id,
-        "anio": desde.year,
-        "dias_solicitados": dias_solicitados,
+        "id": tanda["movimiento_id"],
+        "solicitud_id": solicitud["id"],
+        "anio": tanda["anio"],
+        "dias_solicitados": tanda["dias"],
         "estado": "pendiente",
-        "fecha_desde": desde.isoformat(),
-        "fecha_hasta": hasta.isoformat(),
+        "fecha_desde": tanda["fecha_desde"],
+        "fecha_hasta": tanda["fecha_hasta"],
     }
 
 
@@ -522,6 +495,8 @@ def crear_movimiento_vacaciones_admin(data: dict) -> int:
         row = get_movimiento_by_id(movimiento_id)
         if row:
             _ensure_legacy_vacacion_for_movimiento(row)
+        if tipo == "tomado":
+            avisos_push.vacaciones_solicitud_resuelta(movimiento_id, "cargada", [movimiento_id])
     return movimiento_id
 
 
@@ -600,7 +575,17 @@ def editar_movimiento_vacaciones_pendiente(movimiento_id: int, data: dict) -> No
     )
 
 
-def aprobar_movimiento_vacaciones(movimiento_id: int, *, actor_id: int | None = None) -> None:
+def _al_resolver(movimiento_id: int) -> None:
+    """Si la solicitud ya no tiene nada por resolver, limpia los avisos "para revisar" de los revisores."""
+    try:
+        from services import vacaciones_semanas_service as semanas
+        semanas.al_resolver_movimiento(movimiento_id)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("vacaciones_al_resolver_error", exc_info=True)
+
+
+def aprobar_movimiento_vacaciones(movimiento_id: int, *, actor_id: int | None = None, avisar: bool = True) -> None:
     row = get_movimiento_by_id(movimiento_id)
     if not row:
         raise VacacionesError("Movimiento de vacaciones no encontrado.")
@@ -634,7 +619,9 @@ def aprobar_movimiento_vacaciones(movimiento_id: int, *, actor_id: int | None = 
     row = get_movimiento_by_id(movimiento_id)
     if row:
         _ensure_legacy_vacacion_for_movimiento(row)
-    avisos_push.vacaciones_resueltas(movimiento_id)
+    if avisar:
+        avisos_push.vacaciones_resueltas(movimiento_id)
+    _al_resolver(movimiento_id)
 
 
 def cancelar_movimiento_vacaciones(
@@ -642,6 +629,7 @@ def cancelar_movimiento_vacaciones(
     *,
     actor_id: int | None = None,
     motivo: str | None = None,
+    avisar: bool = True,
 ) -> int:
     motivo = str(motivo or "").strip()
     if not motivo:
@@ -686,6 +674,11 @@ def cancelar_movimiento_vacaciones(
         actor_id=actor_id,
         motivo=motivo,
     )
+    if tipo == "tomado":
+        if avisar:
+            sid = row.get("solicitud_id") or movimiento_id
+            avisos_push.vacaciones_solicitud_resuelta(sid, "cancelada", [movimiento_id])
+        _al_resolver(movimiento_id)
     return ajuste_id
 
 
@@ -792,6 +785,7 @@ def rechazar_movimiento_vacaciones(
     *,
     actor_id: int | None = None,
     motivo: str | None = None,
+    avisar: bool = True,
 ) -> None:
     motivo = str(motivo or "").strip()
     if not motivo:
@@ -810,4 +804,6 @@ def rechazar_movimiento_vacaciones(
         expected_estado="pendiente",
     ):
         raise VacacionesError("El movimiento ya fue resuelto.")
-    avisos_push.vacaciones_resueltas(movimiento_id)
+    if avisar:
+        avisos_push.vacaciones_resueltas(movimiento_id)
+    _al_resolver(movimiento_id)

@@ -1,3 +1,4 @@
+import pytest
 import datetime
 from decimal import Decimal
 
@@ -161,39 +162,26 @@ def test_calcular_resumen_vacaciones_anio_en_curso_no_penaliza_dias_futuros(monk
     assert vacaciones["fecha_evaluacion_trabajo"] == "2026-05-15"
 
 
-def test_solicitar_vacaciones_registra_pendiente(monkeypatch):
-    monkeypatch.setattr(vacaciones_service, "_today", lambda: datetime.date(2027, 1, 1))
-    monkeypatch.setattr(
-        vacaciones_service,
-        "get_empleado_for_vacaciones",
-        lambda empleado_id: _empleado(),
-    )
-    monkeypatch.setattr(
-        vacaciones_service,
-        "count_dias_efectivamente_trabajados",
-        lambda **kwargs: 220,
-    )
-    monkeypatch.setattr(vacaciones_service, "get_movimientos_by_empleado_anio", lambda **kwargs: [])
-    monkeypatch.setattr(vacaciones_service, "exists_movimiento_tomado_overlap", lambda **kwargs: False)
-    created = {}
-    monkeypatch.setattr(
-        vacaciones_service,
-        "create_movimiento",
-        lambda data: created.update(data) or 55,
-    )
+def test_solicitar_vacaciones_por_fechas_pasa_por_semanas(monkeypatch):
+    """Desde 1.53.0 el pedido por fechas se valida como semanas completas y crea una solicitud."""
+    from services import vacaciones_semanas_service as semanas
+    llamadas = {}
+    monkeypatch.setattr(semanas, "semanas_de_rango", lambda eid, d, h: llamadas.update(rango=(eid, d, h)) or ["2027-01-04"])
+    monkeypatch.setattr(semanas, "crear_solicitud", lambda eid, lunes, obs: llamadas.update(crear=(eid, lunes, obs)) or dict(
+        id=55, tandas=[dict(movimiento_id=55, anio=2027, dias=7, fecha_desde="2027-01-04", fecha_hasta="2027-01-10")]))
 
     result = vacaciones_service.solicitar_vacaciones(
-        empleado_id=10,
-        fecha_desde="2026-01-10",
-        fecha_hasta="2026-01-14",
-        observacion="Solicitud vacaciones",
-    )
+        empleado_id=10, fecha_desde="2027-01-04", fecha_hasta="2027-01-10", observacion="Solicitud vacaciones")
 
-    assert result["id"] == 55
-    assert result["dias_solicitados"] == 5
-    assert created["tipo"] == "tomado"
-    assert created["estado"] == "pendiente"
-    assert created["dias"] == 5
+    assert llamadas["crear"] == (10, ["2027-01-04"], "Solicitud vacaciones")
+    assert result == {"id": 55, "solicitud_id": 55, "anio": 2027, "dias_solicitados": 7, "estado": "pendiente",
+                      "fecha_desde": "2027-01-04", "fecha_hasta": "2027-01-10"}
+
+
+def test_solicitar_vacaciones_rechaza_dias_sueltos():
+    with pytest.raises(vacaciones_service.VacacionesError, match="semanas completas"):
+        vacaciones_service.solicitar_vacaciones(
+            empleado_id=10, fecha_desde="2026-01-10", fecha_hasta="2026-01-14", observacion=None)
 
 
 def test_solicitar_vacaciones_rechaza_rango_invertido():

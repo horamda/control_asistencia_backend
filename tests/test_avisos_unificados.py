@@ -52,14 +52,18 @@ def test_justificacion_pendiente_no_avisa(cola):
     assert avisos.justificacion_resuelta(9) == 0 and encolados == []
 
 
-def test_vacaciones_aprobadas(cola):
+def test_vacaciones_aprobadas(cola, monkeypatch):
+    """Desde 1.53.0 las tomadas avisan con el formato de la solicitud (sus tandas y, si resolvio el jefe, quien)."""
     estado, encolados = cola
-    estado["fila"] = dict(id=4, empresa_id=1, empleado_id=10, tipo="tomado", estado="aprobado", dias=Decimal("5.00"),
-                          fecha_desde=dt.date(2026, 12, 1), fecha_hasta=dt.date(2026, 12, 5), motivo_resolucion=None)
+    estado["fila"] = dict(id=4, sid=4, empresa_id=1, empleado_id=10, tipo="tomado", estado="aprobado", dias=Decimal("14.00"),
+                          fecha_desde=dt.date(2026, 12, 7), fecha_hasta=dt.date(2026, 12, 20), motivo_resolucion=None)
+    monkeypatch.setattr(avisos.db, "all_rows", lambda c, sql, args: [dict(estado["fila"], apellido="Perez", nombre="Ana")])
     avisos.vacaciones_resueltas(4)
     assert encolados[0]["titulo"] == "Vacaciones aprobadas"
-    assert encolados[0]["cuerpo"] == "Tus vacaciones del 01/12 al 05/12 (5 días) fueron aprobadas."
-    assert encolados[0]["clave"] == "vacaciones:4:aprobado"
+    assert encolados[0]["cuerpo"] == "Tus vacaciones del 07/12 al 20/12 fueron aprobadas (14 días)."
+    assert encolados[0]["clave"] == "vacaciones:s4:aprobada:4"
+    assert encolados[0]["datos"]["solicitud_id"] == 4 and encolados[0]["datos"]["evento"] == "aprobada"
+    assert encolados[0]["datos"]["ruta"] == "/vacaciones/4"
 
 
 def test_compensatorio_rechazado(cola):
@@ -182,13 +186,25 @@ def test_justificacion_para_revisar_va_a_quien_aprueba_y_no_al_que_pide(revisore
     assert aviso["regla"] == "revision:justificaciones"
 
 
+def _vacaciones_pendientes(estado, monkeypatch):
+    """Una solicitud de 2 semanas (lunes 2/11 feriado: martes 3/11 a lunes 16/11). La base falsa responde las tandas
+    a la consulta de vacaciones y los usuarios del panel a la de aprobadores."""
+    estado["fila"] = dict(id=4, sid=4, empresa_id=1, empleado_id=10, apellido="Perez", nombre="Ana", estado="pendiente",
+                          dias=Decimal("14"), fecha_desde=dt.date(2026, 11, 3), fecha_hasta=dt.date(2026, 11, 16))
+    usuarios = [{"usuario_id": 1, "empleado_id": 50}, {"usuario_id": 2, "empleado_id": 51}, {"usuario_id": 3, "empleado_id": 10}]
+    monkeypatch.setattr(avisos.db, "all_rows", lambda c, sql, args: [estado["fila"]] if "vacaciones_movimientos" in sql else usuarios)
+
+
 def test_solicitud_tambien_al_jefe_directo(revisores, monkeypatch):
     estado, encolados = revisores
     monkeypatch.setattr(avisos, "_jefe", lambda c, empleado_id: {77})
-    estado["fila"] = dict(id=4, empresa_id=1, empleado_id=10, apellido="Perez", nombre="Ana", estado="pendiente",
-                          dias=Decimal("3"), fecha_desde=dt.date(2026, 11, 2), fecha_hasta=dt.date(2026, 11, 4))
+    _vacaciones_pendientes(estado, monkeypatch)
     avisos.revision_vacaciones(4)
     assert encolados[0]["ids"] == [50, 77]
+    # Un aviso por solicitud, con las fechas reales y la pantalla del jefe.
+    assert encolados[0]["cuerpo"] == "Perez Ana pidió 2 semanas: del 03/11 al 16/11 (14 días)."
+    assert encolados[0]["clave"] == "revision:vacaciones:s4:pedido"
+    assert encolados[0]["datos"]["ruta"] == "/equipo/vacaciones/4" and encolados[0]["datos"]["solicitud_id"] == 4
 
 
 def test_regla_solo_jefe_no_avisa_a_rrhh(revisores, monkeypatch):
@@ -197,8 +213,7 @@ def test_regla_solo_jefe_no_avisa_a_rrhh(revisores, monkeypatch):
     reglas["revision:vacaciones"]["destinatarios"] = ["jefe_directo"]
     monkeypatch.setattr(avisos.reglas_push, "configuracion", lambda empresa_id: (reglas, (None, None)))
     monkeypatch.setattr(avisos, "_jefe", lambda c, empleado_id: {77})
-    estado["fila"] = dict(id=4, empresa_id=1, empleado_id=10, apellido="Perez", nombre="Ana", estado="pendiente",
-                          dias=Decimal("3"), fecha_desde=dt.date(2026, 11, 2), fecha_hasta=dt.date(2026, 11, 4))
+    _vacaciones_pendientes(estado, monkeypatch)
     avisos.revision_vacaciones(4)
     assert encolados[0]["ids"] == [77]
 

@@ -46,10 +46,11 @@ CATALOGO = {
     "revision_pendiente": ("revisiones", None, "registro_id"),  # referencia segun datos.modulo (_referencia)
 }
 # Solo push, sin bandeja: recordatorios que pierden sentido pasado el momento y la notificacion de prueba.
-SOLO_PUSH = frozenset({"prueba", "salida_pendiente", "recordatorio", "trivia_recordatorio", "reintegro_recordatorio"})
+SOLO_PUSH = frozenset({"prueba", "salida_pendiente", "recordatorio", "trivia_recordatorio", "reintegro_recordatorio",
+                       "vacaciones_inicio", "vacaciones_equipo"})
 
 # Solicitudes para revisar (a jefes / RR. HH. / Seguridad): modulo de la regla -> tipo de referencia.
-_REVISION = {"justificaciones": "justificacion", "vacaciones": "vacaciones", "reintegros": "reintegro",
+_REVISION = {"justificaciones": "justificacion", "vacaciones": "vacaciones_solicitud", "reintegros": "reintegro",
              "epp": "epp", "seguridad_higiene": "seguridad_evento"}
 
 # Acceso al registro relacionado: (SQL con id [y empresa], usa empresa, columnas de quien puede verlo).
@@ -66,6 +67,9 @@ _REFERENCIAS = {
     "justificacion": ("""SELECT j.empleado_id AS a FROM justificaciones j JOIN empleados e ON e.id = j.empleado_id
                          WHERE j.id = %s AND e.empresa_id = %s""", True, ("a",)),
     "vacaciones": ("SELECT empleado_id AS a FROM vacaciones_movimientos WHERE id = %s AND empresa_id = %s", True, ("a",)),
+    # Una solicitud agrupa tandas; lo cargado antes de 1.53.0 es su propio movimiento (COALESCE).
+    "vacaciones_solicitud": ("""SELECT empleado_id AS a FROM vacaciones_movimientos
+                                WHERE COALESCE(solicitud_id, id) = %s AND empresa_id = %s""", True, ("a",)),
     "epp": ("SELECT empleado_id AS a FROM epp_pedidos WHERE id = %s AND empresa_id = %s", True, ("a",)),
     "seguridad_evento": ("SELECT reportante_id AS a FROM sh_eventos WHERE id = %s AND empresa_id = %s", True, ("a",)),
     "seguridad_accion": ("""SELECT a.responsable_id AS a FROM sh_acciones a JOIN sh_eventos ev ON ev.id = a.evento_id
@@ -85,6 +89,8 @@ def en_bandeja(tipo):
 def _referencia(tipo, datos, clave):
     """(modulo, referencia_tipo, referencia_id) del evento."""
     modulo, referencia_tipo, campo = CATALOGO[tipo]
+    if tipo == "vacaciones" and datos.get("solicitud_id") not in (None, ""):
+        referencia_tipo, campo = "vacaciones_solicitud", "solicitud_id"
     if tipo == "revision_pendiente":
         modulo_revision = str(datos.get("modulo") or "")
         if modulo_revision == "pedidos_empleados":
@@ -278,10 +284,25 @@ def _disponible(c, empleado, fila):
         return None
     if not filas:
         return False
-    # Solicitudes para revisar: el destinatario es quien aprueba; la pantalla de revision valida su permiso.
+    # Vacaciones para revisar: el empleado tiene que estar en la cadena del jefe (o ser de la empresa, para un dueno).
+    if fila["tipo"] == "revision_pendiente" and fila["referencia_tipo"] == "vacaciones_solicitud":
+        from services.vacaciones_semanas_service import en_cadena  # import tardio: evita el ciclo con push_service
+        return any(en_cadena(c, empleado, f["a"]) for f in filas) or _es_aprobador(empleado, "vacaciones")
+    # Otras solicitudes para revisar: el destinatario es quien aprueba; la pantalla de revision valida su permiso.
     if not columnas or fila["tipo"] == "revision_pendiente":
         return True
     return any(int(f[col] or 0) == int(empleado["id"]) for f in filas for col in columnas)
+
+
+def _es_aprobador(empleado, modulo):
+    """RR. HH.: un usuario del panel vinculado a este empleado con permiso de aprobar el modulo."""
+    try:
+        from web.auth.decorators import can_access_module
+        with db.transaction(read_only=True) as c:
+            usuarios = db.all_rows(c, "SELECT id FROM usuarios WHERE empleado_id = %s AND activo = 1", (int(empleado["id"]),))
+        return any(can_access_module(u["id"], modulo, "aprobar") for u in usuarios)
+    except Exception:
+        return False
 
 
 def detalle(empleado, notificacion_id):

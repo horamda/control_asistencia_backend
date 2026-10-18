@@ -1,7 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.52.0
+Version de contrato: 1.53.0
 
+- **Vacaciones por semanas y Mi equipo (1.53.0):** semanas completas con la regla del lunes feriado, solicitudes con varias tandas, cancelaciones con aprobación y vista de jefes y dueños. Ver [vacaciones](vacaciones_mobile.md).
 - **Mis reuniones: calendario, dashboard y evolución (1.52.0):** `/reuniones/calendario?mes=`, `/reuniones/estadisticas?mes=` y `/reuniones/estadisticas/evolucion`; `/reuniones/proximas` con `semanas`, `proxima` y `hay_proximas`. Ver [reuniones](reuniones_mobile.md).
 - **Bandeja de notificaciones (1.51.0):** campana persistente en `/me/notificaciones` (listado, resumen, detalle, leer y leer-todas con corte) y `data.notificacion_id` en el push. Reemplaza las alertas calculadas en la app. Ver [contrato](notificaciones_mobile.md).
 - **Vibración y canal de urgentes (1.50.0):** patrón de vibración propio y canal `fichaya_urgente` para salida sin fichar y reunión por empezar. Ver [push](push_mobile.md#vibración-y-canal-de-urgentes-1500).
@@ -566,7 +567,7 @@ final body = {'dni': dni, 'password': password, ...extras};
     ]
   },
   "vacaciones_activas":[
-    {"id":7,"empleado_id":12,"fecha_desde":"2026-04-01","fecha_hasta":"2026-04-15","observaciones":"Vacaciones anuales"}
+    {"id":7,"empleado_id":12,"fecha_desde":"2026-04-06","fecha_hasta":"2026-04-19","observaciones":"Vacaciones anuales"}
   ],
   "francos_proximos":[
     {"id":3,"empleado_id":12,"fecha":"2026-03-28","motivo":"Franco compensatorio"}
@@ -743,7 +744,7 @@ final body = {'dni': dni, 'password': password, ...extras};
 
 ### Vacaciones
 
-> Nota: `/me/vacaciones*` se mantiene por compatibilidad, pero ahora opera sobre `vacaciones_movimientos`: crea solicitudes pendientes, permite editar solo pendientes y revierte aprobadas mediante ajuste. Para el flujo mobile con saldo LCT, dias pendientes y validacion de disponibilidad, usar `/vacaciones/resumen`, `/vacaciones/movimientos` y `/vacaciones/solicitar`.
+> Desde 1.53.0, el flujo recomendado es `/me/vacaciones/semanas` y `/me/vacaciones/solicitudes`. Las rutas anteriores siguen disponibles, pero exigen semanas completas y las vacaciones aprobadas requieren autorizaci?n de cancelaci?n. Ver `vacaciones_mobile.md`. `/vacaciones/resumen` y `/vacaciones/movimientos` conservan la consulta de saldos y movimientos.
 
 #### 23. `GET /api/v1/mobile/me/vacaciones?desde=&hasta=&page=&per_page=`
 - Lista paginada de periodos de vacaciones.
@@ -751,7 +752,7 @@ final body = {'dni': dni, 'password': password, ...extras};
 ```json
 {
   "items":[
-    {"id":7,"empleado_id":12,"fecha_desde":"2026-04-01","fecha_hasta":"2026-04-15","observaciones":"Vacaciones anuales"}
+    {"id":7,"empleado_id":12,"fecha_desde":"2026-04-06","fecha_hasta":"2026-04-19","observaciones":"Vacaciones anuales"}
   ],
   "total":1,
   "page":1,
@@ -766,7 +767,7 @@ final body = {'dni': dni, 'password': password, ...extras};
 #### 25. `POST /api/v1/mobile/me/vacaciones`
 - Request:
 ```json
-{"fecha_desde":"2026-04-01","fecha_hasta":"2026-04-15","observaciones":"Vacaciones anuales"}
+{"fecha_desde":"2026-04-06","fecha_hasta":"2026-04-19","observaciones":"Vacaciones anuales"}
 ```
 - `fecha_desde` y `fecha_hasta` son obligatorios.
 - Response 201: objeto vacacion creada.
@@ -778,7 +779,8 @@ final body = {'dni': dni, 'password': password, ...extras};
 - Response 404: `{"error":"Vacacion no encontrada"}`
 
 #### 27. `DELETE /api/v1/mobile/me/vacaciones/<id>`
-- Response 200: `{"ok":true}`
+- Desde 1.53.0: una pendiente se cancela; una aprobada sin empezar solicita cancelaci?n al jefe o RR. HH.
+- Response 200: `{"ok":true,"cancelacion_pedida":false,"mensaje":"Solicitud cancelada."}` o `{"ok":true,"cancelacion_pedida":true,"mensaje":"Pedido de cancelaci?n enviado a tu jefe."}`
 - Response 404: `{"error":"Vacacion no encontrada"}`
 
 #### 27A. `GET /api/v1/mobile/vacaciones/resumen?anio=YYYY`
@@ -968,13 +970,14 @@ GET /vacaciones/resumen?anio=YYYY
 ```
 
 #### 27C. `POST /api/v1/mobile/vacaciones/solicitar`
+- Desde 1.53.0 solo acepta semanas completas, con inicio ajustado por el servidor cuando el lunes es no laborable; de lo contrario devuelve 400. Para nuevas integraciones usar `/me/vacaciones/semanas`.
 - Crea una solicitud de vacaciones como movimiento `tipo="tomado"` en estado `pendiente`.
 - Valida saldo disponible usando `dias_disponibles_con_pendientes`.
 - `fecha_desde` y `fecha_hasta` deben pertenecer al mismo anio.
 - `dias_solicitados` se calcula como dias calendario inclusivos (`fecha_hasta - fecha_desde + 1`).
 - Request:
 ```json
-{"fecha_desde":"2026-01-10","fecha_hasta":"2026-01-14","observacion":"Solicitud vacaciones"}
+{"fecha_desde":"2026-01-05","fecha_hasta":"2026-01-11","observacion":"Solicitud vacaciones"}
 ```
 - Response 201:
 ```json
@@ -983,10 +986,10 @@ GET /vacaciones/resumen?anio=YYYY
   "message":"Solicitud de vacaciones registrada correctamente",
   "solicitud":{
     "id":33,
-    "dias_solicitados":5,
+    "dias_solicitados":7,
     "estado":"pendiente",
-    "fecha_desde":"2026-01-10",
-    "fecha_hasta":"2026-01-14"
+    "fecha_desde":"2026-01-05",
+    "fecha_hasta":"2026-01-11"
   }
 }
 ```

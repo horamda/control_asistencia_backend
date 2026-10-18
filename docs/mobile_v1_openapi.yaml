@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.52.0
+  version: 1.53.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.53.0: vacaciones por semanas completas (lunes feriado: empieza el primer dia habil) y Mi equipo para jefes y duenos (ver, aprobar, cancelaciones); avisos por solicitud. Ver vacaciones_mobile.md.
     Version 1.52.0: Mis reuniones con calendario mensual, dashboard del mes y evolucion (rutas en reuniones_mobile_openapi.yaml; guia reuniones_mobile.md).
     Version 1.51.0: bandeja de notificaciones persistente (/me/notificaciones: listado, resumen, detalle, leer y leer-todas con corte) y data.notificacion_id en el push; ver notificaciones_mobile.md.
     Version 1.50.0: canal_android_urgente (fichaya_urgente) y vibracion propia; ver push_mobile.md.
@@ -2239,6 +2240,75 @@ components:
           type: boolean
           example: true
 
+    VacacionesEmpleado:
+      type: object
+      properties:
+        id: {type: integer}
+        nombre: {type: string}
+        legajo: {type: string, nullable: true}
+    VacacionesTanda:
+      type: object
+      description: "Semanas seguidas de una solicitud (1.53.0)."
+      properties:
+        movimiento_id: {type: integer}
+        fecha_desde: {type: string, format: date, description: "Inicio real (lunes o el habil siguiente si es feriado)."}
+        fecha_hasta: {type: string, format: date}
+        dias: {type: integer}
+        semanas: {type: integer, nullable: true}
+        anio: {type: integer, description: "Anio del saldo que descuenta (el del inicio)."}
+        estado: {type: string, enum: [pendiente, aprobado, rechazado, cancelada]}
+        inicio_corrido: {type: boolean, description: "Empieza despues del lunes por feriado."}
+        empezo: {type: boolean}
+        motivo_resolucion: {type: string, nullable: true}
+        resuelto_por: {type: string, nullable: true, description: "Nombre del jefe o RR. HH."}
+        resuelto_at: {type: string, nullable: true}
+        cancelacion_pedida: {type: boolean}
+        cancelacion_motivo: {type: string, nullable: true}
+    VacacionesSolicitudSemanal:
+      type: object
+      description: "Un pedido de vacaciones con sus tandas (1.53.0). Ver vacaciones_mobile.md."
+      properties:
+        id: {type: integer}
+        empleado: {$ref: '#/components/schemas/VacacionesEmpleado'}
+        estado: {type: string, enum: [pendiente, aprobada, rechazada, cancelada, parcial]}
+        dias: {type: integer, description: "Dias pendientes o aprobados."}
+        creado_at: {type: string, nullable: true}
+        observacion: {type: string, nullable: true}
+        tandas: {type: array, items: {$ref: '#/components/schemas/VacacionesTanda'}}
+        pendiente: {type: boolean}
+        cancelacion_pedida: {type: boolean}
+        puede_cancelar: {type: boolean}
+        puede_resolver: {type: boolean, description: "El actor es el jefe directo y hay algo pendiente."}
+        puede_resolver_cancelacion: {type: boolean}
+    VacacionesSemanas:
+      type: object
+      properties:
+        anio: {type: integer}
+        zona_horaria: {type: string}
+        calculado_at: {type: string, format: date-time}
+        saldo:
+          type: object
+          properties:
+            dias_corresponden: {type: number}
+            dias_tomados: {type: number}
+            dias_pendientes: {type: number}
+            dias_disponibles: {type: number}
+            semanas_disponibles: {type: integer}
+            dias_fuera_de_semanas: {type: number, description: "Lo que no llega a una semana: lo carga RR. HH."}
+        feriados_cargados: {type: boolean}
+        reglas: {type: string}
+        semanas:
+          type: array
+          items:
+            type: object
+            properties:
+              lunes: {type: string, format: date}
+              domingo: {type: string, format: date}
+              inicio: {type: string, format: date, nullable: true}
+              fin: {type: string, format: date, nullable: true}
+              feriado_lunes: {type: string, nullable: true}
+              estado: {type: string, enum: [disponible, pendiente, aprobada, pasada, sin_dias_habiles]}
+              solicitud_id: {type: integer, nullable: true}
     ErrorResponse:
       type: object
       properties:
@@ -5212,6 +5282,287 @@ paths:
           description: No encontrada
 
   # ---- Adelantos ----
+  /me/vacaciones/semanas:
+    get:
+      tags: [Vacaciones]
+      summary: Calendario de semanas del anio y saldo en semanas (1.53.0)
+      parameters:
+        - {name: anio, in: query, schema: {type: integer}, description: "Por defecto el actual."}
+      responses:
+        '200':
+          description: "Respuesta exitosa."
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VacacionesSemanas'}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+    post:
+      tags: [Vacaciones]
+      summary: Pedir vacaciones por semanas completas (1.53.0)
+      description: |
+        Lista de lunes (corridos o no). Las semanas seguidas forman una tanda. Si el lunes es feriado la tanda empieza
+        el primer dia habil siguiente y dura 7 dias corridos por semana. No puede superar el saldo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [semanas]
+              properties:
+                semanas:
+                  type: array
+                  maxItems: 10
+                  items: {type: string, format: date}
+                  example: ["2026-11-23", "2026-11-30", "2027-01-04"]
+                observaciones: {type: string}
+      responses:
+        '201':
+          description: "Solicitud creada (pendiente)."
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VacacionesSolicitudSemanal'}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '409': {description: "Saldo insuficiente.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/vacaciones/solicitudes:
+    get:
+      tags: [Vacaciones]
+      summary: Mis solicitudes de vacaciones (1.53.0)
+      parameters:
+        - {name: anio, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: Solicitudes en orden de fecha.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/VacacionesSolicitudSemanal'}}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/vacaciones/solicitudes/{solicitud_id}:
+    get:
+      tags: [Vacaciones]
+      summary: Una solicitud propia (1.53.0)
+      parameters:
+        - {name: solicitud_id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200':
+          description: "Respuesta exitosa."
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VacacionesSolicitudSemanal'}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: "No existe o no esta en su cadena.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/vacaciones/solicitudes/{solicitud_id}/cancelar:
+    post:
+      tags: [Vacaciones]
+      summary: Cancelar lo pendiente o pedir la cancelacion de lo aprobado (1.53.0)
+      description: "Pendiente: se cancela. Aprobada sin empezar: queda pedida para el jefe o RR. HH. Lo que ya empezo no se cancela."
+      parameters:
+        - {name: solicitud_id, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motivo: {type: string}
+                movimiento_id: {type: integer, description: "Solo esa tanda (opcional)."}
+      responses:
+        '200':
+          description: Resultado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  solicitud: {$ref: '#/components/schemas/VacacionesSolicitudSemanal'}
+                  canceladas: {type: integer}
+                  cancelacion_pedida: {type: integer}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: "No existe o no esta en su cadena.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/equipo/vacaciones:
+    get:
+      tags: [Vacaciones]
+      summary: Solicitudes de vacaciones de mi cadena (jefes y duenos) (1.53.0)
+      parameters:
+        - {name: estado, in: query, schema: {type: string, enum: [pendiente, aprobada, rechazada, cancelada, parcial]}, description: "pendiente incluye cancelaciones pedidas."}
+        - {name: anio, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: Solicitudes visibles.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alcance: {type: string, enum: [equipo, empresa, sin_equipo]}
+                  es_jefe: {type: boolean}
+                  por_resolver: {type: integer}
+                  items: {type: array, items: {$ref: '#/components/schemas/VacacionesSolicitudSemanal'}}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/equipo/vacaciones/calendario:
+    get:
+      tags: [Vacaciones]
+      summary: Tandas pendientes y aprobadas de mi cadena que tocan el mes (1.53.0)
+      parameters:
+        - {name: mes, in: query, required: true, schema: {type: string, example: 2026-11}}
+      responses:
+        '200':
+          description: Tandas del mes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mes: {type: string}
+                  desde: {type: string, format: date}
+                  hasta: {type: string, format: date}
+                  alcance: {type: string}
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/VacacionesTanda'
+                        - type: object
+                          properties:
+                            solicitud_id: {type: integer}
+                            empleado: {$ref: '#/components/schemas/VacacionesEmpleado'}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/equipo/vacaciones/saldos:
+    get:
+      tags: [Vacaciones]
+      summary: Saldo de vacaciones de cada uno de mi cadena (1.53.0)
+      parameters:
+        - {name: anio, in: query, schema: {type: integer}}
+      responses:
+        '200':
+          description: Saldos.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anio: {type: integer}
+                  alcance: {type: string}
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        empleado: {$ref: '#/components/schemas/VacacionesEmpleado'}
+                        es_directo: {type: boolean}
+                        error: {type: string, nullable: true}
+                        dias_corresponden: {type: number, nullable: true}
+                        dias_tomados: {type: number, nullable: true}
+                        dias_pendientes: {type: number, nullable: true}
+                        dias_disponibles: {type: number, nullable: true}
+                        semanas_disponibles: {type: integer, nullable: true}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/equipo/vacaciones/solicitudes/{solicitud_id}:
+    get:
+      tags: [Vacaciones]
+      summary: Detalle de una solicitud de mi cadena (1.53.0)
+      parameters:
+        - {name: solicitud_id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200':
+          description: "Respuesta exitosa."
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VacacionesSolicitudSemanal'}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: "No existe o no esta en su cadena.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/equipo/vacaciones/solicitudes/{solicitud_id}/aprobar:
+    post:
+      tags: [Vacaciones]
+      summary: Aprobar (solo el jefe directo) (1.53.0)
+      parameters:
+        - {name: solicitud_id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200':
+          description: "Respuesta exitosa."
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VacacionesSolicitudSemanal'}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: "No es su jefe directo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: "No existe o no esta en su cadena.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '409': {description: "Saldo insuficiente.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/equipo/vacaciones/solicitudes/{solicitud_id}/rechazar:
+    post:
+      tags: [Vacaciones]
+      summary: Rechazar con motivo (solo el jefe directo) (1.53.0)
+      parameters:
+        - {name: solicitud_id, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: {type: string}
+      responses:
+        '200':
+          description: "Respuesta exitosa."
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VacacionesSolicitudSemanal'}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: "No es su jefe directo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: "No existe o no esta en su cadena.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/equipo/vacaciones/solicitudes/{solicitud_id}/cancelacion/aprobar:
+    post:
+      tags: [Vacaciones]
+      summary: Aceptar el pedido de cancelacion (1.53.0)
+      parameters:
+        - {name: solicitud_id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200':
+          description: "Respuesta exitosa."
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VacacionesSolicitudSemanal'}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: "No es su jefe directo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: "No existe o no esta en su cadena.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+  /me/equipo/vacaciones/solicitudes/{solicitud_id}/cancelacion/rechazar:
+    post:
+      tags: [Vacaciones]
+      summary: Mantener las vacaciones, con motivo (1.53.0)
+      parameters:
+        - {name: solicitud_id, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: {type: string}
+      responses:
+        '200':
+          description: "Respuesta exitosa."
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/VacacionesSolicitudSemanal'}
+        '400': {description: "Regla incumplida (mensaje listo para mostrar).", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '401': {description: "JWT ausente, invalido o empleado inactivo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '403': {description: "No es su jefe directo.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
+        '404': {description: "No existe o no esta en su cadena.", content: {application/json: {schema: {$ref: '#/components/schemas/ErrorResponse'}}}}
   /me/adelantos/resumen:
     get:
       tags: [Adelantos]

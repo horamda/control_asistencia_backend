@@ -1824,6 +1824,10 @@ def _vacacion_to_dict(v: dict) -> dict:
         "fecha_desde": _to_date_str(v.get("fecha_desde")),
         "fecha_hasta": _to_date_str(fh) if fh is not None else None,
         "observaciones": observaciones or "",
+        # 1.53.0 (aditivo): solicitud que agrupa las tandas, estado y pedido de cancelacion de lo aprobado.
+        "solicitud_id": v.get("solicitud_id") or v.get("id"),
+        "estado": ("cancelada" if v.get("revertido_por_movimiento_id") else v.get("estado")) if "estado" in v else None,
+        "cancelacion_pedida": bool(v.get("cancelacion_pedida_at")),
     }
 
 
@@ -1929,6 +1933,9 @@ def me_vacaciones_update(vacacion_id):
         return jsonify({"error": "fecha_desde invalida. Use YYYY-MM-DD."}), 400
 
     try:
+        # Desde 1.53.0, igual que al pedirlas: semanas completas (con el inicio corrido si el lunes es feriado).
+        from services import vacaciones_semanas_service as semanas_vacaciones
+        semanas_vacaciones.validar_rango_semanal(int(empleado["id"]), fecha_desde, fecha_hasta)
         editar_movimiento_vacaciones_pendiente(
             vacacion_id,
             {
@@ -1962,24 +1969,20 @@ def me_vacaciones_delete(vacacion_id):
         return jsonify({"error": "Vacacion no encontrada"}), 404
 
     estado = str(v.get("estado") or "").lower()
+    if estado not in ("pendiente", "aprobado") or v.get("revertido_por_movimiento_id"):
+        return jsonify({"error": "La vacacion ya esta resuelta"}), 400
+    # Desde 1.53.0: lo pendiente se cancela al momento (sin aviso al propio empleado); lo aprobado que todavia no
+    # empezo queda como pedido de cancelacion para el jefe o RR. HH.
+    from services import vacaciones_semanas_service as semanas_vacaciones
     try:
-        if estado == "pendiente":
-            rechazar_movimiento_vacaciones(
-                vacacion_id,
-                actor_id=int(empleado["id"]),
-                motivo="Cancelada por empleado",
-            )
-        elif estado == "aprobado":
-            cancelar_movimiento_vacaciones(
-                vacacion_id,
-                actor_id=int(empleado["id"]),
-                motivo="Cancelada por empleado",
-            )
-        else:
-            return jsonify({"error": "La vacacion ya esta resuelta"}), 400
+        resultado = semanas_vacaciones.cancelar(
+            int(empleado["id"]), v.get("solicitud_id") or vacacion_id, "Cancelada por el empleado",
+            movimiento_id=vacacion_id)
     except VacacionesError as exc:
-        return jsonify({"error": str(exc)}), 400
-    return jsonify({"ok": True})
+        return jsonify({"error": str(exc)}), getattr(exc, "status", 400)
+    pedida = bool(resultado["cancelacion_pedida"])
+    return jsonify({"ok": True, "cancelacion_pedida": pedida,
+                    "mensaje": "Pedido de cancelación enviado a tu jefe." if pedida else "Solicitud cancelada."})
 
 
 # ---------------------------------------------------------------------------

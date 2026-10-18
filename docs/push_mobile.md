@@ -1,6 +1,6 @@
 # Notificaciones push — contrato para Flutter (Android) y la app web
 
-Versión de contrato: 1.51.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
+Versión de contrato: 1.53.0 · Firebase Cloud Messaging (FCM). Solo **Android** y **web**; iOS queda fuera.
 
 El backend envía los avisos; la app solo tiene que registrar su token y abrir la pantalla correcta al tocar
 la notificación. Si Firebase no está configurado en el servidor, `GET /push/config` devuelve `activo: false`
@@ -163,7 +163,9 @@ Todos traen `notification` (título y texto listos para mostrar) y `data` con st
 | `adelanto` (1.44.0) | Adelanto aprobado o rechazado | `adelanto_id`, `estado`, `ruta` = `/adelantos` |
 | `pedido_mercaderia` (1.44.0) | Pedido de mercadería aprobado o rechazado | `pedido_id`, `estado`, `ruta` = `/pedidos-mercaderia` |
 | `justificacion` (1.48.0) | Justificación aprobada o rechazada (con el motivo) | `justificacion_id`, `estado`, `ruta` = `/justificaciones` |
-| `vacaciones` (1.48.0) | Vacaciones, compensatorio o ajuste aprobado o rechazado | `movimiento_id`, `estado`, `ruta` = `/vacaciones` |
+| `vacaciones` (1.48.0) | Vacaciones, compensatorio o ajuste aprobado o rechazado. Desde 1.53.0, las vacaciones van por solicitud: `evento` = `aprobada`, `rechazada`, `cancelada`, `cancelacion_rechazada` o `cargada` (por RR. HH.) | `movimiento_id`, `estado`; 1.53.0: `solicitud_id`, `evento`, `ruta` = `/vacaciones/{solicitud_id}` |
+| `vacaciones_inicio` (1.53.0) | Al empleado, el día hábil anterior a que empiecen sus vacaciones. Solo push | `solicitud_id`, `movimiento_id`, `ruta` = `/vacaciones/{solicitud_id}` |
+| `vacaciones_equipo` (1.53.0) | Al jefe (si la regla lo incluye): alguien de su equipo sale de vacaciones al día siguiente hábil. Solo push | `solicitud_id`, `movimiento_id`, `ruta` = `/equipo/vacaciones/{solicitud_id}` |
 | `feedback_asignado` (1.48.0) | Al responsable: tiene un feedback nuevo para resolver | `feedback_id`, `ruta` = `/feedback/{id}` |
 | `feedback_resuelto` (1.48.0) | Al que lo cargó: su feedback se resolvió | `feedback_id`, `ruta` = `/feedback/{id}` |
 | `trivia_nueva` (1.48.0) | Se abrió una trivia (a quien todavía no jugó) | `trivia_id`, `ruta` = `/trivia/{id}` |
@@ -174,6 +176,8 @@ Todos traen `notification` (título y texto listos para mostrar) y `data` con st
 | `comunicado` (1.44.0) | Comunicado enviado desde el panel | `comunicado_id`, `ruta` = `/comunicados/{id}`, `imagen` (1.45.0, solo si tiene imagen) |
 
 Desde 1.47.0 **todos** los tipos traen además `envio_id` y `acuse` (ver [acuses](#acuses-recibido-y-abierto-1470)).
+
+Desde 1.53.0 `revision_pendiente` de vacaciones es uno por solicitud, con `solicitud_id`, `ruta` = `/equipo/vacaciones/{solicitud_id}` y `evento` (`cancelacion` cuando piden cancelar unas aprobadas, `escalada` cuando sigue sin resolver cerca del inicio). Ver [vacaciones](vacaciones_mobile.md#avisos-push-y-bandeja).
 
 Desde 1.51.0 los avisos que quedan en la bandeja traen `notificacion_id`: al tocarlo, marcarla con
 `POST /me/notificaciones/{notificacion_id}/leer`. No lo traen los recordatorios (`recordatorio`, `salida_pendiente`,

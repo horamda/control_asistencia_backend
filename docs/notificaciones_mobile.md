@@ -188,7 +188,7 @@ nada.
 | `reunion_nueva`, `reunion_cambio` | `reuniones` | Reunión nueva, o cambio de días, horario o lugar | `reunion` |
 | `reunion_cancelada`, `reunion_reactivada`, `reunion_horario` | `reuniones` | Fecha cancelada, reactivada o con otro horario | `reunion` |
 | `justificacion` | `justificaciones` | Justificación aprobada o rechazada | `justificacion` |
-| `vacaciones` | `vacaciones` | Vacaciones, compensatorio o ajuste resuelto | `vacaciones` |
+| `vacaciones` | `vacaciones` | Vacaciones resueltas, canceladas o cargadas por RR. HH. (1.53.0: por solicitud); compensatorio o ajuste resuelto | `vacaciones_solicitud` (1.53.0) o `vacaciones` |
 | `epp_resuelto`, `epp_entregado` | `epp` | Pedido de EPP resuelto o entregado | `epp` |
 | `seguridad_resultado` | `seguridad` | A quien reportó: reporte aprobado o rechazado | `seguridad_evento` |
 | `seguridad_accion` (asignada) | `seguridad` | Al responsable: acción correctiva asignada | `seguridad_accion` |
@@ -201,6 +201,7 @@ nada.
 - `salida_pendiente`: la salida sigue sin fichar.
 - `trivia_recordatorio`: quedan 24 h o 2 h.
 - `reintegro_recordatorio`: los viáticos del día 5.
+- `vacaciones_inicio` y `vacaciones_equipo` (1.53.0): las vacaciones empiezan el próximo día hábil.
 - `seguridad_accion` por vencer o vencida.
 - `prueba`.
 

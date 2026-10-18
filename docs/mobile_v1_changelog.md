@@ -1,3 +1,23 @@
+## 1.53.0 — 2026-10-18
+
+- **Vacaciones por semanas completas,** de lunes a domingo, corridas o no.
+  - Nuevas rutas: `GET/POST /me/vacaciones/semanas`, `GET /me/vacaciones/solicitudes[/{id}]` y `POST /me/vacaciones/solicitudes/{id}/cancelar`.
+  - Si el lunes es feriado (calendario de días no laborables del panel), la tanda empieza el primer día hábil siguiente y dura los mismos 7 días corridos.
+  - No supera el saldo. Una tanda descuenta del año en que empieza.
+- **Mi equipo** para jefes (toda su cadena; aprueban a sus directos) y dueños (toda la empresa):
+  - `GET /me/equipo/vacaciones`, `/calendario` y `/saldos`.
+  - Aprobar y rechazar, y aceptar o rechazar cancelaciones.
+- **Cambios en las rutas existentes:**
+  - `POST /me/vacaciones`, `POST /vacaciones/solicitar` y `PUT /me/vacaciones/{id}` solo aceptan rangos de semanas completas (400 si no).
+  - `DELETE /me/vacaciones/{id}` sobre unas vacaciones aprobadas ahora **pide** la cancelación (`cancelacion_pedida: true`) en lugar de cancelarlas.
+  - `GET /me/vacaciones` suma `solicitud_id`, `estado` y `cancelacion_pedida`.
+- **Push:**
+  - Un aviso por solicitud, con `data.solicitud_id`, `data.evento` y rutas `/vacaciones/{id}` y `/equipo/vacaciones/{id}`.
+  - Tipos nuevos solo push: `vacaciones_inicio` y `vacaciones_equipo`.
+  - Escalamiento de solicitudes sin resolver.
+  - Al resolverse una solicitud se limpian los avisos "para revisar".
+- Guía: `vacaciones_mobile.md`.
+
 ## 1.52.0 — 2026-10-17
 
 - Mis reuniones:

@@ -1,5 +1,6 @@
 """Notificaciones push: envia la cola y los comunicados programados cada minuto; cada 5 minutos encola los
-recordatorios de reuniones y los avisos de salida sin fichar; a las 8 los de acciones de seguridad por vencer.
+recordatorios de reuniones y los avisos de salida sin fichar; a las 8 los de acciones de seguridad por vencer y a
+las 9 los de vacaciones (inicio y solicitudes sin resolver).
 Sin Firebase configurado los trabajos de push no hacen nada (los comunicados programados igual quedan en la
 bandeja de la app)."""
 
@@ -51,6 +52,17 @@ def acciones_seguridad():
         logging.getLogger(__name__).exception("Error encolando avisos de acciones de seguridad")
 
 
+def vacaciones():
+    """Recordatorio del dia habil anterior al inicio y escalamiento de solicitudes sin resolver."""
+    log = logging.getLogger(__name__)
+    from services import avisos_push
+    for tarea in (avisos_push.vacaciones_por_empezar, avisos_push.vacaciones_sin_resolver):
+        try:
+            tarea()
+        except Exception:
+            log.exception("Error encolando avisos de vacaciones")
+
+
 def init_push_scheduler(app):
     global _scheduler
     if _scheduler is not None:
@@ -70,6 +82,8 @@ def init_push_scheduler(app):
     # Acciones correctivas por vencer / vencidas: una vez por dia, a las 8 (la clave evita repetir).
     _scheduler.add_job(acciones_seguridad, "cron", hour=8, minute=0, id="push_acciones_seguridad", max_instances=1,
                        coalesce=True)
+    # Vacaciones: una vez por dia, a las 9 (las claves evitan repetir si el proceso reinicia).
+    _scheduler.add_job(vacaciones, "cron", hour=9, minute=0, id="push_vacaciones", max_instances=1, coalesce=True)
     _scheduler.start()
 
 

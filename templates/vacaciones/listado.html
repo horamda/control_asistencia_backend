@@ -22,6 +22,13 @@
   {% if error %}
     <div class="errors"><p>{{ error }}</p></div>
   {% endif %}
+  {% if anios_sin_feriados %}
+    <div class="errors">
+      <p>Faltan cargar los días no laborables de {{ anios_sin_feriados|join(" y ") }}. Los empleados piden vacaciones por
+        semanas y, si el lunes es feriado, empiezan el primer día hábil siguiente: sin el calendario, el sistema no lo sabe.
+        Cargalos en <a href="{{ url_for('asistencias.reportes_mensuales') }}">Asistencia → Reporte mensual</a>.</p>
+    </div>
+  {% endif %}
   {% if msg %}
     <div class="alert-ok"><p>{{ msg }}</p></div>
   {% endif %}

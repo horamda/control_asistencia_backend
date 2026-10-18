@@ -257,6 +257,17 @@ def _build_reporte_vacaciones(filters: dict):
     return rows, totals
 
 
+def _anios_sin_feriados():
+    """Aviso del listado: las vacaciones por semanas usan el calendario de dias no laborables (lunes feriado)."""
+    try:
+        from services import vacaciones_semanas_service
+        from web.auth.decorators import _cached_web_user
+        usuario = _cached_web_user(session.get("user_id")) or {}
+        return vacaciones_semanas_service.anios_sin_feriados(usuario.get("empresa_id"))
+    except Exception:
+        return []
+
+
 @vacaciones_bp.route("/")
 @role_required("admin", "rrhh")
 def listado():
@@ -300,6 +311,7 @@ def listado():
 
     return render_template(
         "vacaciones/listado.html",
+        anios_sin_feriados=_anios_sin_feriados(),
         movimientos=movimientos,
         total=total,
         summary=summary,

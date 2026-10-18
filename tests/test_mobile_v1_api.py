@@ -2921,29 +2921,41 @@ def test_mobile_vacaciones_update_ok(monkeypatch):
         "editar_movimiento_vacaciones_pendiente",
         lambda vid, data: updated.update({"vid": vid, **data})
     )
+    from services import vacaciones_semanas_service as semanas
+    monkeypatch.setattr(semanas, "validar_rango_semanal", lambda eid, d, h: None)
+    client = _build_client(monkeypatch)
+    resp = client.put(
+        "/api/v1/mobile/me/vacaciones/7",
+        json={"fecha_desde": "2026-02-02", "fecha_hasta": "2026-02-15"},
+        headers=_auth_headers()
+    )
+    assert resp.status_code == 200
+    assert updated["fecha_desde"] == "2026-02-02"
+
+
+def test_mobile_vacaciones_update_dias_sueltos_retorna_400(monkeypatch):
+    _setup_vac_auth(monkeypatch)
+    monkeypatch.setattr(mobile_routes, "get_vacaciones_movimiento_by_id", lambda _: _FAKE_VAC_ROW)
     client = _build_client(monkeypatch)
     resp = client.put(
         "/api/v1/mobile/me/vacaciones/7",
         json={"fecha_desde": "2026-02-01", "fecha_hasta": "2026-02-10"},
         headers=_auth_headers()
     )
-    assert resp.status_code == 200
-    assert updated["fecha_desde"] == "2026-02-01"
+    assert resp.status_code == 400 and "semanas completas" in resp.get_json()["error"]
 
 
 def test_mobile_vacaciones_delete_ok(monkeypatch):
     _setup_vac_auth(monkeypatch)
     monkeypatch.setattr(mobile_routes, "get_vacaciones_movimiento_by_id", lambda _: _FAKE_VAC_ROW)
     deleted = {}
-    monkeypatch.setattr(
-        mobile_routes,
-        "rechazar_movimiento_vacaciones",
-        lambda vid, **kw: deleted.update({"vid": vid, **kw})
-    )
+    from services import vacaciones_semanas_service as semanas
+    monkeypatch.setattr(semanas, "cancelar", lambda eid, sid, motivo, movimiento_id=None: deleted.update(
+        {"vid": movimiento_id, "sid": sid}) or {"canceladas": 1, "cancelacion_pedida": 0})
     client = _build_client(monkeypatch)
     resp = client.delete("/api/v1/mobile/me/vacaciones/7", headers=_auth_headers())
     assert resp.status_code == 200
-    assert resp.get_json()["ok"] is True
+    assert resp.get_json() == {"ok": True, "cancelacion_pedida": False, "mensaje": "Solicitud cancelada."}
     assert deleted["vid"] == 7
 
 

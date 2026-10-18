@@ -265,11 +265,14 @@ def _dias(valor):
 @_seguro
 def vacaciones_resueltas(movimiento_id):
     with db.transaction(read_only=True) as c:
-        v = db.one(c, """SELECT id, empresa_id, empleado_id, tipo, estado, dias, fecha_desde, fecha_hasta,
-                                motivo_resolucion
+        v = db.one(c, """SELECT id, COALESCE(solicitud_id, id) AS sid, empresa_id, empleado_id, tipo, estado, dias,
+                                fecha_desde, fecha_hasta, motivo_resolucion
                          FROM vacaciones_movimientos WHERE id = %s""", (movimiento_id,))
     if not v or v["estado"] not in ("aprobado", "rechazado"):
         return 0
+    if v["tipo"] == "tomado":  # desde el panel: un aviso por tanda resuelta, con el formato de la solicitud
+        evento = "aprobada" if v["estado"] == "aprobado" else "rechazada"
+        return vacaciones_solicitud_resuelta(v["sid"], evento, [v["id"]], motivo=v.get("motivo_resolucion"))
     detalle = f"{_rango(v['fecha_desde'], v['fecha_hasta'])} ({_dias(abs(Decimal(str(v['dias'] or 0))))})"
     if v["tipo"] == "tomado":
         estado = "aprobadas" if v["estado"] == "aprobado" else "rechazadas"
@@ -443,18 +446,21 @@ def cobertura(empresa_id):
     )
 
 
-def _para_revisar(modulo, fila, titulo, cuerpo, clave):
-    clave_regla = f"revision:{modulo}"
+def _para_revisar(modulo, fila, titulo, cuerpo, clave, *, datos=None, clave_regla=None, ids=None):
+    """Aviso "para revisar" a quienes indica la regla del modulo. datos se suma a los de siempre (p. ej. la ruta de
+    la pantalla del jefe); clave_regla e ids permiten otra regla y otros destinatarios (escalamiento)."""
+    clave_regla = clave_regla or f"revision:{modulo}"
     regla = reglas_push.regla(fila["empresa_id"], clave_regla)
     if not regla or not regla["activo"]:
         return 0
-    with db.transaction(read_only=True) as c:
-        ids = destinatarios_revision(c, fila["empresa_id"], modulo, fila["empleado_id"], regla["destinatarios"])
+    if ids is None:
+        with db.transaction(read_only=True) as c:
+            ids = destinatarios_revision(c, fila["empresa_id"], modulo, fila["empleado_id"], regla["destinatarios"])
     if not ids:
         return 0
-    datos = {"modulo": modulo, "registro_id": fila["id"], "ruta": f"/revisiones/{modulo}"}
-    return push_service.encolar_ahora(fila["empresa_id"], ids, "revision_pendiente", titulo, cuerpo, datos, clave,
-                                      regla=clave_regla)
+    base = {"modulo": modulo, "registro_id": fila["id"], "ruta": f"/revisiones/{modulo}"}
+    return push_service.encolar_ahora(fila["empresa_id"], ids, "revision_pendiente", titulo, cuerpo,
+                                      dict(base, **(datos or {})), clave, regla=clave_regla)
 
 
 def _nombre(fila):
@@ -480,15 +486,219 @@ def revision_justificacion(justificacion_id):
 
 @_seguro
 def revision_vacaciones(movimiento_id):
+    """Compatibilidad: el aviso es por solicitud (un pedido con varias tandas avisa una sola vez)."""
     with db.transaction(read_only=True) as c:
-        v = db.one(c, """SELECT v.id, v.empresa_id, v.empleado_id, e.apellido, e.nombre, v.estado, v.dias,
-                                v.fecha_desde, v.fecha_hasta
-                         FROM vacaciones_movimientos v JOIN empleados e ON e.id = v.empleado_id WHERE v.id = %s""",
-                   (movimiento_id,))
-    if not v or v["estado"] != "pendiente":
+        fila = db.one(c, "SELECT COALESCE(solicitud_id, id) AS sid FROM vacaciones_movimientos WHERE id = %s",
+                      (movimiento_id,))
+    return revision_vacaciones_solicitud(fila["sid"]) if fila else 0
+
+
+# --- Vacaciones por solicitud (vacaciones_semanas_service) ---------------------------------------------------
+
+def _tandas_vacaciones(c, sid):
+    return db.all_rows(c, """SELECT v.id, v.empresa_id, v.empleado_id, v.estado, v.dias, v.fecha_desde, v.fecha_hasta,
+                                    v.cancelacion_pedida_at, v.cancelacion_motivo, v.revertido_por_movimiento_id,
+                                    e.apellido, e.nombre, e.reporta_a_empleado_id
+                             FROM vacaciones_movimientos v JOIN empleados e ON e.id = v.empleado_id
+                             WHERE COALESCE(v.solicitud_id, v.id) = %s AND v.tipo = 'tomado'
+                               AND v.origen_movimiento_id IS NULL ORDER BY v.fecha_desde""", (int(sid),))
+
+
+def _rangos(tandas):
+    """'del 13/10 al 26/10 y del 11/01 al 17/01'"""
+    partes = [_rango(t["fecha_desde"], t["fecha_hasta"]).strip() for t in tandas]
+    return partes[0] if len(partes) == 1 else ", ".join(partes[:-1]) + " y " + partes[-1]
+
+
+def _total_dias(tandas):
+    return _dias(sum(abs(Decimal(str(t["dias"] or 0))) for t in tandas))
+
+
+def _datos_solicitud(sid, ruta, **extra):
+    return dict({"solicitud_id": sid, "registro_id": sid, "ruta": ruta}, **extra)
+
+
+@_seguro
+def revision_vacaciones_solicitud(sid):
+    """Al jefe directo (y RR. HH. si la regla lo incluye): un aviso por solicitud, con las fechas reales."""
+    with db.transaction(read_only=True) as c:
+        tandas = [t for t in _tandas_vacaciones(c, sid) if t["estado"] == "pendiente"]
+    if not tandas:
         return 0
-    cuerpo = f"{_nombre(v)}{_rango(v['fecha_desde'], v['fecha_hasta'])} ({_dias(abs(Decimal(str(v['dias'] or 0))))})"
-    return _para_revisar("vacaciones", v, "Vacaciones para revisar", cuerpo, f"revision:vacaciones:{v['id']}")
+    dias = sum(int(abs(Decimal(str(t["dias"] or 0)))) for t in tandas)
+    semanas = f"{dias // 7} semana{'s' if dias // 7 != 1 else ''}" if dias % 7 == 0 else _dias(dias)
+    cuerpo = f"{_nombre(tandas[0])} pidió {semanas}: {_rangos(tandas)} ({_dias(dias)})."
+    fila = dict(tandas[0], id=sid)
+    return _para_revisar("vacaciones", fila, "Vacaciones para revisar", cuerpo, f"revision:vacaciones:s{sid}:pedido",
+                         datos=_datos_solicitud(sid, f"/equipo/vacaciones/{sid}"))
+
+
+@_seguro
+def revision_cancelacion_vacaciones(sid):
+    with db.transaction(read_only=True) as c:
+        tandas = [t for t in _tandas_vacaciones(c, sid)
+                  if t["cancelacion_pedida_at"] and t["estado"] == "aprobado" and not t["revertido_por_movimiento_id"]]
+    if not tandas:
+        return 0
+    cuerpo = f"{_nombre(tandas[0])} pidió cancelar sus vacaciones {_rangos(tandas)}."
+    if tandas[0].get("cancelacion_motivo"):
+        cuerpo += f" Motivo: {tandas[0]['cancelacion_motivo']}"
+    marca = max(t["cancelacion_pedida_at"] for t in tandas)
+    fila = dict(tandas[0], id=sid)
+    return _para_revisar("vacaciones", fila, "Cancelación de vacaciones para revisar", cuerpo,
+                         f"revision:vacaciones:s{sid}:cancelacion:{marca:%Y%m%d%H%M%S}",
+                         datos=_datos_solicitud(sid, f"/equipo/vacaciones/{sid}", evento="cancelacion"))
+
+
+_EVENTOS_VACACIONES = {
+    "aprobada": ("Vacaciones aprobadas", "Tus vacaciones {rangos} fueron aprobadas", "aprobado"),
+    "rechazada": ("Vacaciones rechazadas", "Tus vacaciones {rangos} fueron rechazadas", "rechazado"),
+    "cancelada": ("Vacaciones canceladas", "Se cancelaron tus vacaciones {rangos}", "cancelado"),
+    "cancelacion_rechazada": ("Tus vacaciones siguen en pie", "No se aceptó cancelar tus vacaciones {rangos}", "aprobado"),
+    "cargada": ("Vacaciones cargadas", "RR. HH. te cargó vacaciones {rangos}", "aprobado"),
+}
+
+
+@_seguro
+def vacaciones_solicitud_resuelta(sid, evento, movimiento_ids=None, *, actor=None, motivo=None):
+    """Al empleado: aprobada, rechazada, cancelada, cancelacion_rechazada o cargada (un aviso por resolucion)."""
+    titulo, plantilla, estado = _EVENTOS_VACACIONES[evento]
+    with db.transaction(read_only=True) as c:
+        tandas = _tandas_vacaciones(c, sid)
+    if movimiento_ids:
+        tandas = [t for t in tandas if int(t["id"]) in {int(i) for i in movimiento_ids}]
+    if not tandas:
+        return 0
+    cuerpo = plantilla.format(rangos=_rangos(tandas)) + f" ({_total_dias(tandas)})"
+    cuerpo += f" por {actor}." if actor and evento != "cargada" else "."
+    if motivo and evento in ("rechazada", "cancelacion_rechazada"):
+        cuerpo += f" Motivo: {motivo}"
+    ids = "-".join(str(int(t["id"])) for t in tandas)
+    return _avisar(tandas[0]["empresa_id"], tandas[0]["empleado_id"], "vacaciones", titulo, cuerpo,
+                   _datos_solicitud(sid, f"/vacaciones/{sid}", estado=estado, evento=evento,
+                                    movimiento_id=tandas[0]["id"]),
+                   f"vacaciones:s{sid}:{evento}:{ids}"[:140])
+
+
+def limpiar_revision_vacaciones(sid):
+    """La solicitud ya no tiene nada por resolver: fuera los push sin enviar y leidas las notificaciones de revision."""
+    ahora = now_local().replace(microsecond=0)
+    with db.transaction() as c:
+        c.execute("""DELETE FROM push_envios WHERE estado IN ('pendiente', 'reintentar')
+                     AND (clave LIKE %s OR clave LIKE %s)""", (f"revision:vacaciones:s{int(sid)}:%", f"revision:vacaciones:{int(sid)}:%"))
+        c.execute("""UPDATE empleado_notificaciones SET leido_at = %s
+                     WHERE tipo = 'revision_pendiente' AND referencia_tipo IN ('vacaciones_solicitud', 'vacaciones')
+                       AND referencia_id = %s AND leido_at IS NULL""", (ahora, int(sid)))
+
+
+def _habil_anterior(fecha, feriados):
+    dia = fecha - dt.timedelta(days=1)
+    for _ in range(14):
+        if dia.weekday() < 5 and dia not in feriados:
+            return dia
+        dia -= dt.timedelta(days=1)
+    return None
+
+
+def _habil_siguiente(fecha, feriados):
+    dia = fecha + dt.timedelta(days=1)
+    for _ in range(14):
+        if dia.weekday() < 5 and dia not in feriados:
+            return dia
+        dia += dt.timedelta(days=1)
+    return None
+
+
+_DIAS_SEMANA = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+
+
+def _dia_largo(fecha):
+    return f"{_DIAS_SEMANA[fecha.weekday()]} {fecha.strftime('%d/%m')}"
+
+
+@_seguro
+def vacaciones_por_empezar(hoy=None):
+    """Una vez por dia: el dia habil anterior al inicio, al empleado (vacaciones_inicio) y, si la regla lo incluye, a
+    su jefe directo (vacaciones_equipo). Solo push."""
+    from services import feriado_service
+
+    if not push_service.activo():
+        return 0
+    hoy = hoy or now_local().date()
+    with db.transaction(read_only=True) as c:
+        tandas = db.all_rows(c, """SELECT v.id, v.empresa_id, v.empleado_id, v.fecha_desde, v.fecha_hasta,
+                                          COALESCE(v.solicitud_id, v.id) AS sid, e.apellido, e.nombre, e.sucursal_id,
+                                          e.reporta_a_empleado_id
+                                   FROM vacaciones_movimientos v JOIN empleados e ON e.id = v.empleado_id
+                                   WHERE v.tipo = 'tomado' AND v.estado = 'aprobado' AND v.revertido_por_movimiento_id IS NULL
+                                     AND v.origen_movimiento_id IS NULL AND e.activo = 1
+                                     AND v.fecha_desde BETWEEN %s AND %s""", (hoy + dt.timedelta(days=1), hoy + dt.timedelta(days=14)))
+        mapas = {}
+        for t in tandas:
+            if t["empresa_id"] not in mapas:
+                mapas[t["empresa_id"]] = feriado_service.mapa(c, t["empresa_id"])
+    total = 0
+    for t in tandas:
+        feriados = feriado_service.de_sucursal(mapas[t["empresa_id"]], t["sucursal_id"] or 0)
+        desde = t["fecha_desde"] if isinstance(t["fecha_desde"], dt.date) else dt.date.fromisoformat(str(t["fecha_desde"]))
+        hasta = t["fecha_hasta"] if isinstance(t["fecha_hasta"], dt.date) else dt.date.fromisoformat(str(t["fecha_hasta"]))
+        if _habil_anterior(desde, feriados) != hoy:
+            continue
+        regla = reglas_push.regla(t["empresa_id"], "vacaciones_inicio")
+        if not regla or not regla["activo"]:
+            continue
+        vuelta = _habil_siguiente(hasta, feriados)
+        datos = _datos_solicitud(t["sid"], f"/vacaciones/{t['sid']}", movimiento_id=t["id"])
+        if reglas_push.EMPLEADO in regla["destinatarios"]:
+            cuerpo = f"Tus vacaciones empiezan el {_dia_largo(desde)}." + (f" Volvés el {_dia_largo(vuelta)}." if vuelta else "")
+            total += _avisar(t["empresa_id"], t["empleado_id"], "vacaciones_inicio", "¡Buenas vacaciones!", cuerpo, datos,
+                             f"vacaciones-inicio:{t['id']}")
+        if reglas_push.JEFE in regla["destinatarios"] and t["reporta_a_empleado_id"]:
+            cuerpo = f"{_nombre(t)} sale de vacaciones el {_dia_largo(desde)}" + (
+                f" y vuelve el {_dia_largo(vuelta)}." if vuelta else ".")
+            total += _avisar(t["empresa_id"], t["reporta_a_empleado_id"], "vacaciones_equipo", "Vacaciones en tu equipo",
+                             cuerpo, dict(datos, ruta=f"/equipo/vacaciones/{t['sid']}"), f"vacaciones-equipo:{t['id']}")
+    return total
+
+
+@_seguro
+def vacaciones_sin_resolver(hoy=None):
+    """Una vez por dia: una solicitud pendiente a N dias (o menos) de empezar se escala, una sola vez, al jefe del jefe
+    directo y/o a RR. HH. segun la regla vacaciones_escalar."""
+    hoy = hoy or now_local().date()
+    with db.transaction(read_only=True) as c:
+        filas = db.all_rows(c, """SELECT COALESCE(v.solicitud_id, v.id) AS sid, MIN(v.fecha_desde) AS desde,
+                                         v.empresa_id, v.empleado_id, e.apellido, e.nombre, j.reporta_a_empleado_id AS superior_id
+                                  FROM vacaciones_movimientos v JOIN empleados e ON e.id = v.empleado_id
+                                  LEFT JOIN empleados j ON j.id = e.reporta_a_empleado_id AND j.activo = 1
+                                  WHERE v.tipo = 'tomado' AND v.estado = 'pendiente' AND v.origen_movimiento_id IS NULL
+                                    AND v.fecha_desde >= %s AND v.fecha_desde <= %s
+                                  GROUP BY COALESCE(v.solicitud_id, v.id), v.empresa_id, v.empleado_id, e.apellido, e.nombre,
+                                           j.reporta_a_empleado_id""", (hoy, hoy + dt.timedelta(days=31)))
+    total = 0
+    for f in filas:
+        regla = reglas_push.regla(f["empresa_id"], "vacaciones_escalar")
+        if not regla or not regla["activo"]:
+            continue
+        desde = f["desde"] if isinstance(f["desde"], dt.date) else dt.date.fromisoformat(str(f["desde"]))
+        if (desde - hoy).days > int(regla["parametro"] or 0):
+            continue
+        ids = set()
+        if reglas_push.JEFE_SUPERIOR in regla["destinatarios"] and f["superior_id"]:
+            ids.add(int(f["superior_id"]))
+        if reglas_push.RRHH in regla["destinatarios"]:
+            with db.transaction(read_only=True) as c:
+                ids |= _aprobadores(c, f["empresa_id"], "vacaciones")
+        ids.discard(int(f["empleado_id"]))
+        if not ids:
+            continue
+        cuerpo = (f"{_nombre(f)} empieza sus vacaciones el {_dia_largo(desde)} y la solicitud sigue sin respuesta "
+                  f"de su jefe directo.")
+        total += _para_revisar("vacaciones", dict(f, id=f["sid"]), "Vacaciones sin resolver", cuerpo,
+                               f"revision:vacaciones:s{f['sid']}:escalada",
+                               datos=_datos_solicitud(f["sid"], f"/equipo/vacaciones/{f['sid']}", evento="escalada"),
+                               clave_regla="vacaciones_escalar", ids=sorted(ids))
+    return total
 
 
 @_seguro

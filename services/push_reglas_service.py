@@ -17,9 +17,11 @@ from repositories import carga_repository as db
 from services.carga_service import CargaError as Error, now_local
 
 EMPLEADO, JEFE, RRHH, SEGURIDAD = "empleado", "jefe_directo", "rrhh", "responsable_sh"
+JEFE_SUPERIOR = "jefe_superior"
 DESTINATARIOS = {
     EMPLEADO: "El empleado",
     JEFE: "Jefe directo",
+    JEFE_SUPERIOR: "Jefe del jefe directo",
     RRHH: "RR. HH. (quien puede aprobar)",
     SEGURIDAD: "Responsable de Seguridad e Higiene",
 }
@@ -50,7 +52,11 @@ CATALOGO = [
     _r("salida_pendiente", "empleado", "Salida sin fichar", "La jornada sigue abierta después de la salida prevista.",
        urgente=True, parametro=dict(etiqueta="Minutos después de la salida", default=30, min=10, max=240)),
     _r("justificacion", "empleado", "Justificación resuelta", "Aprobada o rechazada, con el motivo."),
-    _r("vacaciones", "empleado", "Vacaciones resueltas", "Vacaciones, compensatorios o ajustes aprobados o rechazados."),
+    _r("vacaciones", "empleado", "Vacaciones resueltas",
+       "Aprobadas, rechazadas, canceladas o cargadas por RR. HH.; también compensatorios y ajustes."),
+    _r("vacaciones_inicio", "empleado", "Inicio de vacaciones",
+       "El día hábil anterior al inicio: al empleado y, si se elige, a su jefe directo.",
+       destinatarios=(EMPLEADO,), posibles=(EMPLEADO, JEFE)),
     _r("adelanto", "empleado", "Adelanto resuelto", "Aprobado o rechazado."),
     _r("pedido_mercaderia", "empleado", "Pedido de mercadería resuelto", "Aprobado o rechazado."),
     _r("reintegro", "empleado", "Viáticos", "Rendición aprobada, rechazada, devuelta para corregir o pagada."),
@@ -59,7 +65,11 @@ CATALOGO = [
     _r("feedback", "empleado", "Feedback", "Al responsable cuando le asignan uno y al empleado cuando se resuelve."),
     _r("trivia", "empleado", "Trivias", "Trivia nueva y recordatorios antes del cierre, a quien todavía no jugó."),
     _revision("justificaciones", "Justificación enviada", "Un empleado envió una justificación."),
-    _revision("vacaciones", "Vacaciones pedidas", "Un empleado pidió vacaciones."),
+    _revision("vacaciones", "Vacaciones pedidas", "Un empleado pidió vacaciones o pidió cancelar unas aprobadas."),
+    _r("vacaciones_escalar", "revision", "Vacaciones sin resolver",
+       "Una solicitud sigue pendiente pocos días antes de empezar: aviso, una sola vez.",
+       destinatarios=(JEFE_SUPERIOR, RRHH), posibles=(JEFE_SUPERIOR, RRHH), resumen=True,
+       parametro=dict(etiqueta="Días antes del inicio", default=3, min=1, max=30)),
     _revision("pedidos_empleados", "Adelanto o pedido de mercadería", "Un empleado pidió un adelanto o cargó un pedido de mercadería."),
     _revision("reintegros", "Viáticos enviados", "Un empleado envió (o reenvió corregida) una rendición de viáticos."),
     _revision("epp", "Pedido de EPP", "Un empleado envió un pedido de EPP."),
@@ -77,6 +87,7 @@ TIPO_REGLA = {
     "reunion_reactivada": "reuniones", "reunion_horario": "reuniones", "recordatorio": "recordatorio_reunion",
     "salida_pendiente": "salida_pendiente", "justificacion": "justificacion", "vacaciones": "vacaciones",
     "adelanto": "adelanto", "pedido_mercaderia": "pedido_mercaderia", "reintegro": "reintegro",
+    "vacaciones_inicio": "vacaciones_inicio", "vacaciones_equipo": "vacaciones_inicio",
     "reintegro_recordatorio": "reintegro_recordatorio", "epp_resuelto": "epp", "epp_entregado": "epp",
     "feedback_asignado": "feedback", "feedback_resuelto": "feedback", "trivia_nueva": "trivia",
     "trivia_recordatorio": "trivia", "seguridad_resultado": "seguridad_resultado",
