@@ -117,6 +117,7 @@
   :is(.page-content,.embedded-layout) form[method="get" i] .form-grid,
   :is(.page-content,.embedded-layout) form[method="get" i].form-grid {
     grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    align-items: end; /* una etiqueta de dos lineas no desalinea su campo del resto */
   }
   /* Titulo y acciones del encabezado en una sola linea (antes bajaban de linea por debajo de 1280 px). */
   .app-topbar {align-items: center}
@@ -138,4 +139,31 @@
   .nav-group {margin-bottom: 6px}
   .nav-link {padding: 5px 10px; margin: 2px 0}
   .logout-link {padding: 7px 10px}
+}
+
+/* ---------------------------------------------------------------- Letras que se adaptan a la pantalla
+   Todo el panel esta en rem: alcanza con ajustar la base segun el ancho y todo escala en proporcion.
+   - Hasta 1440 px (celulares, tablets y notebooks): 16 px. Nunca menos: asi el paso mas chico de la escala
+     (.75rem) no baja de 12 px y los campos no disparan el zoom de iOS.
+   - Monitores grandes, donde cada pixel es mas chico: sube sin saltos hasta 17 px en 1920 y 18 px en 2560.
+   Se expresa en % para respetar el tamaño de letra que cada uno eligio en el navegador. */
+html {
+  -webkit-text-size-adjust: 100%; /* sin agrandar el texto al girar el celular */
+  text-size-adjust: 100%;
+}
+
+@media (min-width: 1441px) {
+  html {font-size: clamp(100%, 83.93% + .1786vw, 112.5%)}
+}
+
+/* Titulos: en celulares angostos achican un poco para no partirse en dos lineas; desde ~640 px, el tamaño de siempre. */
+h2 {font-size: clamp(1.25rem, 1.05rem + 1.1vw, 1.5rem)}
+#page-title {font-size: clamp(1.0625rem, .95rem + .6vw, 1.25rem)}
+
+/* Campos en pantallas tactiles: nunca menos de 16 px (iOS hace zoom al enfocar un campo mas chico),
+   incluidos filtros y el buscador del menu. */
+@media (max-width: 760px), (pointer: coarse) {
+  :is(.page-content, .embedded-layout, .app-sidebar) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), select, textarea) {
+    font-size: max(16px, 1rem) !important;
+  }
 }

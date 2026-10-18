@@ -100,7 +100,7 @@ summary:focus-visible { outline:3px solid #1b8271; outline-offset:3px; }
   .overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .overview .main-stat { grid-column: 1 / -1; }
   .overview article { padding: 12px; }
-  .overview .main-stat strong { font-size: 38px; }
+  .overview .main-stat strong { font-size: 2.375rem; }
   .freshness { gap: 5px; margin: 10px 0 18px; }
   .roster-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
   .filters { grid-template-columns: minmax(0, 1fr); gap: 12px; }
