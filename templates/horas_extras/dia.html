@@ -15,7 +15,7 @@
     <div><dt>Aprobadas en el mes / año</dt><dd>{{ acumulado[0]|hm }}{% if d.topes[0] is not none %} de {{ d.topes[0]|hm }}{% endif %} · {{ acumulado[1]|hm }}{% if d.topes[1] is not none %} de {{ d.topes[1]|hm }}{% endif %}</dd></div>
   </dl>
   <p><span class="badge {{ BADGE[estado] }}">{{ ESTADOS[estado] }}</span>
-    {% if fila and estado != 'pendiente' %}<span class="helper-text"> · {{ (fila.minutos_habil + fila.minutos_descanso)|hm }} h ({{ fila.minutos_habil|hm }} hábil, {{ fila.minutos_descanso|hm }} descanso){% if fila.motivo %} · {{ fila.motivo }}{% endif %}</span>{% endif %}</p>
+    {% if fila and estado != 'pendiente' %}<span class="helper-text"> · {{ (fila.minutos_habil + fila.minutos_descanso)|hm }} h ({{ fila.minutos_habil|hm }} hábil, {{ fila.minutos_descanso|hm }} descanso){% if fila.destino == 'banco' %} · al banco de horas{% endif %}{% if fila.motivo %} · {{ fila.motivo }}{% endif %}</span>{% endif %}</p>
   {% if d.estado != 'normal' %}<p class="badge warning hj-aviso">{{ d.motivo or 'El día no tiene excedente calculado.' }}</p>{% endif %}
   {% if cambio %}<p class="badge warning hj-aviso">Los fichajes de este día cambiaron después de la última decisión: revisala.</p>{% endif %}
   {% if excede %}<p class="badge danger hj-aviso">Lo aprobado supera el excedente que hoy marcan los fichajes: hay que decidir de nuevo antes de cerrar el mes.</p>{% endif %}
@@ -33,8 +33,17 @@
     <div class="row"><label for="he-h">Horas con recargo hábil (H:MM)</label><input id="he-h" name="minutos_habil" value="{{ base_h|hm }}" inputmode="numeric" pattern="[0-9]+(:[0-5][0-9])?"></div>
     <div class="row"><label for="he-d">Horas con recargo de descanso (H:MM)</label><input id="he-d" name="minutos_descanso" value="{{ base_d|hm }}" inputmode="numeric" pattern="[0-9]+(:[0-5][0-9])?"></div>
     <div class="row span-2"><label for="he-m">Motivo (obligatorio para rechazar o superar un tope)</label><input id="he-m" name="motivo" maxlength="255"></div>
+    {% if rol == 'rrhh' %}
+    <fieldset class="row span-2 he-destino">
+      <legend>Destino si se aprueba</legend>
+      <label><input type="radio" name="destino" value="pago" {{ 'checked' if not fila or fila.destino != 'banco' }}> Se paga en la liquidación</label>
+      <label><input type="radio" name="destino" value="banco" {{ 'checked' if fila and fila.destino == 'banco' }} {{ 'disabled' if not acuerdo_banco }}> Al banco de horas
+        {% if acuerdo_banco %}<small class="helper-text">(equivalencia {{ acuerdo_banco.factor_habil|string|replace('.', ',') }} hábil · {{ acuerdo_banco.factor_descanso|string|replace('.', ',') }} descanso; se acredita al cerrar el mes)</small>
+        {% else %}<small class="helper-text">(sin acuerdo de banco de horas vigente)</small>{% endif %}</label>
+    </fieldset>
+    {% endif %}
     {% if supera_tope and rol == 'rrhh' %}
-    <label class="row span-2 he-confirmar"><input type="checkbox" name="confirmar_tope" value="1"> Supera el tope de horas extras del convenio: confirmo la aprobación excepcional</label>
+    <label class="span-2 he-confirmar check-inline"><input type="checkbox" name="confirmar_tope" value="1"> Supera el tope de horas extras del convenio: confirmo la aprobación excepcional</label>
     {% elif supera_tope %}
     <p class="badge warning hj-aviso span-2">La propuesta supera el tope de horas extras del convenio: RR. HH. tendrá que confirmarla con motivo.</p>
     {% endif %}

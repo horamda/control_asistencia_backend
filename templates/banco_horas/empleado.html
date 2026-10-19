@@ -1,0 +1,131 @@
+{% extends 'banco_horas/layout.html' %}
+{% block banco_content %}
+{% set e = empleado %}{% set s = saldo %}
+<section class="surface-card">
+  <div>
+    <h3>{{ e.apellido }}, {{ e.nombre }}</h3>
+    <p class="helper-text">{% if e.legajo %}Legajo {{ e.legajo }} · {% endif %}{% if acuerdo %}Acuerdo vigente desde {{ acuerdo.vigente_desde.strftime('%d/%m/%Y') }}{% else %}Sin acuerdo vigente{% endif %}</p>
+  </div>
+  <div class="grid-kpis hj-kpis">
+    <div class="kpi-card"><div class="kpi-label">Saldo</div><div class="kpi-value">{{ s.total|hm }}</div></div>
+    <div class="kpi-card tone-ok"><div class="kpi-label">Disponible hoy</div><div class="kpi-value">{{ s.disponible|hm }}</div></div>
+    <div class="kpi-card {{ 'tone-warn' if s.por_vencer }}"><div class="kpi-label">Vence en 30 días</div><div class="kpi-value">{{ s.por_vencer|hm }}</div></div>
+    {% if s.vencido_sin_registrar %}<div class="kpi-card tone-bad"><div class="kpi-label">Vencido</div><div class="kpi-value">{{ s.vencido_sin_registrar|hm }}</div><div class="kpi-desc">Se registra en el próximo movimiento o cierre</div></div>{% endif %}
+  </div>
+  {% if s.lotes %}
+  <details class="hj-detalle">
+    <summary>Horas acreditadas que quedan ({{ s.lotes|length }})</summary>
+    <ul class="hj-alertas">{% for l in s.lotes %}<li>{{ l.restante|hm }} h del {{ l.fecha.strftime('%d/%m/%Y') }} · {% if l.vence %}vence el {{ l.vence.strftime('%d/%m/%Y') }}{% else %}no vence{% endif %}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+</section>
+
+{% if can_web('banco_horas', 'editar') and (acuerdo or movimientos) %}
+<form method="post" action="{{ url_for('banco_horas.movimiento', empleado_id=e.id) }}" class="surface-card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h3>Cargar un movimiento</h3>
+  <div class="form-grid">
+    <div class="row"><label for="bh-tipo">Tipo</label>
+      <select id="bh-tipo" name="tipo">
+        <option value="franco">Franco compensatorio (descuenta)</option>
+        <option value="debito">Débito manual (descuenta)</option>
+        <option value="credito" {{ 'disabled' if not acuerdo }}>Crédito manual (suma)</option>
+      </select></div>
+    <div class="row"><label for="bh-fecha">Fecha</label><input id="bh-fecha" type="date" name="fecha" value="{{ hoy }}" required></div>
+    <div class="row"><label for="bh-horas">Horas (H:MM)</label><input id="bh-horas" name="horas" placeholder="Ej.: 4:00" inputmode="numeric"></div>
+    <label class="he-confirmar check-inline span-2"><input type="checkbox" name="dia_completo" value="1"> Franco de día completo (toma las horas programadas)</label>
+    <div class="row span-2"><label for="bh-motivo">Motivo (obligatorio en créditos y débitos manuales)</label><input id="bh-motivo" name="motivo" maxlength="255"></div>
+  </div>
+  <p class="helper-text">Un franco compensatorio de día completo hace que ese día cuente como licencia; si son algunas horas, se descuentan de lo programado. No se puede descontar más de lo disponible.</p>
+  <div class="actions"><button type="submit" class="btn">Registrar</button></div>
+</form>
+{% endif %}
+
+<section class="surface-card">
+  <h3>Libro de movimientos</h3>
+  {% if movimientos %}
+  <div class="table-responsive table-cards">
+    <table class="hj-tabla">
+      <thead><tr><th>Fecha</th><th>Movimiento</th><th>Horas</th><th>Saldo</th><th>Vence</th><th>Detalle</th>{% if can_web('banco_horas', 'editar') %}<th>Acción</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for m in movimientos %}
+        <tr>
+          <td data-label="Fecha">{{ m.fecha.strftime('%d/%m/%Y') }}</td>
+          <td data-label="Movimiento">{{ TIPOS.get(m.tipo, m.tipo) }}{% if m.revertido_por %} <small class="badge neutral">revertido</small>{% endif %}</td>
+          <td data-label="Horas"><strong>{{ '+' if m.minutos > 0 }}{{ m.minutos|hm }}</strong></td>
+          <td data-label="Saldo">{{ m.saldo|hm }}</td>
+          <td data-label="Vence">{{ m.vence.strftime('%d/%m/%Y') if m.vence and m.minutos > 0 else '—' }}</td>
+          <td data-label="Detalle">{{ m.motivo or '—' }}<small class="helper-text hj-motivo">{{ m.creado_at.strftime('%d/%m/%Y %H:%M') }}{% if m.usuario %} · {{ m.usuario }}{% endif %}</small></td>
+          {% if can_web('banco_horas', 'editar') %}
+          <td data-label="Acción">
+            {% if not m.revertido_por and m.tipo != 'reversion' and m.tipo not in DEL_CIERRE %}
+            <form method="post" action="{{ url_for('banco_horas.revertir', movimiento_id=m.id) }}" class="hj-registrar">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input name="motivo" maxlength="255" required placeholder="Motivo" aria-label="Motivo de la reversión">
+              <button type="submit" class="btn btn-sm btn-secondary">Revertir</button>
+            </form>
+            {% elif m.tipo in DEL_CIERRE and not m.revertido_por %}<small class="helper-text">Del cierre del mes</small>{% else %}—{% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="helper-text">Sin movimientos todavía.</p>
+  {% endif %}
+</section>
+
+<section class="surface-card">
+  <h3>Acuerdo de banco de horas</h3>
+  {% if not habilitado and not acuerdos %}
+    <p class="badge warning hj-aviso">La regla de jornada de este empleado no habilita el banco de horas. Activá "Banco de horas habilitado" en Jornada laboral (empresa, sucursal, convenio o individual).</p>
+  {% endif %}
+  {% if acuerdos %}
+  <div class="table-responsive table-cards">
+    <table class="hj-tabla">
+      <thead><tr><th>Vigencia</th><th>Equivalencia hábil / descanso</th><th>Saldo máximo</th><th>Vencimiento</th><th>Motivo</th></tr></thead>
+      <tbody>
+        {% for a in acuerdos %}
+        <tr><td data-label="Vigencia">{{ a.vigente_desde.strftime('%d/%m/%Y') }} – {{ a.vigente_hasta.strftime('%d/%m/%Y') if a.vigente_hasta else 'sin fin' }}</td>
+          <td data-label="Equivalencia">{{ a.factor_habil|string|replace('.', ',') }} / {{ a.factor_descanso|string|replace('.', ',') }}</td>
+          <td data-label="Saldo máximo">{{ a.saldo_maximo_min|hm ~ ' h' if a.saldo_maximo_min is not none else 'Sin máximo' }}</td>
+          <td data-label="Vencimiento">{{ a.vence_meses ~ ' meses' if a.vence_meses else 'No vencen' }}</td>
+          <td data-label="Motivo">{{ a.motivo or '—' }}{% if a.usuario %}<small class="helper-text hj-motivo">{{ a.creado_at.strftime('%d/%m/%Y') }} · {{ a.usuario }}</small>{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if can_web('banco_horas', 'editar') and habilitado %}
+  <details class="hj-detalle" {{ 'open' if not acuerdos }}>
+    <summary>{{ 'Nueva versión del acuerdo' if acuerdos else 'Cargar acuerdo' }}</summary>
+    <form method="post" action="{{ url_for('banco_horas.acuerdo', empleado_id=e.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-grid">
+        <div class="row"><label for="ba-desde">Vigente desde</label><input id="ba-desde" type="date" name="vigente_desde" value="{{ hoy }}" required></div>
+        <div class="row"><label for="ba-fh">Una hora extra hábil acredita (horas)</label><input id="ba-fh" name="factor_habil" placeholder="{{ factores[0]|string|replace('.', ',') }}" inputmode="decimal"></div>
+        <div class="row"><label for="ba-fd">Una hora extra de descanso o feriado acredita (horas)</label><input id="ba-fd" name="factor_descanso" placeholder="{{ factores[1]|string|replace('.', ',') }}" inputmode="decimal"></div>
+        <div class="row"><label for="ba-max">Saldo máximo (H:MM, vacío = sin máximo)</label><input id="ba-max" name="saldo_maximo" inputmode="numeric"></div>
+        <div class="row"><label for="ba-vence">Las horas vencen a los (meses, vacío = no vencen)</label><input id="ba-vence" name="vence_meses" inputmode="numeric"></div>
+        <div class="row span-2"><label for="ba-motivo">Motivo o referencia del acuerdo firmado</label><input id="ba-motivo" name="motivo" maxlength="255"></div>
+      </div>
+      <p class="helper-text">Vacío, la equivalencia toma el recargo de su regla ({{ factores[0]|string|replace('.', ',') }} y {{ factores[1]|string|replace('.', ',') }}). Para una a una, poné 1 y 1.</p>
+      <div class="actions"><button type="submit" class="btn btn-secondary">Guardar acuerdo</button></div>
+    </form>
+  </details>
+  {% endif %}
+  {% if can_web('banco_horas', 'editar') and acuerdo and not acuerdo.vigente_hasta %}
+  <details class="hj-detalle">
+    <summary>Finalizar el acuerdo</summary>
+    <form method="post" action="{{ url_for('banco_horas.finalizar', empleado_id=e.id) }}" class="hj-registrar">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row"><label for="bf-hasta">Hasta</label><input id="bf-hasta" type="date" name="vigente_hasta" value="{{ hoy }}" required></div>
+      <div class="row"><label for="bf-motivo">Motivo</label><input id="bf-motivo" name="motivo" maxlength="255" required></div>
+      <button type="submit" class="btn btn-secondary">Finalizar</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+{% endblock %}

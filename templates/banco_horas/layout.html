@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Banco de horas{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/horas.css') }}">{% endblock %}
+{% block content %}
+<div class="content-stack hj-page">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>Banco de horas</h2>
+      <p class="module-intro">Horas a favor de cada empleado con acuerdo: se acreditan las horas extras que RR. HH. manda
+        al banco (al cerrar el mes) y se descuentan los francos compensatorios y los faltantes del mes. El libro no se
+        edita: un error se corrige con una reversión. Nunca queda saldo negativo.</p>
+    </div>
+  </div>
+  <nav class="actions hj-nav" aria-label="Banco de horas">
+    <a class="btn {{ 'btn-secondary' if request.endpoint != 'banco_horas.resumen' }}" href="{{ url_for('banco_horas.resumen') }}">Saldos</a>
+    {% if can_web('horas_extras') %}<a class="btn btn-ghost" href="{{ url_for('horas_extras.bandeja') }}">Horas extras ↗</a>{% endif %}
+  </nav>
+  {% block banco_content %}{% endblock %}
+</div>
+{% endblock %}

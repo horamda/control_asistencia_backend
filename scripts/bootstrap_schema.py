@@ -28,6 +28,7 @@ from scripts.migrate_20261018_01_vacaciones_semanas import migrate_cursor as mig
 from scripts.migrate_20261019_01_jornada_laboral import migrate_cursor as migrate_work_schedule_rules
 from scripts.migrate_20261019_02_jornada_calculo import migrate_cursor as migrate_work_hours_results
 from scripts.migrate_20261019_03_horas_extras import migrate_cursor as migrate_overtime
+from scripts.migrate_20261019_04_banco_horas import migrate_cursor as migrate_hour_bank
 
 
 def main():
@@ -213,6 +214,13 @@ def main():
         if not cursor.fetchone():
             cursor.execute('SET SESSION lock_wait_timeout=5')
             migrate_overtime(cursor)
+            cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
+            db.commit()
+        version = '20261019_banco_horas'
+        cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
+        if not cursor.fetchone():
+            cursor.execute('SET SESSION lock_wait_timeout=5')
+            migrate_hour_bank(cursor)
             cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
             db.commit()
     finally:

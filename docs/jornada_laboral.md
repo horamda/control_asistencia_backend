@@ -1,4 +1,4 @@
-# Gestión de jornada laboral — etapas A (reglas), B (cálculo de horas) y C (horas extras y cierre)
+# Gestión de jornada laboral — reglas, cálculo de horas, horas extras, cierre y banco de horas
 
 Módulo del **panel web**. No modifica la API mobile, la app Flutter, ni ninguna tabla o fichaje existente. Todo se
 escribe por rutas del panel (sesión, CSRF y permiso `jornada_laboral`), nunca desde el navegador a la base.
@@ -179,7 +179,8 @@ Los días a revisar no generan alertas de horas.
 | Pendiente del jefe | Sin decisión (no hay fila: sale en vivo del cálculo) |
 | Con visto bueno del jefe / Rechazada por el jefe | Espera la decisión de RR. HH. |
 | Aprobada / Rechazada | Decidido por RR. HH. |
-| Liquidada | Aprobada y con el mes cerrado |
+| Liquidada | Aprobada para pago y con el mes cerrado |
+| Compensada en el banco | Aprobada al banco de horas y con el mes cerrado (se acreditó; no se paga) |
 
 - **Rechazar** pide motivo.
 - **Topes:** si al aprobar se supera el tope mensual o anual de horas extras de la regla, hay que confirmar y escribir el motivo. Queda marcado como "supera tope". Al jefe solo se le avisa.
@@ -220,11 +221,65 @@ Los días a revisar no generan alertas de horas.
 
   Para que un jefe participe necesita un usuario del panel **vinculado a su empleado** con `ver` y `aprobar` en este módulo.
 
-## Pendiente (etapas siguientes)
+## Etapa D — banco de horas (Asistencia → Banco de horas)
 
-| Etapa | Contenido |
+| Pantalla | Ruta | Para qué |
+|---|---|---|
+| Saldos | `/banco-horas/` | Empleados con acuerdo o movimientos: saldo, disponible y lo que vence en 30 días |
+| Empleado | `/banco-horas/empleado/{id}` | Saldo, lotes con vencimiento, libro de movimientos, acuerdo (versiones) y carga de movimientos |
+
+No reemplaza los "compensatorios" de Vacaciones: aquellos son días que se suman al saldo de vacaciones. El banco
+lleva horas.
+
+**Acuerdo** (`jl_banco_acuerdos`)
+- **Requisito:** solo se carga si la regla de jornada del empleado tiene "Banco de horas habilitado".
+- **Versiones:** como las reglas. Una nueva cierra la anterior y no se puede empezar antes de la vigente. "Finalizar" cierra el acuerdo abierto con motivo, y el saldo se conserva.
+- **Equivalencia parametrizable:** cuántas horas de banco acredita una hora extra hábil y una de descanso o feriado.
+  - Por defecto es 1 + recargo de la regla: 1,5 y 2.
+  - Para una a una se cargan 1 y 1.
+- **Saldo máximo:** opcional.
+- **Vencimiento:** meses hasta que vencen las horas acreditadas. Vacío = no vencen.
+
+**Libro** (`jl_banco_movimientos`, en minutos)
+
+| Movimiento | Signo | Cuándo |
+|---|---|---|
+| Horas extras compensadas | + | Al cerrar el mes, lo que RR. HH. aprobó "al banco" (horas × equivalencia del acuerdo) |
+| Crédito manual | + | Con motivo; requiere acuerdo vigente y respeta el saldo máximo |
+| Franco compensatorio | − | Día completo (toma lo programado) o algunas horas |
+| Débito manual | − | Con motivo |
+| Faltantes del mes | − | Al cerrar el mes: minutos faltantes de llegadas tarde y salidas antes de quienes tienen acuerdo. Las ausencias de día completo no se debitan. |
+| Vencimiento | − | Horas que vencieron. Se registra al cerrar el mes o en el próximo movimiento del empleado. |
+| Reversión | ± | Anula un movimiento y lo referencia; cada uno se revierte una sola vez |
+
+- **Libro inmutable:** nada se borra ni se edita.
+- **Saldo:** el saldo es la suma de los movimientos.
+- **Orden de consumo:** las horas se consumen primero por las que vencen antes, y una reversión de un crédito consume ese crédito.
+- **Nunca queda saldo negativo:**
+  - un débito no puede superar lo disponible;
+  - los faltantes se debitan hasta el saldo y el resto se informa en el cierre;
+  - un crédito ya usado no se revierte.
+- **Francos en el cálculo:** el motor toma un franco compensatorio de día completo como licencia. Si son algunas horas, baja lo programado.
+- **Meses cerrados:** no admiten movimientos con fecha en ellos.
+  - Los movimientos del cierre (horas extras compensadas, faltantes, vencimientos) se revierten reabriendo el mes.
+  - La reapertura se rechaza si el banco de alguien quedaría negativo porque ya usó esas horas. En ese caso, primero se revierten sus francos o débitos.
+
+**Horas extras:**
+- **Al aprobar:** RR. HH. elige el destino, "Se paga en la liquidación" o "Al banco de horas". Al banco exige acuerdo vigente ese día y no superar el saldo máximo, contando lo aprobado al banco que todavía no se acreditó.
+- **Liquidación:** muestra las horas al banco en una columna aparte; no se pagan.
+
+### Tablas y permisos de la etapa D
+
+- **Migración:** `scripts/migrate_20261019_04_banco_horas.py`, versión `20261019_banco_horas`.
+  - **Tablas:** crea `jl_banco_acuerdos` y `jl_banco_movimientos`.
+  - **Columna:** agrega `destino` a `jl_horas_extra`.
+  - **Reversión:** DROP de las dos tablas y de la columna, y borrar la versión de `app_schema_versions`.
+- **Permiso `banco_horas`** (por defecto admin y RR. HH.):
+
+| Acción | Habilita |
 |---|---|
-| D | Banco de horas: acuerdos, libro de movimientos inmutable con reversiones, compensatorios y cierre. |
+| `ver` | Saldos y libro |
+| `editar` | Acuerdos, movimientos manuales, francos y reversiones |
 
 **Decisión pendiente: turnos que cruzan la medianoche.**
 - **El motor ya los empareja:** un ingreso a las 22:00 con egreso a las 06:00 del día siguiente cuenta 8 h para el

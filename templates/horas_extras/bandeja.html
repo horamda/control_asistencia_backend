@@ -45,7 +45,7 @@
           <td data-label="Excedente">{{ d.excedente|hm }}</td>
           <td data-label="Propuesta">{{ i.propuesta[0]|hm }} hábil{% if i.propuesta[1] %} · {{ i.propuesta[1]|hm }} descanso{% endif %}</td>
           <td data-label="Estado"><span class="badge {{ BADGE[i.estado] }}">{{ ESTADOS[i.estado] }}</span>
-            {% if i.aprobados %}<small class="helper-text hj-motivo">{{ i.aprobados|hm }} aprobadas</small>{% endif %}
+            {% if i.aprobados %}<small class="helper-text hj-motivo">{{ i.aprobados|hm }} aprobadas{% if i.fila.destino == 'banco' %} al banco{% endif %}</small>{% endif %}
             {% if i.supera_tope and i.estado not in ('aprobada', 'liquidada', 'rechazada') %}<small class="badge warning hj-motivo">Supera el tope</small>{% endif %}
             {% if i.cambio %}<small class="badge warning hj-motivo">Fichajes cambiados</small>{% endif %}</td>
           <td data-label="Aprobadas del mes">{{ i.acumulado[0]|hm }}{% if d.topes[0] is not none %} / {{ d.topes[0]|hm }}{% endif %}</td>

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Horas extras{% endblock %}
 {% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/horas.css') }}">{% endblock %}
-{% set BADGE = {'pendiente': 'neutral', 'visto_jefe': 'warning', 'rechazo_jefe': 'danger', 'aprobada': 'ok', 'rechazada': 'danger', 'liquidada': 'ok'} %}
+{% set BADGE = {'pendiente': 'neutral', 'visto_jefe': 'warning', 'rechazo_jefe': 'danger', 'aprobada': 'ok', 'rechazada': 'danger', 'liquidada': 'ok', 'compensada': 'ok'} %}
 {% block content %}
 <div class="content-stack hj-page">
   <div class="section-head">

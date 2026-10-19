@@ -145,7 +145,7 @@ def test_cierre_liquidacion_y_reapertura(he_db, monkeypatch):
     he.decidir(RRHH, 10, D(2026, 10, 6), "aprobar")  # se decide de nuevo con la propuesta actual (1 h)
     with pytest.raises(he.Error, match="Solo RR. HH."):
         he.cerrar(JEFE, "2026-10")
-    pid, liquidadas = he.cerrar(RRHH, "2026-10")
+    pid, liquidadas, _ = he.cerrar(RRHH, "2026-10")
     assert liquidadas == 1 and _fila(10, D(2026, 10, 6))["estado"] == "liquidada" and _fila(10, D(2026, 10, 6))["periodo_id"] == pid
     assert he.estado_cierre(RRHH, "2026-10")["cerrado"]
     with pytest.raises(he.Error, match="mes está cerrado"):

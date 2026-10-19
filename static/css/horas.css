@@ -30,6 +30,9 @@
 .he-checklist li.ok::before {content: "✓"; color: #1e8a4c}
 .he-checklist li.falta::before {content: "•"; color: #c53a4d}
 .he-confirmar {display: flex; align-items: center; gap: 8px; font-weight: 600}
+.he-destino {display: grid; gap: 8px; margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px}
+.he-destino legend {font-weight: 600; padding: 0 4px}
+.he-destino label {display: flex; flex-wrap: wrap; align-items: center; gap: 6px}
 .he-tabla td[data-label="Elegir"] input {width: 22px; height: 22px}
 
 /* Celular: tarjetas compactas (nombre o dia arriba, cifras de a tres por fila) para no hacer scroll eterno. */

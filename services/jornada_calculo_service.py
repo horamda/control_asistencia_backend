@@ -194,8 +194,9 @@ def _nocturnos(pares, regla):
     return total
 
 
-def _dia(fecha, pares, sueltas, esperado, regla, feriado, licencia, hoy, vinculado=True):
-    """Resultado de un dia (minutos y estado) con su detalle. vinculado: la fecha esta dentro de la relacion laboral."""
+def _dia(fecha, pares, sueltas, esperado, regla, feriado, licencia, hoy, vinculado=True, franco=0):
+    """Resultado de un dia (minutos y estado) con su detalle. vinculado: la fecha esta dentro de la relacion laboral.
+    franco: minutos de franco compensatorio del banco de horas (el dia completo es licencia; si no, baja lo programado)."""
     pactadas = regla.get("horas_diarias")
     dias_laborales = [int(x) for x in str(regla.get("dias_laborales") or "").split(",") if x.strip().isdigit()]
     trabaja_feriados = bool(regla.get("trabaja_feriados"))
@@ -210,6 +211,11 @@ def _dia(fecha, pares, sueltas, esperado, regla, feriado, licencia, hoy, vincula
         tipo_dia, programados = "feriado", 0
     if licencia or (esperado and esperado["anula"]):
         tipo_dia, programados = "licencia", 0
+    if franco and tipo_dia == "laborable":
+        if franco >= programados:
+            tipo_dia, programados, licencia = "licencia", 0, licencia or "Franco compensatorio"
+        else:
+            programados -= franco
     if not vinculado:
         tipo_dia, programados = "fuera", 0
 
@@ -358,6 +364,7 @@ def calcular(empresa_id, desde, hasta, filtros=None):
         horarios = Horarios(c, ids, desde, hasta)
         feriados = feriado_service.mapa(c, empresa_id)
         licencias = _licencias(c, ids, desde, hasta)
+        francos = _francos_banco(c, ids, desde, hasta)
     resolutor = reglas.Resolutor(empresa_id, empleados, desde, hasta)
     por_empleado = defaultdict(list)
     for f in filas:
@@ -372,7 +379,8 @@ def calcular(empresa_id, desde, hasta, filtros=None):
         while fecha <= hasta:
             regla, usadas, _ = resolutor.efectivas(eid, fecha)
             dia = _dia(fecha, pares.get(fecha, []), sueltas.get(fecha, []), horarios.esperado(eid, fecha), regla,
-                       feriados_suc.get(fecha), licencias.get((eid, fecha)), hoy, _vinculado(e, fecha))
+                       feriados_suc.get(fecha), licencias.get((eid, fecha)), hoy, _vinculado(e, fecha),
+                       francos.get((eid, fecha), 0))
             dia["reglas"] = usadas
             dia["huella"] = _huella(por_empleado.get(eid, []), fecha)
             dia["pactadas_diarias"] = int(float(regla["horas_diarias"]) * 60) if regla.get("horas_diarias") else None
@@ -414,6 +422,18 @@ def _licencias(c, ids, desde, hasta):
                          (*ids, desde, hasta)):
         cubrir(f["empleado_id"], f["fecha"], f["fecha"], "Franco")
     return salida
+
+
+def _francos_banco(c, ids, desde, hasta):
+    """{(empleado, fecha): minutos} de francos compensatorios del banco de horas que no fueron revertidos."""
+    if not ids:
+        return {}
+    marcas = ",".join(["%s"] * len(ids))
+    return {(int(f["empleado_id"]), _fecha(f["fecha"])): int(f["minutos"]) for f in db.all_rows(
+        c, f"""SELECT m.empleado_id, m.fecha, -SUM(m.minutos) AS minutos FROM jl_banco_movimientos m
+               WHERE m.tipo = 'franco' AND m.empleado_id IN ({marcas}) AND m.fecha BETWEEN %s AND %s
+                 AND NOT EXISTS (SELECT 1 FROM jl_banco_movimientos r WHERE r.revierte_id = m.id)
+               GROUP BY m.empleado_id, m.fecha""", (*ids, desde, hasta))}
 
 
 def _huella(marcas, fecha):

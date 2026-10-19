@@ -55,6 +55,9 @@ def hj(jl, monkeypatch):  # noqa: F811
     from scripts.migrate_20261019_02_jornada_calculo import migrate_cursor
     migrate_cursor(c)
     migrate_cursor(c)  # idempotente
+    from scripts.migrate_20261019_04_banco_horas import migrate_cursor as etapa_d
+    etapa_d(c)
+    etapa_d(c)  # idempotente
     conn.commit()
     c.close()
     conn.close()

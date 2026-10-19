@@ -16,7 +16,7 @@ from web.horas.routes import XLSX, _opciones
 web = Blueprint("horas_extras", __name__, url_prefix="/horas-extras")
 FILTROS = ("sucursal_id", "sector_id", "convenio_id")
 VISTAS = {"decidir": "Para decidir", "todas": "Todas", "aprobada": "Aprobadas", "rechazada": "Rechazadas",
-          "liquidada": "Liquidadas"}
+          "liquidada": "Liquidadas", "compensada": "Al banco"}
 
 
 def actor():
@@ -83,7 +83,7 @@ def bandeja():
         items = datos["items"]
     else:
         items = [i for i in datos["items"] if i["estado"] == vista]
-    conteo = {v: sum(1 for i in datos["items"] if i["estado"] == v) for v in ("aprobada", "rechazada", "liquidada")}
+    conteo = {v: sum(1 for i in datos["items"] if i["estado"] == v) for v in ("aprobada", "rechazada", "liquidada", "compensada")}
     return render_template("horas_extras/bandeja.html", datos=datos, items=items, vista=vista, VISTAS=VISTAS, conteo=conteo,
                            mes=mes, filtros=filtros, args={"mes": mes, **{k: v for k, v in filtros.items() if v}},
                            **_opciones(quien["empresa_id"]), **_comunes(quien))
@@ -104,7 +104,7 @@ def decidir(empleado_id, fecha):
     accion = request.form.get("accion")
     hid = he.decidir(quien, empleado_id, fecha, accion, request.form.get("minutos_habil"),
                      request.form.get("minutos_descanso"), request.form.get("motivo"),
-                     request.form.get("confirmar_tope") == "1")
+                     request.form.get("confirmar_tope") == "1", request.form.get("destino") or "pago")
     log_audit(session, f"horas_extra_{accion}", "jl_horas_extra", hid)
     flash(f"{he.ACCIONES[accion]} registrado.", "success")
     return redirect(_volver(url_for("horas_extras.dia", empleado_id=empleado_id, fecha=fecha)))
@@ -140,9 +140,16 @@ def cierre():
 def cerrar():
     quien = actor()
     mes = _mes()
-    pid, liquidadas = he.cerrar(quien, mes)
+    pid, liquidadas, del_banco = he.cerrar(quien, mes)
     log_audit(session, "horas_extra_cerrar_mes", "jl_periodos", pid)
-    flash(f"Mes cerrado. {liquidadas} día{'' if liquidadas == 1 else 's'} con horas extras pasaron a liquidadas.", "success")
+    texto = f"Mes cerrado. {liquidadas} día{'' if liquidadas == 1 else 's'} con horas extras pasaron a liquidadas."
+    if del_banco.get("compensadas"):
+        texto += f" {del_banco['compensadas']} al banco de horas ({calc.horas(del_banco['acreditado'])} h acreditadas)."
+    if del_banco.get("faltantes"):
+        texto += f" Faltantes descontados del banco: {calc.horas(del_banco['faltantes'])} h."
+    if del_banco.get("faltantes_sin_descontar"):
+        texto += f" Sin saldo para descontar: {calc.horas(del_banco['faltantes_sin_descontar'])} h."
+    flash(texto, "success")
     return redirect(url_for("horas_extras.cierre", mes=mes))
 
 

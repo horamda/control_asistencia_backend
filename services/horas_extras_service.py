@@ -15,6 +15,7 @@ import datetime as dt
 from collections import defaultdict
 
 from repositories import carga_repository as db
+from services import banco_horas_service as banco
 from services import jornada_calculo_service as calc
 from services.carga_service import CargaError as Error, now_local
 from services.vacaciones_semanas_service import equipo
@@ -26,6 +27,7 @@ ESTADOS = {
     "aprobada": "Aprobada",
     "rechazada": "Rechazada",
     "liquidada": "Liquidada",
+    "compensada": "Compensada en el banco",
 }
 ACCIONES = {
     "visto_bueno": "Visto bueno del jefe",
@@ -33,6 +35,7 @@ ACCIONES = {
     "aprobar": "Aprobación de RR. HH.",
     "rechazar": "Rechazo de RR. HH.",
     "liquidar": "Liquidada al cerrar el mes",
+    "compensar": "Acreditada al banco al cerrar el mes",
     "reabrir": "Mes reabierto",
 }
 
@@ -79,11 +82,11 @@ def estado_visible(fila):
 
 
 def _decidida_por_rrhh(fila):
-    return bool(fila) and fila["estado"] in ("aprobada", "rechazada", "liquidada") and bool(fila["resuelto_por"])
+    return bool(fila) and fila["estado"] in ("aprobada", "rechazada", "liquidada", "compensada") and bool(fila["resuelto_por"])
 
 
 def _aprobados(fila):
-    return (fila["minutos_habil"] + fila["minutos_descanso"]) if fila and fila["estado"] in ("aprobada", "liquidada") else 0
+    return (fila["minutos_habil"] + fila["minutos_descanso"]) if fila and fila["estado"] in ("aprobada", "liquidada", "compensada") else 0
 
 
 # --- Alcance: RR. HH. ve todo; un jefe, su cadena -----------------------------------------------------------------
@@ -123,7 +126,7 @@ def _acumulado(c, empleado_id, fecha):
                           COALESCE(SUM(CASE WHEN fecha BETWEEN %s AND %s THEN minutos_habil + minutos_descanso END), 0) AS mes,
                           COALESCE(SUM(minutos_habil + minutos_descanso), 0) AS anio
                         FROM jl_horas_extra WHERE empleado_id = %s AND fecha BETWEEN %s AND %s AND fecha <> %s
-                          AND estado IN ('aprobada', 'liquidada')""",
+                          AND estado IN ('aprobada', 'liquidada', 'compensada')""",
                   (*mes_de(fecha), int(empleado_id), dt.date(fecha.year, 1, 1), dt.date(fecha.year, 12, 31), fecha))
     return int(fila["mes"]), int(fila["anio"])
 
@@ -146,7 +149,7 @@ def bandeja(actor, mes, filtros=None):
             c, f"""SELECT empleado_id, COALESCE(SUM(minutos_habil + minutos_descanso), 0) AS anio,
                           COALESCE(SUM(CASE WHEN fecha BETWEEN %s AND %s THEN minutos_habil + minutos_descanso END), 0) AS mes
                    FROM jl_horas_extra WHERE empleado_id IN ({','.join(['%s'] * len(ids))}) AND fecha BETWEEN %s AND %s
-                     AND estado IN ('aprobada', 'liquidada') GROUP BY empleado_id""",
+                     AND estado IN ('aprobada', 'liquidada', 'compensada') GROUP BY empleado_id""",
             (desde, hasta, *sorted(ids), dt.date(desde.year, 1, 1), dt.date(desde.year, 12, 31)))} if ids else {}
     cerrado = bool(periodo and periodo["estado"] == "cerrado")
     items, revisar = [], []
@@ -174,7 +177,7 @@ def _item(actor, empleado, dia, fila, acumulado, cerrado):
     return dict(
         empleado=empleado, dia=dia, fila=fila, estado=estado, propuesta=dia["propuesta"], acumulado=acumulado,
         supera_tope=supera, aprobados=aprobados,
-        cambio=bool(fila) and fila["marcas_huella"] != dia["huella"] and fila["estado"] != "liquidada",
+        cambio=bool(fila) and fila["marcas_huella"] != dia["huella"] and fila["estado"] not in ("liquidada", "compensada"),
         excede=aprobados > dia["excedente"],
         puede=puede(actor, empleado, dia, fila, cerrado),
     )
@@ -184,7 +187,7 @@ def puede(actor, empleado, dia, fila, cerrado):
     """Acciones disponibles para el actor sobre ese dia: subconjunto de ('jefe', 'rrhh')."""
     if cerrado or not actor.get("aprobar") or int(empleado["id"]) == int(actor.get("empleado_id") or 0):
         return ()
-    if fila and fila["estado"] == "liquidada":
+    if fila and fila["estado"] in ("liquidada", "compensada"):
         return ()
     if actor.get("global"):
         return ("rrhh",) if dia["estado"] == "normal" and dia["excedente"] or fila else ()
@@ -214,17 +217,20 @@ def detalle(actor, empleado_id, fecha):
                                     WHERE e.horas_extra_id = %s ORDER BY e.id""", (fila["id"],)) if fila else []
         periodo = _periodo(c, actor["empresa_id"], fecha.replace(day=1))
         acumulado = _acumulado(c, empleado_id, fecha)
+        acuerdo = banco.acuerdo_vigente(c, empleado_id, fecha)
     aprobados = _aprobados(fila)
     acumulado = (acumulado[0] + aprobados, acumulado[1] + aprobados)
     item = _item(actor, empleado, dia, fila, acumulado, bool(periodo and periodo["estado"] == "cerrado"))
-    return dict(item, eventos=eventos, periodo=periodo)
+    return dict(item, eventos=eventos, periodo=periodo, acuerdo_banco=acuerdo)
 
 
-def decidir(actor, empleado_id, fecha, accion, minutos_habil=None, minutos_descanso=None, motivo=None, confirmar_tope=False):
-    """accion: visto_bueno o rechazo_jefe (jefe), aprobar o rechazar (RR. HH.). Sin minutos, se toma la propuesta."""
+def decidir(actor, empleado_id, fecha, accion, minutos_habil=None, minutos_descanso=None, motivo=None, confirmar_tope=False,
+            destino="pago"):
+    """accion: visto_bueno o rechazo_jefe (jefe), aprobar o rechazar (RR. HH.). Sin minutos, se toma la propuesta.
+    destino (al aprobar): 'pago' o 'banco' (banco de horas, si tiene acuerdo vigente)."""
     fecha = _fecha(fecha)
     empleado, dia = _dia_actual(actor, empleado_id, fecha)
-    return _decidir(actor, empleado, dia, accion, minutos_habil, minutos_descanso, motivo, confirmar_tope)
+    return _decidir(actor, empleado, dia, accion, minutos_habil, minutos_descanso, motivo, confirmar_tope, destino)
 
 
 def decidir_lote(actor, mes, claves, accion):
@@ -252,9 +258,13 @@ def decidir_lote(actor, mes, claves, accion):
     return hechos, errores
 
 
-def _decidir(actor, empleado, dia, accion, minutos_habil=None, minutos_descanso=None, motivo=None, confirmar_tope=False):
+def _decidir(actor, empleado, dia, accion, minutos_habil=None, minutos_descanso=None, motivo=None, confirmar_tope=False,
+             destino="pago"):
     if accion not in ("visto_bueno", "rechazo_jefe", "aprobar", "rechazar"):
         raise Error("Acción inválida.")
+    if destino not in ("pago", "banco"):
+        raise Error("Destino inválido.")
+    destino = destino if accion == "aprobar" else "pago"
     eid, fecha = int(empleado["id"]), dia["fecha"]
     motivo = (str(motivo or "").strip() or None)
     rechazo = accion in ("rechazo_jefe", "rechazar")
@@ -282,6 +292,8 @@ def _decidir(actor, empleado, dia, accion, minutos_habil=None, minutos_descanso=
         permitido = puede(actor, empleado, dia, fila, False)
         if ("jefe" if accion in ("visto_bueno", "rechazo_jefe") else "rrhh") not in permitido:
             raise Error("No puede tomar esa decisión sobre este día.", 403)
+        if destino == "banco":
+            banco.validar_destino_banco(c, eid, fecha, habil, descanso, fila and fila["id"])
         supera = False
         if not rechazo:
             mes, anio = _acumulado(c, eid, fecha)
@@ -297,7 +309,7 @@ def _decidir(actor, empleado, dia, accion, minutos_habil=None, minutos_descanso=
         valores = dict(estado=estado, minutos_excedente=dia["excedente"], propuesta_habil=dia["propuesta"][0],
                        propuesta_descanso=dia["propuesta"][1], minutos_habil=habil, minutos_descanso=descanso,
                        recargo_habil=dia["recargos"][0], recargo_descanso=dia["recargos"][1], supera_tope=int(supera),
-                       marcas_huella=dia["huella"], motivo=motivo, actualizado_at=ahora)
+                       marcas_huella=dia["huella"], motivo=motivo, destino=destino, actualizado_at=ahora)
         if accion in ("visto_bueno", "rechazo_jefe"):
             valores.update(jefe_por=actor["user_id"], jefe_at=ahora, resuelto_por=None, resuelto_at=None)
         else:
@@ -377,7 +389,8 @@ def cerrar(actor, mes):
         else:
             pid = db.insert(c, "jl_periodos", dict(datos, empresa_id=actor["empresa_id"], mes=desde))
         filas = db.all_rows(c, """SELECT * FROM jl_horas_extra WHERE empresa_id = %s AND fecha BETWEEN %s AND %s
-                                  AND estado = 'aprobada' FOR UPDATE""", (actor["empresa_id"], desde, estado["hasta"]))
+                                  AND estado = 'aprobada' AND destino = 'pago' FOR UPDATE""",
+                            (actor["empresa_id"], desde, estado["hasta"]))
         for f in filas:
             c.execute("UPDATE jl_horas_extra SET estado='liquidada', periodo_id=%s, actualizado_at=%s WHERE id=%s",
                       (pid, ahora, f["id"]))
@@ -385,7 +398,8 @@ def cerrar(actor, mes):
                 horas_extra_id=f["id"], empresa_id=actor["empresa_id"], accion="liquidar", estado_anterior="aprobada",
                 estado_nuevo="liquidada", minutos_habil=f["minutos_habil"], minutos_descanso=f["minutos_descanso"],
                 supera_tope=f["supera_tope"], motivo=f"Cierre de {desde:%m/%Y}", usuario_id=actor["user_id"], creado_at=ahora))
-    return pid, len(filas)
+        del_banco = banco.al_cerrar(c, actor, pid, desde, estado["hasta"], calculo_id)
+    return pid, len(filas), del_banco
 
 
 def reabrir(actor, mes, motivo):
@@ -410,6 +424,7 @@ def reabrir(actor, mes, motivo):
                 horas_extra_id=f["id"], empresa_id=actor["empresa_id"], accion="reabrir", estado_anterior="liquidada",
                 estado_nuevo="aprobada", minutos_habil=f["minutos_habil"], minutos_descanso=f["minutos_descanso"],
                 supera_tope=f["supera_tope"], motivo=motivo, usuario_id=actor["user_id"], creado_at=ahora))
+        banco.al_reabrir(c, actor, periodo["id"], motivo)
     return periodo["id"], len(filas)
 
 
@@ -440,11 +455,15 @@ def liquidacion(actor, mes):
                                   ORDER BY e.apellido, e.nombre""", (periodo["calculo_id"],))
         extras = db.all_rows(c, """SELECT h.*, e.legajo, e.apellido, e.nombre FROM jl_horas_extra h
                                    JOIN empleados e ON e.id = h.empleado_id
-                                   WHERE h.periodo_id = %s AND h.estado = 'liquidada' ORDER BY e.apellido, e.nombre, h.fecha""",
+                                   WHERE h.periodo_id = %s AND h.estado IN ('liquidada', 'compensada')
+                                   ORDER BY e.apellido, e.nombre, h.fecha""",
                              (periodo["id"],))
-    por_empleado = defaultdict(lambda: dict(habil=0, descanso=0, recargos_habil=set(), recargos_descanso=set()))
+    por_empleado = defaultdict(lambda: dict(habil=0, descanso=0, banco=0, recargos_habil=set(), recargos_descanso=set()))
     for x in extras:
         t = por_empleado[int(x["empleado_id"])]
+        if x["estado"] == "compensada":  # no se pagan: van al banco de horas
+            t["banco"] += x["minutos_habil"] + x["minutos_descanso"]
+            continue
         t["habil"] += x["minutos_habil"]
         t["descanso"] += x["minutos_descanso"]
         if x["minutos_habil"] and x["recargo_habil"] is not None:
@@ -452,7 +471,8 @@ def liquidacion(actor, mes):
         if x["minutos_descanso"] and x["recargo_descanso"] is not None:
             t["recargos_descanso"].add(int(x["recargo_descanso"]))
     for f in filas:
-        f.update(extras=por_empleado.get(int(f["id"]), dict(habil=0, descanso=0, recargos_habil=set(), recargos_descanso=set())))
+        f.update(extras=por_empleado.get(int(f["id"]), dict(habil=0, descanso=0, banco=0, recargos_habil=set(),
+                                                            recargos_descanso=set())))
     return dict(desde=desde, hasta=hasta, periodo=periodo, filas=filas, extras=extras)
 
 
@@ -492,18 +512,19 @@ def exportar_liquidacion(datos):
     libro = Workbook()
     hoja(libro.active, "Liquidación", [
         "Legajo", "Empleado", "DNI", "Sucursal", "Horas extras hábiles", "Recargo hábil", "Horas extras descanso y feriado",
-        "Recargo descanso", "Horas nocturnas", "Feriados trabajados", "Ausencias injustificadas", "Días de licencia",
+        "Recargo descanso", "Horas extras al banco (no se pagan)", "Horas nocturnas", "Feriados trabajados", "Ausencias injustificadas", "Días de licencia",
         "Horas trabajadas"],
         [(f["legajo"], f"{f['apellido']}, {f['nombre']}", f["dni"], f["sucursal_nombre"], h(f["extras"]["habil"]),
           pct(f["extras"]["recargos_habil"]), h(f["extras"]["descanso"]), pct(f["extras"]["recargos_descanso"]),
-          h(f["nocturnos"]), int(f["feriados"] or 0), int(f["ausencias"] or 0), int(f["licencias"] or 0), h(f["trabajados"]))
+          h(f["extras"]["banco"]), h(f["nocturnos"]), int(f["feriados"] or 0), int(f["ausencias"] or 0), int(f["licencias"] or 0), h(f["trabajados"]))
          for f in datos["filas"]])
     hoja(libro.create_sheet(), "Horas extras por día", [
         "Legajo", "Empleado", "Fecha", "Excedente", "Hábiles", "Recargo hábil", "Descanso y feriado", "Recargo descanso",
-        "Supera tope", "Motivo"],
+        "Destino", "Supera tope", "Motivo"],
         [(x["legajo"], f"{x['apellido']}, {x['nombre']}", x["fecha"], h(x["minutos_excedente"]), h(x["minutos_habil"]),
           f"{x['recargo_habil']} %" if x["recargo_habil"] is not None else "", h(x["minutos_descanso"]),
-          f"{x['recargo_descanso']} %" if x["recargo_descanso"] is not None else "", "Sí" if x["supera_tope"] else "",
+          f"{x['recargo_descanso']} %" if x["recargo_descanso"] is not None else "",
+          "Banco de horas" if x["estado"] == "compensada" else "Pago", "Sí" if x["supera_tope"] else "",
           x["motivo"] or "") for x in datos["extras"]])
     for celda in libro["Horas extras por día"]["C"][4:]:
         celda.number_format = "DD/MM/YYYY"
