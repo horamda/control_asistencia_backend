@@ -281,9 +281,13 @@ lleva horas.
 | `ver` | Saldos y libro |
 | `editar` | Acuerdos, movimientos manuales, francos y reversiones |
 
-**Decisión pendiente: turnos que cruzan la medianoche.**
+**Turnos que cruzan la medianoche: decisión tomada (18/10/2026).** Hoy no hay turnos de noche. Si los hay, ese
+personal se excluye del egreso automático. Esa exclusión todavía no existe: hay que agregarla en
+`services/egreso_automatico_service.py`, por ejemplo con una marca en el horario o en el empleado. El motor de
+cálculo no necesita cambios.
+
+Contexto:
 - **El motor ya los empareja:** un ingreso a las 22:00 con egreso a las 06:00 del día siguiente cuenta 8 h para el
   día del ingreso.
 - **El egreso automático no se cambió.** Corre a las 03:30 y cierra el turno nocturno todavía abierto, así que ese día
-  queda "a revisar" y el egreso real queda sin pareja.
-- **Si hay personal nocturno:** habrá que excluirlo del egreso automático, o que corra después del fin de su turno.
+  queda "a revisar" y el egreso real queda sin pareja. Por eso, si hay personal nocturno, se lo excluye.
