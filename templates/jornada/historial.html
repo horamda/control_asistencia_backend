@@ -1,0 +1,33 @@
+{% extends 'jornada/layout.html' %}
+{% block jornada_content %}
+<section class="surface-card">
+  <h3>Historial de cambios</h3>
+  <p class="helper-text">Cada regla y cada asignación de convenio se guarda como una versión nueva; las anteriores se conservan
+    con su vigencia. Las últimas 200.</p>
+  <div class="table-responsive table-cards">
+    <table>
+      <thead><tr><th>Cuándo</th><th>Qué</th><th>A quién</th><th>Vigencia</th><th>Motivo</th><th>Usuario</th></tr></thead>
+      <tbody>
+        {% for f in filas %}
+          <tr>
+            <td data-label="Cuándo">{{ f.creado_at.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td data-label="Qué">{{ 'Convenio asignado' if f.tipo == 'asignacion' else 'Regla ' ~ {'empresa': 'de la empresa', 'sucursal': 'de sucursal', 'convenio': 'de convenio', 'empleado': 'individual'}[f.alcance] }}</td>
+            <td data-label="A quién">
+              {% if f.tipo == 'asignacion' %}{{ f.empleado_nombre }} → {{ f.convenio_nombre }}
+              {% elif f.alcance == 'empresa' %}Toda la empresa
+              {% elif f.alcance == 'sucursal' %}{{ f.sucursal_nombre }}
+              {% elif f.alcance == 'convenio' %}{{ f.convenio_nombre }}
+              {% else %}{{ f.empleado_nombre }}{% endif %}
+            </td>
+            <td data-label="Vigencia">{{ f.vigente_desde.strftime('%d/%m/%Y') }} → {{ f.vigente_hasta.strftime('%d/%m/%Y') if f.vigente_hasta else 'vigente' }}</td>
+            <td data-label="Motivo">{{ f.motivo or '—' }}</td>
+            <td data-label="Usuario">{{ f.usuario or '—' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6">Todavía no hay cambios.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

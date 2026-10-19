@@ -1,0 +1,62 @@
+{% extends 'jornada/layout.html' %}
+{% block jornada_content %}
+<form method="get" class="form-grid surface-card" aria-label="Filtros">
+  <div class="row"><label for="f_q">Empleado o legajo</label><input id="f_q" name="q" value="{{ filtros.q }}"></div>
+  <div class="row"><label for="f_sucursal">Sucursal</label>
+    <select id="f_sucursal" name="sucursal_id"><option value="">Todas</option>{% for x in sucursales %}<option value="{{ x.id }}" {{ 'selected' if filtros.sucursal_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+  <div class="row"><label for="f_sector">Sector</label>
+    <select id="f_sector" name="sector_id"><option value="">Todos</option>{% for x in sectores %}<option value="{{ x.id }}" {{ 'selected' if filtros.sector_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+  <div class="row"><label for="f_puesto">Puesto</label>
+    <select id="f_puesto" name="puesto_id"><option value="">Todos</option>{% for x in puestos %}<option value="{{ x.id }}" {{ 'selected' if filtros.puesto_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+  <div class="row"><label for="f_convenio">Convenio</label>
+    <select id="f_convenio" name="convenio_id"><option value="">Todos</option><option value="sin" {{ 'selected' if filtros.convenio_id == 'sin' }}>Sin convenio</option>
+      {% for x in convenios %}<option value="{{ x.id }}" {{ 'selected' if filtros.convenio_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+  <div class="actions"><button class="btn btn-secondary" type="submit">Filtrar</button></div>
+</form>
+
+<form method="post" action="{{ url_for('jornada.asignar', **filtros) }}" class="surface-card" id="jl-asignar">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h3>Asignar convenio</h3>
+  <p class="helper-text">Marcá los empleados (o todos los del filtro) y elegí el convenio y desde cuándo. A cada uno se le cierra
+    la asignación anterior el día previo; queda en su historial.</p>
+  {% if can_web('jornada_laboral', 'editar') %}
+  <div class="form-grid">
+    <div class="row"><label for="convenio_id">Convenio</label>
+      <select id="convenio_id" name="convenio_id" required><option value="">Elegí…</option>{% for x in convenios %}<option value="{{ x.id }}">{{ x.nombre }}</option>{% endfor %}</select></div>
+    <div class="row"><label for="vigente_desde">Vigente desde</label><input id="vigente_desde" type="date" name="vigente_desde" value="{{ hoy }}" required></div>
+    <div class="row span-2"><label for="motivo">Motivo</label><input id="motivo" name="motivo" maxlength="255" placeholder="Ej.: alta en el convenio, cambio de categoría"></div>
+  </div>
+  {% endif %}
+  <p class="jl-contador"><label><input type="checkbox" data-jl-todos> Marcar los {{ empleados|length }} del listado</label></p>
+  <div class="table-responsive table-cards">
+    <table>
+      <thead><tr><th></th><th>Empleado</th><th>Sucursal / sector</th><th>Convenio vigente</th><th></th></tr></thead>
+      <tbody>
+        {% for e in empleados %}
+          <tr>
+            <td data-label="Elegir"><input type="checkbox" name="empleado_id" value="{{ e.id }}" aria-label="Elegir a {{ e.apellido }} {{ e.nombre }}"></td>
+            <td data-label="Empleado"><strong>{{ e.apellido }} {{ e.nombre }}</strong>{% if e.legajo %}<br><small class="helper-text">Legajo {{ e.legajo }}</small>{% endif %}</td>
+            <td data-label="Sucursal / sector">{{ e.sucursal_nombre or '—' }}<br><small class="helper-text">{{ e.sector_nombre or '' }}</small></td>
+            <td data-label="Convenio vigente">{% if e.convenio_nombre %}{{ e.convenio_nombre }}<br><small class="helper-text">desde {{ e.convenio_desde.strftime('%d/%m/%Y') }}</small>{% else %}<span class="badge warning">Sin convenio</span>{% endif %}</td>
+            <td data-label=""><a class="btn btn-sm btn-secondary" href="{{ url_for('jornada.empleado', empleado_id=e.id) }}">Condiciones</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5">No hay empleados con esos filtros.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if can_web('jornada_laboral', 'editar') and empleados %}
+    <div class="actions"><button class="btn" type="submit">Asignar a los marcados</button></div>
+  {% endif %}
+</form>
+<script nonce="{{ csp_nonce() }}">
+  (function () {
+    var todos = document.querySelector('[data-jl-todos]');
+    if (!todos) return;
+    todos.addEventListener('change', function () {
+      document.querySelectorAll('#jl-asignar input[name="empleado_id"]').forEach(function (c) { c.checked = todos.checked; });
+    });
+  })();
+</script>
+{% endblock %}

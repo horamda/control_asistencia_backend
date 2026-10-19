@@ -1,0 +1,111 @@
+{% extends 'jornada/layout.html' %}
+{% import 'jornada/_regla.html' as r %}
+{% block jornada_content %}
+<section class="surface-card">
+  <div class="jl-titulo">
+    <div>
+      <h3>Condiciones laborales · {{ empleado.apellido }} {{ empleado.nombre }}</h3>
+      <p class="helper-text">Al {{ fecha[8:10] }}/{{ fecha[5:7] }}/{{ fecha[:4] }}{% if empleado.legajo %} · Legajo {{ empleado.legajo }}{% endif %}</p>
+    </div>
+    <form method="get" class="jl-fecha">
+      <label for="fecha">Ver a otra fecha</label>
+      <input id="fecha" type="date" name="fecha" value="{{ fecha }}">
+      <button class="btn btn-sm btn-secondary" type="submit">Ver</button>
+    </form>
+  </div>
+  {% for aviso in avisos %}<p class="badge warning jl-aviso">{{ aviso }}</p>{% endfor %}
+  <dl class="jl-valores">
+    <div><dt>Tipo de contratación</dt><dd>{{ (empleado.tipo_contrato or '—')|capitalize }}</dd></div>
+    <div><dt>Fecha de ingreso</dt><dd>{{ empleado.fecha_ingreso.strftime('%d/%m/%Y') if empleado.fecha_ingreso else '—' }}</dd></div>
+    <div><dt>Sucursal</dt><dd>{{ empleado.sucursal_nombre or '—' }}</dd></div>
+    <div><dt>Sector / puesto</dt><dd>{{ empleado.sector_nombre or '—' }}{% if empleado.puesto_nombre %} · {{ empleado.puesto_nombre }}{% endif %}</dd></div>
+    <div><dt>Categoría</dt><dd>{{ empleado.categoria or '—' }}</dd></div>
+    <div><dt>Convenio</dt><dd>{% if convenio %}{{ convenio.convenio_nombre }}<br><small class="helper-text">desde {{ convenio.vigente_desde.strftime('%d/%m/%Y') }}</small>{% else %}Sin convenio (LCT){% endif %}</dd></div>
+  </dl>
+</section>
+
+<section class="surface-card">
+  <h3>Jornada efectiva</h3>
+  <p class="helper-text">Cada valor muestra de dónde sale: condición individual, convenio, sucursal o empresa. Donde hay tope,
+    es el del convenio y no se puede superar.</p>
+  <div class="table-responsive table-cards">
+    <table class="jl-efectiva">
+      <thead><tr><th>Concepto</th><th>Valor</th><th>Origen</th><th>Tope del convenio</th></tr></thead>
+      <tbody>
+        {% for campo in campos if campo.clave != 'observaciones' %}
+          <tr>
+            <td data-label="Concepto">{{ campo.etiqueta }}</td>
+            <td data-label="Valor">{{ campo.valor or '—' }}</td>
+            <td data-label="Origen">{% if campo.origen %}<span class="jl-origen jl-origen-{{ campo.origen|lower }}">{{ campo.origen }}</span>{% else %}<span class="helper-text">Sin definir</span>{% endif %}</td>
+            <td data-label="Tope del convenio">{{ campo.tope or '—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="surface-card">
+  <h3>Horario asignado</h3>
+  {% if horario %}
+    <p class="helper-text">{{ horario.nombre }} · desde {{ horario.desde[8:10] }}/{{ horario.desde[5:7] }}/{{ horario.desde[:4] }}
+      · {{ '%g'|format(horario.horas_semana) }} h por semana · tolerancia {{ horario.tolerancia_min }} min
+      (solo clasifica llegadas y salidas; no cambia las horas trabajadas)</p>
+    <ul class="jl-horario">
+      {% for d in horario.dias %}
+        <li><strong>{{ d.nombre|capitalize }}</strong>
+          {% for b in d.bloques %}{{ b[0] }}–{{ b[1] }}{{ ', ' if not loop.last }}{% endfor %}
+          {% if d.descansos %}<small class="helper-text"> · descanso {% for x in d.descansos %}{{ x[0] }}–{{ x[1] }}{{ ', ' if not loop.last }}{% endfor %}</small>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% if can_web('horarios') %}<a class="btn btn-sm btn-ghost" href="{{ url_for('horarios.listado') }}">Cambiar en Horarios ↗</a>{% endif %}
+  {% else %}
+    <p class="helper-text">Sin horario asignado en esa fecha.</p>
+  {% endif %}
+</section>
+
+{% if can_web('jornada_laboral', 'editar') %}
+<form method="post" action="{{ url_for('jornada.convenio_empleado', empleado_id=empleado.id) }}" class="surface-card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h3>Cambiar de convenio</h3>
+  <div class="form-grid">
+    <div class="row"><label for="c_convenio">Convenio</label>
+      <select id="c_convenio" name="convenio_id" required><option value="">Elegí…</option>{% for x in convenios %}<option value="{{ x.id }}">{{ x.nombre }}</option>{% endfor %}</select></div>
+    <div class="row"><label for="c_desde">Vigente desde</label><input id="c_desde" type="date" name="vigente_desde" value="{{ hoy }}" required></div>
+    <div class="row span-2"><label for="c_motivo">Motivo</label><input id="c_motivo" name="motivo" maxlength="255"></div>
+  </div>
+  <div class="actions"><button class="btn btn-secondary" type="submit">Asignar convenio</button></div>
+</form>
+
+{{ r.formulario(url_for('jornada.regla_empleado', empleado_id=empleado.id), CAMPOS, DIAS, REGIMENES, hoy,
+                'Condición individual', '', reglas_propias[0] if reglas_propias else None,
+                'Solo lo que difiere para esta persona (por ejemplo, una jornada reducida). No puede superar los topes de su convenio. Los vacíos heredan.') }}
+{% endif %}
+
+<section class="surface-card">
+  <h3>Historial</h3>
+  <h4>Convenios</h4>
+  {% if historial %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Convenio</th><th>Vigencia</th><th>Motivo</th><th>Cargado</th></tr></thead>
+        <tbody>
+          {% for a in historial %}
+            <tr>
+              <td data-label="Convenio">{{ a.convenio_nombre }}</td>
+              <td data-label="Vigencia">{{ a.vigente_desde.strftime('%d/%m/%Y') }} → {{ a.vigente_hasta.strftime('%d/%m/%Y') if a.vigente_hasta else 'vigente' }}</td>
+              <td data-label="Motivo">{{ a.motivo or '—' }}</td>
+              <td data-label="Cargado">{{ a.creado_at.strftime('%d/%m/%Y %H:%M') }}{% if a.creado_por_usuario %} · {{ a.creado_por_usuario }}{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="helper-text">Nunca tuvo un convenio asignado.</p>
+  {% endif %}
+  <h4>Condiciones individuales</h4>
+  {{ r.lista_versiones(reglas_propias) }}
+</section>
+{% endblock %}

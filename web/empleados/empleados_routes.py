@@ -359,6 +359,18 @@ def nuevo():
     )
 
 
+def _condiciones_laborales(emp):
+    """Resumen de Jornada laboral para la ficha (solo con el permiso del modulo; nunca rompe la ficha)."""
+    try:
+        from services import jornada_service
+        from web.auth.decorators import can_access_module
+        if not emp or not emp.get("empresa_id") or not can_access_module(session.get("user_id"), "jornada_laboral", "ver"):
+            return None
+        return jornada_service.resumen_empleado({"empresa_id": emp["empresa_id"]}, emp["id"])
+    except Exception:
+        return None
+
+
 @empleados_bp.route("/editar/<int:emp_id>", methods=["GET", "POST"])
 @role_required("admin", "rrhh")
 def editar(emp_id):
@@ -459,6 +471,7 @@ def editar(emp_id):
         puestos=puestos,
         localidades=localidades,
         empleados_lista=_get_empleados_lista_para_form(),
+        condiciones_laborales=_condiciones_laborales(emp),
         photo_cache_buster=int(time.time()),
         periodos_laborales=periodos_laborales,
         empleado_activo=bool(emp.get("activo")),

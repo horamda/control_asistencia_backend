@@ -355,6 +355,17 @@
       <a class="btn btn-secondary" href="{{ next_url or url_for('empleados.listado') }}">Volver</a>
     </div>
   </form>
+  {% if mode == "edit" and condiciones_laborales %}
+    <section class="surface-card" aria-labelledby="condiciones-titulo">
+      <h3 id="condiciones-titulo">Condiciones laborales</h3>
+      <p class="helper-text">Convenio {{ condiciones_laborales.convenio or 'sin asignar (LCT)' }}
+        · {{ condiciones_laborales.horas_semanales or '—' }} semanales · {{ condiciones_laborales.horas_diarias or '—' }} diarias
+        · días {{ condiciones_laborales.dias or '—' }} · horario {{ condiciones_laborales.horario or 'sin asignar' }}
+        · banco de horas {{ condiciones_laborales.banco or 'no' }}</p>
+      {% for aviso in condiciones_laborales.avisos %}<p class="badge warning">{{ aviso }}</p>{% endfor %}
+      <div class="actions"><a class="btn btn-secondary" href="{{ url_for('jornada.empleado', empleado_id=data.id) }}">Ver y editar condiciones laborales</a></div>
+    </section>
+  {% endif %}
 </div>
 <script nonce="{{ csp_nonce() }}">
   (function () {

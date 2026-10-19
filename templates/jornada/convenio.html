@@ -1,0 +1,40 @@
+{% extends 'jornada/layout.html' %}
+{% import 'jornada/_regla.html' as r %}
+{% block jornada_content %}
+<section class="surface-card">
+  <h3>{{ convenio.nombre }}</h3>
+  <p class="helper-text">{{ convenio.tipo_nombre }} · {{ convenio.empleados }} empleado{{ '' if convenio.empleados == 1 else 's' }} hoy
+    {% if convenio.descripcion %}· {{ convenio.descripcion }}{% endif %}</p>
+  <h4>Regla vigente</h4>
+  {% if vigente %}
+    <p class="helper-text">Desde el {{ vigente.vigente_desde.strftime('%d/%m/%Y') }}. Estos valores son los topes de sus empleados.</p>
+    {{ r.tabla_valores(vigente, CAMPOS, valores) }}
+  {% else %}
+    <p class="badge warning">Sin regla cargada: sus empleados no tienen topes de convenio hasta que la cargues.</p>
+  {% endif %}
+  <details class="jl-detalle">
+    <summary>Versiones ({{ versiones|length }})</summary>
+    {{ r.lista_versiones(versiones) }}
+  </details>
+</section>
+
+{% if can_web('jornada_laboral', 'editar') %}
+  {{ r.formulario(url_for('jornada.regla_convenio', convenio_id=convenio.id), CAMPOS, DIAS, REGIMENES, hoy,
+                  'Nueva versión de la regla del convenio', '', vigente,
+                  'Completá los valores del convenio. Los vacíos no fijan tope. La versión anterior queda en el historial.') }}
+
+  <form method="post" action="{{ url_for('jornada.editar_convenio', convenio_id=convenio.id) }}" class="surface-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3>Datos del convenio</h3>
+    <div class="form-grid">
+      <div class="row"><label for="nombre">Nombre</label><input id="nombre" name="nombre" maxlength="120" value="{{ convenio.nombre }}" required></div>
+      <div class="row"><label for="tipo">Tipo</label>
+        <select id="tipo" name="tipo">{% for k, texto in TIPOS_CONVENIO.items() %}<option value="{{ k }}" {{ 'selected' if k == convenio.tipo }}>{{ texto }}</option>{% endfor %}</select></div>
+      <div class="row"><label for="activo">Estado</label>
+        <select id="activo" name="activo"><option value="1" {{ 'selected' if convenio.activo }}>Activo</option><option value="0" {{ 'selected' if not convenio.activo }}>Inactivo</option></select></div>
+      <div class="row span-2"><label for="descripcion">Descripción</label><input id="descripcion" name="descripcion" maxlength="500" value="{{ convenio.descripcion or '' }}"></div>
+    </div>
+    <div class="actions"><button class="btn btn-secondary" type="submit">Guardar datos</button></div>
+  </form>
+{% endif %}
+{% endblock %}

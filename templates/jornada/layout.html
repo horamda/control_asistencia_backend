@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Jornada laboral{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/jornada.css') }}">{% endblock %}
+{% block content %}
+<div class="content-stack jl-page">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Configuración</div>
+      <h2>Jornada laboral</h2>
+      <p class="module-intro">Reglas de jornada por empresa, sucursal, convenio y empleado, con vigencia e historial.
+        El nivel más específico vigente manda; el convenio fija los topes que una condición individual no puede superar.</p>
+    </div>
+  </div>
+  <nav class="actions jl-nav" aria-label="Jornada laboral">
+    {% set tabs = [('jornada.reglas', 'Reglas generales', ('jornada.reglas',)),
+                   ('jornada.convenios', 'Convenios y acuerdos', ('jornada.convenios', 'jornada.convenio')),
+                   ('jornada.asignaciones', 'Asignar convenio', ('jornada.asignaciones', 'jornada.empleado')),
+                   ('jornada.historial', 'Historial', ('jornada.historial',))] %}
+    {% for endpoint, texto, activos in tabs %}
+      <a class="btn {{ 'btn-secondary' if request.endpoint not in activos }}" {% if request.endpoint in activos %}aria-current="page"{% endif %} href="{{ url_for(endpoint) }}">{{ texto }}</a>
+    {% endfor %}
+    {% if can_web('horarios') %}<a class="btn btn-ghost" href="{{ url_for('horarios.listado') }}">Horarios y turnos ↗</a>{% endif %}
+    {% if can_web('asistencias') %}<a class="btn btn-ghost" href="{{ url_for('asistencias.reportes_mensuales') }}">Feriados ↗</a>{% endif %}
+  </nav>
+  {% block jornada_content %}{% endblock %}
+</div>
+{% endblock %}

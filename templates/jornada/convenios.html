@@ -1,0 +1,40 @@
+{% extends 'jornada/layout.html' %}
+{% block jornada_content %}
+<section class="surface-card">
+  <h3>Convenios y acuerdos</h3>
+  <p class="helper-text">La regla de cada convenio fija los topes legales o convencionales de sus empleados (horas semanales,
+    diarias, nocturnas y de horas extras). Quien no tiene convenio asignado usa Fuera de convenio (LCT).</p>
+  <div class="table-responsive table-cards">
+    <table>
+      <thead><tr><th>Convenio</th><th>Tipo</th><th>Empleados hoy</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+        {% for c in convenios %}
+          <tr>
+            <td data-label="Convenio"><strong>{{ c.nombre }}</strong>{% if c.descripcion %}<br><small class="helper-text">{{ c.descripcion }}</small>{% endif %}</td>
+            <td data-label="Tipo">{{ c.tipo_nombre }}</td>
+            <td data-label="Empleados hoy">{{ c.empleados }}</td>
+            <td data-label="Estado"><span class="badge {{ 'ok' if c.activo else 'neutral' }}">{{ 'Activo' if c.activo else 'Inactivo' }}</span></td>
+            <td data-label=""><a class="btn btn-sm btn-secondary" href="{{ url_for('jornada.convenio', convenio_id=c.id) }}">Ver y editar</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5">Todavía no hay convenios.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if can_web('jornada_laboral', 'crear') %}
+<form method="post" action="{{ url_for('jornada.crear_convenio') }}" class="surface-card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h3>Nuevo convenio o acuerdo</h3>
+  <div class="form-grid">
+    <div class="row"><label for="nombre">Nombre</label><input id="nombre" name="nombre" maxlength="120" required></div>
+    <div class="row"><label for="tipo">Tipo</label>
+      <select id="tipo" name="tipo">{% for k, texto in TIPOS_CONVENIO.items() %}<option value="{{ k }}" {{ 'selected' if k == 'cct' }}>{{ texto }}</option>{% endfor %}</select></div>
+    <div class="row span-2"><label for="descripcion">Descripción</label><input id="descripcion" name="descripcion" maxlength="500"></div>
+  </div>
+  <div class="actions"><button class="btn" type="submit">Crear convenio</button></div>
+</form>
+{% endif %}
+{% endblock %}

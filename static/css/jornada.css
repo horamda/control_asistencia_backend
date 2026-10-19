@@ -1,0 +1,43 @@
+/* Jornada laboral: solo lo propio del modulo; el resto sale del sistema del panel. */
+.jl-page .surface-card {display: grid; gap: 12px}
+.jl-page .surface-card h3, .jl-page .surface-card h4 {margin: 0}
+.jl-nav {flex-wrap: wrap}
+
+.jl-valores {display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px 16px; margin: 0}
+.jl-valores > div {padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); min-width: 0}
+.jl-valores dt {color: var(--muted); font-size: .8125rem}
+.jl-valores dd {margin: 4px 0 0; font-weight: 700; color: var(--text); overflow-wrap: break-word}
+
+.jl-detalle summary {cursor: pointer; font-weight: 600; color: var(--primary)}
+.jl-detalle[open] summary {margin-bottom: 10px}
+
+.jl-label {display: block; font-size: .875rem; font-weight: 600; color: var(--text); margin-bottom: 6px}
+.jl-dias {display: flex; flex-wrap: wrap; gap: 6px}
+.jl-dia {display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--surface); font-weight: 600; color: var(--text); cursor: pointer}
+.jl-dia input {margin: 0}
+
+.jl-titulo {display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px}
+.jl-fecha {display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 0; padding: 0; border: 0; background: none}
+.jl-fecha label {width: 100%; font-size: .8125rem; color: var(--muted)}
+.jl-aviso {display: block; width: fit-content; max-width: 100%; white-space: normal; text-align: left}
+
+.jl-origen {display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .8125rem; font-weight: 700; background: var(--surface-soft); color: var(--text)}
+.jl-origen-individual {background: #e8f1ff; color: #1d4f91}
+.jl-origen-convenio {background: #eaf7ef; color: #1e6a3c}
+.jl-origen-sucursal {background: #fff4e0; color: #7a4d00}
+:root[data-theme="dark"] .jl-origen-individual {background: #1d3557; color: #cfe2ff}
+:root[data-theme="dark"] .jl-origen-convenio {background: #1d3b2a; color: #c5ecd3}
+:root[data-theme="dark"] .jl-origen-sucursal {background: #3d3014; color: #ffe2a6}
+
+.jl-horario {list-style: none; margin: 0; padding: 0; display: grid; gap: 6px}
+.jl-horario li {padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft)}
+.jl-contador {margin: 0}
+
+/* Jornada efectiva en el celular: concepto arriba y valor, origen y tope en una fila (14 conceptos sin hacer scroll eterno). */
+@media (max-width: 760px) {
+  .jl-page .table-cards table.jl-efectiva tbody tr {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px}
+  .jl-page .table-cards table.jl-efectiva tbody td {display: block; min-width: 0; padding: 0}
+  .jl-page .table-cards table.jl-efectiva tbody td:first-child {grid-column: 1 / -1; font-weight: 700}
+  .jl-page .table-cards table.jl-efectiva tbody td:first-child::before {display: none}
+}

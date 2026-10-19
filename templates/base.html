@@ -407,7 +407,7 @@
               </div>
             {% endif %}
 
-            {% if (can_web("organizacion") or can_web("empresas") or can_web("sucursales") or can_web("sectores") or can_web("puestos") or can_web("localidades")) or (can_web("usuarios") or can_web("roles_empleados")) or (can_web("configuracion") or can_web("auditoria") or can_web("app_version") or can_web("mobile_stats") or can_web("calificaciones_app")) %}<div class="nav-label nav-section-label">Configuración</div>{% endif %}
+            {% if can_web("jornada_laboral") or (can_web("organizacion") or can_web("empresas") or can_web("sucursales") or can_web("sectores") or can_web("puestos") or can_web("localidades")) or (can_web("usuarios") or can_web("roles_empleados")) or (can_web("configuracion") or can_web("auditoria") or can_web("app_version") or can_web("mobile_stats") or can_web("calificaciones_app")) %}<div class="nav-label nav-section-label">Configuración</div>{% endif %}
 
             {% if can_web("organizacion") or can_web("empresas") or can_web("sucursales") or can_web("sectores") or can_web("puestos") or can_web("localidades") %}
               <div class="nav-group" data-collapsible="1">
@@ -425,6 +425,24 @@
                   {% if can_web("sectores") %}<a class="nav-link" href="/sectores/">Sectores</a>{% endif %}
                   {% if can_web("puestos") %}<a class="nav-link" href="/puestos/">Puestos</a>{% endif %}
                   {% if can_web("localidades") %}<a class="nav-link" href="/localidades/">Localidades</a>{% endif %}
+                </div>
+              </div>
+            {% endif %}
+
+            {% if can_web("jornada_laboral") %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-jornada">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    <span class="nav-label">Jornada laboral</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-jornada">
+                  <a class="nav-link" href="/jornada-laboral/reglas">Reglas generales</a>
+                  <a class="nav-link" href="/jornada-laboral/convenios">Convenios y acuerdos</a>
+                  <a class="nav-link" href="/jornada-laboral/asignaciones">Asignar convenio</a>
+                  <a class="nav-link" href="/jornada-laboral/historial">Historial de cambios</a>
                 </div>
               </div>
             {% endif %}

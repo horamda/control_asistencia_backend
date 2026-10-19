@@ -1,0 +1,83 @@
+{#- Piezas compartidas: valores de una regla y formulario de version nueva (los vacios heredan del nivel superior). -#}
+
+{% macro tabla_valores(regla, CAMPOS, valores) %}
+  {% set v = valores(regla) %}
+  <dl class="jl-valores">
+    {% for clave, meta in CAMPOS.items() if clave != 'observaciones' %}
+      <div><dt>{{ meta[0] }}</dt><dd>{{ v[clave] or '—' }}</dd></div>
+    {% endfor %}
+  </dl>
+  {% if regla and regla.observaciones %}<p class="helper-text">{{ regla.observaciones }}</p>{% endif %}
+{% endmacro %}
+
+{% macro formulario(action, CAMPOS, DIAS, REGIMENES, hoy, titulo='Nueva versión', extra='', base=None, ayuda='') %}
+  <form method="post" action="{{ action }}" class="jl-regla-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset class="form-section">
+      <legend>{{ titulo }}</legend>
+      <p class="helper-text">{{ ayuda or 'Los campos vacíos heredan del nivel superior. La versión anterior se cierra el día previo y queda en el historial.' }}</p>
+      {{ extra|safe }}
+      <div class="form-grid">
+        <div class="row"><label for="vigente_desde">Vigente desde</label>
+          <input id="vigente_desde" type="date" name="vigente_desde" value="{{ hoy }}" required></div>
+        {% for clave, meta in CAMPOS.items() %}
+          {% set etiqueta, tipo = meta[0], meta[1] %}
+          {% set actual = base[clave] if base and base[clave] is not none else '' %}
+          {% if tipo == 'dias' %}
+            <div class="row span-2"><span class="jl-label">{{ etiqueta }}</span>
+              <div class="jl-dias">
+                {% set marcados = (actual|string).split(',') %}
+                {% for n, nombre in DIAS.items() %}
+                  <label class="jl-dia"><input type="checkbox" name="{{ clave }}" value="{{ n }}" {{ 'checked' if n|string in marcados }}> {{ nombre }}</label>
+                {% endfor %}
+              </div>
+            </div>
+          {% elif tipo in ('booleano', 'regimen') %}
+            <div class="row"><label for="{{ clave }}">{{ etiqueta }}</label>
+              <select id="{{ clave }}" name="{{ clave }}">
+                <option value="">Hereda</option>
+                {% if tipo == 'booleano' %}
+                  <option value="1" {{ 'selected' if actual|string == '1' }}>Sí</option>
+                  <option value="0" {{ 'selected' if actual|string == '0' }}>No</option>
+                {% else %}
+                  {% for k, texto in REGIMENES.items() %}<option value="{{ k }}" {{ 'selected' if actual == k }}>{{ texto }}</option>{% endfor %}
+                {% endif %}
+              </select></div>
+          {% elif tipo == 'texto' %}
+            <div class="row span-2"><label for="{{ clave }}">{{ etiqueta }}</label>
+              <input id="{{ clave }}" name="{{ clave }}" maxlength="255" value="{{ actual }}"></div>
+          {% else %}
+            <div class="row"><label for="{{ clave }}">{{ etiqueta }}</label>
+              <input id="{{ clave }}" name="{{ clave }}"
+                     {% if tipo == 'hora' %}type="time" value="{{ actual|jl_hhmm }}"
+                     {% else %}inputmode="decimal" value="{{ actual }}" placeholder="Hereda"{% endif %}></div>
+          {% endif %}
+        {% endfor %}
+        <div class="row span-2"><label for="motivo">Motivo del cambio</label>
+          <input id="motivo" name="motivo" maxlength="255" placeholder="Ej.: acuerdo paritario, cambio de turno"></div>
+      </div>
+      <div class="actions"><button class="btn" type="submit">Guardar versión</button></div>
+    </fieldset>
+  </form>
+{% endmacro %}
+
+{% macro lista_versiones(versiones) %}
+  {% if versiones %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Vigencia</th><th>Motivo</th><th>Cargada</th></tr></thead>
+        <tbody>
+          {% for v in versiones %}
+            <tr>
+              <td data-label="Vigencia">{{ v.vigente_desde.strftime('%d/%m/%Y') }} → {{ v.vigente_hasta.strftime('%d/%m/%Y') if v.vigente_hasta else 'vigente' }}</td>
+              <td data-label="Motivo">{{ v.motivo or '—' }}</td>
+              <td data-label="Cargada">{{ v.creado_at.strftime('%d/%m/%Y %H:%M') }}{% if v.creado_por_usuario %} · {{ v.creado_por_usuario }}{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="helper-text">Todavía no tiene versiones.</p>
+  {% endif %}
+{% endmacro %}

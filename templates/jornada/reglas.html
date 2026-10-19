@@ -1,0 +1,51 @@
+{% extends 'jornada/layout.html' %}
+{% import 'jornada/_regla.html' as r %}
+{% block jornada_content %}
+<section class="surface-card">
+  <h3>Regla de la empresa</h3>
+  <p class="helper-text">Vale para todos los empleados, salvo lo que definan su sucursal, su convenio o una condición individual.</p>
+  {{ r.tabla_valores(empresa, CAMPOS, valores) }}
+  <details class="jl-detalle">
+    <summary>Versiones ({{ versiones_empresa|length }})</summary>
+    {{ r.lista_versiones(versiones_empresa) }}
+  </details>
+</section>
+
+<section class="surface-card">
+  <h3>Reglas por sucursal</h3>
+  {% if sucursales %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Sucursal</th><th>Horas semanales</th><th>Horas diarias</th><th>Días</th><th>Vigente desde</th></tr></thead>
+        <tbody>
+          {% for su in sucursales %}
+            {% set regla = por_sucursal[su.id] %}
+            {% set v = valores(regla) %}
+            <tr>
+              <td data-label="Sucursal">{{ su.nombre }}</td>
+              <td data-label="Horas semanales">{{ v.horas_semanales or 'Hereda' }}</td>
+              <td data-label="Horas diarias">{{ v.horas_diarias or 'Hereda' }}</td>
+              <td data-label="Días">{{ v.dias_laborales or 'Hereda' }}</td>
+              <td data-label="Vigente desde">{{ regla.vigente_desde.strftime('%d/%m/%Y') if regla else '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="helper-text">La empresa no tiene sucursales cargadas.</p>
+  {% endif %}
+</section>
+
+{% if can_web('jornada_laboral', 'editar') %}
+  {% set selector %}
+    <div class="row"><label for="sucursal_id">Aplica a</label>
+      <select id="sucursal_id" name="sucursal_id">
+        <option value="">Toda la empresa</option>
+        {% for su in sucursales %}<option value="{{ su.id }}">Sucursal {{ su.nombre }}</option>{% endfor %}
+      </select></div>
+  {% endset %}
+  {{ r.formulario(url_for('jornada.guardar_regla_general'), CAMPOS, DIAS, REGIMENES, hoy, 'Nueva versión de la regla',
+                  selector, empresa) }}
+{% endif %}
+{% endblock %}

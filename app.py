@@ -74,6 +74,7 @@ from web.rendimiento.rendimiento_routes import rendimiento_bp
 from web.reuniones.routes import web as reuniones_web_bp, mobile as reuniones_mobile_bp
 from web.push.routes import web as push_web_bp, mobile as push_mobile_bp
 from web.comunicados.routes import web as comunicados_web_bp, mobile as comunicados_mobile_bp
+from web.jornada.routes import web as jornada_web_bp
 from routes.notificaciones_routes import mobile as notificaciones_mobile_bp
 from routes.vacaciones_semanas_routes import mobile as vacaciones_semanas_mobile_bp
 from utils import request_metrics
@@ -115,6 +116,7 @@ BLUEPRINTS = (
     push_web_bp,
     comunicados_mobile_bp,
     comunicados_web_bp,
+    jornada_web_bp,
     notificaciones_mobile_bp,
     vacaciones_semanas_mobile_bp,
     reintegros_web_bp,
