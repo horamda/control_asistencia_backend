@@ -282,9 +282,20 @@ lleva horas.
 | `editar` | Acuerdos, movimientos manuales, francos y reversiones |
 
 **Turnos que cruzan la medianoche: decisión tomada (18/10/2026).** Hoy no hay turnos de noche. Si los hay, ese
-personal se excluye del egreso automático. Esa exclusión todavía no existe: hay que agregarla en
-`services/egreso_automatico_service.py`, por ejemplo con una marca en el horario o en el empleado. El motor de
-cálculo no necesita cambios.
+personal se excluye del egreso automático.
+
+**Limitación de la API.** Excluirlo del egreso automático **no alcanza**, porque la API de fichada trabaja por día
+calendario:
+- Con el QR en modo automático, la primera fichada del día siempre es un ingreso. Así, el egreso de las 06:00 de un
+  turno que empezó a las 22:00 del día anterior se registraría como **ingreso** del día nuevo
+  (`routes/mobile_v1_helpers.py: _decidir_accion_scan`).
+- Un egreso explícito busca el ingreso abierto **de la misma fecha**. Si no lo encuentra, rechaza la fichada
+  ("No hay fichada de entrada para esa fecha", `repositories/asistencia_repository.py: register_salida`).
+
+Para soportar turnos nocturnos hay que cambiar la API de fichada: tomar como abierta una jornada del día anterior
+dentro de un máximo de horas. Eso cambia el contrato de la app y queda fuera de este módulo, que no toca la API.
+**Recién con ese cambio** tiene sentido excluir a ese personal del egreso automático. El motor de cálculo no necesita
+cambios: ya empareja a través de la medianoche.
 
 Contexto:
 - **El motor ya los empareja:** un ingreso a las 22:00 con egreso a las 06:00 del día siguiente cuenta 8 h para el
