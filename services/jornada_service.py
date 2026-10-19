@@ -17,7 +17,8 @@ from repositories import carga_repository as db
 from services.carga_service import CargaError as Error, now_local
 
 ALCANCES = ("empresa", "sucursal", "convenio", "empleado")
-PRECEDENCIA = ("empleado", "convenio", "sucursal", "empresa")  # el primero que define el campo gana
+# El primero que define el campo gana; "ley" (la regla de Fuera de convenio, LCT) completa lo que nadie definio.
+PRECEDENCIA = ("empleado", "convenio", "sucursal", "empresa", "ley")
 TIPOS_CONVENIO = {"ley": "Ley general", "cct": "Convenio colectivo", "acuerdo": "Acuerdo de empresa"}
 REGIMENES = {"diaria": "Jornada diaria fija", "semanal": "Distribución semanal", "promedio": "Promedio en un ciclo"}
 DIAS = {1: "Lun", 2: "Mar", 3: "Mié", 4: "Jue", 5: "Vie", 6: "Sáb", 7: "Dom"}
@@ -221,6 +222,11 @@ def _ref_valida(c, empresa_id, alcance, ref_id):
     return int(ref_id)
 
 
+def _regla_ley(c, empresa_id, fecha):
+    lct = db.one(c, "SELECT id FROM jl_convenios WHERE empresa_id = %s AND codigo = 'LCT'", (empresa_id,))
+    return _vigentes(c, empresa_id, "convenio", lct["id"], fecha) if lct else None
+
+
 def _topes(c, empresa_id, empleado_id, fecha):
     """Topes obligatorios para un empleado: la regla de su convenio vigente (o de Fuera de convenio si no tiene)."""
     asignacion = _asignacion(c, empleado_id, fecha)
@@ -357,7 +363,7 @@ def empleados_para_asignar(empresa_id, filtros=None, fecha=None):
 
 # --- Condiciones laborales del empleado -----------------------------------------------------------------------
 
-_ORIGEN = {"empleado": "Individual", "convenio": "Convenio", "sucursal": "Sucursal", "empresa": "Empresa"}
+_ORIGEN = {"empleado": "Individual", "convenio": "Convenio", "sucursal": "Sucursal", "empresa": "Empresa", "ley": "Ley"}
 
 
 def _horario_semana(empleado_id, fecha):
@@ -409,6 +415,7 @@ def condiciones(who, empleado_id, fecha=None):
             "convenio": _vigentes(c, empresa_id, "convenio", asignacion["convenio_id"], fecha) if asignacion else None,
             "sucursal": _vigentes(c, empresa_id, "sucursal", empleado["sucursal_id"], fecha) if empleado["sucursal_id"] else None,
             "empresa": _vigentes(c, empresa_id, "empresa", None, fecha),
+            "ley": _regla_ley(c, empresa_id, fecha),
         }
         topes = _topes(c, empresa_id, empleado["id"], fecha)
         historial = db.all_rows(c, """SELECT a.*, cv.nombre AS convenio_nombre, u.usuario AS creado_por_usuario
@@ -494,3 +501,55 @@ def vista_reglas(empresa_id, fecha=None):
 def valores(regla):
     """Regla -> {clave: texto} para mostrarla."""
     return {clave: mostrar(clave, (regla or {}).get(clave)) for clave in CAMPOS}
+
+
+# --- Resolucion por lote (motor de calculo, etapa B) ------------------------------------------------------------
+
+class Resolutor:
+    """Reglas efectivas de muchos empleados y dias con dos consultas (mismas reglas de precedencia que condiciones)."""
+
+    def __init__(self, empresa_id, empleados, desde, hasta):
+        self.empleados = {int(e["id"]): e for e in empleados}
+        ids = sorted(self.empleados)
+        with db.transaction(read_only=True) as c:
+            self.reglas = db.all_rows(c, """SELECT * FROM jl_reglas WHERE empresa_id = %s AND vigente_desde <= %s
+                                            AND (vigente_hasta IS NULL OR vigente_hasta >= %s)
+                                            ORDER BY vigente_desde DESC, id DESC""", (empresa_id, hasta, desde))
+            marcas = ",".join(["%s"] * len(ids)) or "NULL"
+            self.asignaciones = db.all_rows(c, f"""SELECT * FROM jl_asignaciones WHERE empleado_id IN ({marcas})
+                                                   AND vigente_desde <= %s AND (vigente_hasta IS NULL OR vigente_hasta >= %s)
+                                                   ORDER BY vigente_desde DESC, id DESC""", (*ids, hasta, desde)) if ids else []
+            lct = db.one(c, "SELECT id FROM jl_convenios WHERE empresa_id = %s AND codigo = 'LCT'", (empresa_id,))
+        self.lct_id = lct["id"] if lct else None
+
+    @staticmethod
+    def _vigente(filas, fecha, **filtro):
+        for f in filas:
+            if all(f.get(k) == v for k, v in filtro.items()) and f["vigente_desde"] <= fecha \
+                    and (f["vigente_hasta"] is None or f["vigente_hasta"] >= fecha):
+                return f
+        return None
+
+    def efectivas(self, empleado_id, fecha):
+        """({campo: valor}, [ids de regla usados], convenio_id) del empleado en la fecha."""
+        empleado = self.empleados[int(empleado_id)]
+        asignacion = self._vigente(self.asignaciones, fecha, empleado_id=int(empleado_id))
+        convenio_id = asignacion["convenio_id"] if asignacion else None
+        niveles = {
+            "empleado": self._vigente(self.reglas, fecha, alcance="empleado", empleado_id=int(empleado_id)),
+            "convenio": self._vigente(self.reglas, fecha, alcance="convenio", convenio_id=convenio_id) if convenio_id else None,
+            "sucursal": self._vigente(self.reglas, fecha, alcance="sucursal", sucursal_id=empleado.get("sucursal_id"))
+            if empleado.get("sucursal_id") else None,
+            "empresa": self._vigente(self.reglas, fecha, alcance="empresa"),
+            "ley": self._vigente(self.reglas, fecha, alcance="convenio", convenio_id=self.lct_id) if self.lct_id else None,
+        }
+        valores, usadas = {}, []
+        for clave in CAMPOS:
+            for nivel in PRECEDENCIA:
+                regla = niveles[nivel]
+                if regla and regla.get(clave) not in (None, ""):
+                    valores[clave] = regla[clave]
+                    if regla["id"] not in usadas:
+                        usadas.append(regla["id"])
+                    break
+        return valores, usadas, convenio_id

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Horas trabajadas{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/horas.css') }}">{% endblock %}
+{% set BADGE = {'normal': 'ok', 'revisar': 'warning', 'ausente': 'danger'} %}
+{% block content %}
+{% set e = fila.empleado %}{% set t = fila.totales %}
+<div class="content-stack hj-page">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia · Horas trabajadas</div>
+      <h2>{{ e.apellido }}, {{ e.nombre }}</h2>
+      <p class="module-intro">{% if e.legajo %}Legajo {{ e.legajo }} · {% endif %}{{ e.sucursal_nombre or 'Sin sucursal' }}{% if e.sector_nombre %} · {{ e.sector_nombre }}{% endif %}
+        · {{ datos.desde.strftime('%d/%m/%Y') }} al {{ datos.hasta.strftime('%d/%m/%Y') }}</p>
+    </div>
+  </div>
+
+  <div class="actions hj-nav">
+    <a class="btn btn-secondary" href="{{ url_for('horas.resumen', **args) }}">← Volver al resumen</a>
+    {% if can_web('jornada_laboral') %}<a class="btn btn-ghost" href="{{ url_for('jornada.empleado', empleado_id=e.id) }}">Condiciones laborales ↗</a>{% endif %}
+  </div>
+
+  <form method="get" class="surface-card form-grid hj-filtros">
+    <div class="row"><label for="hj-mes">Mes</label><input id="hj-mes" type="month" name="mes" value="{{ mes or datos.desde.strftime('%Y-%m') }}"></div>
+    <div class="actions"><button type="submit" class="btn">Ver</button></div>
+  </form>
+
+  <div class="grid-kpis hj-kpis">
+    <div class="kpi-card"><div class="kpi-label">Programadas</div><div class="kpi-value">{{ t.programados|hm }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Trabajadas</div><div class="kpi-value">{{ t.trabajados|hm }}</div><div class="kpi-desc">{{ t.dias_trabajados }} día{{ '' if t.dias_trabajados == 1 else 's' }} con fichadas</div></div>
+    <div class="kpi-card {{ 'tone-warn' if t.excedente }}"><div class="kpi-label">Excedente</div><div class="kpi-value">{{ t.excedente|hm }}</div><div class="kpi-desc">Sin autorizar ni clasificar</div></div>
+    <div class="kpi-card {{ 'tone-warn' if t.faltantes }}"><div class="kpi-label">Faltantes</div><div class="kpi-value">{{ t.faltantes|hm }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Nocturnas</div><div class="kpi-value">{{ t.nocturnos|hm }}</div></div>
+    <div class="kpi-card {{ 'tone-bad' if t.dias_revisar else 'tone-ok' }}"><div class="kpi-label">Días a revisar</div><div class="kpi-value">{{ t.dias_revisar }}</div></div>
+  </div>
+
+  {% if fila.alertas %}
+  <section class="surface-card">
+    <h3>Alertas</h3>
+    <ul class="hj-alertas">
+      {% for a in fila.alertas %}<li><strong>{{ DIAS_CORTOS[a.fecha.weekday()] }} {{ a.fecha.strftime('%d/%m') }}</strong> · {{ a.texto }}</li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="surface-card">
+    <h3>Detalle diario</h3>
+    <p class="helper-text">Un turno que termina al día siguiente cuenta para el día del ingreso y se marca con (+1). Las
+      tolerancias del horario no cambian las horas: solo clasifican llegadas y salidas.</p>
+    <div class="table-responsive table-cards">
+      <table class="hj-tabla hj-diario">
+        <thead><tr><th>Día</th><th>Horario</th><th>Fichadas</th><th>Estado</th><th>Programadas</th><th>Trabajadas</th>
+          <th>Excedente</th><th>Faltantes</th><th>Nocturnas</th></tr></thead>
+        <tbody>
+          {% for d in fila.dias %}
+          <tr class="hj-{{ d.estado }}">
+            <td data-label="Día"><strong>{{ DIAS_CORTOS[d.fecha.weekday()] }} {{ d.fecha.strftime('%d/%m') }}</strong>
+              {% if d.feriado %}<small class="helper-text"> · {{ d.feriado }}</small>{% endif %}</td>
+            <td data-label="Horario">{{ d.bloques|join(' ') if d.bloques else (TIPOS_DIA[d.tipo_dia] if d.tipo_dia != 'laborable' else (d.programados|hm ~ ' h pactadas')) }}</td>
+            <td data-label="Fichadas">{{ (d.pares + d.sueltas)|join(' · ') or '—' }}</td>
+            <td data-label="Estado"><span class="badge {{ BADGE.get(d.estado, 'neutral') }}">{{ ESTADOS[d.estado] }}</span>
+              {% if d.motivo or d.licencia %}<small class="helper-text hj-motivo">{{ d.motivo or d.licencia }}</small>{% endif %}</td>
+            <td data-label="Programadas">{{ d.programados|hm if d.programados else '—' }}</td>
+            <td data-label="Trabajadas">{{ d.trabajados|hm if d.trabajados else '—' }}</td>
+            <td data-label="Excedente">{{ d.excedente|hm if d.excedente else '—' }}</td>
+            <td data-label="Faltantes">{{ d.faltantes|hm if d.faltantes else '—' }}</td>
+            <td data-label="Nocturnas">{{ d.nocturnos|hm if d.nocturnos else '—' }}</td>
+          </tr>
+          {% set s = semanas.get(d.fecha) %}{% if s %}
+          <tr class="hj-semana">
+            <td colspan="5" data-label="Semana">Semana del {{ s.lunes.strftime('%d/%m') }}{% if s.pactadas %} · pactadas {{ s.pactadas|hm }} h{% endif %}</td>
+            <td data-label="Trabajadas">{{ s.trabajados|hm }}</td>
+            <td colspan="3" data-label="Sobre lo pactado">{% if s.exceso %}<span class="badge warning">+{{ s.exceso|hm }} h</span>{% elif s.pactadas and s.dias < 7 %}<small class="helper-text">Semana incompleta en el período</small>{% else %}—{% endif %}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

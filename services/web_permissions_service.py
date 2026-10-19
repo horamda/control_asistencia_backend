@@ -17,6 +17,7 @@ WEB_MODULES = [
     {"code": "roles_empleados", "label": "Roles empleados", "group": "Seguridad", "roles": {"admin"}},
     {"code": "horarios", "label": "Horarios", "group": "Horarios", "roles": {"admin", "rrhh"}},
     {"code": "jornada_laboral", "label": "Jornada laboral: reglas y convenios", "group": "Horarios", "roles": {"admin", "rrhh"}},
+    {"code": "horas_jornada", "label": "Horas trabajadas (calculo de jornada)", "group": "Asistencia", "roles": {"admin", "rrhh"}},
     {"code": "asistencias", "label": "Asistencias", "group": "Asistencia", "roles": {"admin", "rrhh", "supervisor"}},
     {"code": "justificaciones", "label": "Justificaciones", "group": "Asistencia", "roles": {"admin", "rrhh", "supervisor"}},
     {"code": "qr_puerta", "label": "QR puerta", "group": "Asistencia", "roles": {"admin", "rrhh"}},

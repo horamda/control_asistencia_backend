@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}Horas trabajadas{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/horas.css') }}">{% endblock %}
+{% block content %}
+{% set t = datos.totales %}
+<div class="content-stack hj-page">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>Horas trabajadas</h2>
+      <p class="module-intro">Horas programadas, trabajadas, excedentes, faltantes y nocturnas de cada empleado, calculadas
+        desde los fichajes con las reglas de Jornada laboral vigentes en cada día. Los fichajes no se modifican. El
+        excedente <strong>no es hora extra autorizada</strong>: solo indica que trabajó más de lo programado.</p>
+    </div>
+  </div>
+
+  <form method="get" action="{{ url_for('horas.resumen') }}" class="surface-card form-grid hj-filtros">
+    <div class="row"><label for="hj-mes">Mes</label><input id="hj-mes" type="month" name="mes" value="{{ mes or datos.desde.strftime('%Y-%m') }}"></div>
+    <div class="row"><label for="hj-suc">Sucursal</label>
+      <select id="hj-suc" name="sucursal_id"><option value="">Todas</option>{% for x in sucursales %}<option value="{{ x.id }}" {{ 'selected' if filtros.sucursal_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+    <div class="row"><label for="hj-sec">Sector</label>
+      <select id="hj-sec" name="sector_id"><option value="">Todos</option>{% for x in sectores %}<option value="{{ x.id }}" {{ 'selected' if filtros.sector_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+    <div class="row"><label for="hj-conv">Convenio</label>
+      <select id="hj-conv" name="convenio_id"><option value="">Todos</option>{% for x in convenios %}<option value="{{ x.id }}" {{ 'selected' if filtros.convenio_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+    <div class="actions">
+      <button type="submit" class="btn">Ver</button>
+      {% if can_web('horas_jornada', 'exportar') %}<a class="btn btn-secondary" href="{{ url_for('horas.exportar', **args) }}">Exportar Excel</a>{% endif %}
+    </div>
+  </form>
+
+  <p class="helper-text">Período {{ datos.desde.strftime('%d/%m/%Y') }} al {{ datos.hasta.strftime('%d/%m/%Y') }} ·
+    {{ datos.empleados|length }} empleado{{ '' if datos.empleados|length == 1 else 's' }} · calculado el {{ datos.calculado_at.strftime('%d/%m/%Y %H:%M') }}</p>
+
+  <div class="grid-kpis hj-kpis">
+    <div class="kpi-card"><div class="kpi-label">Programadas</div><div class="kpi-value">{{ t.programados|hm }}</div><div class="kpi-desc">Según horario o jornada pactada</div></div>
+    <div class="kpi-card"><div class="kpi-label">Trabajadas</div><div class="kpi-value">{{ t.trabajados|hm }}</div><div class="kpi-desc">Fichadas más descanso computable</div></div>
+    <div class="kpi-card {{ 'tone-warn' if t.excedente }}"><div class="kpi-label">Excedente</div><div class="kpi-value">{{ t.excedente|hm }}</div><div class="kpi-desc">Sin autorizar ni clasificar</div></div>
+    <div class="kpi-card {{ 'tone-warn' if t.faltantes }}"><div class="kpi-label">Faltantes</div><div class="kpi-value">{{ t.faltantes|hm }}</div><div class="kpi-desc">Programadas no trabajadas</div></div>
+    <div class="kpi-card"><div class="kpi-label">Nocturnas</div><div class="kpi-value">{{ t.nocturnos|hm }}</div><div class="kpi-desc">Dentro de la franja nocturna</div></div>
+    <div class="kpi-card {{ 'tone-bad' if t.dias_revisar else 'tone-ok' }}"><div class="kpi-label">Días a revisar</div><div class="kpi-value">{{ t.dias_revisar }}</div><div class="kpi-desc">Fichadas incompletas o egreso automático</div></div>
+    <div class="kpi-card {{ 'tone-warn' if t.dias_ausente }}"><div class="kpi-label">Ausencias</div><div class="kpi-value">{{ t.dias_ausente }}</div><div class="kpi-desc">Días programados sin fichadas ni licencia</div></div>
+  </div>
+
+  <section class="surface-card hj-registro">
+    <div>
+      <h3>Cálculo registrado</h3>
+      {% if registrado %}
+        <p class="helper-text">N.º {{ registrado.id }} del {{ registrado.creado_at.strftime('%d/%m/%Y %H:%M') }}{% if registrado.usuario %} por {{ registrado.usuario }}{% endif %}
+          · {{ registrado.desde.strftime('%d/%m') }} al {{ registrado.hasta.strftime('%d/%m/%Y') }}{% if registrado.motivo %} · {{ registrado.motivo }}{% endif %}</p>
+        {% if cambios %}<p class="badge warning hj-aviso">{{ cambios }} día{{ '' if cambios == 1 else 's' }} con fichajes que cambiaron desde ese registro (o que no estaban): conviene registrar de nuevo.</p>
+        {% else %}<p class="badge ok hj-aviso">Los fichajes no cambiaron desde ese registro.</p>{% endif %}
+      {% else %}
+        <p class="helper-text">Este período no tiene cálculo registrado. Lo que ves se calcula en el momento; registrarlo guarda
+          una foto con las versiones de regla usadas, para poder comparar si después se corrigen fichajes.</p>
+      {% endif %}
+    </div>
+    {% if can_web('horas_jornada', 'editar') %}
+    <form method="post" action="{{ url_for('horas.registrar') }}" class="hj-registrar">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for k, v in args.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+      <div class="row"><label for="hj-motivo">Motivo (opcional)</label><input id="hj-motivo" name="motivo" maxlength="255" placeholder="Ej.: cierre de octubre"></div>
+      <button type="submit" class="btn btn-secondary" data-confirm="Se guardará el cálculo de {{ datos.empleados|length }} empleados. Los anteriores se conservan. ¿Continuar?">Registrar cálculo</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="surface-card">
+    <h3>Por empleado</h3>
+    {% if datos.empleados %}
+    <div class="table-responsive table-cards">
+      <table class="hj-tabla">
+        <thead><tr><th>Empleado</th><th>Sucursal</th><th>Programadas</th><th>Trabajadas</th><th>Excedente</th><th>Faltantes</th>
+          <th>Nocturnas</th><th>A revisar</th><th>Ausencias</th><th>Alertas</th></tr></thead>
+        <tbody>
+          {% for r in datos.empleados %}{% set e = r.empleado %}{% set x = r.totales %}
+          <tr>
+            <td data-label="Empleado"><a href="{{ url_for('horas.empleado', empleado_id=e.id, **args) }}">{{ e.apellido }}, {{ e.nombre }}</a>
+              {% if e.legajo %}<small class="helper-text"> · {{ e.legajo }}</small>{% endif %}</td>
+            <td data-label="Sucursal">{{ e.sucursal_nombre or '—' }}</td>
+            <td data-label="Programadas">{{ x.programados|hm }}</td>
+            <td data-label="Trabajadas">{{ x.trabajados|hm }}</td>
+            <td data-label="Excedente">{{ x.excedente|hm if x.excedente else '—' }}</td>
+            <td data-label="Faltantes">{{ x.faltantes|hm if x.faltantes else '—' }}</td>
+            <td data-label="Nocturnas">{{ x.nocturnos|hm if x.nocturnos else '—' }}</td>
+            <td data-label="A revisar">{% if x.dias_revisar %}<span class="badge warning">{{ x.dias_revisar }}</span>{% else %}—{% endif %}</td>
+            <td data-label="Ausencias">{% if x.dias_ausente %}<span class="badge danger">{{ x.dias_ausente }}</span>{% else %}—{% endif %}</td>
+            <td data-label="Alertas">{{ r.alertas|length or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="empty-state">No hay empleados con esos filtros.</p>
+    {% endif %}
+  </section>
+
+  {% if calculos %}
+  <details class="surface-card hj-detalle">
+    <summary>Cálculos registrados ({{ calculos|length }} más recientes)</summary>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>N.º</th><th>Registrado</th><th>Período</th><th>Empleados</th><th>Motivo</th></tr></thead>
+        <tbody>
+          {% for k in calculos %}
+          <tr><td>{{ k.id }}</td><td>{{ k.creado_at.strftime('%d/%m/%Y %H:%M') }}{% if k.usuario %} · {{ k.usuario }}{% endif %}</td>
+            <td>{{ k.desde.strftime('%d/%m') }} al {{ k.hasta.strftime('%d/%m/%Y') }}</td><td>{{ k.empleados }}</td><td>{{ k.motivo or '—' }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
+</div>
+{% endblock %}

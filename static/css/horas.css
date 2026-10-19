@@ -1,0 +1,38 @@
+/* Horas trabajadas: solo lo propio del modulo; el resto sale del sistema del panel. */
+.hj-page .surface-card {display: grid; gap: 12px}
+.hj-page .surface-card h3 {margin: 0}
+.hj-kpis {grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr))}
+.hj-aviso {display: block; width: fit-content; max-width: 100%; white-space: normal; text-align: left; margin: 6px 0 0}
+
+.hj-registro {grid-template-columns: minmax(0, 1fr) auto; align-items: start}
+.hj-registrar {display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 0}
+.hj-registrar .row {display: grid; gap: 4px; min-width: min(100%, 240px)}
+@media (max-width: 900px) {.hj-registro {grid-template-columns: 1fr}}
+
+.hj-nav {flex-wrap: wrap; align-items: center}
+
+.hj-tabla td {font-variant-numeric: tabular-nums}
+.hj-motivo {display: block; margin-top: 4px; max-width: 32ch}
+.hj-diario tr.hj-descanso td, .hj-diario tr.hj-fuera td, .hj-diario tr.hj-pendiente td {color: var(--muted)}
+.hj-diario tr.hj-semana td {background: var(--surface-soft); font-weight: 700}
+.hj-alertas {margin: 0; padding-left: 18px; display: grid; gap: 4px}
+
+.hj-detalle summary {cursor: pointer; font-weight: 600; color: var(--primary)}
+
+/* Celular: tarjetas compactas (nombre o dia arriba, cifras de a tres por fila) para no hacer scroll eterno. */
+@media (max-width: 760px) {
+  .hj-page .table-cards table.hj-tabla tbody tr {display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px 10px}
+  .hj-page .table-cards table.hj-tabla tbody td {grid-column: span 2}
+  .hj-page .table-cards table.hj-tabla tbody td:first-child,
+  .hj-page .table-cards table.hj-tabla tbody td[data-label="Estado"] {grid-column: 1 / -1}
+  .hj-page .table-cards table.hj-tabla tbody td[data-label="Sucursal"],
+  .hj-page .table-cards table.hj-tabla tbody td[data-label="Horario"],
+  .hj-page .table-cards table.hj-tabla tbody td[data-label="Fichadas"],
+  .hj-page .table-cards table.hj-tabla tbody tr.hj-semana td:not(:first-child) {grid-column: span 3}
+  .hj-page .table-cards tr.hj-semana {background: var(--surface-soft)}
+  .hj-page .table-cards tr.hj-semana td {background: none}
+  .hj-motivo {max-width: none}
+}
+@media (max-width: 440px) {
+  .hj-page .table-cards table.hj-tabla tbody td {grid-column: span 3}
+}
