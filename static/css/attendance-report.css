@@ -252,8 +252,8 @@
 .attendance-calendar {
   width: min(100%, 380px);
   display: grid;
-  grid-template-columns: repeat(7, 42px);
-  gap: 7px;
+  grid-template-columns: repeat(7, minmax(0, 42px));
+  gap: clamp(3px, 1.6vw, 7px);
 }
 
 .attendance-calendar-form {
@@ -269,7 +269,8 @@
 
 .calendar-empty,
 .calendar-day {
-  width: 42px;
+  width: 100%;
+  max-width: 42px;
   height: 32px;
 }
 
@@ -489,5 +490,41 @@
 
   .dashboard-report-access > .btn {
     justify-self: start;
+  }
+}
+
+/* Responsive: los hijos de la grilla del reporte pueden achicarse (si no, la fila de pestañas ensancha todo el
+   reporte en el celular); las pestañas se desplazan dentro de su fila y los indicadores usan las columnas que entren. */
+.attendance-report > * {
+  min-width: 0;
+}
+
+.attendance-tabs {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.attendance-tabs a {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.attendance-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+}
+
+.attendance-kpis.compact {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 240px));
+}
+
+@media (max-width: 480px) {
+  .attendance-report-filters,
+  .attendance-report-filters select {
+    width: 100%;
+  }
+
+  .attendance-report-filters select {
+    min-width: 0;
   }
 }

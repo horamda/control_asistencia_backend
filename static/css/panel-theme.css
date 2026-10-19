@@ -167,3 +167,47 @@ h2 {font-size: clamp(1.25rem, 1.05rem + 1.1vw, 1.5rem)}
     font-size: max(16px, 1rem) !important;
   }
 }
+
+/* Aclaraciones (small): nunca menos de 12 px, aunque esten dentro de una etiqueta o un texto ya chico. */
+small {font-size: max(.75rem, .83em)}
+
+/* ---------------------------------------------------------------- Responsive general (auditoria de pantallas)
+   Puntos de corte compartidos (los de cada modulo quedan en su archivo):
+   - 760 px: celular. Tablas en tarjetas, formularios en una columna, botones tactiles de 44 px.
+   - 1120 px: el menu lateral pasa a desplegable (tablets y ventanas angostas).
+   - 1441 px: monitores grandes; la letra base crece hasta 18 px en 2560.
+   Las grillas usan auto-fit/minmax: se acomodan al espacio real (con el menu abierto o cerrado), no al ancho de
+   la ventana. No se usan container queries en el contenido principal: aplican layout containment y cambiarian
+   la referencia de los elementos fijos (avisos, superposiciones). */
+
+/* Indicadores: tantas columnas como entren (2 en el celular; todos en una fila en un monitor grande). */
+.grid-kpis {grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr))}
+
+/* Ventanas y dialogos: nunca mas grandes que la pantalla visible (celular horizontal, teclado abierto);
+   si el contenido no entra, se desplaza adentro. :where no compite con el ancho propio de cada ventana. */
+:where(dialog, .g-modal, .center-message-card) {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* Textos largos de introduccion: una linea comoda de leer aun en monitores muy anchos. */
+:is(.page-content, .embedded-layout) :is(.module-intro, .section-head p) {max-width: 80ch}
+
+/* Tablas: el ancho minimo (para no aplastar columnas) solo en las anchas, de 6 columnas o mas. Antes toda tabla
+   medía al menos 760 px (680 en el celular) aunque tuviera 2 columnas, y se desplazaba de costado en el celular,
+   la tablet o con zoom. Las simples ocupan el ancho disponible y, si con datos reales no entran, table-fit.js
+   las pasa a tarjetas. */
+/* :where no suma especificidad: gana el ancho propio de un modulo (p. ej. .feedback-table) y la vista de tarjetas. */
+@media (min-width: 761px) {
+  :where(.table-responsive:not(.is-cards) > table:has(> thead > tr > :nth-child(6))) {min-width: 760px}
+}
+/* En el celular, las tablas con vista de tarjetas (table-cards o is-cards) nunca llevan ancho minimo. */
+@media (max-width: 760px) {
+  :where(.table-responsive:not(.table-cards):not(.is-cards) > table:has(> thead > tr > :nth-child(6))) {min-width: 680px}
+}
+
+/* Filas de accesos que se deslizan de costado (inicio): los botones mantienen su tamaño y no parten el texto;
+   el sistema general de botones (a.btn) los dejaba achicarse hasta pegarse entre si en el celular. */
+:is(.page-content, .embedded-layout) .dashboard-jump a.btn {flex: 0 0 auto; white-space: nowrap}

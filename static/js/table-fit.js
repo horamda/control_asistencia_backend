@@ -28,9 +28,38 @@
     wrap.classList.toggle("has-more-right", scrollable && wrap.scrollLeft < max - 1);
   }
 
+  // Tablas sin etiquetas por celda: se toman del encabezado para que tambien puedan pasar a tarjetas.
+  // Solo tablas simples (una fila de encabezado sin celdas combinadas, de 2 a 8 columnas): los reportes
+  // anchos o con encabezados agrupados siguen desplazandose en horizontal. data-no-cards lo evita.
+  var MAX_COLUMNAS_TARJETA = 8;
+
+  function autoLabels(wrap, table) {
+    if (table.getAttribute("data-labels") || wrap.hasAttribute("data-no-cards") || table.hasAttribute("data-no-cards")) return;
+    table.setAttribute("data-labels", "1");
+    if (table.querySelector("td[data-label]") || !table.tHead || table.tHead.rows.length !== 1) return;
+    var heads = table.tHead.rows[0].cells;
+    if (heads.length < 2 || heads.length > MAX_COLUMNAS_TARJETA) return;
+    var labels = [];
+    for (var i = 0; i < heads.length; i++) {
+      if (heads[i].colSpan > 1 || heads[i].rowSpan > 1) return;
+      labels.push((heads[i].textContent || "").replace(/\s+/g, " ").trim());
+    }
+    for (var b = 0; b < table.tBodies.length; b++) {
+      var rows = table.tBodies[b].rows;
+      for (var r = 0; r < rows.length; r++) {
+        var cells = rows[r].cells;
+        if (cells.length !== labels.length) continue; // fila de mensaje ("Sin registros") o combinada
+        for (var c = 0; c < cells.length; c++) {
+          if (labels[c] && cells[c].tagName === "TD") cells[c].setAttribute("data-label", labels[c]);
+        }
+      }
+    }
+  }
+
   function update(wrap) {
     var table = tableOf(wrap);
     if (!table || !wrap.clientWidth) return;
+    autoLabels(wrap, table);
     var cssCards = mobile.matches && wrap.classList.contains("table-cards");
     var canCards = !cssCards && !wrap.hasAttribute("data-no-cards") && !!table.querySelector("td[data-label]");
     // Se mide siempre en modo tabla; el cambio de clase y la lectura ocurren
