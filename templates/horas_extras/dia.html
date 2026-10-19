@@ -1,0 +1,75 @@
+{% extends 'horas_extras/layout.html' %}
+{% block horas_extras_content %}
+{% set e = empleado %}{% set d = dia %}
+<section class="surface-card">
+  <div>
+    <h3>{{ e.apellido }}, {{ e.nombre }} · {{ DIAS_CORTOS[d.fecha.weekday()] }} {{ d.fecha.strftime('%d/%m/%Y') }}</h3>
+    <p class="helper-text">{% if e.legajo %}Legajo {{ e.legajo }} · {% endif %}{{ e.sucursal_nombre or 'Sin sucursal' }}{% if d.feriado %} · Feriado: {{ d.feriado }}{% endif %}</p>
+  </div>
+  <dl class="hj-datos">
+    <div><dt>Horario</dt><dd>{{ d.bloques|join(' ') or '—' }}</dd></div>
+    <div><dt>Fichadas</dt><dd>{{ (d.pares + d.sueltas)|join(' · ') or '—' }}</dd></div>
+    <div><dt>Programadas / trabajadas</dt><dd>{{ d.programados|hm }} / {{ d.trabajados|hm }}</dd></div>
+    <div><dt>Excedente</dt><dd>{{ d.excedente|hm }}</dd></div>
+    <div><dt>Propuesta del sistema</dt><dd>{{ propuesta[0]|hm }} hábil{% if d.recargos[0] is not none %} ({{ d.recargos[0] }} %){% endif %} · {{ propuesta[1]|hm }} descanso{% if d.recargos[1] is not none %} ({{ d.recargos[1] }} %){% endif %}</dd></div>
+    <div><dt>Aprobadas en el mes / año</dt><dd>{{ acumulado[0]|hm }}{% if d.topes[0] is not none %} de {{ d.topes[0]|hm }}{% endif %} · {{ acumulado[1]|hm }}{% if d.topes[1] is not none %} de {{ d.topes[1]|hm }}{% endif %}</dd></div>
+  </dl>
+  <p><span class="badge {{ BADGE[estado] }}">{{ ESTADOS[estado] }}</span>
+    {% if fila and estado != 'pendiente' %}<span class="helper-text"> · {{ (fila.minutos_habil + fila.minutos_descanso)|hm }} h ({{ fila.minutos_habil|hm }} hábil, {{ fila.minutos_descanso|hm }} descanso){% if fila.motivo %} · {{ fila.motivo }}{% endif %}</span>{% endif %}</p>
+  {% if d.estado != 'normal' %}<p class="badge warning hj-aviso">{{ d.motivo or 'El día no tiene excedente calculado.' }}</p>{% endif %}
+  {% if cambio %}<p class="badge warning hj-aviso">Los fichajes de este día cambiaron después de la última decisión: revisala.</p>{% endif %}
+  {% if excede %}<p class="badge danger hj-aviso">Lo aprobado supera el excedente que hoy marcan los fichajes: hay que decidir de nuevo antes de cerrar el mes.</p>{% endif %}
+</section>
+
+{% if puede %}
+{% set rol = puede[0] %}
+<form method="post" class="surface-card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h3>{{ 'Visto bueno del jefe' if rol == 'jefe' else 'Decisión de RR. HH.' }}</h3>
+  {% if rol == 'rrhh' and estado == 'pendiente' %}<p class="helper-text">Todavía no tiene visto bueno del jefe; si decidís ahora queda registrado así.</p>{% endif %}
+  {% set base_h = fila.minutos_habil if fila and fila.estado in ('visto_jefe', 'aprobada') else propuesta[0] %}
+  {% set base_d = fila.minutos_descanso if fila and fila.estado in ('visto_jefe', 'aprobada') else propuesta[1] %}
+  <div class="form-grid">
+    <div class="row"><label for="he-h">Horas con recargo hábil (H:MM)</label><input id="he-h" name="minutos_habil" value="{{ base_h|hm }}" inputmode="numeric" pattern="[0-9]+(:[0-5][0-9])?"></div>
+    <div class="row"><label for="he-d">Horas con recargo de descanso (H:MM)</label><input id="he-d" name="minutos_descanso" value="{{ base_d|hm }}" inputmode="numeric" pattern="[0-9]+(:[0-5][0-9])?"></div>
+    <div class="row span-2"><label for="he-m">Motivo (obligatorio para rechazar o superar un tope)</label><input id="he-m" name="motivo" maxlength="255"></div>
+    {% if supera_tope and rol == 'rrhh' %}
+    <label class="row span-2 he-confirmar"><input type="checkbox" name="confirmar_tope" value="1"> Supera el tope de horas extras del convenio: confirmo la aprobación excepcional</label>
+    {% elif supera_tope %}
+    <p class="badge warning hj-aviso span-2">La propuesta supera el tope de horas extras del convenio: RR. HH. tendrá que confirmarla con motivo.</p>
+    {% endif %}
+  </div>
+  <div class="actions">
+    {% if rol == 'jefe' %}
+      <button class="btn" type="submit" name="accion" value="visto_bueno">Dar visto bueno</button>
+      <button class="btn btn-secondary" type="submit" name="accion" value="rechazo_jefe">Rechazar</button>
+    {% else %}
+      <button class="btn" type="submit" name="accion" value="aprobar">Aprobar</button>
+      <button class="btn btn-secondary" type="submit" name="accion" value="rechazar">Rechazar</button>
+    {% endif %}
+  </div>
+</form>
+{% endif %}
+
+<section class="surface-card">
+  <h3>Historial</h3>
+  {% if eventos %}
+  <div class="table-responsive table-cards">
+    <table class="hj-tabla">
+      <thead><tr><th>Cuándo</th><th>Paso</th><th>Quién</th><th>Horas</th><th>Motivo</th></tr></thead>
+      <tbody>
+        {% for ev in eventos %}
+        <tr><td data-label="Cuándo">{{ ev.creado_at.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td data-label="Paso">{{ ACCIONES.get(ev.accion, ev.accion) }}{% if ev.supera_tope %} <small class="badge warning">supera tope</small>{% endif %}</td>
+          <td data-label="Quién">{{ ev.usuario or '—' }}</td>
+          <td data-label="Horas">{{ (ev.minutos_habil + ev.minutos_descanso)|hm }}{% if ev.minutos_descanso %} ({{ ev.minutos_descanso|hm }} descanso){% endif %}</td>
+          <td data-label="Motivo">{{ ev.motivo or '—' }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="helper-text">Sin decisiones todavía.</p>
+  {% endif %}
+</section>
+{% endblock %}

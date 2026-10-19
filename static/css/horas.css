@@ -19,6 +19,19 @@
 
 .hj-detalle summary {cursor: pointer; font-weight: 600; color: var(--primary)}
 
+/* Horas extras */
+.hj-datos {display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px 16px; margin: 0}
+.hj-datos > div {padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); min-width: 0}
+.hj-datos dt {color: var(--muted); font-size: .8125rem}
+.hj-datos dd {margin: 4px 0 0; font-weight: 700; color: var(--text); overflow-wrap: break-word}
+.he-checklist {margin: 0; padding: 0; list-style: none; display: grid; gap: 6px}
+.he-checklist li {padding: 8px 12px 8px 36px; border: 1px solid var(--border); border-radius: 10px; position: relative}
+.he-checklist li::before {position: absolute; left: 12px; font-weight: 700}
+.he-checklist li.ok::before {content: "✓"; color: #1e8a4c}
+.he-checklist li.falta::before {content: "•"; color: #c53a4d}
+.he-confirmar {display: flex; align-items: center; gap: 8px; font-weight: 600}
+.he-tabla td[data-label="Elegir"] input {width: 22px; height: 22px}
+
 /* Celular: tarjetas compactas (nombre o dia arriba, cifras de a tres por fila) para no hacer scroll eterno. */
 @media (max-width: 760px) {
   .hj-page .table-cards table.hj-tabla tbody tr {display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px 10px}
@@ -35,4 +48,10 @@
 }
 @media (max-width: 440px) {
   .hj-page .table-cards table.hj-tabla tbody td {grid-column: span 3}
+}
+/* Bandeja en el celular: la casilla al lado del nombre, sin renglon propio. */
+@media (max-width: 760px) {
+  .hj-page .table-cards table.he-tabla tbody td[data-label="Elegir"] {grid-column: 1 / 2; align-self: center}
+  .hj-page .table-cards table.he-tabla tbody td[data-label="Elegir"]::before {display: none}
+  .hj-page .table-cards table.he-tabla tbody td[data-label="Elegir"] + td {grid-column: 2 / -1}
 }

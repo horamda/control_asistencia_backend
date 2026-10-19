@@ -1,0 +1,69 @@
+{% extends 'horas_extras/layout.html' %}
+{% block horas_extras_content %}
+{% set p = estado.periodo %}
+<form method="get" action="{{ url_for('horas_extras.cierre') }}" class="surface-card form-grid hj-filtros">
+  <div class="row"><label for="he-mes">Mes</label><input id="he-mes" type="month" name="mes" value="{{ mes }}"></div>
+  <div class="actions"><button type="submit" class="btn">Ver</button></div>
+</form>
+
+<section class="surface-card">
+  <h3>{{ estado.desde.strftime('%m/%Y') }} · {% if estado.cerrado %}cerrado{% elif p and p.estado == 'reabierto' %}reabierto{% else %}abierto{% endif %}</h3>
+  {% if estado.cerrado %}
+    <p class="helper-text">Cerrado el {{ p.cerrado_at.strftime('%d/%m/%Y %H:%M') }} · cálculo registrado N.º {{ p.calculo_id }}.
+      Las horas extras aprobadas pasaron a liquidadas y el mes no admite cambios.</p>
+    <div class="actions">
+      {% if quien.exportar %}<a class="btn" href="{{ url_for('horas_extras.liquidacion', mes=mes) }}">Exportar liquidación (Excel)</a>{% endif %}
+    </div>
+    {% if quien.editar %}
+    <form method="post" action="{{ url_for('horas_extras.reabrir') }}" class="hj-registrar">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="mes" value="{{ mes }}">
+      <div class="row"><label for="he-motivo">Motivo de la reapertura</label><input id="he-motivo" name="motivo" maxlength="255" required></div>
+      <button type="submit" class="btn btn-secondary" data-confirm="Las horas liquidadas volverán a aprobadas y se podrán cambiar. ¿Reabrir el mes?">Reabrir el mes</button>
+    </form>
+    {% endif %}
+  {% else %}
+    {% if p and p.estado == 'reabierto' %}<p class="badge warning hj-aviso">Reabierto el {{ p.reabierto_at.strftime('%d/%m/%Y %H:%M') }}: {{ p.motivo_reapertura }}</p>{% endif %}
+    <ul class="he-checklist">
+      <li class="{{ 'ok' if estado.terminado else 'falta' }}">{{ 'El mes terminó.' if estado.terminado else 'El mes todavía no terminó.' }}</li>
+      <li class="{{ 'falta' if estado.pendientes else 'ok' }}">{{ estado.pendientes|length }} día{{ '' if estado.pendientes|length == 1 else 's' }} con excedente sin decisión de RR. HH.</li>
+      <li class="{{ 'falta' if estado.revisar else 'ok' }}">{{ estado.revisar|length }} día{{ '' if estado.revisar|length == 1 else 's' }} con fichadas a revisar (se corrigen en Asistencia).</li>
+      <li class="{{ 'falta' if estado.excedidas else 'ok' }}">{{ estado.excedidas|length }} aprobación{{ '' if estado.excedidas|length == 1 else 'es' }} por encima de lo que hoy marcan los fichajes.</li>
+    </ul>
+    {% set lista = estado.pendientes + estado.revisar + estado.excedidas %}
+    {% if lista %}
+    <details class="hj-detalle">
+      <summary>Ver los días que faltan ({{ lista|length }})</summary>
+      <ul class="hj-alertas">
+        {% for x in lista[:200] %}<li><a href="{{ url_for('horas_extras.dia', empleado_id=x.empleado.id, fecha=x.dia.fecha.isoformat()) if x.dia.estado != 'revisar' else url_for('horas.empleado', empleado_id=x.empleado.id, mes=mes) }}">{{ x.empleado.apellido }}, {{ x.empleado.nombre }} · {{ DIAS_CORTOS[x.dia.fecha.weekday()] }} {{ x.dia.fecha.strftime('%d/%m') }}</a>
+          <small class="helper-text">· {{ 'a revisar' if x.dia.estado == 'revisar' else ESTADOS[x.estado] }}</small></li>{% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+    {% if quien.editar %}
+    <form method="post" action="{{ url_for('horas_extras.cerrar') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="mes" value="{{ mes }}">
+      <button type="submit" class="btn" {{ 'disabled' if not estado.se_puede_cerrar }} data-confirm="Se registrará el cálculo del mes, las horas aprobadas pasarán a liquidadas y el mes quedará congelado. ¿Cerrar?">Cerrar el mes</button>
+    </form>
+    {% endif %}
+  {% endif %}
+</section>
+
+{% if periodos %}
+<section class="surface-card">
+  <h3>Meses cerrados y reabiertos</h3>
+  <div class="table-responsive table-cards">
+    <table class="hj-tabla">
+      <thead><tr><th>Mes</th><th>Estado</th><th>Cerrado</th><th>Reapertura</th></tr></thead>
+      <tbody>
+        {% for x in periodos %}
+        <tr><td data-label="Mes"><a href="{{ url_for('horas_extras.cierre', mes=x.mes.strftime('%Y-%m')) }}">{{ x.mes.strftime('%m/%Y') }}</a></td>
+          <td data-label="Estado">{{ x.estado|capitalize }}</td>
+          <td data-label="Cerrado">{{ x.cerrado_at.strftime('%d/%m/%Y %H:%M') if x.cerrado_at else '—' }}{% if x.cerrado_usuario %} · {{ x.cerrado_usuario }}{% endif %}</td>
+          <td data-label="Reapertura">{% if x.reabierto_at %}{{ x.reabierto_at.strftime('%d/%m/%Y %H:%M') }}{% if x.reabierto_usuario %} · {{ x.reabierto_usuario }}{% endif %} · {{ x.motivo_reapertura }}{% else %}—{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

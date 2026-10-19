@@ -37,6 +37,9 @@ CAMPOS = {
     "nocturna_hasta": ("Jornada nocturna hasta", "hora", None, None, False),
     "horas_nocturnas_diarias": ("Horas nocturnas diarias", "decimal", 1, 24, True),
     "trabaja_feriados": ("Trabaja en feriados", "booleano", None, None, False),
+    "recargo_habil_pct": ("Recargo de horas extras en días hábiles (%)", "entero", 0, 300, False),
+    "recargo_descanso_pct": ("Recargo de horas extras en descanso y feriados (%)", "entero", 0, 300, False),
+    "sabado_descanso_desde": ("Sábado: recargo de descanso desde", "hora", None, None, False),
     "tope_extras_mes": ("Tope de horas extras por mes", "entero", 0, 300, True),
     "tope_extras_anio": ("Tope de horas extras por año", "entero", 0, 2000, True),
     "banco_horas_habilitado": ("Banco de horas habilitado", "booleano", None, None, False),
@@ -142,7 +145,7 @@ def mostrar(clave, valor):
     if tipo == "decimal":
         return f"{_numero(valor):g} h".replace(".", ",")
     if tipo == "entero":
-        return f"{int(valor)}"
+        return f"{int(valor)} %" if clave.endswith("_pct") else f"{int(valor)}"
     return str(valor)
 
 

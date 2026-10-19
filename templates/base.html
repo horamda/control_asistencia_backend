@@ -87,9 +87,9 @@
               </a>
             </div>
 
-            {% if (can_web("asistencias") or can_web("justificaciones") or can_web("qr_puerta") or can_web("francos") or can_web("vacaciones") or can_web("horas_jornada")) or (can_web("horarios")) or (can_web("reuniones")) %}<div class="nav-label nav-section-label">Operación diaria</div>{% endif %}
+            {% if (can_web("asistencias") or can_web("justificaciones") or can_web("qr_puerta") or can_web("francos") or can_web("vacaciones") or can_web("horas_jornada") or can_web("horas_extras")) or (can_web("horarios")) or (can_web("reuniones")) %}<div class="nav-label nav-section-label">Operación diaria</div>{% endif %}
 
-            {% if can_web("asistencias") or can_web("justificaciones") or can_web("qr_puerta") or can_web("francos") or can_web("vacaciones") or can_web("horas_jornada") %}
+            {% if can_web("asistencias") or can_web("justificaciones") or can_web("qr_puerta") or can_web("francos") or can_web("vacaciones") or can_web("horas_jornada") or can_web("horas_extras") %}
             <div class="nav-group" data-collapsible="1">
               <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-asistencia">
                 <span class="nav-toggle-label">
@@ -107,6 +107,7 @@
                   <a class="nav-link" href="/asistencias/egresos-automaticos/">Egresos automáticos</a>
                 {% endif %}
                 {% if can_web("horas_jornada") %}<a class="nav-link" href="/horas-jornada/">Horas trabajadas</a>{% endif %}
+                {% if can_web("horas_extras") %}<a class="nav-link" href="/horas-extras/">Horas extras</a>{% endif %}
                 {% if can_web("qr_puerta") %}
                   <a class="nav-link" href="/qr-puerta/">QR puerta</a>
                 {% endif %}

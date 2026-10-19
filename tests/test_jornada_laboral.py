@@ -57,6 +57,9 @@ def jl(database, monkeypatch):  # noqa: F811
     from scripts.migrate_20261019_01_jornada_laboral import migrate_cursor
     migrate_cursor(c)
     migrate_cursor(c)  # idempotente
+    from scripts.migrate_20261019_03_horas_extras import migrate_cursor as etapa_c
+    etapa_c(c)
+    etapa_c(c)  # idempotente
     conn.commit()
     c.close()
     conn.close()

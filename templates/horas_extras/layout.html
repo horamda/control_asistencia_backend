@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Horas extras{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/horas.css') }}">{% endblock %}
+{% set BADGE = {'pendiente': 'neutral', 'visto_jefe': 'warning', 'rechazo_jefe': 'danger', 'aprobada': 'ok', 'rechazada': 'danger', 'liquidada': 'ok'} %}
+{% block content %}
+<div class="content-stack hj-page">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>Horas extras</h2>
+      <p class="module-intro">El excedente que surge de los fichajes no es hora extra hasta que se autoriza: primero el
+        visto bueno del jefe y después la decisión de RR. HH. El sistema propone el reparto entre recargo hábil y de
+        descanso (sábado desde la hora del convenio, domingos y feriados); quien decide puede aprobar menos o rechazar.</p>
+    </div>
+  </div>
+  <nav class="actions hj-nav" aria-label="Horas extras">
+    <a class="btn {{ 'btn-secondary' if request.endpoint not in ('horas_extras.bandeja', 'horas_extras.dia') }}" href="{{ url_for('horas_extras.bandeja', mes=mes) if mes is defined else url_for('horas_extras.bandeja') }}">Bandeja</a>
+    {% if quien.global %}<a class="btn {{ 'btn-secondary' if request.endpoint != 'horas_extras.cierre' }}" href="{{ url_for('horas_extras.cierre', mes=mes) if mes is defined else url_for('horas_extras.cierre') }}">Cierre del mes</a>{% endif %}
+    {% if can_web('horas_jornada') %}<a class="btn btn-ghost" href="{{ url_for('horas.resumen', mes=mes) if mes is defined else url_for('horas.resumen') }}">Horas trabajadas ↗</a>{% endif %}
+  </nav>
+  {% block horas_extras_content %}{% endblock %}
+</div>
+{% endblock %}

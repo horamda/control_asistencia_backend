@@ -1,0 +1,67 @@
+{% extends 'horas_extras/layout.html' %}
+{% block horas_extras_content %}
+<form method="get" action="{{ url_for('horas_extras.bandeja') }}" class="surface-card form-grid hj-filtros">
+  <input type="hidden" name="vista" value="{{ vista }}">
+  <div class="row"><label for="he-mes">Mes</label><input id="he-mes" type="month" name="mes" value="{{ mes }}"></div>
+  <div class="row"><label for="he-suc">Sucursal</label>
+    <select id="he-suc" name="sucursal_id"><option value="">Todas</option>{% for x in sucursales %}<option value="{{ x.id }}" {{ 'selected' if filtros.sucursal_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+  <div class="row"><label for="he-sec">Sector</label>
+    <select id="he-sec" name="sector_id"><option value="">Todos</option>{% for x in sectores %}<option value="{{ x.id }}" {{ 'selected' if filtros.sector_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+  <div class="row"><label for="he-conv">Convenio</label>
+    <select id="he-conv" name="convenio_id"><option value="">Todos</option>{% for x in convenios %}<option value="{{ x.id }}" {{ 'selected' if filtros.convenio_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+  <div class="actions"><button type="submit" class="btn">Ver</button></div>
+</form>
+
+{% if datos.alcance == 'equipo' %}<p class="helper-text">Ves los días de tu equipo (toda tu cadena de reportes). Tu visto bueno pasa a RR. HH., que decide.</p>{% endif %}
+{% if datos.cerrado %}<p class="badge ok hj-aviso">El mes está cerrado: las decisiones no se pueden cambiar sin reabrirlo.</p>{% endif %}
+{% if datos.revisar %}<p class="badge warning hj-aviso">{{ datos.revisar|length }} día{{ '' if datos.revisar|length == 1 else 's' }} con fichadas a revisar: no tienen excedente calculado hasta que se corrijan en Asistencia.</p>{% endif %}
+
+<nav class="actions hj-nav" aria-label="Vistas">
+  {% for clave, texto in VISTAS.items() %}
+    <a class="btn btn-sm {{ 'btn-secondary' if vista != clave }}" {% if vista == clave %}aria-current="page"{% endif %} href="{{ url_for('horas_extras.bandeja', vista=clave, **args) }}">{{ texto }}{% if clave in conteo %} ({{ conteo[clave] }}){% endif %}</a>
+  {% endfor %}
+</nav>
+
+<section class="surface-card">
+  {% if items %}
+  {% set accion_lote = 'aprobar' if quien.global else 'visto_bueno' %}
+  {% set lote = items|selectattr('puede')|list %}
+  <form method="post" action="{{ url_for('horas_extras.lote') }}" id="he-lote" hidden>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="mes" value="{{ mes }}">
+    <input type="hidden" name="accion" value="{{ accion_lote }}">
+    <input type="hidden" name="volver" value="{{ request.full_path }}">
+  </form>
+  <div class="table-responsive table-cards">
+    <table class="hj-tabla he-tabla">
+      <thead><tr>{% if lote %}<th aria-label="Elegir"></th>{% endif %}<th>Empleado</th><th>Día</th><th>Excedente</th>
+        <th>Propuesta</th><th>Estado</th><th>Aprobadas del mes</th><th>Acción</th></tr></thead>
+      <tbody>
+        {% for i in items %}{% set e = i.empleado %}{% set d = i.dia %}
+        <tr>
+          {% if lote %}<td data-label="Elegir">{% if i.puede %}<input type="checkbox" form="he-lote" name="dia" value="{{ e.id }}|{{ d.fecha.isoformat() }}" aria-label="Elegir {{ e.apellido }} {{ d.fecha.strftime('%d/%m') }}">{% endif %}</td>{% endif %}
+          <td data-label="Empleado">{{ e.apellido }}, {{ e.nombre }}{% if e.legajo %}<small class="helper-text"> · {{ e.legajo }}</small>{% endif %}</td>
+          <td data-label="Día">{{ DIAS_CORTOS[d.fecha.weekday()] }} {{ d.fecha.strftime('%d/%m') }}{% if d.feriado %}<small class="helper-text"> · feriado</small>{% endif %}</td>
+          <td data-label="Excedente">{{ d.excedente|hm }}</td>
+          <td data-label="Propuesta">{{ i.propuesta[0]|hm }} hábil{% if i.propuesta[1] %} · {{ i.propuesta[1]|hm }} descanso{% endif %}</td>
+          <td data-label="Estado"><span class="badge {{ BADGE[i.estado] }}">{{ ESTADOS[i.estado] }}</span>
+            {% if i.aprobados %}<small class="helper-text hj-motivo">{{ i.aprobados|hm }} aprobadas</small>{% endif %}
+            {% if i.supera_tope and i.estado not in ('aprobada', 'liquidada', 'rechazada') %}<small class="badge warning hj-motivo">Supera el tope</small>{% endif %}
+            {% if i.cambio %}<small class="badge warning hj-motivo">Fichajes cambiados</small>{% endif %}</td>
+          <td data-label="Aprobadas del mes">{{ i.acumulado[0]|hm }}{% if d.topes[0] is not none %} / {{ d.topes[0]|hm }}{% endif %}</td>
+          <td data-label="Acción"><a class="btn btn-sm {{ 'btn-secondary' if not i.puede }}" href="{{ url_for('horas_extras.dia', empleado_id=e.id, fecha=d.fecha.isoformat()) }}">{{ 'Decidir' if i.puede else 'Ver' }}</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if lote %}
+  <div class="actions">
+    <button type="submit" form="he-lote" class="btn" data-confirm="Se aplicará la propuesta del sistema a los días elegidos. Los que superen un tope hay que decidirlos uno por uno. ¿Continuar?">{{ 'Aprobar la propuesta de los elegidos' if quien.global else 'Dar visto bueno a los elegidos' }}</button>
+  </div>
+  {% endif %}
+  {% else %}
+    <p class="empty-state">{{ 'No hay días para decidir en este mes.' if vista == 'decidir' else 'No hay días en esta vista.' }}</p>
+  {% endif %}
+</section>
+{% endblock %}

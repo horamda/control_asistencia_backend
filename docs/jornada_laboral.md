@@ -1,4 +1,4 @@
-# Gestión de jornada laboral — etapas A (reglas y convenios) y B (cálculo de horas)
+# Gestión de jornada laboral — etapas A (reglas), B (cálculo de horas) y C (horas extras y cierre)
 
 Módulo del **panel web**. No modifica la API mobile, la app Flutter, ni ninguna tabla o fichaje existente. Todo se
 escribe por rutas del panel (sesión, CSRF y permiso `jornada_laboral`), nunca desde el navegador a la base.
@@ -44,6 +44,7 @@ escribe por rutas del panel (sesión, CSRF y permiso `jornada_laboral`), nunca d
 | Tolerancias de ingreso y salida (min) | — |
 | Jornada nocturna desde/hasta y horas nocturnas diarias | Horas nocturnas: sí |
 | Trabaja en feriados | — |
+| Recargo de horas extras en días hábiles y en descanso/feriados (%), y hora del sábado desde la que corre el de descanso | — |
 | Tope de horas extras por mes y por año | Sí |
 | Banco de horas habilitado (bandera; el libro de movimientos es la etapa D) | — |
 | Observaciones | — |
@@ -155,11 +156,74 @@ Los días a revisar no generan alertas de horas.
   - Reversión: `DROP TABLE jl_resultados_dia, jl_calculos;` y borrar la versión de `app_schema_versions`.
 - **Permiso `horas_jornada`** (por defecto admin y RR. HH.): `ver`, `editar` (registrar cálculo), `exportar` (Excel).
 
+## Etapa C — horas extras y cierre del mes (Asistencia → Horas extras)
+
+| Pantalla | Ruta | Para qué |
+|---|---|---|
+| Bandeja | `/horas-extras/?mes=AAAA-MM` | Días con excedente: "Para decidir", todas, aprobadas, rechazadas, liquidadas; acción en lote |
+| Día | `/horas-extras/dia/{empleado}/{fecha}` | Fichadas, propuesta, acumulado contra topes, decisión e historial |
+| Cierre del mes | `/horas-extras/cierre?mes=AAAA-MM` | Lo que falta para cerrar, cerrar, reabrir y exportar la liquidación |
+
+**El excedente nunca se vuelve hora extra solo.**
+1. **Propuesta:** el sistema propone el reparto (LCT art. 201).
+   - Se toman como extra los últimos minutos trabajados del día.
+   - Cada tramo se clasifica según el momento en que ocurrió:
+     - recargo de descanso: domingos, feriados y sábado desde la hora de la regla;
+     - recargo hábil: el resto.
+   - Valores de la LCT: 50 %, 100 % y sábado desde las 13. Cada convenio los puede cambiar en su regla.
+2. **Visto bueno del jefe:** un usuario del panel vinculado a un empleado da el visto bueno o rechaza los días de su cadena de reportes. Es la misma cadena que en Vacaciones: si no tiene jefe y tiene reportes, ve a toda la empresa. Nunca decide sobre sus propias horas.
+3. **Decisión de RR. HH.** (rol admin o rrhh): aprueba (puede ser menos de lo propuesto) o rechaza. Puede decidir sin visto bueno del jefe, y queda registrado.
+
+| Estado | Significado |
+|---|---|
+| Pendiente del jefe | Sin decisión (no hay fila: sale en vivo del cálculo) |
+| Con visto bueno del jefe / Rechazada por el jefe | Espera la decisión de RR. HH. |
+| Aprobada / Rechazada | Decidido por RR. HH. |
+| Liquidada | Aprobada y con el mes cerrado |
+
+- **Rechazar** pide motivo.
+- **Topes:** si al aprobar se supera el tope mensual o anual de horas extras de la regla, hay que confirmar y escribir el motivo. Queda marcado como "supera tope". Al jefe solo se le avisa.
+- **Fichajes corregidos:** si los fichajes cambian después de una decisión, el día lo avisa.
+- **Trazabilidad:** cada paso queda en `jl_horas_extra_eventos`, que solo se inserta. Los recargos vigentes se guardan con la decisión.
+
+### Cierre del mes
+
+- **Para cerrar hace falta:**
+  - que el mes haya terminado;
+  - que no haya días con fichadas a revisar (se corrigen en Asistencia);
+  - que no queden excedentes sin decisión de RR. HH.;
+  - que ninguna aprobación supere lo que hoy marcan los fichajes.
+- **Al cerrar:**
+  - se registra el cálculo del mes (foto de la etapa B);
+  - lo aprobado pasa a "liquidada";
+  - el mes no admite cambios.
+- **Reabrir:** pide motivo. Lo liquidado vuelve a "aprobada" y la reapertura queda registrada; la foto del cierre anterior se conserva.
+- **Liquidación (Excel):** sale de la foto del cierre.
+  - Hoja *Liquidación*, una fila por empleado: legajo, DNI, sucursal, horas extras hábiles y de descanso con su recargo, nocturnas, feriados trabajados, ausencias injustificadas, días de licencia y horas trabajadas.
+  - Hoja *Horas extras por día*.
+
+### Tablas y permisos de la etapa C
+
+- **Migración:** `scripts/migrate_20261019_03_horas_extras.py`, versión `20261019_horas_extras`.
+  - **Tablas:** crea `jl_horas_extra`, `jl_horas_extra_eventos` y `jl_periodos`.
+  - **Columnas:** agrega tres a `jl_reglas`.
+  - **Valores de la ley:** completa la regla de carga inicial de la LCT con 50 %, 100 % y sábado desde las 13.
+  - **Reversión:** DROP de las tres tablas y de las tres columnas, y borrar la versión de `app_schema_versions`.
+- **Permiso `horas_extras`** (por defecto admin y RR. HH.):
+
+| Acción | Habilita |
+|---|---|
+| `ver` | Bandeja y días |
+| `aprobar` | Jefe: visto bueno de su cadena. RR. HH.: decisión. |
+| `editar` | RR. HH.: cerrar y reabrir el mes |
+| `exportar` | RR. HH.: liquidación |
+
+  Para que un jefe participe necesita un usuario del panel **vinculado a su empleado** con `ver` y `aprobar` en este módulo.
+
 ## Pendiente (etapas siguientes)
 
 | Etapa | Contenido |
 |---|---|
-| C | Horas extras al 50 % y al 100 % (franjas y feriados), autorización, estados (pendiente, aprobada, rechazada, liquidada, compensada), cierre de período mensual y exportación para liquidación. |
 | D | Banco de horas: acuerdos, libro de movimientos inmutable con reversiones, compensatorios y cierre. |
 
 **Decisión pendiente: turnos que cruzan la medianoche.**

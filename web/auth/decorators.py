@@ -116,6 +116,7 @@ _PATH_MODULES = [
     ("/empleado-excepciones/", "horarios"),
     ("/jornada-laboral/", "jornada_laboral"),
     ("/horas-jornada/", "horas_jornada"),
+    ("/horas-extras/", "horas_extras"),
     ("/asistencias/", "asistencias"),
     ("/justificaciones/", "justificaciones"),
     ("/qr-puerta/", "qr_puerta"),

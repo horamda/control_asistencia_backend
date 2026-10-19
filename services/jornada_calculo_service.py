@@ -259,7 +259,46 @@ def _dia(fecha, pares, sueltas, esperado, regla, feriado, licencia, hoy, vincula
         pares=[f"{i:%H:%M}–{f:%H:%M}" + (" (+1)" if f.date() > i.date() else "") + (" auto" if a else "")
                for i, f, a in ordenados],
         sueltas=[f"{s['accion']} {s['momento']:%H:%M}" for s in sueltas],
+        tramos=[(i, f) for i, f, _ in ordenados],
     )
+
+
+def clasificar(tramos, excedente, sabado_desde, feriados):
+    """Propuesta de reparto del excedente (nunca una decision): (minutos con recargo habil, con recargo de descanso).
+
+    Se toman como excedente los ultimos minutos trabajados del dia y cada tramo se clasifica por el momento en que
+    ocurrio (LCT art. 201): descanso si es domingo, feriado o sabado desde la hora de la regla; habil el resto."""
+    if excedente <= 0:
+        return (0, 0)
+    corte_sabado = _minutos_hora(sabado_desde)
+    segmentos, resta = [], excedente
+    for inicio, fin in sorted(tramos, reverse=True):
+        if resta <= 0:
+            break
+        toma = min(resta, int((fin - inicio).total_seconds() // 60))
+        segmentos.append((fin - dt.timedelta(minutes=toma), fin))
+        resta -= toma
+    habil, descanso = resta, 0  # lo que no alcanza a cubrir lo fichado (descanso computable) va como habil
+    for a, b in segmentos:
+        cortes = {a, b}
+        dia = a.date()
+        while dia <= b.date():
+            base = dt.datetime.combine(dia, dt.time())
+            cortes.add(base)
+            if corte_sabado is not None and dia.isoweekday() == 6:
+                cortes.add(base + dt.timedelta(minutes=corte_sabado))
+            dia += dt.timedelta(days=1)
+        puntos = sorted(x for x in cortes if a <= x <= b)
+        for x, y in zip(puntos, puntos[1:]):
+            minutos = int((y - x).total_seconds() // 60)
+            d = x.date()
+            es_descanso = (d in feriados or d.isoweekday() == 7 or
+                           (d.isoweekday() == 6 and corte_sabado is not None and x.hour * 60 + x.minute >= corte_sabado))
+            if es_descanso:
+                descanso += minutos
+            else:
+                habil += minutos
+    return (habil, descanso)
 
 
 def _empleados(c, empresa_id, filtros, desde, hasta):
@@ -271,6 +310,13 @@ def _empleados(c, empresa_id, filtros, desde, hasta):
         if valor.isdigit():
             donde.append(f"{columna} = %s")
             args.append(int(valor))
+    ids = filtros.get("ids")
+    if ids is not None:  # alcance de un jefe: solo su cadena
+        ids = sorted({int(x) for x in ids})
+        if not ids:
+            return []
+        donde.append(f"e.id IN ({','.join(['%s'] * len(ids))})")
+        args.extend(ids)
     convenio = str(filtros.get("convenio_id") or "")
     if convenio.isdigit():
         donde.append("""e.id IN (SELECT a.empleado_id FROM jl_asignaciones a WHERE a.convenio_id = %s
@@ -330,6 +376,10 @@ def calcular(empresa_id, desde, hasta, filtros=None):
             dia["reglas"] = usadas
             dia["huella"] = _huella(por_empleado.get(eid, []), fecha)
             dia["pactadas_diarias"] = int(float(regla["horas_diarias"]) * 60) if regla.get("horas_diarias") else None
+            dia["recargos"] = (regla.get("recargo_habil_pct"), regla.get("recargo_descanso_pct"))
+            dia["topes"] = tuple(int(regla[k]) * 60 if regla.get(k) not in (None, "") else None
+                                 for k in ("tope_extras_mes", "tope_extras_anio"))
+            dia["propuesta"] = clasificar(dia["tramos"], dia["excedente"], regla.get("sabado_descanso_desde"), feriados_suc)
             dias.append(dia)
             fecha += dt.timedelta(days=1)
         resultado.append(dict(empleado=e, dias=dias, totales=_totales(dias), semanas=_semanas(dias, resolutor, eid),
