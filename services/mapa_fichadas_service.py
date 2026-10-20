@@ -94,6 +94,7 @@ def fichadas(empresa_id, desde, hasta, filtros=None):
         edad=int(f["gps_edad_s"]) if f["gps_edad_s"] is not None else None,
     ) for f in filas]
     for p in puntos:
+        p["distancia_txt"] = metros(p["distancia"])
         p["alertas"] = []
         if p["estado"] == "fuera":
             p["alertas"].append("Fuera del radio")
@@ -116,6 +117,16 @@ def fichadas(empresa_id, desde, hasta, filtros=None):
                              fuera=int(totales["fuera"] or 0), dentro=int(totales["dentro"] or 0),
                              simuladas=int(totales["simuladas"] or 0), viejas=int(totales["viejas"] or 0),
                              con_precision=int(totales["con_precision"] or 0)))
+
+
+def metros(valor):
+    """137 -> '137 m'; 54523 -> '54,5 km' (para leer de un vistazo)."""
+    if valor is None:
+        return None
+    if valor < 1000:
+        return f"{int(valor)} m"
+    km = valor / 1000
+    return (f"{km:.1f}" if km < 100 else f"{km:.0f}").replace(".", ",") + " km"
 
 
 def _antiguedad(segundos):

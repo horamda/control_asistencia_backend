@@ -54,10 +54,22 @@
     });
   }
 
+  // Leyenda plegable: un boton chico "Referencias" que no tapa el mapa; se abre al tocarlo.
   function leyenda(mapa) {
     var control = L.control({ position: "bottomleft" });
     control.onAdd = function () {
-      var div = L.DomUtil.create("div", "mf-leyenda");
+      var caja = L.DomUtil.create("div", "mf-leyenda-caja");
+      var boton = L.DomUtil.create("button", "mf-leyenda-boton btn-ghost", caja);
+      boton.type = "button";
+      boton.setAttribute("aria-expanded", "false");
+      boton.textContent = "Referencias";
+      var div = L.DomUtil.create("div", "mf-leyenda", caja);
+      div.hidden = true;
+      L.DomEvent.disableClickPropagation(caja);
+      L.DomEvent.on(boton, "click", function () {
+        div.hidden = !div.hidden;
+        boton.setAttribute("aria-expanded", div.hidden ? "false" : "true");
+      });
       div.innerHTML =
         "<span><i class=\"mf-ley-pin\" style=\"background:" + COLOR_ACCION.ingreso + "\"></i>Ingreso</span>" +
         "<span><i class=\"mf-ley-pin\" style=\"background:" + COLOR_ACCION.egreso + "\"></i>Egreso</span>" +
@@ -65,7 +77,7 @@
         "<span><i class=\"mf-ley-centro\" style=\"background:" + COLOR_CENTRO.fuera + "\"></i>Fuera del radio</span>" +
         "<span><i class=\"mf-ley-grupo\"></i>Varias fichadas juntas (rojo: alguna fuera)</span>" +
         "<span><i class=\"mf-ley-zona\"></i>Sucursal o punto de validación</span>";
-      return div;
+      return caja;
     };
     control.addTo(mapa);
   }
@@ -116,12 +128,12 @@
     if (limites.length) mapa.fitBounds(limites, { padding: [32, 32], maxZoom: 17 });
     else mapa.setView([-34.6037, -58.3816], 11);
 
-    document.querySelectorAll(".mf-item[data-punto]").forEach(function (boton) {
+    document.querySelectorAll(".mf-ver[data-punto]").forEach(function (boton) {
       boton.addEventListener("click", function () {
         var marcador = marcadores[Number(boton.getAttribute("data-punto"))];
         if (!marcador) return;
         if (!mapa.hasLayer(marcador.grupo)) marcador.grupo.addTo(mapa);
-        contenedor.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        contenedor.scrollIntoView({ behavior: "smooth", block: "center" });
         marcador.grupo.zoomToShowLayer(marcador, function () { marcador.openPopup(); });
       });
     });

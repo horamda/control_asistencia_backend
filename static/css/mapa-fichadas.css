@@ -1,30 +1,38 @@
-/* Mapa de fichadas: mapa y lista lado a lado; en el celular, uno debajo del otro. */
-.mf-kpis {grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr))}
+/* Mapa de fichadas: franja de resumen, mapa grande a todo el ancho y listado en tabla debajo. */
 .mf-aviso {display: block; width: fit-content; max-width: 100%; white-space: normal; text-align: left}
 
-.mf-vista {display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 16px; align-items: start}
-.mf-mapa {height: min(70vh, 640px); min-height: 360px; border-radius: 12px; border: 1px solid var(--border); z-index: 0}
-.mf-lista {display: grid; gap: 8px; max-height: min(70vh, 640px); overflow: auto; min-width: 0}
-.mf-lista h3 {margin: 0; font-size: 1rem}
-.mf-lista ul {list-style: none; margin: 0; padding: 0; display: grid; gap: 6px}
-.mf-page .mf-lista button.mf-item {display: flex; align-items: flex-start; gap: 10px; width: 100%; min-height: 44px; padding: 8px 10px; text-align: left;
-  border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; font: inherit}
-.mf-page .mf-lista button.mf-item:hover, .mf-page .mf-lista button.mf-item:focus-visible {border-color: var(--primary); background: var(--surface-soft); color: var(--text)}
-.mf-texto {display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere}
-.mf-texto small {color: var(--muted)}
-/* Punto de la lista = pin del mapa: borde con el color de la accion, centro blanco (dentro) o rojo (fuera). */
-.mf-punto {flex: 0 0 14px; width: 14px; height: 14px; margin-top: 3px; border-radius: 50%; border: 3px solid #6b7280;
-  background: #9ca3af; box-sizing: border-box}
-.mf-ingreso .mf-punto {border-color: #16a34a}
-.mf-egreso .mf-punto {border-color: #ea580c}
-.mf-dentro .mf-punto {background: #ffffff}
-.mf-fuera .mf-punto {background: #dc2626}
-.mf-page .mf-lista button.mf-item.mf-fuera {border-color: #dc2626}
-.mf-accion {font-weight: 700}
-.mf-ingreso .mf-accion {color: #15803d}
-.mf-egreso .mf-accion {color: #c2410c}
-:root[data-theme="dark"] .mf-ingreso .mf-accion {color: #4ade80}
-:root[data-theme="dark"] .mf-egreso .mf-accion {color: #fb923c}
+/* Franja de resumen: casillas bajas, un dato cada una. */
+.mf-resumen {display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 128px), 1fr)); gap: 8px; margin: 0}
+.mf-resumen > div {display: grid; gap: 2px; align-content: start; padding: 8px 12px; border: 1px solid var(--border);
+  border-left-width: 4px; border-radius: 10px; background: var(--surface); min-width: 0}
+.mf-resumen dt {font-size: .75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .02em}
+.mf-resumen dd {margin: 0; font-size: 1.375rem; font-weight: 800; line-height: 1.15; color: var(--text)}
+.mf-resumen small {font-size: .75rem; color: var(--muted)}
+.mf-resumen .mf-r-ok {border-left-color: #16a34a}
+.mf-resumen .mf-r-mal {border-left-color: #dc2626}
+.mf-resumen .mf-r-mal dd {color: #dc2626}
+.mf-resumen .mf-r-aviso {border-left-color: #d97706}
+:root[data-theme="dark"] .mf-resumen .mf-r-mal dd {color: #f87171}
+
+/* Mapa grande */
+.mf-mapa-card {display: grid; gap: 8px; padding: 10px}
+.mf-mapa {height: min(72vh, 720px); min-height: 420px; border-radius: 10px; border: 1px solid var(--border); z-index: 0}
+.mf-ayuda {margin: 0; font-size: .8125rem}
+
+/* Listado */
+.mf-listado-head {display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px}
+.mf-listado-head h3 {margin: 0}
+.mf-tabla-wrap {max-height: 70vh; overflow: auto}
+.mf-tabla td {vertical-align: middle}
+.mf-tabla tr.mf-fila-fuera td:first-child {box-shadow: inset 3px 0 0 #dc2626}
+.mf-chip {display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .8125rem; font-weight: 700; white-space: nowrap}
+.mf-chip-ingreso {background: #dcfce7; color: #166534}
+.mf-chip-egreso {background: #ffedd5; color: #9a3412}
+:root[data-theme="dark"] .mf-chip-ingreso {background: #14532d; color: #bbf7d0}
+:root[data-theme="dark"] .mf-chip-egreso {background: #7c2d12; color: #fed7aa}
+.mf-alerta {display: inline-block; margin: 2px 0 0 4px; padding: 1px 8px; border-radius: 999px; font-size: .75rem; font-weight: 700;
+  background: #f3e8ff; color: #6b21a8}
+:root[data-theme="dark"] .mf-alerta {background: #3b2160; color: #e9d5ff}
 
 /* Grupos de fichadas cercanas (Leaflet.markercluster): color de la accion, borde rojo si alguna quedo fuera. */
 .mf-grupo {display: grid; place-items: center; border-radius: 50%; border: 3px solid #fff; color: #fff; font-weight: 800;
@@ -32,28 +40,31 @@
 .mf-grupo-ingreso {background: rgba(22,163,74,.92)}
 .mf-grupo-egreso {background: rgba(234,88,12,.92)}
 .mf-grupo-fuera {border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,.35), 0 1px 4px rgba(0,0,0,.4)}
-.mf-ley-grupo {width: 12px; height: 12px; border-radius: 50%; background: #16a34a; border: 2px solid #dc2626; display: inline-block}
 
-/* Pines y leyenda del mapa */
+/* Pines y leyenda plegable */
 .leaflet-marker-icon.mf-pin {background: none; border: 0}
 .mf-pin svg {display: block; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35))}
-.mf-leyenda {display: grid; gap: 4px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.92); color: #111827;
-  font-size: .75rem; line-height: 1.3; box-shadow: 0 1px 4px rgba(0,0,0,.25)}
+.mf-leyenda-caja {display: grid; gap: 6px; justify-items: start}
+.leaflet-container button.mf-leyenda-boton {min-height: 0 !important; padding: 4px 10px !important; border-radius: 6px !important;
+  border: 2px solid rgba(0,0,0,.2) !important; background: #fff !important; color: #111827 !important; font-size: .75rem !important;
+  font-weight: 700; cursor: pointer; box-shadow: none !important}
+.mf-leyenda {display: grid; gap: 3px; padding: 6px 9px; border-radius: 8px; background: rgba(255,255,255,.94); font-size: .75rem;
+  line-height: 1.3; box-shadow: 0 1px 4px rgba(0,0,0,.25)}
+.mf-leyenda[hidden] {display: none}
 .mf-page .mf-leyenda span {display: flex; align-items: center; gap: 6px; color: #111827}
 .mf-ley-pin {width: 10px; height: 10px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: inline-block}
 .mf-ley-centro {width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(0,0,0,.35); display: inline-block}
+.mf-ley-grupo {width: 12px; height: 12px; border-radius: 50%; background: #16a34a; border: 2px solid #dc2626; display: inline-block}
 .mf-ley-zona {width: 12px; height: 12px; border-radius: 50%; border: 2px solid #2f5597; background: rgba(47,85,151,.12); display: inline-block}
+
+/* Popups */
 .mf-pop-accion {font-weight: 700}
 .mf-pop-ingreso {color: #15803d}
 .mf-pop-egreso {color: #c2410c}
 .mf-pop-fuera {color: #c53a4d; font-weight: 700}
-.mf-alerta {display: inline-block; width: fit-content; margin-top: 2px; padding: 1px 8px; border-radius: 999px; font-weight: 700;
-  background: #f3e8ff; color: #6b21a8}
-:root[data-theme="dark"] .mf-alerta {background: #3b2160; color: #e9d5ff}
 .mf-pop-dentro {color: #1e8a4c; font-weight: 700}
 
-@media (max-width: 900px) {
-  .mf-vista {grid-template-columns: 1fr}
-  .mf-mapa {height: min(60vh, 520px); min-height: 300px}
-  .mf-lista {max-height: none}
+@media (max-width: 760px) {
+  .mf-mapa {height: min(62vh, 520px); min-height: 340px}
+  .mf-tabla-wrap {max-height: none}
 }
