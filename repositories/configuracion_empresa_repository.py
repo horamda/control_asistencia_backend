@@ -1,7 +1,60 @@
 from extensions import get_db
+import json
+from services.facial_policy_service import validate_override
 
 
 _COLUMN_CACHE: set[str] | None = None
+
+
+def save_facial_draft(empresa_id, values, *, revision, actor_id,
+                      scope="company", record_id=None):
+    """Update only the draft, with optimistic locking and atomic audit."""
+    draft = validate_override(values)
+    if type(revision) is not int or revision < 0:
+        raise ValueError("Revision facial invalida.")
+    if type(actor_id) is not int or actor_id <= 0:
+        raise ValueError("Administrador requerido.")
+    tables = {"company": ("configuracion_empresa", "empresa_id"),
+              "branch": ("sucursales", "id"), "employee": ("empleados", "id")}
+    if scope not in tables:
+        raise ValueError("Alcance facial invalido.")
+    table, key = tables[scope]
+    target_id = empresa_id if scope == "company" else record_id
+    if type(target_id) is not int or target_id <= 0:
+        raise ValueError("Registro facial invalido.")
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        # Fresh introspection: migrations may have been applied after worker boot.
+        cursor.execute(f"SHOW COLUMNS FROM {table}")
+        columns = {row[0] for row in cursor.fetchall()}
+        if not {"facial_policy_draft", "facial_policy_revision"} <= columns:
+            raise RuntimeError("Falta preparar las columnas faciales para este alcance.")
+        company_filter = "" if scope == "company" else " AND empresa_id=%s"
+        params = (json.dumps(draft, sort_keys=True), target_id, revision)
+        if scope != "company":
+            params += (empresa_id,)
+        cursor.execute(
+            f"""UPDATE {table}
+               SET facial_policy_draft=%s, facial_policy_revision=facial_policy_revision+1
+               WHERE {key}=%s AND facial_policy_revision=%s{company_filter}""",
+            params,
+        )
+        if cursor.rowcount != 1:
+            raise ValueError("La configuracion cambio o no existe. Recargue la pagina.")
+        cursor.execute(
+            """INSERT INTO auditoria (usuario_id, accion, tabla_afectada, registro_id)
+               VALUES (%s,%s,%s,%s)""",
+            (actor_id, f"facial_draft revision={revision + 1}; mode={draft.get('mode', 'inherit')}",
+             table, target_id),
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cursor.close()
+        db.close()
 
 
 def _get_columns(cursor) -> set[str]:

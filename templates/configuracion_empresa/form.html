@@ -79,5 +79,37 @@
       <a class="btn btn-secondary" href="{{ url_for('configuracion_empresa.listado') }}">Volver</a>
     </div>
   </form>
+  {% if data.facial_allowed %}
+  <section aria-labelledby="facial-heading">
+    <h3 id="facial-heading">Identidad facial — preparación</h3>
+    <p>Estado efectivo: <strong>desactivado</strong>. Guardar un borrador no activa
+      la cámara ni cambia las fichadas. La activación permanece bloqueada hasta
+      validar el proveedor y la autorización segura.</p>
+    {% if request.args.get('facial_saved') == '1' %}
+      <p role="status">Borrador guardado. El reconocimiento continúa desactivado.</p>
+    {% endif %}
+    {% if data.facial_ready %}
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="save_facial_draft">
+      <input type="hidden" name="facial_revision" value="{{ data.facial_policy_revision }}">
+      <div class="form-grid">
+        <div class="row">
+          <label for="facial-mode">Modo propuesto para esta empresa</label>
+          <select id="facial-mode" name="facial_mode">
+            {% for value, label in [('disabled', 'Desactivado'), ('trial', 'Prueba (borrador)'), ('required', 'Obligatorio (borrador)'), ('risk', 'Por riesgo (borrador)')] %}
+            <option value="{{ value }}" {% if data.facial_draft_mode == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-secondary">Guardar borrador facial</button>
+    </form>
+    {% else %}
+    <p>Guardado no disponible: falta preparar la estructura facial y guardar la
+      configuración general de esta empresa. QR y GPS siguen funcionando.</p>
+    {% endif %}
+  </section>
+  {% endif %}
 </div>
 {% endblock %}

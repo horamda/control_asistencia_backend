@@ -355,6 +355,7 @@
       <a class="btn btn-secondary" href="{{ next_url or url_for('empleados.listado') }}">Volver</a>
     </div>
   </form>
+  {% include "partials/facial_draft.html" %}
   {% if mode == "edit" and condiciones_laborales %}
     <section class="surface-card" aria-labelledby="condiciones-titulo">
       <h3 id="condiciones-titulo">Condiciones laborales</h3>

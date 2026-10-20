@@ -5,6 +5,9 @@ import web.configuracion.configuracion_empresa_routes as configuracion_routes
 
 def _build_client(monkeypatch):
     monkeypatch.setattr(app_module, "init_db", lambda: None)
+    monkeypatch.setattr(configuracion_routes, "get_panel_user", lambda _: {
+        "id": 99, "rol": "admin", "activo": 1, "empresa_id": None,
+    })
     app = app_module.create_app()
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False

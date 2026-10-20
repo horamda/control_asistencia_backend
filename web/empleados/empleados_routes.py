@@ -2,6 +2,7 @@ from web.auth.decorators import permission_required, require_company_record
 import datetime
 
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session, current_app, Response, flash
+from web.facial_draft_forms import prepare_facial_form
 from werkzeug.security import generate_password_hash
 import time
 from utils.forms import parse_int as _parse_int, safe_next_url as _safe_next_url
@@ -377,6 +378,10 @@ def editar(emp_id):
     emp = get_by_id(emp_id)
     if not emp:
         abort(404)
+    facial_result = prepare_facial_form(
+        emp, scope="employee", return_url=url_for("empleados.editar", emp_id=emp_id))
+    if facial_result is not None and facial_result is not False:
+        return facial_result
     if not emp.get("activo") and (emp.get("estado") or "activo") in ("activo", "eventual"):
         # Desactivado con el boton viejo (solo tocaba `activo`): no reactivar al guardar.
         emp["estado"] = "inactivo"
@@ -390,7 +395,7 @@ def editar(emp_id):
     localidades = get_localidades()
     periodos_laborales = get_periodos_laborales(emp_id)
 
-    if request.method == "POST":
+    if request.method == "POST" and facial_result is None:
         validator = EmpleadoValidator()
         errors = validator.validate(
             request.form,

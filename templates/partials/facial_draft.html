@@ -1,0 +1,28 @@
+{% if data.facial_allowed %}
+<section aria-labelledby="facial-heading">
+  <h3 id="facial-heading">Identidad facial — excepción en preparación</h3>
+  <p>Estado efectivo: <strong>desactivado</strong>. Este borrador no cambia
+    las fichadas. Heredar conserva la política del nivel superior;
+    desactivado propone una excepción explícita.</p>
+  {% if data.facial_error %}<p role="alert">{{ data.facial_error }}</p>{% endif %}
+  {% if request.args.get('facial_saved') == '1' %}
+  <p role="status">Borrador guardado. La activación continúa bloqueada.</p>
+  {% endif %}
+  {% if data.facial_ready %}
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="save_facial_draft">
+    <input type="hidden" name="facial_revision" value="{{ data.facial_policy_revision }}">
+    <div class="form-grid"><div class="row">
+      <label for="facial-mode">Modo propuesto</label>
+      <select name="facial_mode" id="facial-mode">
+        {% for value, label in [('inherit','Heredar'),('disabled','Desactivado'),('trial','Prueba (borrador)'),('required','Obligatorio (borrador)'),('risk','Por riesgo (borrador)')] %}
+        <option value="{{ value }}" {% if data.facial_draft_mode == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div></div>
+    <button class="btn btn-secondary" type="submit">Guardar borrador facial</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}

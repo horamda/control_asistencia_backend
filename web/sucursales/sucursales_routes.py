@@ -1,4 +1,5 @@
 import logging
+from web.facial_draft_forms import prepare_facial_form
 
 from web.auth.decorators import permission_required, require_company_record
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session, jsonify
@@ -111,10 +112,14 @@ def editar(sucursal_id):
     suc = get_by_id(sucursal_id)
     if not suc:
         abort(404)
+    facial_result = prepare_facial_form(
+        suc, scope="branch", return_url=url_for("sucursales.editar", sucursal_id=sucursal_id))
+    if facial_result is not None and facial_result is not False:
+        return facial_result
 
     empresas = get_empresas(include_inactive=True)
 
-    if request.method == "POST":
+    if request.method == "POST" and facial_result is None:
         errors = _validate_form(request.form)
         data = _extract_form_data(request.form)
         if errors:

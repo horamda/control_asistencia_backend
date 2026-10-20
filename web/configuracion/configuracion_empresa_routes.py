@@ -4,6 +4,9 @@ from repositories.configuracion_empresa_repository import get_all, get_by_empres
 from repositories.empresa_repository import get_all as get_empresas
 from utils.audit import log_audit
 from utils.forms import parse_int as _parse_int
+import json
+from repositories.configuracion_empresa_repository import save_facial_draft
+from repositories.usuarios_app_repository import get_by_id as get_panel_user
 
 configuracion_bp = Blueprint("configuracion_empresa", __name__, url_prefix="/configuracion-empresa")
 
@@ -55,6 +58,38 @@ def editar(empresa_id):
         abort(404)
 
     config = get_by_empresa_id(empresa_id) or {"empresa_id": empresa_id}
+
+    # The new draft section is restricted by the persisted administrator scope.
+    # A null company denotes the existing global administrator.
+    panel_user = get_panel_user(session.get("user_id"))
+    facial_allowed = bool(panel_user and panel_user.get("activo") and
+                          panel_user.get("rol") == "admin" and
+                          panel_user.get("empresa_id") in (None, empresa_id))
+    facial_ready = facial_allowed and "facial_policy_revision" in config
+    if facial_allowed:
+        raw_draft = config.get("facial_policy_draft")
+        try:
+            draft = json.loads(raw_draft) if isinstance(raw_draft, str) else raw_draft
+        except (ValueError, TypeError):
+            draft = None
+        config["facial_draft_mode"] = (draft or {}).get("mode", "disabled") if isinstance(draft, dict) else "disabled"
+    config["facial_allowed"] = facial_allowed
+    config["facial_ready"] = facial_ready
+
+    if request.method == "POST" and request.form.get("action") == "save_facial_draft":
+        if not facial_allowed:
+            abort(403)
+        try:
+            save_facial_draft(
+                empresa_id, {"mode": request.form.get("facial_mode", "")},
+                revision=int(request.form.get("facial_revision", "")),
+                actor_id=int(session["user_id"]),
+            )
+        except (ValueError, RuntimeError) as exc:
+            return render_template("configuracion_empresa/form.html",
+                                   empresa=empresa, data=config, error=str(exc)), 400
+        return redirect(url_for("configuracion_empresa.editar", empresa_id=empresa_id,
+                                facial_saved="1"))
 
     if request.method == "POST":
         try:
