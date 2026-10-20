@@ -47,6 +47,20 @@ dio permiso de GPS.
   también en la cola de fichadas sin conexión. Hasta entonces los campos llegan vacíos.
 - **Historial de marcas:** todavía no los muestra. Lee la vista `asistencia_marcas_reporte`, que habría que redefinir.
 
+## Ubicar una sucursal (Organización → Sucursales → editar)
+
+- **Mapa con pin:** el pin se arrastra (o se toca el mapa) y completa latitud y longitud. El círculo muestra el radio
+  permitido. Con menos de 50 m avisa que el margen del GPS deja afuera a gente que está en la sucursal.
+- **"Usar la ubicación de las fichadas":** el punto central (mediana) de las fichadas con GPS de los empleados de la
+  sucursal en los últimos 30 días. Muestra cuántas quedan cerca y a cuántos metros está de la ubicación cargada. Unas
+  pocas fichadas sueltas no lo mueven.
+- **"Usar mi ubicación":** la ubicación del navegador, para cargarla estando en la puerta.
+- **QR de puerta activos:** la ubicación contra la que se valida una fichada va firmada **dentro del QR impreso**. El
+  formulario marca como desactualizado el QR que está a más de 30 m de la sucursal. Después de corregir la ubicación hay
+  que generar un QR nuevo en QR puerta, reemplazar el impreso y desactivar el anterior.
+- **Coordenadas cargadas por un script:** `scripts/fix_geo_data.py` dejó a "Casa Central" en la calle Chascomús 588 de
+  Dolores. Conviene revisar esas coordenadas con este mapa.
+
 ## Técnica
 
 - **Leaflet 1.9.4:** se sirve desde `static/vendor/leaflet`, verificado contra los hashes SRI oficiales, porque la

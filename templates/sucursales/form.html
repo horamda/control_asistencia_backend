@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{% if mode == "edit" %}Editar sucursal{% else %}Nueva sucursal{% endif %}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sucursal-mapa.css') }}">
+{% endblock %}
 {% block content %}
 <div class="content-stack">
   <div class="section-head">
@@ -48,15 +52,48 @@
       </div>
       <div class="row">
         <label>Latitud</label>
-        <input name="latitud" value="{{ data.latitud or '' }}">
+        <input id="su-lat" name="latitud" value="{{ data.latitud or '' }}" inputmode="decimal">
       </div>
       <div class="row">
         <label>Longitud</label>
-        <input name="longitud" value="{{ data.longitud or '' }}">
+        <input id="su-lon" name="longitud" value="{{ data.longitud or '' }}" inputmode="decimal">
       </div>
       <div class="row">
         <label>Radio permitido (m)</label>
-        <input name="radio_permitido_m" value="{{ data.radio_permitido_m or '' }}">
+        <input id="su-radio" name="radio_permitido_m" value="{{ data.radio_permitido_m or '' }}" inputmode="numeric">
+      </div>
+      <div class="row span-3 su-geo">
+        <label>Ubicación en el mapa</label>
+        <p class="helper-text">Arrastrá el pin hasta la puerta de la sucursal o tocá el mapa; latitud y longitud se completan
+          solas. El círculo es el radio permitido para fichar.{% if geo and geo.mapa.puntos %} Los puntos grises son las fichadas
+          con GPS de sus empleados en los últimos 30 días.{% endif %}</p>
+        <div class="actions su-acciones">
+          {% if geo and geo.sugerencia %}<button type="button" class="btn btn-secondary" id="su-sugerencia">Usar la ubicación de las fichadas</button>{% endif %}
+          <button type="button" class="btn btn-secondary" id="su-mi-ubicacion">Usar mi ubicación</button>
+        </div>
+        {% if geo and geo.sugerencia %}{% set s = geo.sugerencia %}
+          <p class="helper-text">Según {{ s.fichadas }} fichadas: la mitad está a menos de {{ s.mitad_m }} m de ese punto y
+            {{ s.cerca }} a menos de {{ s.cerca_m }} m.{% if s.distancia_actual_m is defined %} Queda a
+            <strong>{{ '{:,}'.format(s.distancia_actual_m).replace(',', '.') }} m</strong> de la ubicación cargada.{% endif %}</p>
+        {% endif %}
+        <div id="su-mapa" class="su-mapa" role="region" aria-label="Ubicación de la sucursal"></div>
+        <p class="helper-text su-radio-aviso" id="su-radio-aviso" hidden>Con menos de 50 m, el margen de error del GPS de los
+          teléfonos (10 a 50 m) deja afuera a gente que está en la sucursal. Recomendado: 100 m.</p>
+        {% if geo and geo.qrs %}
+        <div class="su-qrs">
+          <strong>QR de puerta activos</strong>
+          <p class="helper-text">La ubicación contra la que se valida cada fichada va firmada dentro del QR impreso. Si cambiás
+            la ubicación de la sucursal, generá un QR nuevo, reemplazá el impreso y desactivá el anterior.</p>
+          <ul>
+            {% for q in geo.qrs %}
+            <li class="{{ 'su-qr-mal' if q.desactualizado }}">QR del {{ q.fecha.strftime('%d/%m/%Y') }} · radio {{ q.tolerancia }} m ·
+              {% if q.distancia_m is none %}sin ubicación de sucursal para comparar{% elif q.desactualizado %}<strong>a {{ '{:,}'.format(q.distancia_m).replace(',', '.') }} m de la sucursal: desactualizado</strong>{% else %}coincide con la sucursal{% endif %}</li>
+            {% endfor %}
+          </ul>
+          {% if can_web('qr_puerta') %}<div class="actions su-acciones"><a class="btn btn-sm btn-secondary" href="/qr-puerta/">Ir a QR puerta</a></div>{% endif %}
+        </div>
+        {% endif %}
+        <script type="application/json" id="su-datos">{{ (geo.mapa if geo else {})|tojson }}</script>
       </div>
       <div class="row span-3">
         <label class="check-inline">
@@ -72,4 +109,8 @@
     </div>
   </form>
 </div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/sucursal-mapa.js') }}" defer></script>
 {% endblock %}

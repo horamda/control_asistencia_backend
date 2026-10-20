@@ -1,0 +1,12 @@
+/* Formulario de sucursal: mapa para ubicarla con el radio permitido. */
+.su-geo {display: grid; gap: 8px}
+.su-acciones {margin: 0}
+.su-mapa {height: min(55vh, 460px); min-height: 300px; border-radius: 12px; border: 1px solid var(--border); z-index: 0}
+.su-qrs {display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px}
+.su-qrs ul {margin: 0; padding-left: 18px; display: grid; gap: 4px}
+.su-qr-mal {color: #dc2626}
+:root[data-theme="dark"] .su-qr-mal {color: #f87171}
+.su-radio-aviso {color: #b45309; font-weight: 600}
+.leaflet-container {font: inherit}
+.leaflet-marker-icon.su-pin {background: none; border: 0; cursor: grab}
+.su-pin svg {display: block; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4))}

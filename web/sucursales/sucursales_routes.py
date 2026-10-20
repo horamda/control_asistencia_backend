@@ -1,3 +1,5 @@
+import logging
+
 from web.auth.decorators import permission_required, require_company_record
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from web.auth.decorators import role_required
@@ -11,8 +13,18 @@ from repositories.sucursal_repository import (
 )
 from repositories.empresa_repository import get_all as get_empresas
 from utils.audit import log_audit
+from services import sucursal_geo_service as geo
 
 sucursales_bp = Blueprint("sucursales", __name__, url_prefix="/sucursales")
+
+
+def _geo(sucursal):
+    """Sugerencia desde las fichadas y QR activos (solo para editar; nunca rompe el formulario)."""
+    try:
+        return geo.contexto(sucursal)
+    except Exception:
+        logging.getLogger(__name__).warning("sucursal_geo_error", exc_info=True)
+        return None
 
 
 
@@ -112,7 +124,8 @@ def editar(sucursal_id):
                 mode="edit",
                 data=merged,
                 errors=errors,
-                empresas=empresas
+                empresas=empresas,
+                geo=_geo(suc),
             )
 
         update(sucursal_id, data)
@@ -123,7 +136,8 @@ def editar(sucursal_id):
         "sucursales/form.html",
         mode="edit",
         data=suc,
-        empresas=empresas
+        empresas=empresas,
+        geo=_geo(suc),
     )
 
 
