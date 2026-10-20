@@ -160,6 +160,25 @@ def _safe_int(value):
 # Validadores puros
 # ---------------------------------------------------------------------------
 
+def _parse_gps_calidad(payload: dict) -> dict:
+    """Calidad de la ubicacion de una fichada (opcional, contrato 1.54.0): precision en metros, si el sistema operativo
+    la marco como simulada (GPS falso) y cuantos segundos tenia la posicion al fichar. Las versiones anteriores de la
+    app no la mandan: queda vacia y la fichada se valida igual que siempre."""
+    precision = _parse_float(payload.get("gps_precision_m"), "gps_precision_m")
+    if precision is not None and not 0 <= precision <= 100000:
+        raise ValueError("gps_precision_m fuera de rango.")
+    simulada = payload.get("gps_simulada")
+    simulada = None if simulada is None else _parse_bool(simulada, "gps_simulada")
+    edad = _parse_int(payload.get("gps_edad_s"), "gps_edad_s")
+    if edad is not None and not 0 <= edad <= 7 * 24 * 3600:
+        raise ValueError("gps_edad_s fuera de rango.")
+    return {
+        "gps_precision_m": round(precision, 1) if precision is not None else None,
+        "gps_simulada": simulada,
+        "gps_edad_s": edad,
+    }
+
+
 def _validate_geo(lat, lon):
     if lat is not None and (lat < -90 or lat > 90):
         raise ValueError("Latitud fuera de rango.")

@@ -20,6 +20,7 @@ WEB_MODULES = [
     {"code": "horas_jornada", "label": "Horas trabajadas (calculo de jornada)", "group": "Asistencia", "roles": {"admin", "rrhh"}},
     {"code": "horas_extras", "label": "Horas extras (autorizacion y cierre de mes)", "group": "Asistencia", "roles": {"admin", "rrhh"}},
     {"code": "banco_horas", "label": "Banco de horas", "group": "Asistencia", "roles": {"admin", "rrhh"}},
+    {"code": "mapa_fichadas", "label": "Mapa de fichadas (ubicacion de cada fichada)", "group": "Asistencia", "roles": {"admin", "rrhh"}},
     {"code": "asistencias", "label": "Asistencias", "group": "Asistencia", "roles": {"admin", "rrhh", "supervisor"}},
     {"code": "justificaciones", "label": "Justificaciones", "group": "Asistencia", "roles": {"admin", "rrhh", "supervisor"}},
     {"code": "qr_puerta", "label": "QR puerta", "group": "Asistencia", "roles": {"admin", "rrhh"}},

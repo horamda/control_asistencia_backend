@@ -1,6 +1,8 @@
 import datetime
 import io
 
+import pytest
+
 import app as app_module
 import repositories.kpi_sectorial_repository as kpi_repo
 import utils.jwt_guard as jwt_guard
@@ -3998,3 +4000,54 @@ def test_mobile_dashboard_incluye_efectividad_de_fichaje(monkeypatch):
     assert resp.status_code == 200
     assert resp.get_json()["fichaje"] == {"jornadas": 20, "olvidos": 3, "efectividad_pct": 85.0}
     assert pedidos == [(10, "2026-09-01", "2026-09-30")]
+
+
+def _scan_ingreso_ok(monkeypatch, capturadas):
+    """Fichada QR de ingreso valida con todo lo externo simulado; guarda los kwargs de la marca en capturadas."""
+    client = _build_client(monkeypatch)
+    monkeypatch.setattr(jwt_guard, "verificar_token", lambda token: {"empleado_id": 6})
+    monkeypatch.setattr(mobile_routes, "get_empleado_by_id", lambda empleado_id: {
+        "id": empleado_id, "activo": 1, "empresa_id": 1, "dni": "6", "nombre": "Emp", "apellido": "Six"})
+    monkeypatch.setattr(mobile_routes, "get_by_empresa_id", lambda empresa_id: {"requiere_qr": 1, "requiere_foto": 0, "requiere_geo": 0})
+    monkeypatch.setattr(mobile_routes, "verificar_token_qr", lambda token, accion_esperada=None: {
+        "type": "asistencia_qr", "accion": "auto", "empresa_id": 1, "scope": "empresa"})
+    monkeypatch.setattr(mobile_routes, "get_by_empleado_fecha", lambda empleado_id, fecha: None)
+    monkeypatch.setattr(mobile_routes, "get_last_marca_by_empleado_fecha", lambda empleado_id, fecha: None)
+    monkeypatch.setattr(mobile_routes, "_validar_geo_scan_qr", lambda empleado, qr_payload, lat, lon: {
+        "gps_ok": True, "distancia_m": 12.3, "tolerancia_m": 80.0, "ref_lat": -34.0, "ref_lon": -58.0, "sucursal_id": 1})
+    monkeypatch.setattr(mobile_routes, "validar_asistencia", lambda *args: ({}, "ok"))
+    monkeypatch.setattr(mobile_routes, "upsert_resumen_desde_marca", lambda **kwargs: 77)
+    monkeypatch.setattr(mobile_routes, "create_asistencia_marca", lambda **kwargs: capturadas.append(kwargs) or 701)
+    monkeypatch.setattr(mobile_routes, "count_marcas_by_empleado_fecha", lambda empleado_id, fecha: 1)
+    return client
+
+
+def test_mobile_fichada_scan_guarda_calidad_del_gps(monkeypatch):
+    """1.54.0: precision, GPS simulado y antiguedad son opcionales, se guardan y no cambian la validacion."""
+    capturadas = []
+    client = _scan_ingreso_ok(monkeypatch, capturadas)
+    resp = client.post("/api/v1/mobile/me/fichadas/scan", headers={"Authorization": "Bearer abc"}, json={
+        "qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816, "hora": "09:30",
+        "gps_precision_m": 12.46, "gps_simulada": True, "gps_edad_s": 3})
+    assert resp.status_code == 201 and resp.get_json()["gps_ok"] is True
+    assert {k: capturadas[0][k] for k in ("gps_precision_m", "gps_simulada", "gps_edad_s")} == {
+        "gps_precision_m": 12.5, "gps_simulada": True, "gps_edad_s": 3}
+    # Una app anterior no los manda: quedan vacios.
+    resp = client.post("/api/v1/mobile/me/fichadas/scan", headers={"Authorization": "Bearer abc"},
+                       json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816, "hora": "09:31"})
+    assert resp.status_code == 201
+    assert (capturadas[1]["gps_precision_m"], capturadas[1]["gps_simulada"], capturadas[1]["gps_edad_s"]) == (None, None, None)
+
+
+@pytest.mark.parametrize("campos,mensaje", [
+    ({"gps_precision_m": -1}, "gps_precision_m fuera de rango"),
+    ({"gps_precision_m": "mucho"}, "gps_precision_m invalido"),
+    ({"gps_simulada": "quizas"}, "gps_simulada invalido"),
+    ({"gps_edad_s": 999999}, "gps_edad_s fuera de rango"),
+])
+def test_mobile_fichada_scan_rechaza_calidad_invalida(monkeypatch, campos, mensaje):
+    capturadas = []
+    client = _scan_ingreso_ok(monkeypatch, capturadas)
+    resp = client.post("/api/v1/mobile/me/fichadas/scan", headers={"Authorization": "Bearer abc"},
+                       json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816, "hora": "09:30", **campos})
+    assert resp.status_code == 400 and mensaje in resp.get_json()["error"] and capturadas == []

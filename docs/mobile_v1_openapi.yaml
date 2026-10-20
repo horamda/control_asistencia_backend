@@ -1,9 +1,10 @@
 openapi: 3.0.3
 info:
   title: FichaYa - API empleados Web y Flutter v1
-  version: 1.53.0
+  version: 1.54.0
   description: |
     API REST compartida para frontend web de empleados, Flutter web y Flutter nativo.
+    Version 1.54.0: calidad de la ubicacion opcional en las fichadas (gps_precision_m, gps_simulada, gps_edad_s); solo se guarda, no cambia la validacion.
     Version 1.53.0: vacaciones por semanas completas (lunes feriado: empieza el primer dia habil) y Mi equipo para jefes y duenos (ver, aprobar, cancelaciones); avisos por solicitud. Ver vacaciones_mobile.md.
     Version 1.52.0: Mis reuniones con calendario mensual, dashboard del mes y evolucion (rutas en reuniones_mobile_openapi.yaml; guia reuniones_mobile.md).
     Version 1.51.0: bandeja de notificaciones persistente (/me/notificaciones: listado, resumen, detalle, leer y leer-todas con corte) y data.notificacion_id en el push; ver notificaciones_mobile.md.
@@ -4427,6 +4428,24 @@ paths:
                 lon:
                   type: number
                   example: -58.3816
+                gps_precision_m:
+                  type: number
+                  minimum: 0
+                  maximum: 100000
+                  nullable: true
+                  example: 12.5
+                  description: Desde 1.54.0 (opcional). Precision de la posicion informada por el telefono, en metros.
+                gps_simulada:
+                  type: boolean
+                  nullable: true
+                  description: Desde 1.54.0 (opcional). true si el sistema operativo marco la posicion como simulada (Position.isMocked en Android).
+                gps_edad_s:
+                  type: integer
+                  minimum: 0
+                  maximum: 604800
+                  nullable: true
+                  example: 3
+                  description: Desde 1.54.0 (opcional). Segundos que tenia la posicion al fichar (una ultima posicion conocida puede ser vieja).
       responses:
         '201':
           description: Ingreso registrado

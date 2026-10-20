@@ -158,6 +158,7 @@ from routes.mobile_v1_helpers import (
     _parse_bool,
     _parse_date,
     _parse_float,
+    _parse_gps_calidad,
     _parse_hhmm,
     _parse_int,
     _parse_tipo_marca,
@@ -651,6 +652,7 @@ def fichar_scan_qr():
     _validate_geo(lat, lon)
 
     try:
+        gps_calidad = _parse_gps_calidad(payload)
         _parse_date(fecha)
         hora = _parse_hhmm(hora)
         tipo_marca_input = _parse_tipo_marca(tipo_marca_raw, default=None)
@@ -740,6 +742,7 @@ def fichar_scan_qr():
             gps_ref_lon=geo["ref_lon"],
             estado=estado,
             observaciones=observaciones,
+            **gps_calidad,
         )
         evento_id = None
         if alerta_fraude:
@@ -1115,6 +1118,7 @@ def fichar_entrada():
         return jsonify({"error": "metodo invalido"}), 400
 
     try:
+        gps_calidad = _parse_gps_calidad(payload)
         _parse_date(fecha)
         hora_entrada = _parse_hhmm(hora_entrada)
         tipo_marca = _parse_tipo_marca(tipo_marca_raw, default="jornada")
@@ -1164,6 +1168,7 @@ def fichar_entrada():
             gps_ref_lon=None,
             estado=estado,
             observaciones=observaciones,
+            **gps_calidad,
         )
         return jsonify({"id": asistencia_id, "marca_id": marca_id, "estado": estado}), 201
     except ValueError as exc:
@@ -1206,6 +1211,7 @@ def fichar_salida():
         return jsonify({"error": "metodo invalido"}), 400
 
     try:
+        gps_calidad = _parse_gps_calidad(payload)
         _parse_date(fecha)
         hora_salida = _parse_hhmm(hora_salida)
         tipo_marca = _parse_tipo_marca(tipo_marca_raw, default="jornada")
@@ -1260,6 +1266,7 @@ def fichar_salida():
             gps_ref_lon=None,
             estado=estado,
             observaciones=observaciones,
+            **gps_calidad,
         )
         return jsonify({"id": asistencia_id, "marca_id": marca_id, "estado": estado})
     except ValueError as exc:

@@ -78,6 +78,7 @@ from web.jornada.routes import web as jornada_web_bp
 from web.horas.routes import web as horas_web_bp
 from web.horas_extras.routes import web as horas_extras_web_bp
 from web.banco_horas.routes import web as banco_horas_web_bp
+from web.mapa_fichadas.routes import web as mapa_fichadas_web_bp
 from routes.notificaciones_routes import mobile as notificaciones_mobile_bp
 from routes.vacaciones_semanas_routes import mobile as vacaciones_semanas_mobile_bp
 from utils import request_metrics
@@ -123,6 +124,7 @@ BLUEPRINTS = (
     horas_web_bp,
     horas_extras_web_bp,
     banco_horas_web_bp,
+    mapa_fichadas_web_bp,
     notificaciones_mobile_bp,
     vacaciones_semanas_mobile_bp,
     reintegros_web_bp,

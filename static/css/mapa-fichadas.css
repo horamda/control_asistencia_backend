@@ -1,0 +1,30 @@
+/* Mapa de fichadas: mapa y lista lado a lado; en el celular, uno debajo del otro. */
+.mf-kpis {grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr))}
+.mf-aviso {display: block; width: fit-content; max-width: 100%; white-space: normal; text-align: left}
+
+.mf-vista {display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 16px; align-items: start}
+.mf-mapa {height: min(70vh, 640px); min-height: 360px; border-radius: 12px; border: 1px solid var(--border); z-index: 0}
+.mf-lista {display: grid; gap: 8px; max-height: min(70vh, 640px); overflow: auto; min-width: 0}
+.mf-lista h3 {margin: 0; font-size: 1rem}
+.mf-lista ul {list-style: none; margin: 0; padding: 0; display: grid; gap: 6px}
+.mf-page .mf-lista button.mf-item {display: flex; align-items: flex-start; gap: 10px; width: 100%; min-height: 44px; padding: 8px 10px; text-align: left;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; font: inherit}
+.mf-page .mf-lista button.mf-item:hover, .mf-page .mf-lista button.mf-item:focus-visible {border-color: var(--primary); background: var(--surface-soft); color: var(--text)}
+.mf-texto {display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere}
+.mf-texto small {color: var(--muted)}
+.mf-punto {flex: 0 0 12px; width: 12px; height: 12px; margin-top: 4px; border-radius: 50%; background: #6b7280}
+.mf-dentro .mf-punto {background: #1e8a4c}
+.mf-page .mf-lista button.mf-item.mf-fuera {border-color: #c53a4d}
+.mf-item.mf-fuera .mf-punto {background: #c53a4d}
+.mf-pop-fuera {color: #c53a4d; font-weight: 700}
+.mf-alerta {display: inline-block; width: fit-content; margin-top: 2px; padding: 1px 8px; border-radius: 999px; font-weight: 700;
+  background: #f3e8ff; color: #6b21a8}
+:root[data-theme="dark"] .mf-alerta {background: #3b2160; color: #e9d5ff}
+.mf-pop-dentro {color: #1e8a4c; font-weight: 700}
+.leaflet-container {font: inherit}
+
+@media (max-width: 900px) {
+  .mf-vista {grid-template-columns: 1fr}
+  .mf-mapa {height: min(60vh, 520px); min-height: 300px}
+  .mf-lista {max-height: none}
+}

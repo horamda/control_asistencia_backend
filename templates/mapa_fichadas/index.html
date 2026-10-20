@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Mapa de fichadas{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mapa-fichadas.css') }}">
+{% endblock %}
+{% block content %}
+{% set t = datos.totales %}
+<div class="content-stack mf-page">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>Mapa de fichadas</h2>
+      <p class="module-intro">Dónde fichó cada empleado: verde dentro del radio permitido, rojo fuera, gris sin validar;
+        el halo alrededor de cada punto es la precisión del GPS del teléfono. Los círculos azules son las sucursales y los
+        puntos de validación con su radio. Solo lectura.</p>
+    </div>
+  </div>
+
+  <form method="get" action="{{ url_for('mapa_fichadas.index') }}" class="surface-card form-grid">
+    <div class="row"><label for="mf-desde">Desde</label><input id="mf-desde" type="date" name="desde" value="{{ datos.desde.isoformat() }}"></div>
+    <div class="row"><label for="mf-hasta">Hasta</label><input id="mf-hasta" type="date" name="hasta" value="{{ datos.hasta.isoformat() }}"></div>
+    <div class="row"><label for="mf-suc">Sucursal</label>
+      <select id="mf-suc" name="sucursal_id"><option value="">Todas</option>{% for x in sucursales %}<option value="{{ x.id }}" {{ 'selected' if filtros.sucursal_id == x.id|string }}>{{ x.nombre }}</option>{% endfor %}</select></div>
+    <div class="row"><label for="mf-emp">Empleado</label>
+      <select id="mf-emp" name="empleado_id"><option value="">Todos</option>{% for x in empleados %}<option value="{{ x.id }}" {{ 'selected' if filtros.empleado_id == x.id|string }}>{{ x.apellido }}, {{ x.nombre }}</option>{% endfor %}</select></div>
+    <div class="row"><label for="mf-acc">Fichada</label>
+      <select id="mf-acc" name="accion"><option value="">Ingresos y egresos</option>
+        <option value="ingreso" {{ 'selected' if filtros.accion == 'ingreso' }}>Solo ingresos</option>
+        <option value="egreso" {{ 'selected' if filtros.accion == 'egreso' }}>Solo egresos</option></select></div>
+    <div class="row"><label for="mf-ver">Mostrar</label>
+      <select id="mf-ver" name="ver"><option value="">Todas</option>
+        <option value="fuera" {{ 'selected' if filtros.ver == 'fuera' }}>Solo fuera de radio</option>
+        <option value="alertas" {{ 'selected' if filtros.ver == 'alertas' }}>Con alertas (fuera, GPS simulado o posición vieja)</option></select></div>
+    <div class="actions"><button type="submit" class="btn">Ver</button></div>
+  </form>
+
+  <div class="grid-kpis mf-kpis">
+    <div class="kpi-card"><div class="kpi-label">Fichadas</div><div class="kpi-value">{{ t.total }}</div><div class="kpi-desc">{{ datos.desde.strftime('%d/%m') }} al {{ datos.hasta.strftime('%d/%m/%Y') }}</div></div>
+    <div class="kpi-card tone-ok"><div class="kpi-label">Dentro del radio</div><div class="kpi-value">{{ t.dentro }}</div></div>
+    <div class="kpi-card {{ 'tone-bad' if t.fuera }}"><div class="kpi-label">Fuera del radio</div><div class="kpi-value">{{ t.fuera }}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Sin ubicación</div><div class="kpi-value">{{ t.sin_ubicacion }}</div><div class="kpi-desc">Manuales, automáticas o sin GPS</div></div>
+    <div class="kpi-card {{ 'tone-bad' if t.simuladas }}"><div class="kpi-label">GPS simulado</div><div class="kpi-value">{{ t.simuladas }}</div><div class="kpi-desc">{{ 'Posición marcada como falsa por el teléfono' if t.con_precision else 'Requiere la app que informa la calidad del GPS' }}</div></div>
+    <div class="kpi-card {{ 'tone-warn' if t.viejas }}"><div class="kpi-label">Posición vieja</div><div class="kpi-value">{{ t.viejas }}</div><div class="kpi-desc">Más de {{ posicion_vieja_min }} min al fichar</div></div>
+  </div>
+  {% if datos.recortado %}<p class="badge warning mf-aviso">Se muestran las primeras {{ datos.puntos|length }} fichadas (primero las de fuera de radio): acotá las fechas o los filtros.</p>{% endif %}
+
+  <section class="surface-card mf-vista">
+    <div id="mf-mapa" class="mf-mapa" role="region" aria-label="Mapa de fichadas"></div>
+    <div class="mf-lista">
+      <h3>{{ datos.puntos|length }} fichada{{ '' if datos.puntos|length == 1 else 's' }} con ubicación</h3>
+      {% if datos.puntos %}
+      <ul>
+        {% for p in datos.puntos %}
+        <li><button type="button" class="mf-item btn-ghost mf-{{ p.estado }}" data-punto="{{ loop.index0 }}">
+          <span class="mf-punto" aria-hidden="true"></span>
+          <span class="mf-texto"><strong>{{ p.empleado }}</strong>
+            <small>{{ p.fecha }} {{ p.hora }} · {{ p.accion }}{% if p.distancia is not none %} · {{ p.distancia }} m{% if p.tolerancia %} (radio {{ p.tolerancia }} m){% endif %}{% endif %}{% if p.precision is not none %} · ±{{ p.precision }}&nbsp;m{% endif %}</small>
+            {% for a in p.alertas if a != 'Fuera del radio' %}<small class="mf-alerta">{{ a }}</small>{% endfor %}</span>
+        </button></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+        <p class="empty-state">No hay fichadas con ubicación con esos filtros.</p>
+      {% endif %}
+    </div>
+  </section>
+  <script type="application/json" id="mf-datos">{{ mapa_json|tojson }}</script>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/mapa-fichadas.js') }}" defer></script>
+{% endblock %}

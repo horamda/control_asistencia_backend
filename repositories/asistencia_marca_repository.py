@@ -21,8 +21,15 @@ def create(
     estado: str | None,
     observaciones: str | None = None,
     asistencia_id: int | None = None,
+    gps_precision_m: float | None = None,
+    gps_simulada: bool | None = None,
+    gps_edad_s: int | None = None,
     _db=None,
 ):
+    # Calidad de la ubicacion (contrato 1.54.0): solo se agrega al INSERT cuando la app la manda.
+    calidad = {k: v for k, v in (("gps_precision_m", gps_precision_m),
+                                 ("gps_simulada", None if gps_simulada is None else int(bool(gps_simulada))),
+                                 ("gps_edad_s", gps_edad_s)) if v is not None}
     db = _db if _db is not None else get_db()
     cursor = db.cursor()
     try:
@@ -46,10 +53,10 @@ def create(
                 gps_ref_lat,
                 gps_ref_lon,
                 estado,
-                observaciones
-            )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """,
+                observaciones"""
+            + "".join(f", {k}" for k in calidad)
+            + ") VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s"
+            + ",%s" * len(calidad) + ")",
             (
                 empresa_id,
                 empleado_id,
@@ -69,6 +76,7 @@ def create(
                 gps_ref_lon,
                 estado,
                 observaciones,
+                *calidad.values(),
             ),
         )
         if _db is None:
