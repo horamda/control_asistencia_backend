@@ -1,5 +1,5 @@
 """Notificaciones push: envia la cola y los comunicados programados cada minuto; cada 5 minutos encola los
-recordatorios de reuniones y los avisos de salida sin fichar; a las 8 los de acciones de seguridad por vencer y a
+recordatorios de reuniones y los avisos de ingreso y salida sin fichar; a las 8 los de acciones de seguridad por vencer y a
 las 9 los de vacaciones (inicio y solicitudes sin resolver).
 Sin Firebase configurado los trabajos de push no hacen nada (los comunicados programados igual quedan en la
 bandeja de la app)."""
@@ -34,6 +34,14 @@ def salidas():
         salidas_pendientes()
     except Exception:
         logging.getLogger(__name__).exception("Error encolando avisos de salida pendiente")
+
+
+def ingresos():
+    try:
+        from services.avisos_push import ingresos_pendientes
+        ingresos_pendientes()
+    except Exception:
+        logging.getLogger(__name__).exception("Error encolando avisos de ingreso pendiente")
 
 
 def comunicados_programados():
@@ -74,6 +82,8 @@ def init_push_scheduler(app):
                        next_run_time=inicio)
     _scheduler.add_job(salidas, "interval", minutes=5, id="push_salidas", max_instances=1, coalesce=True,
                        next_run_time=inicio + timedelta(seconds=5))
+    _scheduler.add_job(ingresos, "interval", minutes=5, id="push_ingresos", max_instances=1, coalesce=True,
+                       next_run_time=inicio + timedelta(seconds=20))
     _scheduler.add_job(enviar, "interval", minutes=1, id="push_cola", max_instances=1, coalesce=True,
                        next_run_time=inicio + timedelta(seconds=15))
     # Comunicados programados: antes de vaciar la cola, para que salgan en ese mismo minuto.

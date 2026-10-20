@@ -1,3 +1,22 @@
+## 1.54.0 — 2026-10-19
+
+- **Calidad de la ubicación al fichar** (aditivo, opcional): `POST /me/fichadas/scan`, `/me/fichadas/entrada` y
+  `/me/fichadas/salida` aceptan tres campos.
+  - `gps_precision_m`: precisión en metros.
+  - `gps_simulada`: posición simulada o GPS falso.
+  - `gps_edad_s`: antigüedad de la posición, en segundos.
+- **Uso:** se guardan con la marca y se ven en el Mapa de fichadas del panel. No cambian la validación del radio ni las
+  respuestas.
+- **Valores inválidos:** responden 400.
+- **Push nuevos (solo push, sin bandeja):** regla "Ingreso sin fichar" en la configuración de avisos.
+  - `ingreso_pendiente` al empleado: tiene horario y no fichó el ingreso pasada la hora prevista (15 min por defecto).
+  - `ingreso_equipo` a su jefe directo.
+  - Una vez por día, sin licencia, vacaciones, franco ni feriado.
+  - La app tiene que sumarlos a `pushTypes` para mostrarlos con la app abierta y abrir la pantalla al tocarlos
+    (pendiente). Con la app cerrada, el teléfono ya los muestra.
+- **App:** para que empiecen a llegar, la app tiene que mandarlos (pendiente). Ya mide la precisión en
+  `ClockGpsPoint.accuracyM`.
+
 ## 1.53.0 — 2026-10-18
 
 - **Vacaciones por semanas completas,** de lunes a domingo, corridas o no.

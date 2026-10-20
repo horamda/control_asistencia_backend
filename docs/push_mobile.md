@@ -156,6 +156,8 @@ Todos traen `notification` (título y texto listos para mostrar) y `data` con st
 | `recordatorio` | 30 min antes, si todavía no registró | `reunion_id`, `fecha`, `ruta` |
 | `prueba` | Botón "Enviar prueba" del panel | `ruta` |
 | `salida_pendiente` (1.44.0) | La jornada de hoy sigue abierta 30 min después de la salida prevista (una vez por jornada) | `asistencia_id`, `fecha`, `ruta` = `/asistencia` |
+| `ingreso_pendiente` (1.54.0) | Tiene horario hoy y no fichó el ingreso 15 min después de la hora prevista (configurable). Una vez por día. No sale con licencia, justificación aprobada, vacaciones, franco, feriado ni terminado el horario. Solo push | `fecha`, `empleado_id`, `ruta` = `/asistencia` |
+| `ingreso_equipo` (1.54.0) | Al jefe directo (si la regla lo incluye): alguien de su equipo no fichó el ingreso. Solo push | `fecha`, `empleado_id` |
 | `epp_resuelto` (1.44.0) | Pedido de EPP aprobado, aprobado con menos unidades o rechazado | `pedido_id`, `estado`, `ruta` = `/epp/{id}` |
 | `epp_entregado` (1.44.0) | Entrega parcial o completa registrada | `pedido_id`, `estado` (`parcial`/`entregado`), `ruta` = `/epp/{id}` |
 | `reintegro` (1.44.0) | Rendición de viáticos aprobada, rechazada, devuelta para corregir o pagada | `solicitud_id`, `estado`, `ruta` = `/reintegros/{id}` |

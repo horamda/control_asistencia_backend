@@ -1,6 +1,8 @@
 """Avisos push al empleado fuera de Reuniones (solo con Firebase configurado; nunca rompen la accion).
 
 - Salida pendiente: la jornada de hoy sigue abierta 30 min despues de la salida prevista (scheduler cada 5 min).
+- Ingreso pendiente: tiene horario hoy y no ficho el ingreso 15 min despues de la hora prevista; al empleado y a su
+  jefe directo (scheduler cada 5 min).
 - Resoluciones: EPP (aprobado, aprobado con menos, rechazado, entregado), viaticos y reintegros (aprobada,
   rechazada, devuelta, pagada), adelantos y pedidos de mercaderia (aprobado, rechazado).
 - Recordatorio mensual de viaticos (dia 5) por push ademas del aviso dentro de la app.
@@ -106,6 +108,79 @@ def salidas_pendientes(ahora=None):
                             {"asistencia_id": row["id"], "fecha": hoy.isoformat(), "ruta": "/asistencia"},
                             f"salida:{row['id']}")
     return avisados
+
+
+# --- Ingreso sin fichar ----------------------------------------------------------------------------
+
+@_seguro
+def ingresos_pendientes(ahora=None):
+    """Una vez por dia: a quien tiene horario hoy y no ficho el ingreso pasados N minutos (regla ingreso_pendiente)
+    le avisa a el (ingreso_pendiente) y/o a su jefe directo (ingreso_equipo).
+
+    No avisa con licencia, justificacion aprobada, vacaciones, franco (tambien compensatorio del banco de horas),
+    feriado o una excepcion que anula el horario, ni a quien no tiene horario, ni despues de terminado el horario.
+    Solo push: un recordatorio que pierde sentido pasado el momento."""
+    from mysql.connector import ProgrammingError
+
+    from services import feriado_service
+    from services import jornada_calculo_service as calc
+
+    if not push_service.activo():
+        return 0
+    ahora = ahora or now_local()
+    hoy, minuto = ahora.date(), ahora.hour * 60 + ahora.minute
+    with db.transaction(read_only=True) as c:
+        avisados = {f["clave"] for f in db.all_rows(
+            c, "SELECT clave FROM push_envios WHERE clave LIKE %s OR clave LIKE %s",
+            (f"ingreso:%:{hoy.isoformat()}:%", f"ingreso-equipo:%:{hoy.isoformat()}:%"))}
+        empleados = db.all_rows(c, """SELECT e.id, e.empresa_id, e.apellido, e.nombre, e.sucursal_id, e.reporta_a_empleado_id
+                                      FROM empleados e
+                                      WHERE e.activo = 1 AND (e.fecha_ingreso IS NULL OR e.fecha_ingreso <= %s)
+                                        AND NOT EXISTS (SELECT 1 FROM asistencia_marcas m WHERE m.empleado_id = e.id AND m.fecha = %s)
+                                        AND NOT EXISTS (SELECT 1 FROM asistencias a WHERE a.empleado_id = e.id AND a.fecha = %s
+                                                        AND a.hora_entrada IS NOT NULL)""", (hoy, hoy, hoy))
+        empleados = [e for e in empleados if f"ingreso:{e['id']}:{hoy.isoformat()}:{e['id']}" not in avisados]
+        ids = [int(e["id"]) for e in empleados]
+        if not ids:
+            return 0
+        horarios = calc.Horarios(c, ids, hoy, hoy)
+        licencias = calc._licencias(c, ids, hoy, hoy)
+        try:
+            francos = calc._francos_banco(c, ids, hoy, hoy)
+        except ProgrammingError:  # sin banco de horas instalado
+            francos = {}
+        feriados = {eid: feriado_service.mapa(c, eid) for eid in {int(e["empresa_id"]) for e in empleados}}
+        personas = sorted(set(ids) | {int(e["reporta_a_empleado_id"]) for e in empleados if e["reporta_a_empleado_id"]})
+        con_app = {int(f["empleado_id"]) for f in db.all_rows(
+            c, f"""SELECT DISTINCT empleado_id FROM push_dispositivos WHERE activo = 1
+                   AND empleado_id IN ({','.join(['%s'] * len(personas))})""", tuple(personas))}
+    total = 0
+    for e in empleados:
+        eid, empresa_id = int(e["id"]), int(e["empresa_id"])
+        regla = reglas_push.regla(empresa_id, "ingreso_pendiente")
+        if not regla or not regla["activo"] or (eid, hoy) in licencias or (eid, hoy) in francos:
+            continue
+        if hoy in feriado_service.de_sucursal(feriados[empresa_id], e["sucursal_id"] or 0):
+            continue
+        esperado = horarios.esperado(eid, hoy)
+        if not esperado or esperado["anula"] or not esperado["bloques"]:
+            continue
+        inicio = min(i for i, _ in esperado["bloques"])
+        fin = max(f for _, f in esperado["bloques"])
+        if minuto < inicio + reglas_push.parametro(empresa_id, "ingreso_pendiente") or minuto >= fin:
+            continue
+        datos = {"fecha": hoy.isoformat(), "empleado_id": eid}
+        if reglas_push.EMPLEADO in regla["destinatarios"] and eid in con_app:
+            total += _avisar(empresa_id, eid, "ingreso_pendiente", "¿Te olvidaste de fichar el ingreso?",
+                             f"Tu ingreso de hoy era a las {_hhmm(inicio)} y todavía no lo registraste. Fichá en la app; "
+                             "si hoy no trabajás, avisale a tu jefe.",
+                             dict(datos, ruta="/asistencia"), f"ingreso:{eid}:{hoy.isoformat()}")
+        jefe = e["reporta_a_empleado_id"]
+        if reglas_push.JEFE in regla["destinatarios"] and jefe and int(jefe) != eid and int(jefe) in con_app:
+            total += _avisar(empresa_id, int(jefe), "ingreso_equipo", "Ingreso sin fichar en tu equipo",
+                             f"{_nombre(e)} no fichó el ingreso de las {_hhmm(inicio)}.", datos,
+                             f"ingreso-equipo:{eid}:{hoy.isoformat()}")
+    return total
 
 
 # --- EPP -----------------------------------------------------------------------------------------

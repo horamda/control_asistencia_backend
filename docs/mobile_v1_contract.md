@@ -1,7 +1,9 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.53.0
+Version de contrato: 1.54.0
 
+- **Aviso de ingreso sin fichar (1.54.0):** push `ingreso_pendiente` al empleado e `ingreso_equipo` a su jefe directo. Ver [push](push_mobile.md#contenido-de-cada-aviso).
+- **Calidad de la ubicación al fichar (1.54.0):** `POST /me/fichadas/scan`, `/entrada` y `/salida` aceptan tres campos opcionales, `gps_precision_m`, `gps_simulada` y `gps_edad_s`. Se guardan con la fichada para el control en el panel y no cambian la validación del radio. Ver [scan](#10-post-apiv1mobilemefichadasscan).
 - **Vacaciones por semanas y Mi equipo (1.53.0):** semanas completas con la regla del lunes feriado, solicitudes con varias tandas, cancelaciones con aprobación y vista de jefes y dueños. Ver [vacaciones](vacaciones_mobile.md).
 - **Mis reuniones: calendario, dashboard y evolución (1.52.0):** `/reuniones/calendario?mes=`, `/reuniones/estadisticas?mes=` y `/reuniones/estadisticas/evolucion`; `/reuniones/proximas` con `semanas`, `proxima` y `hay_proximas`. Ver [reuniones](reuniones_mobile.md).
 - **Bandeja de notificaciones (1.51.0):** campana persistente en `/me/notificaciones` (listado, resumen, detalle, leer y leer-todas con corte) y `data.notificacion_id` en el push. Reemplaza las alertas calculadas en la app. Ver [contrato](notificaciones_mobile.md).
@@ -312,6 +314,16 @@ final body = {'dni': dni, 'password': password, ...extras};
 }
 ```
 - `lat` y `lon` son obligatorios.
+- Desde 1.54.0, opcionales: calidad de la ubicación. Las versiones anteriores de la app no los mandan y todo sigue
+  igual.
+  - `gps_precision_m`: precisión en metros que informa el teléfono (`Position.accuracy`), de 0 a 100000.
+  - `gps_simulada`: `true` si el sistema marcó la posición como simulada (`Position.isMocked` en Android). Si la
+    plataforma no lo informa, no se manda.
+  - `gps_edad_s`: segundos que tenía la posición al fichar, de 0 a 604800. Por ejemplo, si se usó la última posición
+    conocida.
+  - **Uso:** se guardan con la marca para el Mapa de fichadas del panel. **No cambian** la validación del radio ni la
+    respuesta.
+  - **Fuera de rango o con formato inválido:** responden 400. Por ejemplo, `"gps_precision_m fuera de rango."`.
 - `qr_token` acepta JWT directo, `Bearer <jwt>`, URL con query `qr_token`/`token` o JSON con `qr_token`.
 - `tipo_marca` es opcional; si el QR lo incluye, prevalece el del QR.
 - Response 201 (ingreso):

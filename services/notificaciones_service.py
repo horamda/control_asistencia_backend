@@ -47,7 +47,7 @@ CATALOGO = {
 }
 # Solo push, sin bandeja: recordatorios que pierden sentido pasado el momento y la notificacion de prueba.
 SOLO_PUSH = frozenset({"prueba", "salida_pendiente", "recordatorio", "trivia_recordatorio", "reintegro_recordatorio",
-                       "vacaciones_inicio", "vacaciones_equipo"})
+                       "vacaciones_inicio", "vacaciones_equipo", "ingreso_pendiente", "ingreso_equipo"})
 
 # Solicitudes para revisar (a jefes / RR. HH. / Seguridad): modulo de la regla -> tipo de referencia.
 _REVISION = {"justificaciones": "justificacion", "vacaciones": "vacaciones_solicitud", "reintegros": "reintegro",
