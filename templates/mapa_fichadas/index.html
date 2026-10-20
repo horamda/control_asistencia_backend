@@ -11,9 +11,9 @@
     <div>
       <div class="section-kicker">Asistencia</div>
       <h2>Mapa de fichadas</h2>
-      <p class="module-intro">Dónde fichó cada empleado: verde dentro del radio permitido, rojo fuera, gris sin validar;
-        el halo alrededor de cada punto es la precisión del GPS del teléfono. Los círculos azules son las sucursales y los
-        puntos de validación con su radio. Solo lectura.</p>
+      <p class="module-intro">Dónde fichó cada empleado: pin verde el ingreso y naranja el egreso; el centro blanco si
+        quedó dentro del radio permitido y rojo si quedó fuera. El halo es la precisión del GPS del teléfono y los círculos
+        azules, las sucursales y puntos de validación con su radio. Solo lectura.</p>
     </div>
   </div>
 
@@ -52,10 +52,10 @@
       {% if datos.puntos %}
       <ul>
         {% for p in datos.puntos %}
-        <li><button type="button" class="mf-item btn-ghost mf-{{ p.estado }}" data-punto="{{ loop.index0 }}">
+        <li><button type="button" class="mf-item btn-ghost mf-{{ p.accion }} mf-{{ p.estado }}" data-punto="{{ loop.index0 }}">
           <span class="mf-punto" aria-hidden="true"></span>
           <span class="mf-texto"><strong>{{ p.empleado }}</strong>
-            <small>{{ p.fecha }} {{ p.hora }} · {{ p.accion }}{% if p.distancia is not none %} · {{ p.distancia }} m{% if p.tolerancia %} (radio {{ p.tolerancia }} m){% endif %}{% endif %}{% if p.precision is not none %} · ±{{ p.precision }}&nbsp;m{% endif %}</small>
+            <small><b class="mf-accion">{{ 'Ingreso' if p.accion == 'ingreso' else 'Egreso' }}</b> {{ p.fecha }} {{ p.hora }}{% if p.distancia is not none %} · {{ p.distancia }} m{% if p.tolerancia %} (radio {{ p.tolerancia }} m){% endif %}{% endif %}{% if p.precision is not none %} · ±{{ p.precision }}&nbsp;m{% endif %}</small>
             {% for a in p.alertas if a != 'Fuera del radio' %}<small class="mf-alerta">{{ a }}</small>{% endfor %}</span>
         </button></li>
         {% endfor %}
