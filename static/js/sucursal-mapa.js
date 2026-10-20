@@ -19,24 +19,23 @@
     var datos = fuente ? JSON.parse(fuente.textContent || "{}") : {};
     var aviso = document.getElementById("su-radio-aviso");
 
-    var mapa = L.map(contenedor, { scrollWheelZoom: false });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>",
-    }).addTo(mapa);
-    mapa.on("focus", function () { mapa.scrollWheelZoom.enable(); });
-    mapa.on("blur", function () { mapa.scrollWheelZoom.disable(); });
+    var capaFichadas = L.layerGroup();
+    var capaQr = L.layerGroup();
+    var mapa = window.FichaMapa ? FichaMapa.crear(contenedor, { "Fichadas recientes": capaFichadas, "QR activos": capaQr })
+      : L.map(contenedor);
+    capaFichadas.addTo(mapa);
+    capaQr.addTo(mapa);
 
     var limites = [];
     (datos.puntos || []).forEach(function (p) {
       limites.push([p[0], p[1]]);
       L.circleMarker([p[0], p[1]], { radius: 4, color: "#4b5563", weight: 1, fillColor: "#9ca3af", fillOpacity: 0.7,
-                                     interactive: false }).addTo(mapa);
+                                     interactive: false }).addTo(capaFichadas);
     });
     (datos.qrs || []).forEach(function (q) {
       L.circle([q.lat, q.lon], { radius: q.tolerancia || 30, color: q.desactualizado ? "#dc2626" : "#2f5597", weight: 1,
                                  dashArray: "4 4", fillOpacity: 0.05 })
-        .bindTooltip(q.desactualizado ? "QR activo con otra ubicación (desactualizado)" : "QR activo").addTo(mapa);
+        .bindTooltip(q.desactualizado ? "QR activo con otra ubicación (desactualizado)" : "QR activo").addTo(capaQr);
     });
 
     var inicial = numero(lat) !== null && numero(lon) !== null ? [numero(lat), numero(lon)]
@@ -97,9 +96,67 @@
       });
     }
 
+    buscador(ubicar);
+
     if (inicial) limites.push(inicial);
     if (limites.length > 1) mapa.fitBounds(limites, { padding: [32, 32], maxZoom: 17 });
     else mapa.setView(inicial || DEFECTO, inicial ? 17 : 11);
+  }
+
+  // Buscador de direcciones: lo resuelve el servidor (/sucursales/geocodificar, OpenStreetMap). Elegir un resultado
+  // mueve el pin; se confirma al guardar el formulario.
+  function buscador(ubicar) {
+    var caja = document.querySelector(".su-buscar");
+    var campo = document.getElementById("su-buscar");
+    var boton = document.getElementById("su-buscar-btn");
+    var lista = document.getElementById("su-resultados");
+    var estado = document.getElementById("su-buscar-estado");
+    if (!caja || !campo || !boton || !lista || !window.fetch) {
+      if (caja) caja.hidden = true;
+      return;
+    }
+    function avisar(mensaje) {
+      estado.textContent = mensaje || "";
+      estado.hidden = !mensaje;
+    }
+    function buscar() {
+      var q = campo.value.trim();
+      lista.hidden = true;
+      lista.innerHTML = "";
+      if (q.length < 4) { avisar("Escribí al menos 4 letras de la dirección."); return; }
+      avisar("Buscando…");
+      boton.disabled = true;
+      fetch(caja.getAttribute("data-url") + "?q=" + encodeURIComponent(q), { credentials: "same-origin",
+                                                                           headers: { Accept: "application/json" } })
+        .then(function (r) { return r.json().then(function (cuerpo) { return { ok: r.ok, cuerpo: cuerpo }; }); })
+        .then(function (res) {
+          if (!res.ok) { avisar(res.cuerpo.error || "No se pudo buscar."); return; }
+          var resultados = res.cuerpo.resultados || [];
+          if (!resultados.length) { avisar("No se encontró esa dirección. Probá con calle, número y ciudad."); return; }
+          avisar("Elegí el resultado correcto y revisá el pin en el mapa:");
+          resultados.forEach(function (r) {
+            var item = document.createElement("li");
+            var opcion = document.createElement("button");
+            opcion.type = "button";
+            opcion.className = "su-resultado btn-ghost";
+            opcion.textContent = r.nombre;
+            opcion.addEventListener("click", function () {
+              ubicar([r.lat, r.lon], true);
+              lista.hidden = true;
+              avisar("Pin ubicado en: " + r.nombre + ". Revisalo con la vista Satélite y guardá.");
+            });
+            item.appendChild(opcion);
+            lista.appendChild(item);
+          });
+          lista.hidden = false;
+        })
+        .catch(function () { avisar("No se pudo buscar. Probá de nuevo o ubicá el pin a mano."); })
+        .then(function () { boton.disabled = false; });
+    }
+    boton.addEventListener("click", buscar);
+    campo.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); buscar(); }  // no enviar el formulario de la sucursal
+    });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);

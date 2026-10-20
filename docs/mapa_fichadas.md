@@ -14,6 +14,11 @@ y tres campos opcionales a la API (ver abajo); la app todavía no los manda.
   - Círculos azules: las sucursales y los puntos de validación (QR), cada uno con su radio.
   - Una fichada fuera de radio tiene una línea punteada hasta su punto de referencia.
   - El halo alrededor de cada punto es la precisión del GPS. Un GPS simulado se marca con un borde violeta.
+- **Grupos:** las fichadas cercanas se agrupan en un círculo con la cantidad (verde ingresos, naranja egresos; borde rojo
+  si alguna quedó fuera del radio). Al acercarse se separan; si están en el mismo punto, se abren en abanico.
+- **Capas:** el selector de arriba a la derecha elige el fondo (Calles, Satélite, Claro; se recuerda en ese navegador) y
+  muestra u oculta Ingresos, Egresos, Sucursales y QR, y Precisión del GPS. Hay botón de pantalla completa (Esc para
+  salir) y cada fichada tiene "Ver en Google Maps".
 - **Lista lateral:** las fichadas, primero las que tienen alertas. Al tocar una, el mapa se centra en ella. Se muestran
   hasta 3000 puntos; si hay más, la página avisa que conviene acotar las fechas o los filtros.
 
@@ -55,6 +60,8 @@ dio permiso de GPS.
   sucursal en los últimos 30 días. Muestra cuántas quedan cerca y a cuántos metros está de la ubicación cargada. Unas
   pocas fichadas sueltas no lo mueven.
 - **"Usar mi ubicación":** la ubicación del navegador, para cargarla estando en la puerta.
+- **Buscar dirección:** la busca el servidor en OpenStreetMap (`/sucursales/geocodificar`; solo Argentina, un pedido por
+  segundo, con caché). Elegir un resultado mueve el pin; conviene revisarlo con la vista Satélite antes de guardar.
 - **QR de puerta activos:** la ubicación contra la que se valida una fichada va firmada **dentro del QR impreso**. El
   formulario marca como desactualizado el QR que está a más de 30 m de la sucursal. Después de corregir la ubicación hay
   que generar un QR nuevo en QR puerta, reemplazar el impreso y desactivar el anterior.
@@ -63,8 +70,11 @@ dio permiso de GPS.
 
 ## Técnica
 
-- **Leaflet 1.9.4:** se sirve desde `static/vendor/leaflet`, verificado contra los hashes SRI oficiales, porque la
-  política de seguridad (CSP) del panel solo permite scripts propios.
+- **Leaflet 1.9.4 y Leaflet.markercluster 1.5.3:** se sirven desde `static/vendor`, verificados contra los hashes SRI
+  oficiales, porque la política de seguridad (CSP) del panel solo permite scripts propios. `static/js/mapa-base.js` es
+  la base común de los mapas: fondos, capas y pantalla completa.
+- **Fondos:** OpenStreetMap (Calles), Esri World Imagery (Satélite) y CARTO (Claro), cada uno con su atribución. Si el
+  uso crece mucho, Esri y CARTO piden una cuenta propia.
 - **Mapa de fondo:** OpenStreetMap, con su atribución. La CSP ya admite imágenes `https:`.
 - **Datos en la página:** van como JSON escapado (`<script type="application/json">`) y los lee
   `static/js/mapa-fichadas.js`. Los textos de los popups se escapan.

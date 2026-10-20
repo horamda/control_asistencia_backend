@@ -1,7 +1,7 @@
 import logging
 
 from web.auth.decorators import permission_required, require_company_record
-from flask import Blueprint, render_template, redirect, url_for, request, abort, session
+from flask import Blueprint, render_template, redirect, url_for, request, abort, session, jsonify
 from web.auth.decorators import role_required
 from utils.forms import parse_float as _parse_float, parse_int as _parse_int
 from repositories.sucursal_repository import (
@@ -14,6 +14,7 @@ from repositories.sucursal_repository import (
 from repositories.empresa_repository import get_all as get_empresas
 from utils.audit import log_audit
 from services import sucursal_geo_service as geo
+from services import geocodificacion_service as geocodificacion
 
 sucursales_bp = Blueprint("sucursales", __name__, url_prefix="/sucursales")
 
@@ -139,6 +140,16 @@ def editar(sucursal_id):
         empresas=empresas,
         geo=_geo(suc),
     )
+
+
+@sucursales_bp.route("/geocodificar")
+@role_required("admin")
+def geocodificar():
+    """Buscador de direcciones del formulario (lo consulta el mapa; el navegador no puede llamar a otros sitios)."""
+    try:
+        return jsonify(resultados=geocodificacion.buscar(request.args.get("q")))
+    except geocodificacion.Error as error:
+        return jsonify(error=str(error)), getattr(error, "status", 400)
 
 
 @sucursales_bp.route("/activar/<int:sucursal_id>", methods=["POST"])

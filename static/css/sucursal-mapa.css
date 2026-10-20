@@ -7,6 +7,13 @@
 .su-qr-mal {color: #dc2626}
 :root[data-theme="dark"] .su-qr-mal {color: #f87171}
 .su-radio-aviso {color: #b45309; font-weight: 600}
-.leaflet-container {font: inherit}
 .leaflet-marker-icon.su-pin {background: none; border: 0; cursor: grab}
 .su-pin svg {display: block; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4))}
+.su-buscar {display: flex; flex-wrap: wrap; gap: 8px; align-items: center}
+.su-buscar input {flex: 1 1 260px; width: auto; max-width: none}
+.su-resultados {list-style: none; margin: 0; padding: 0; display: grid; gap: 6px}
+.su-geo .su-resultados button.su-resultado {width: 100%; min-height: 40px; padding: 8px 10px; text-align: left; font: inherit;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer}
+.su-geo .su-resultados button.su-resultado:hover {border-color: var(--primary); background: var(--surface-soft); color: var(--text)}
+.su-geo [hidden] {display: none !important}  /* helper-text y la lista del panel le ganan a hidden */
+.su-geo .actions.su-acciones {margin: 0; padding: 0; border: 0}

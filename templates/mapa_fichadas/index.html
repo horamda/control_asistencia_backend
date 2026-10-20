@@ -2,6 +2,8 @@
 {% block title %}Mapa de fichadas{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet-markercluster/MarkerCluster.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mapa-base.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/mapa-fichadas.css') }}">
 {% endblock %}
 {% block content %}
@@ -13,7 +15,8 @@
       <h2>Mapa de fichadas</h2>
       <p class="module-intro">Dónde fichó cada empleado: pin verde el ingreso y naranja el egreso; el centro blanco si
         quedó dentro del radio permitido y rojo si quedó fuera. El halo es la precisión del GPS del teléfono y los círculos
-        azules, las sucursales y puntos de validación con su radio. Solo lectura.</p>
+        azules, las sucursales y puntos de validación con su radio. Las fichadas cercanas se agrupan con un número: acercate
+        o tocá el grupo para verlas. Solo lectura.</p>
     </div>
   </div>
 
@@ -70,5 +73,7 @@
 {% endblock %}
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}" defer></script>
+<script src="{{ url_for('static', filename='vendor/leaflet-markercluster/leaflet.markercluster.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/mapa-base.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/mapa-fichadas.js') }}" defer></script>
 {% endblock %}

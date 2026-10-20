@@ -1,17 +1,12 @@
 // Mapa de fichadas (panel, solo lectura). Los datos vienen en <script type="application/json" id="mf-datos">.
-// Leaflet local (static/vendor/leaflet) y mosaicos de OpenStreetMap con su atribucion.
+// Base comun en mapa-base.js (fondos y pantalla completa); agrupado de pines con Leaflet.markercluster (local).
 // Cada fichada es un pin: verde el ingreso, naranja el egreso; el centro blanco si quedo dentro del radio, rojo si
-// quedo fuera y gris si no se valido; borde violeta si el telefono marco el GPS como simulado.
+// quedo fuera y gris si no se valido; borde violeta si el telefono marco el GPS como simulado. Los pines cercanos se
+// agrupan en un circulo con la cantidad (borde rojo si alguno quedo fuera del radio).
 (function () {
   var ACCIONES = { ingreso: "Ingreso", egreso: "Egreso" };
   var COLOR_ACCION = { ingreso: "#16a34a", egreso: "#ea580c" };
   var COLOR_CENTRO = { dentro: "#ffffff", fuera: "#dc2626", sin_validar: "#9ca3af" };
-
-  function texto(valor) {
-    var div = document.createElement("div");
-    div.textContent = valor == null ? "" : String(valor);
-    return div.innerHTML;
-  }
 
   function pin(p) {
     var relleno = COLOR_ACCION[p.accion] || "#6b7280";
@@ -25,20 +20,38 @@
   }
 
   function popup(p) {
+    var t = FichaMapa.texto;
     var lineas = [
-      "<strong>" + texto(p.empleado) + "</strong>" + (p.legajo ? " · " + texto(p.legajo) : ""),
-      "<span class=\"mf-pop-accion mf-pop-" + texto(p.accion) + "\">" + texto(ACCIONES[p.accion] || p.accion) + "</span> " +
-        texto(p.fecha) + " " + texto(p.hora) + " (" + texto(p.metodo || "-") + ")",
+      "<strong>" + t(p.empleado) + "</strong>" + (p.legajo ? " · " + t(p.legajo) : ""),
+      "<span class=\"mf-pop-accion mf-pop-" + t(p.accion) + "\">" + t(ACCIONES[p.accion] || p.accion) + "</span> " +
+        t(p.fecha) + " " + t(p.hora) + " (" + t(p.metodo || "-") + ")",
     ];
-    if (p.sucursal) lineas.push("Sucursal: " + texto(p.sucursal));
+    if (p.sucursal) lineas.push("Sucursal: " + t(p.sucursal));
     if (p.estado === "fuera") lineas.push("<span class=\"mf-pop-fuera\">Fuera del radio</span>");
     if (p.estado === "dentro") lineas.push("<span class=\"mf-pop-dentro\">Dentro del radio</span>");
-    if (p.distancia != null) lineas.push("A " + texto(p.distancia) + " m del punto" + (p.tolerancia ? " (radio " + texto(p.tolerancia) + " m)" : ""));
-    if (p.precision != null) lineas.push("Precisión del GPS: ±" + texto(p.precision) + " m");
+    if (p.distancia != null) lineas.push("A " + t(p.distancia) + " m del punto" + (p.tolerancia ? " (radio " + t(p.tolerancia) + " m)" : ""));
+    if (p.precision != null) lineas.push("Precisión del GPS: ±" + t(p.precision) + " m");
     (p.alertas || []).forEach(function (a) {
-      if (a !== "Fuera del radio") lineas.push("<span class=\"mf-pop-fuera\">" + texto(a) + "</span>");
+      if (a !== "Fuera del radio") lineas.push("<span class=\"mf-pop-fuera\">" + t(a) + "</span>");
     });
+    lineas.push(FichaMapa.enlaceGoogle(p.lat, p.lon));
     return lineas.join("<br>");
+  }
+
+  function grupo(accion) {
+    return L.markerClusterGroup({
+      showCoverageOnHover: false, spiderfyOnMaxZoom: true, maxClusterRadius: 45, chunkedLoading: true,
+      iconCreateFunction: function (cluster) {
+        var hijos = cluster.getAllChildMarkers();
+        var fuera = hijos.some(function (m) { return m.options.estado === "fuera"; });
+        var n = cluster.getChildCount();
+        var tam = n < 10 ? 34 : n < 100 ? 40 : 48;
+        return L.divIcon({
+          className: "mf-grupo mf-grupo-" + accion + (fuera ? " mf-grupo-fuera" : ""),
+          html: "<span>" + n + "</span>", iconSize: [tam, tam],
+        });
+      },
+    });
   }
 
   function leyenda(mapa) {
@@ -50,6 +63,7 @@
         "<span><i class=\"mf-ley-pin\" style=\"background:" + COLOR_ACCION.egreso + "\"></i>Egreso</span>" +
         "<span><i class=\"mf-ley-centro\" style=\"background:" + COLOR_CENTRO.dentro + "\"></i>Dentro del radio</span>" +
         "<span><i class=\"mf-ley-centro\" style=\"background:" + COLOR_CENTRO.fuera + "\"></i>Fuera del radio</span>" +
+        "<span><i class=\"mf-ley-grupo\"></i>Varias fichadas juntas (rojo: alguna fuera)</span>" +
         "<span><i class=\"mf-ley-zona\"></i>Sucursal o punto de validación</span>";
       return div;
     };
@@ -59,15 +73,17 @@
   function iniciar() {
     var contenedor = document.getElementById("mf-mapa");
     var fuente = document.getElementById("mf-datos");
-    if (!contenedor || !fuente || !window.L) return;
+    if (!contenedor || !fuente || !window.L || !window.FichaMapa) return;
     var datos = JSON.parse(fuente.textContent || "{}");
-    var mapa = L.map(contenedor, { scrollWheelZoom: false });
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>",
-    }).addTo(mapa);
-    mapa.on("focus", function () { mapa.scrollWheelZoom.enable(); });
-    mapa.on("blur", function () { mapa.scrollWheelZoom.disable(); });
+    var t = FichaMapa.texto;
+
+    var grupos = { ingreso: grupo("ingreso"), egreso: grupo("egreso") };
+    var referencias = L.layerGroup();
+    var precision = L.layerGroup();
+    var mapa = FichaMapa.crear(contenedor, {
+      "Ingresos": grupos.ingreso, "Egresos": grupos.egreso, "Sucursales y QR": referencias, "Precisión del GPS": precision,
+    });
+    [grupos.ingreso, grupos.egreso, referencias, precision].forEach(function (capa) { capa.addTo(mapa); });
     leyenda(mapa);
 
     var limites = [];
@@ -76,10 +92,10 @@
       limites.push([r.lat, r.lon]);
       if (r.radio) {
         L.circle([r.lat, r.lon], { radius: r.radio, color: "#2f5597", weight: 1, fillOpacity: 0.08 })
-          .bindTooltip(texto(r.nombre) + " · radio " + texto(r.radio) + " m").addTo(mapa);
+          .bindTooltip(t(r.nombre) + " · radio " + t(r.radio) + " m").addTo(referencias);
       }
       L.circleMarker([r.lat, r.lon], { radius: 5, color: "#2f5597", weight: 2, fillColor: "#ffffff", fillOpacity: 1 })
-        .bindTooltip(texto(r.nombre)).addTo(mapa);
+        .bindTooltip(t(r.nombre)).addTo(referencias);
     });
 
     var marcadores = (datos.puntos || []).map(function (p) {
@@ -87,11 +103,14 @@
       if (p.precision) {
         L.circle([p.lat, p.lon], {
           radius: p.precision, color: COLOR_ACCION[p.accion] || "#6b7280", weight: 0, fillOpacity: 0.12, interactive: false,
-        }).addTo(mapa);
+        }).addTo(precision);
       }
-      return L.marker([p.lat, p.lon], { icon: pin(p), title: (ACCIONES[p.accion] || p.accion) + " · " + p.empleado,
-                                       riseOnHover: true })
-        .bindPopup(popup(p)).addTo(mapa);
+      var marcador = L.marker([p.lat, p.lon], { icon: pin(p), estado: p.estado, riseOnHover: true,
+                                                title: (ACCIONES[p.accion] || p.accion) + " · " + p.empleado })
+        .bindPopup(popup(p));
+      (grupos[p.accion] || grupos.ingreso).addLayer(marcador);
+      marcador.grupo = grupos[p.accion] || grupos.ingreso;
+      return marcador;
     });
 
     if (limites.length) mapa.fitBounds(limites, { padding: [32, 32], maxZoom: 17 });
@@ -101,9 +120,9 @@
       boton.addEventListener("click", function () {
         var marcador = marcadores[Number(boton.getAttribute("data-punto"))];
         if (!marcador) return;
-        mapa.setView(marcador.getLatLng(), Math.max(mapa.getZoom(), 17));
-        marcador.openPopup();
+        if (!mapa.hasLayer(marcador.grupo)) marcador.grupo.addTo(mapa);
         contenedor.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        marcador.grupo.zoomToShowLayer(marcador, function () { marcador.openPopup(); });
       });
     });
   }

@@ -117,6 +117,7 @@ def client(mf, monkeypatch):
 def test_pantalla_datos_escapados_y_permisos(client):
     pagina = client.get("/mapa-fichadas/?desde=2026-10-13&hasta=2026-10-19").get_data(as_text=True)
     assert "Mapa de fichadas" in pagina and "vendor/leaflet/leaflet.js" in pagina and "js/mapa-fichadas.js" in pagina
+    assert "leaflet.markercluster.js" in pagina and "js/mapa-base.js" in pagina
     assert "<b>Luis</b>" not in pagina  # el nombre se escapa en la lista y en el JSON
     bloque = pagina.split('<script type="application/json" id="mf-datos">', 1)[1].split("</script>", 1)[0]
     datos = json.loads(bloque)

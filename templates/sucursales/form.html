@@ -2,6 +2,7 @@
 {% block title %}{% if mode == "edit" %}Editar sucursal{% else %}Nueva sucursal{% endif %}{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mapa-base.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/sucursal-mapa.css') }}">
 {% endblock %}
 {% block content %}
@@ -67,6 +68,13 @@
         <p class="helper-text">Arrastrá el pin hasta la puerta de la sucursal o tocá el mapa; latitud y longitud se completan
           solas. El círculo es el radio permitido para fichar.{% if geo and geo.mapa.puntos %} Los puntos grises son las fichadas
           con GPS de sus empleados en los últimos 30 días.{% endif %}</p>
+        <div class="su-buscar" data-url="{{ url_for('sucursales.geocodificar') }}">
+          <input id="su-buscar" type="search" placeholder="Buscar dirección: calle y número, ciudad" autocomplete="off"
+                 aria-label="Buscar dirección" data-no-live>
+          <button type="button" class="btn btn-secondary" id="su-buscar-btn">Buscar</button>
+        </div>
+        <p class="helper-text" id="su-buscar-estado" hidden></p>
+        <ul class="su-resultados" id="su-resultados" hidden></ul>
         <div class="actions su-acciones">
           {% if geo and geo.sugerencia %}<button type="button" class="btn btn-secondary" id="su-sugerencia">Usar la ubicación de las fichadas</button>{% endif %}
           <button type="button" class="btn btn-secondary" id="su-mi-ubicacion">Usar mi ubicación</button>
@@ -112,5 +120,6 @@
 {% endblock %}
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/mapa-base.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/sucursal-mapa.js') }}" defer></script>
 {% endblock %}
