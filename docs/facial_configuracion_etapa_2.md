@@ -143,3 +143,59 @@ aprobadas. No se modificaron rutas de asistencia.
 Pendientes de esta etapa: vista de la política heredada completa, parámetros
 adicionales, contratos API/Flutter y pruebas con base de pruebas migrada.
 La captura y la autorización facial continúan bloqueadas.
+
+## Ampliación 2D: proyección de herencia y contrato móvil
+
+`services/facial_policy_context.py` interpreta los borradores persistidos,
+comprueba la relación empresa/sucursal y reutiliza el resolvedor. El panel
+de sucursal y empleado muestra el modo propuesto resultante y su origen.
+Esto no es la activación de esa política.
+
+GET `/api/v1/mobile/me/config-asistencia` conserva sus campos y añade
+`facial_policy` con schema_version=1, requested, origins, revisions,
+effective_mode, capture_enabled, activation_available,
+activation_block_reason y configuration_status.
+
+effective_mode siempre es disabled; capture_enabled y activation_available
+siempre false en esta etapa. requested es sólo un borrador administrativo:
+los clientes nunca deben utilizarlo para exigir captura.
+
+Si un borrador es inválido o una sucursal no pertenece a la empresa,
+configuration_status es invalid y se omiten requested/origins/revisions.
+Se mantienen el bloqueo facial y la configuración QR/GPS. No se ocultan
+errores generales de infraestructura como si fueran una política válida.
+
+Antes de migraciones, no se agrega consulta a sucursal al recorrido móvil.
+Aplicar migraciones en orden (empresa, luego sucursal/empleado); no activar
+funciones durante una aplicación parcial. No se ejecutaron migraciones.
+
+Flutter aún no interpreta el objeto nuevo; no se agregó cámara ni captura.
+No se alteró la lista histórica metodos_habilitados: su etiqueta facial no
+equivale a verificación biométrica disponible.
+
+Validación 2D: suites facial_policy_service, facial_company_draft,
+facial_scope_forms, facial_policy_context y mobile_v1_api: **185 passed**.
+Regresión adicional web_configuracion_empresa, web_empleados y
+facial_scope_forms: **27 passed** (incluye pruebas repetidas, no sumar
+como casos únicos). Jinja parse y git diff --check sin errores.
+No se verificó visualmente el panel ni se probaron migraciones en MySQL.
+
+## Cierre de implementación de preparación
+
+Se completaron campos compartidos de entrada/salida, máximo de intentos
+y tiempo máximo, heredables por campo. Los campos ausentes preservan datos
+de formularios anteriores; vacío/inherit elimina la excepción explícitamente.
+La auditoría guarda el borrador validado y la revisión, sin datos biométricos.
+Se incorporaron límites para ID de empresa y contador de revisión.
+
+Flutter interpreta y conserva esos parámetros y revisiones en su cache.
+La suite completa Flutter pasó (797 pruebas); flutter analyze sin problemas.
+En backend la selección final pasó 217 pruebas y omitió 2, con un fallo
+de mapa de sucursal durante cambios concurrentes ajenos al módulo facial.
+Reejecutado ese módulo junto con renderizado facial: 5 passed, 2 skipped.
+No se tocó la funcionalidad geográfica para corregir el fallo.
+
+Contrato detallado: `docs/facial_configuracion_contrato.md`.
+No están implementados los flujos operativos de riesgo, excepciones de
+asistencia, notificaciones faciales, enrolamiento, PAD ni comparación.
+No habilitar el módulo ni declarar completadas las 80 condiciones.

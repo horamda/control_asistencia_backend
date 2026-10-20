@@ -4,8 +4,8 @@
 .su-mapa {height: min(55vh, 460px); min-height: 300px; border-radius: 12px; border: 1px solid var(--border); z-index: 0}
 .su-qrs {display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px}
 .su-qrs ul {margin: 0; padding-left: 18px; display: grid; gap: 4px}
-.su-qr-mal {color: #dc2626}
-:root[data-theme="dark"] .su-qr-mal {color: #f87171}
+.su-qr-mal {color: #b45309}
+:root[data-theme="dark"] .su-qr-mal {color: #fbbf24}
 .su-radio-aviso {color: #b45309; font-weight: 600}
 .leaflet-marker-icon.su-pin {background: none; border: 0; cursor: grab}
 .su-pin svg {display: block; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4))}
@@ -17,3 +17,12 @@
 .su-geo .su-resultados button.su-resultado:hover {border-color: var(--primary); background: var(--surface-soft); color: var(--text)}
 .su-geo [hidden] {display: none !important}  /* helper-text y la lista del panel le ganan a hidden */
 .su-geo .actions.su-acciones {margin: 0; padding: 0; border: 0}
+.su-correccion {display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px}
+.su-correccion p {margin: 0}
+.su-corr-periodo, .su-corr-form {display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 0; padding: 0; border: 0;
+  background: none}
+.su-corr-periodo label, .su-corr-motivo {display: grid; gap: 4px; font-size: .8125rem; color: var(--muted)}
+.su-corr-motivo {flex: 1 1 260px}
+.su-corr-motivo input {width: 100%; max-width: none}
+.su-corr-historial summary {cursor: pointer; font-weight: 600; color: var(--primary)}
+.su-corr-historial ul {margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px}

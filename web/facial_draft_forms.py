@@ -4,6 +4,32 @@ import json
 from flask import abort, request, session, redirect
 from repositories.usuarios_app_repository import get_by_id as get_panel_user
 from repositories.configuracion_empresa_repository import save_facial_draft
+from services.facial_policy_context import form_preview
+from services.facial_policy_service import FacialPolicyError, validate_override
+
+
+def parse_draft_form(form, current=None):
+    """Absent inputs preserve old clients' fields; blank inputs explicitly inherit."""
+    values = dict(current or {})
+    for field in ("mode", "on_entry", "on_exit", "max_attempts", "timeout_seconds"):
+        name = "facial_" + field
+        if name not in form:
+            continue
+        raw = form[name]
+        if raw in ("", "inherit"):
+            values.pop(field, None)
+        elif field in ("on_entry", "on_exit"):
+            if raw not in ("true", "false"):
+                raise FacialPolicyError("Entrada/salida: seleccione heredar, si o no.")
+            values[field] = raw == "true"
+        elif field in ("max_attempts", "timeout_seconds"):
+            try:
+                values[field] = int(raw)
+            except (ValueError, TypeError):
+                raise FacialPolicyError("Intentos y tiempo deben ser numeros enteros.")
+        else:
+            values[field] = raw
+    return validate_override(values)
 
 
 def prepare_facial_form(record, *, scope, return_url):
@@ -22,14 +48,19 @@ def prepare_facial_form(record, *, scope, return_url):
     except (ValueError, TypeError):
         draft = None
     record["facial_draft_mode"] = draft.get("mode", "inherit") if isinstance(draft, dict) else "inherit"
+    record["facial_draft_values"] = draft if isinstance(draft, dict) else {}
     if not is_save:
+        if allowed:
+            try:
+                record["facial_preview"] = form_preview(record, scope)
+            except FacialPolicyError as exc:
+                record["facial_error"] = str(exc)
         return None
     if not allowed:
         abort(403)
     try:
-        mode = request.form.get("facial_mode", "")
         save_facial_draft(
-            record["empresa_id"], {} if mode == "inherit" else {"mode": mode},
+            record["empresa_id"], parse_draft_form(request.form, record["facial_draft_values"]),
             revision=int(request.form.get("facial_revision", "")),
             actor_id=int(session["user_id"]), scope=scope, record_id=record["id"],
         )

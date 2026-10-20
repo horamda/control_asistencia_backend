@@ -7,6 +7,7 @@ from utils.forms import parse_int as _parse_int
 import json
 from repositories.configuracion_empresa_repository import save_facial_draft
 from repositories.usuarios_app_repository import get_by_id as get_panel_user
+from web.facial_draft_forms import parse_draft_form
 
 configuracion_bp = Blueprint("configuracion_empresa", __name__, url_prefix="/configuracion-empresa")
 
@@ -73,6 +74,7 @@ def editar(empresa_id):
         except (ValueError, TypeError):
             draft = None
         config["facial_draft_mode"] = (draft or {}).get("mode", "disabled") if isinstance(draft, dict) else "disabled"
+        config["facial_draft_values"] = draft if isinstance(draft, dict) else {}
     config["facial_allowed"] = facial_allowed
     config["facial_ready"] = facial_ready
 
@@ -81,7 +83,7 @@ def editar(empresa_id):
             abort(403)
         try:
             save_facial_draft(
-                empresa_id, {"mode": request.form.get("facial_mode", "")},
+                empresa_id, parse_draft_form(request.form, config.get("facial_draft_values")),
                 revision=int(request.form.get("facial_revision", "")),
                 actor_id=int(session["user_id"]),
             )

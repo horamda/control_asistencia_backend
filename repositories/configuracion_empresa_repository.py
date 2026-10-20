@@ -10,8 +10,10 @@ def save_facial_draft(empresa_id, values, *, revision, actor_id,
                       scope="company", record_id=None):
     """Update only the draft, with optimistic locking and atomic audit."""
     draft = validate_override(values)
-    if type(revision) is not int or revision < 0:
+    if type(revision) is not int or not 0 <= revision < 4294967295:
         raise ValueError("Revision facial invalida.")
+    if type(empresa_id) is not int or empresa_id <= 0:
+        raise ValueError("Empresa requerida.")
     if type(actor_id) is not int or actor_id <= 0:
         raise ValueError("Administrador requerido.")
     tables = {"company": ("configuracion_empresa", "empresa_id"),
@@ -45,7 +47,7 @@ def save_facial_draft(empresa_id, values, *, revision, actor_id,
         cursor.execute(
             """INSERT INTO auditoria (usuario_id, accion, tabla_afectada, registro_id)
                VALUES (%s,%s,%s,%s)""",
-            (actor_id, f"facial_draft revision={revision + 1}; mode={draft.get('mode', 'inherit')}",
+            (actor_id, f"facial_draft r={revision + 1} " + json.dumps(draft, sort_keys=True, separators=(",", ":")),
              table, target_id),
         )
         db.commit()

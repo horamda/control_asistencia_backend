@@ -247,10 +247,31 @@ def _geo_ref_from_empleado(empleado):
         return None
 
 
+def _geo_ref_actual_de_sucursal(geo_ref):
+    """La sucursal manda: si el QR indica su sucursal, se valida contra la ubicacion y el radio cargados HOY en esa
+    sucursal (el QR impreso guarda las coordenadas del momento en que se genero). Sin coordenadas en la sucursal,
+    queda lo del QR; sin radio en la sucursal, el radio del QR."""
+    if not geo_ref or not geo_ref.get("sucursal_id"):
+        return geo_ref
+    try:
+        from repositories.sucursal_repository import get_by_id as get_sucursal_by_id
+        sucursal = get_sucursal_by_id(int(geo_ref["sucursal_id"]))
+    except Exception:
+        current_app.logger.warning("geo_ref_sucursal_lookup_error", exc_info=True)
+        return geo_ref
+    if not sucursal or sucursal.get("latitud") is None or sucursal.get("longitud") is None:
+        return geo_ref
+    try:
+        radio = float(sucursal["radio_permitido_m"]) if sucursal.get("radio_permitido_m") else geo_ref["radio_m"]
+        return dict(geo_ref, lat=float(sucursal["latitud"]), lon=float(sucursal["longitud"]), radio_m=radio)
+    except (TypeError, ValueError):
+        return geo_ref
+
+
 def _validar_geo_scan_qr(empleado, qr_payload, lat, lon):
     if lat is None or lon is None:
         raise ValueError("lat y lon son requeridos para escanear QR.")
-    geo_ref = _geo_ref_from_qr_payload(qr_payload) or _geo_ref_from_empleado(empleado)
+    geo_ref = _geo_ref_actual_de_sucursal(_geo_ref_from_qr_payload(qr_payload)) or _geo_ref_from_empleado(empleado)
     if not geo_ref:
         raise ValueError("No hay geocerca configurada para validar este QR.")
     distancia_m = _haversine_m(float(lat), float(lon), geo_ref["lat"], geo_ref["lon"])
@@ -562,6 +583,7 @@ def me_config_asistencia():
         return jsonify({"error": "Empleado no encontrado o inactivo"}), 401
 
     config = get_by_empresa_id(empleado["empresa_id"]) or {}
+    from services.facial_policy_context import mobile_policy
     return jsonify(
         {
             "empresa_id": empleado["empresa_id"],
@@ -572,6 +594,7 @@ def me_config_asistencia():
             "cooldown_scan_segundos": _get_scan_cooldown_segundos(config),
             "intervalo_minimo_fichadas_minutos": _get_intervalo_minimo_fichadas_min(config),
             "metodos_habilitados": ["qr", "manual", "facial"],
+            "facial_policy": mobile_policy(empleado, config),
         }
     )
 

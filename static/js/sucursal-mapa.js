@@ -35,7 +35,7 @@
     (datos.qrs || []).forEach(function (q) {
       L.circle([q.lat, q.lon], { radius: q.tolerancia || 30, color: q.desactualizado ? "#dc2626" : "#2f5597", weight: 1,
                                  dashArray: "4 4", fillOpacity: 0.05 })
-        .bindTooltip(q.desactualizado ? "QR activo con otra ubicación (desactualizado)" : "QR activo").addTo(capaQr);
+        .bindTooltip(q.desactualizado ? "QR generado con otra ubicación: se valida contra la actual de la sucursal" : "QR activo").addTo(capaQr);
     });
 
     var inicial = numero(lat) !== null && numero(lon) !== null ? [numero(lat), numero(lon)]

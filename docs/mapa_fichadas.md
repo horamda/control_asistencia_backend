@@ -62,9 +62,21 @@ dio permiso de GPS.
 - **"Usar mi ubicación":** la ubicación del navegador, para cargarla estando en la puerta.
 - **Buscar dirección:** la busca el servidor en OpenStreetMap (`/sucursales/geocodificar`; solo Argentina, un pedido por
   segundo, con caché). Elegir un resultado mueve el pin; conviene revisarlo con la vista Satélite antes de guardar.
-- **QR de puerta activos:** la ubicación contra la que se valida una fichada va firmada **dentro del QR impreso**. El
-  formulario marca como desactualizado el QR que está a más de 30 m de la sucursal. Después de corregir la ubicación hay
-  que generar un QR nuevo en QR puerta, reemplazar el impreso y desactivar el anterior.
+- **La sucursal manda (desde el 20/10/2026):** el QR impreso trae las coordenadas del momento en que se generó, pero el
+  servidor valida cada fichada contra la ubicación y el radio **actuales** de la sucursal del QR. Si la sucursal no tiene
+  ubicación, usa la del QR; si no tiene radio, usa el del QR. Corregir la ubicación en el panel alcanza: no hace falta
+  reimprimir QR. El formulario avisa qué QR se generaron con otra ubicación.
+- **Corregir fichadas anteriores:** sección "Fichadas validadas contra una ubicación anterior" (debajo del formulario).
+  - **Qué toma:** las fichadas del período (hasta 366 días) validadas contra la ubicación de algún QR de la sucursal
+    distinta de la actual.
+  - **Vista previa:** cuántas son, cuántas figuran fuera y cuántas quedan dentro con la ubicación actual.
+  - **Al corregir:**
+    - recalcula distancia, radio y "dentro/fuera" de cada fichada;
+    - agrega una nota en sus observaciones y actualiza el GPS de entrada y salida del resumen del día;
+    - anula el "intento de fraude" (`eventos_seguridad.alerta_fraude = 0`, con el lote en `payload_json`) de las que
+      pasan a quedar dentro.
+  - **Traza:** los valores anteriores quedan en `asistencia_marcas_geo_correcciones`, con usuario, fecha, motivo y lote.
+    Repetir no cambia nada.
 - **Coordenadas cargadas por un script:** `scripts/fix_geo_data.py` dejó a "Casa Central" en la calle Chascomús 588 de
   Dolores. Conviene revisar esas coordenadas con este mapa.
 

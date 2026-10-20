@@ -1,0 +1,24 @@
+{% set values = data.facial_draft_values or {} %}
+<div class="form-grid">
+  {% for field, label in [('on_entry', 'Verificación en entrada'), ('on_exit', 'Verificación en salida')] %}
+  <div class="row">
+    <label for="facial-{{ field }}">{{ label }} (borrador)</label>
+    <select id="facial-{{ field }}" name="facial_{{ field }}">
+      <option value="inherit" {% if field not in values %}selected{% endif %}>Heredar</option>
+      <option value="true" {% if values.get(field) is sameas true %}selected{% endif %}>Sí</option>
+      <option value="false" {% if values.get(field) is sameas false %}selected{% endif %}>No</option>
+    </select>
+  </div>
+  {% endfor %}
+  {% for field, label, minimum, maximum in [('max_attempts','Máximo de intentos',1,5), ('timeout_seconds','Tiempo máximo (segundos)',10,120)] %}
+  <div class="row">
+    <label for="facial-{{ field }}">{{ label }} (borrador)</label>
+    <input id="facial-{{ field }}" name="facial_{{ field }}" type="number"
+      min="{{ minimum }}" max="{{ maximum }}" step="1" value="{{ values.get(field, '') }}"
+      placeholder="Heredar" aria-describedby="facial-inheritance-help">
+  </div>
+  {% endfor %}
+</div>
+<p id="facial-inheritance-help" class="helper-text">Un valor vacío hereda del nivel superior.
+  Sin excepciones, se proponen entrada y salida, 3 intentos y 30 segundos.
+  Ninguno de estos valores activa el reconocimiento.</p>

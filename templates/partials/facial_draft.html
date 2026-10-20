@@ -5,6 +5,21 @@
     las fichadas. Heredar conserva la política del nivel superior;
     desactivado propone una excepción explícita.</p>
   {% if data.facial_error %}<p role="alert">{{ data.facial_error }}</p>{% endif %}
+  {% if data.facial_preview %}
+  {% set labels = {'disabled':'Desactivado', 'trial':'Prueba', 'required':'Obligatorio', 'risk':'Por riesgo'} %}
+  {% set origins = {'default':'valor predeterminado', 'company':'empresa', 'branch':'sucursal', 'employee':'empleado'} %}
+  <p>Modo propuesto tras aplicar la herencia:
+    <strong>{{ labels.get(data.facial_preview.requested.get('mode', 'disabled'), 'Desactivado') }}</strong>.
+    Origen: {{ origins.get(data.facial_preview.origins.mode, 'valor predeterminado') }}.
+    Es un borrador, no una política activa.</p>
+  <dl>
+    {% for field, label in [('on_entry','Entrada'),('on_exit','Salida'),('max_attempts','Intentos'),('timeout_seconds','Tiempo máximo en segundos')] %}
+    <dt>{{ label }} — {{ origins.get(data.facial_preview.origins.get(field), 'valor predeterminado') }}</dt>
+    {% set value = data.facial_preview.requested.get(field) %}
+    <dd>{{ 'Sí' if value is sameas true else 'No' if value is sameas false else value }}</dd>
+    {% endfor %}
+  </dl>
+  {% endif %}
   {% if request.args.get('facial_saved') == '1' %}
   <p role="status">Borrador guardado. La activación continúa bloqueada.</p>
   {% endif %}
@@ -21,6 +36,7 @@
         {% endfor %}
       </select>
     </div></div>
+    {% include "partials/facial_draft_parameters.html" %}
     <button class="btn btn-secondary" type="submit">Guardar borrador facial</button>
   </form>
   {% endif %}

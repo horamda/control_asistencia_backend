@@ -7,6 +7,26 @@ from web import facial_draft_forms as forms
 from repositories import configuracion_empresa_repository as repo
 
 
+def test_parameter_form_preserves_absent_and_removes_explicit_inheritance():
+    current = {"mode": "trial", "max_attempts": 4, "on_exit": False}
+    result = forms.parse_draft_form({
+        "facial_mode": "inherit", "facial_timeout_seconds": "45",
+        "facial_on_entry": "false",
+    }, current)
+    assert result == {"max_attempts": 4, "on_exit": False,
+                      "timeout_seconds": 45, "on_entry": False}
+    assert current["mode"] == "trial"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("on_entry", "yes"), ("on_exit", "1"), ("max_attempts", "1.5"),
+    ("max_attempts", "6"), ("timeout_seconds", "121"),
+])
+def test_parameters_reject_invalid_inputs(field, value):
+    with pytest.raises(ValueError):
+        forms.parse_draft_form({"facial_" + field: value})
+
+
 @pytest.mark.parametrize("scope,table", [("branch", "sucursales"), ("employee", "empleados")])
 def test_scoped_update_includes_company_and_atomic_audit(monkeypatch, scope, table):
     db = MagicMock()

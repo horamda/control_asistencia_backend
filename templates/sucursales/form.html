@@ -90,12 +90,12 @@
         {% if geo and geo.qrs %}
         <div class="su-qrs">
           <strong>QR de puerta activos</strong>
-          <p class="helper-text">La ubicación contra la que se valida cada fichada va firmada dentro del QR impreso. Si cambiás
-            la ubicación de la sucursal, generá un QR nuevo, reemplazá el impreso y desactivá el anterior.</p>
+          <p class="helper-text">Las fichadas se validan contra la ubicación y el radio <strong>actuales</strong> de la sucursal:
+            un QR generado con otra ubicación sigue funcionando y no hace falta reimprimirlo.</p>
           <ul>
             {% for q in geo.qrs %}
             <li class="{{ 'su-qr-mal' if q.desactualizado }}">QR del {{ q.fecha.strftime('%d/%m/%Y') }} · radio {{ q.tolerancia }} m ·
-              {% if q.distancia_m is none %}sin ubicación de sucursal para comparar{% elif q.desactualizado %}<strong>a {{ '{:,}'.format(q.distancia_m).replace(',', '.') }} m de la sucursal: desactualizado</strong>{% else %}coincide con la sucursal{% endif %}</li>
+              {% if q.distancia_m is none %}sin ubicación de sucursal para comparar{% elif q.desactualizado %}generado con otra ubicación (a {{ '{:,}'.format(q.distancia_m).replace(',', '.') }} m); se valida contra la actual{% else %}coincide con la sucursal{% endif %}</li>
             {% endfor %}
           </ul>
           {% if can_web('qr_puerta') %}<div class="actions su-acciones"><a class="btn btn-sm btn-secondary" href="/qr-puerta/">Ir a QR puerta</a></div>{% endif %}
@@ -116,6 +116,46 @@
       <a class="btn btn-secondary" href="{{ url_for('sucursales.listado') }}">Volver</a>
     </div>
   </form>
+
+        {% if geo and (geo.correccion or geo.correccion_error or geo.correcciones) %}
+        <section class="surface-card su-correccion">
+          <strong>Fichadas validadas contra una ubicación anterior</strong>
+          <p class="helper-text">Las fichadas se validaron contra la ubicación que tenían los QR de esta sucursal al imprimirse.
+            Si esa ubicación estaba mal, acá se recalculan con la ubicación actual (guardá primero el formulario si la
+            cambiaste). Se guardan los valores anteriores, se actualiza el resumen del día y se anulan los «intentos de fraude»
+            de las que pasan a quedar dentro del radio.</p>
+          <form method="get" class="su-corr-periodo" data-no-ajax>
+            <label>Desde <input type="date" name="corr_desde" value="{{ geo.correccion.desde.isoformat() if geo.correccion else '' }}"></label>
+            <label>Hasta <input type="date" name="corr_hasta" value="{{ geo.correccion.hasta.isoformat() if geo.correccion else '' }}"></label>
+            <button type="submit" class="btn btn-sm btn-secondary">Ver</button>
+          </form>
+          {% if geo.correccion_error %}<p class="badge warning">{{ geo.correccion_error }}</p>{% endif %}
+          {% if geo.correccion %}{% set k = geo.correccion %}
+            {% if k.total %}
+              <p><strong>{{ k.total }}</strong> fichada{{ '' if k.total == 1 else 's' }} del {{ k.desde.strftime('%d/%m/%Y') }} al {{ k.hasta.strftime('%d/%m/%Y') }}
+                se validaron contra otra ubicación ({{ k.fuera_antes }} figuran fuera del radio). Con la ubicación actual:
+                <strong>{{ k.dentro_despues }} dentro</strong> y {{ k.quedan_fuera }} fuera.</p>
+              <form method="post" action="{{ url_for('sucursales.corregir_fichadas', sucursal_id=data.id) }}" class="su-corr-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="desde" value="{{ k.desde.isoformat() }}">
+                <input type="hidden" name="hasta" value="{{ k.hasta.isoformat() }}">
+                <label class="su-corr-motivo">Motivo <input name="motivo" maxlength="255" required placeholder="Ej.: coordenadas de la sucursal mal cargadas"></label>
+                <button type="submit" class="btn btn-sm" data-confirm="Se recalcularán {{ k.total }} fichadas con la ubicación actual de la sucursal ({{ k.pasan_a_dentro }} pasan a dentro del radio). Los valores anteriores quedan guardados. ¿Continuar?">Corregir {{ k.total }} fichada{{ '' if k.total == 1 else 's' }}</button>
+              </form>
+            {% else %}
+              <p class="helper-text">No hay fichadas validadas contra otra ubicación en ese período.</p>
+            {% endif %}
+          {% endif %}
+          {% if geo.correcciones %}
+          <details class="su-corr-historial">
+            <summary>Correcciones hechas ({{ geo.correcciones|length }})</summary>
+            <ul>
+              {% for x in geo.correcciones %}<li>{{ x.creado_at.strftime('%d/%m/%Y %H:%M') }}{% if x.usuario %} · {{ x.usuario }}{% endif %} · {{ x.marcas }} fichadas, {{ x.pasaron_a_dentro|int }} pasaron a dentro, {{ x.eventos|int }} intentos de fraude anulados · {{ x.motivo }}</li>{% endfor %}
+            </ul>
+          </details>
+          {% endif %}
+        </section>
+        {% endif %}
   {% include "partials/facial_draft.html" %}
 </div>
 {% endblock %}

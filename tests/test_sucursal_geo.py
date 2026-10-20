@@ -84,7 +84,7 @@ def test_formulario_con_mapa_y_aviso_de_qr(monkeypatch):
     with client.session_transaction() as sess:
         sess["user_id"] = 1
     pagina = client.get("/sucursales/editar/1").get_data(as_text=True)
-    assert "Usar la ubicación de las fichadas" in pagina and "99.483 m" in pagina and "desactualizado" in pagina
+    assert "Usar la ubicación de las fichadas" in pagina and "99.483 m" in pagina and "generado con otra ubicación" in pagina
     assert 'id="su-lat"' in pagina and "js/sucursal-mapa.js" in pagina and "js/mapa-base.js" in pagina
     assert 'id="su-buscar"' in pagina and "/sucursales/geocodificar" in pagina
     datos = json.loads(pagina.split('<script type="application/json" id="su-datos">', 1)[1].split("</script>", 1)[0])

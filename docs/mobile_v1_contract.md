@@ -301,6 +301,8 @@ final body = {'dni': dni, 'password': password, ...extras};
 #### 10. `POST /api/v1/mobile/me/fichadas/scan`
 - Endpoint principal. Backend detecta ingreso/egreso automaticamente.
 - Valida geocerca GPS contra la ubicacion del QR (o sucursal asignada).
+- Desde el 20/10/2026, si el QR indica su sucursal, la referencia es la ubicacion y el radio **actuales** de esa
+  sucursal (no las coordenadas guardadas en el QR al generarlo). El request y la respuesta no cambian.
 - Si fuera de rango, bloquea la fichada y registra evento de fraude.
 - Request:
 ```json
