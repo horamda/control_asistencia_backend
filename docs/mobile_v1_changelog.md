@@ -12,10 +12,14 @@
   - `ingreso_pendiente` al empleado: tiene horario y no fichó el ingreso pasada la hora prevista (15 min por defecto).
   - `ingreso_equipo` a su jefe directo.
   - Una vez por día, sin licencia, vacaciones, franco ni feriado.
-  - La app tiene que sumarlos a `pushTypes` para mostrarlos con la app abierta y abrir la pantalla al tocarlos
-    (pendiente). Con la app cerrada, el teléfono ya los muestra.
-- **App:** para que empiecen a llegar, la app tiene que mandarlos (pendiente). Ya mide la precisión en
-  `ClockGpsPoint.accuracyM`.
+  - **App (20/10/2026):** los suma a `pushTypes` y al canal de urgentes, así se ven también con la app abierta. Al
+    tocarlos, como "Salida sin fichar", vuelve a la pantalla principal (la de fichar) en lugar de abrir la bandeja,
+    donde estos avisos no quedan.
+- **App (20/10/2026):** manda los tres campos en `/me/fichadas/scan`, también en las fichadas guardadas sin conexión.
+  - La antigüedad se mide contra la hora de la fichada, no la del envío.
+  - Solo manda valores dentro de rango y omite el resto, así nunca provoca un 400.
+  - En la versión web no manda `gps_simulada`.
+  - Las fichadas que ya estaban en la cola sin conexión se envían como antes, sin estos campos.
 
 ## 1.53.0 — 2026-10-18
 

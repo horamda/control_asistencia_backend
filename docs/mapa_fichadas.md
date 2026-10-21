@@ -2,7 +2,7 @@
 
 **Menú:** Asistencia → Mapa de fichadas (`/mapa-fichadas/`). Muestra dónde fichó cada empleado y si quedó dentro del
 radio permitido. La pantalla es solo lectura. Para la calidad del GPS se agregaron tres columnas a `asistencia_marcas`
-y tres campos opcionales a la API (ver abajo); la app todavía no los manda.
+y tres campos opcionales a la API (ver abajo). La app los manda desde la versión siguiente a la 1.24.0+32.
 
 ## Qué muestra
 
@@ -48,9 +48,18 @@ dio permiso de GPS.
 - **Migración:** `scripts/migrate_20261019_05_gps_calidad.py`, versión `20261019_gps_calidad`.
   - Agrega las tres columnas a `asistencia_marcas`; aceptan vacío y en MySQL 8 se agregan al instante.
   - Reversión: DROP de las tres columnas y borrar la versión de `app_schema_versions`.
-- **Pendiente en la app Flutter:** mandar `accuracyM` (que ya mide), `Position.isMocked` y la antigüedad de la posición,
-  también en la cola de fichadas sin conexión. Hasta entonces los campos llegan vacíos.
-- **Historial de marcas:** todavía no los muestra. Lee la vista `asistencia_marcas_reporte`, que habría que redefinir.
+- **App Flutter (20/10/2026):** manda `accuracyM`, `Position.isMocked` (no en la versión web) y la antigüedad de la
+  posición, medida contra la hora de la fichada. También los guarda en la cola de fichadas sin conexión. Solo manda
+  valores dentro de rango, así nunca hace rechazar una fichada. Las versiones anteriores los dejan vacíos.
+- **Historial de marcas (Asistencia → Historial de marcas):**
+  - **Pantalla:** en la columna GPS muestra la precisión ("±8 m"), un aviso "simulado" y la antigüedad si la posición
+    tenía más de 2 minutos.
+  - **Excel:** suma las columnas "Precision (m)", "GPS simulado" y "Antiguedad GPS (s)".
+  - **Consulta:** la vista `asistencia_marcas_reporte` no cambia. Los datos se traen con un join por id a
+    `asistencia_marcas`. Los días armados desde el resumen (sin marcas) quedan sin estos datos.
+  - **Base nueva:** la vista se había creado con un script aparte. Desde el 20/10/2026 el deploy la crea si falta
+    (`scripts/migrate_20261020_02_vista_reporte_marcas.py`, versión `20261020_vista_reporte_marcas`). Si ya existe,
+    como en producción, no la toca.
 
 ## Ubicar una sucursal (Organización → Sucursales → editar)
 

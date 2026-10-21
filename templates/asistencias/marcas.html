@@ -176,6 +176,16 @@
               {% else %}
                 <span class="badge danger">fuera</span>
               {% endif %}
+              {% if m.gps_simulada %} <span class="badge danger" title="El teléfono marcó la posición como simulada (GPS falso)">simulado</span>{% endif %}
+              {% set gps_prec = m.gps_precision_m if m.gps_precision_m is defined and m.gps_precision_m is not none else none %}
+              {% set gps_vieja = m.gps_edad_s if m.gps_edad_s is defined and m.gps_edad_s is not none and m.gps_edad_s > 120 else none %}
+              {% if gps_prec is not none or gps_vieja is not none %}
+                <div class="helper-text">
+                  {%- if gps_prec is not none %}±{{ gps_prec|float|round|int }} m{% endif -%}
+                  {%- if gps_prec is not none and gps_vieja is not none %} · {% endif -%}
+                  {%- if gps_vieja is not none %}posición de hace {{ gps_vieja|int // 60 }} min{% endif -%}
+                </div>
+              {% endif %}
             </td>
             <td data-label="Dist (m)">{{ m.gps_distancia_m if m.gps_distancia_m is not none else "-" }}</td>
             <td data-label="Tol (m)">{{ m.gps_tolerancia_m if m.gps_tolerancia_m is not none else "-" }}</td>

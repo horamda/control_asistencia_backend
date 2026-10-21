@@ -31,6 +31,7 @@ from scripts.migrate_20261019_03_horas_extras import migrate_cursor as migrate_o
 from scripts.migrate_20261019_04_banco_horas import migrate_cursor as migrate_hour_bank
 from scripts.migrate_20261019_05_gps_calidad import migrate_cursor as migrate_gps_quality
 from scripts.migrate_20261020_01_geo_correcciones import migrate_cursor as migrate_geo_corrections
+from scripts.migrate_20261020_02_vista_reporte_marcas import migrate_cursor as migrate_marks_report_view
 
 
 def main():
@@ -237,6 +238,13 @@ def main():
         if not cursor.fetchone():
             cursor.execute('SET SESSION lock_wait_timeout=5')
             migrate_geo_corrections(cursor)
+            cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
+            db.commit()
+        version = '20261020_vista_reporte_marcas'
+        cursor.execute('SELECT version FROM app_schema_versions WHERE version=%s', (version,))
+        if not cursor.fetchone():
+            cursor.execute('SET SESSION lock_wait_timeout=5')
+            migrate_marks_report_view(cursor)
             cursor.execute('INSERT INTO app_schema_versions(version) VALUES (%s)', (version,))
             db.commit()
     finally:

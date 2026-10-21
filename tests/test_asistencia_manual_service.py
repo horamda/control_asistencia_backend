@@ -16,7 +16,7 @@ def attendance_db(monkeypatch):
         basic += [f'{c}_{side}' for c in ['lat','lon','foto','metodo','gps_ok','gps_ref_lat','gps_ref_lon']]
         basic += [f'gps_{c}_{side}_m' for c in ['distancia','tolerancia']]
     db.execute('CREATE TABLE asistencias (id INTEGER PRIMARY KEY AUTOINCREMENT,'+','.join(c+' TEXT' for c in basic)+')')
-    markcols=['empresa_id','empleado_id','asistencia_id','fecha','hora','accion','metodo','tipo_marca','lat','lon','foto','gps_ok','gps_distancia_m','gps_tolerancia_m','gps_ref_lat','gps_ref_lon','estado','observaciones','fecha_creacion']
+    markcols=['empresa_id','empleado_id','asistencia_id','fecha','hora','accion','metodo','tipo_marca','lat','lon','foto','gps_ok','gps_distancia_m','gps_tolerancia_m','gps_ref_lat','gps_ref_lon','estado','observaciones','fecha_creacion','gps_precision_m','gps_simulada','gps_edad_s']
     db.execute('CREATE TABLE asistencia_marcas (id INTEGER PRIMARY KEY AUTOINCREMENT,corregida_manualmente INTEGER DEFAULT 0,'+','.join(c+' TEXT' for c in markcols)+')')
     db.executescript('''CREATE TABLE asistencia_correcciones(id INTEGER PRIMARY KEY,asistencia_id INTEGER,usuario_id INTEGER,accion TEXT,antes TEXT,despues TEXT);
       CREATE TABLE empleados(id INTEGER PRIMARY KEY,empresa_id INTEGER,legajo TEXT,nombre TEXT,apellido TEXT,dni TEXT,sucursal_id INTEGER,sector_id INTEGER,activo INTEGER,estado TEXT);

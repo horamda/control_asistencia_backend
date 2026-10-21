@@ -393,6 +393,9 @@ def get_page_admin(
                 am.estado,
                 am.observaciones,
                 am.fecha_creacion,
+                mq.gps_precision_m,
+                mq.gps_simulada,
+                mq.gps_edad_s,
                 e.apellido,
                 e.nombre,
                 e.dni,
@@ -400,6 +403,7 @@ def get_page_admin(
             FROM asistencia_marcas_reporte am
             JOIN empleados e ON e.id = am.empleado_id
             JOIN empresas emp ON emp.id = am.empresa_id
+            LEFT JOIN asistencia_marcas mq ON mq.id = am.id
             WHERE {where_sql}
             ORDER BY am.fecha DESC, am.hora DESC, am.id DESC
             LIMIT %s OFFSET %s
@@ -493,6 +497,9 @@ def get_for_export_admin(
                 am.estado,
                 am.observaciones,
                 am.fecha_creacion,
+                mq.gps_precision_m,
+                mq.gps_simulada,
+                mq.gps_edad_s,
                 e.legajo,
                 e.apellido,
                 e.nombre,
@@ -503,6 +510,7 @@ def get_for_export_admin(
             FROM asistencia_marcas_reporte am
             JOIN empleados e ON e.id = am.empleado_id
             JOIN empresas emp ON emp.id = am.empresa_id
+            LEFT JOIN asistencia_marcas mq ON mq.id = am.id
             LEFT JOIN sucursales suc ON suc.id = e.sucursal_id
             LEFT JOIN sectores sec ON sec.id = e.sector_id
             WHERE {where_sql}

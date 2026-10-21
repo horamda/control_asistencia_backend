@@ -1,4 +1,7 @@
 """New regression checks use the same disposable MariaDB fixture as safety."""
+import re
+from pathlib import Path
+
 from tests.test_seguridad import database
 
 
@@ -8,6 +11,18 @@ def test_bootstrap_version_runs_once(database, monkeypatch):
     monkeypatch.setattr(migration, 'init_db', lambda: None)
     monkeypatch.setattr(migration, 'get_db', database)
     monkeypatch.setattr(migration, 'bootstrap_schema', lambda: calls.append('migration'))
+    # Las versiones posteriores a la que se prueba no tienen que ver con este control y usan tablas que esta base
+    # minima no tiene (el esquema real viene del volcado de produccion): se marcan como ya aplicadas.
+    versiones = re.findall(r"version = '([0-9a-z_]+)'", Path(migration.__file__).read_text(encoding='utf-8'))
+    posteriores = versiones[versiones.index('20261014_epp_concepts') + 1:]
+    db = database()
+    cur = db.cursor()
+    cur.execute("CREATE TABLE IF NOT EXISTS app_schema_versions (version VARCHAR(100) PRIMARY KEY, "
+                "applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+    cur.executemany('INSERT INTO app_schema_versions(version) VALUES (%s)', [(v,) for v in posteriores])
+    db.commit()
+    cur.close()
+    db.close()
     migration.main()
     db = database()
     cur = db.cursor()

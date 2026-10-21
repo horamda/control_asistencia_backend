@@ -303,7 +303,8 @@ final body = {'dni': dni, 'password': password, ...extras};
 - Valida geocerca GPS contra la ubicacion del QR (o sucursal asignada).
 - Desde el 20/10/2026, si el QR indica su sucursal, la referencia es la ubicacion y el radio **actuales** de esa
   sucursal (no las coordenadas guardadas en el QR al generarlo). El request y la respuesta no cambian.
-- Si fuera de rango, bloquea la fichada y registra evento de fraude.
+- Fuera del radio **no se bloquea**: la fichada se registra y queda marcada como alerta de fraude. La respuesta trae
+  `gps_ok: false`, `alerta_fraude: true` y el `evento_id` del evento de seguridad, que se revisa en el panel.
 - Request:
 ```json
 {
