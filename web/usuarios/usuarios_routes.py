@@ -1,3 +1,5 @@
+import logging
+
 from web.auth.decorators import permission_required, require_company_record
 from flask import Blueprint, render_template, redirect, url_for, request, abort, session
 from werkzeug.security import generate_password_hash
@@ -11,7 +13,7 @@ from repositories.usuarios_app_repository import (
     set_activo,
     exists_unique
 )
-from repositories.web_permission_repository import get_user_permissions, set_user_permissions
+from repositories.web_permission_repository import get_user_permissions, modulos_visibles_por_usuario, set_user_permissions
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.empleado_repository import get_all as get_empleados
 from services.web_permissions_service import (
@@ -51,14 +53,6 @@ def _permissions_from_form(form, rol: str | None) -> dict[str, dict[str, bool]]:
     return permissions
 
 
-def _permissions_for_form(user_id: int | None, rol: str | None):
-    if user_id:
-        current = get_user_permissions(user_id)
-        if current:
-            return current
-    return default_permission_payload_for_role(rol)
-
-
 @usuarios_bp.route("/")
 @role_required("admin")
 def listado():
@@ -68,10 +62,18 @@ def listado():
     activo = request.args.get("activo", default=None, type=int)
     search = request.args.get("q")
     usuarios, total = get_page(page, per_page, empresa_id, activo, search)
+    try:
+        accesos = modulos_visibles_por_usuario([u["id"] for u in usuarios])
+    except Exception:
+        logging.getLogger(__name__).warning("usuarios_accesos_error", exc_info=True)
+        accesos = None
+    for u in usuarios:
+        u["modulos_visibles"] = None if accesos is None else accesos.get(int(u["id"]))
     empresas = get_empresas(include_inactive=True)
     return render_template(
         "usuarios/listado.html",
         usuarios=usuarios,
+        accesos_ok=accesos is not None,
         empresas=empresas,
         empresa_id=empresa_id,
         activo=activo,
@@ -174,6 +176,7 @@ def editar(user_id):
 
         return redirect(url_for("usuarios.listado"))
 
+    guardados = get_user_permissions(user_id)
     return render_template(
         "usuarios/form.html",
         mode="edit",
@@ -183,7 +186,8 @@ def editar(user_id):
         empleados=empleados,
         modules=WEB_MODULES,
         actions=PERMISSION_ACTIONS,
-        permissions=_permissions_for_form(user_id, user.get("rol")),
+        permissions=guardados or default_permission_payload_for_role(user.get("rol")),
+        permisos_guardados=bool(guardados),
     )
 
 

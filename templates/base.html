@@ -575,6 +575,7 @@
       {% endfor %}
     </section>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/panel-messages.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/volver-arriba.css') }}">
     <script src="{{ url_for('static', filename='vendor/htmx-2.0.4.min.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/page-actions.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/ajax-nav.js') }}" defer></script>
@@ -582,6 +583,7 @@
     <script src="{{ url_for('static', filename='js/panel.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/table-fit.js') }}" defer></script>
     <script src="{{ url_for('static', filename='js/panel-notifications.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/volver-arriba.js') }}" defer></script>
     {% block extra_scripts %}{% endblock %}
   </body>
 </html>

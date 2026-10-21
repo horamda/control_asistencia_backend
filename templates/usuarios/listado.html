@@ -74,7 +74,16 @@
         <tr>
           <td data-label="Usuario">{{ u.usuario }}</td>
           <td data-label="Empresa">{{ u.empresa_nombre or u.empresa_id }}</td>
-          <td data-label="Rol">{{ u.rol }}</td>
+          <td data-label="Rol">
+            {{ u.rol }}
+            {% if u.rol == "admin" %}
+              <div><span class="badge warning" title="Ve y hace todo; los permisos marcados no se aplican">Acceso total</span></div>
+            {% elif accesos_ok and u.modulos_visibles is not none %}
+              <div class="helper-text">Permisos propios: {{ u.modulos_visibles }} módulo{{ '' if u.modulos_visibles == 1 else 's' }}</div>
+            {% elif accesos_ok %}
+              <div class="helper-text">Permisos por defecto del rol</div>
+            {% endif %}
+          </td>
           <td data-label="Empleado vinculado">
             {% if u.empleado_id %}
               {{ u.empleado_apellido }} {{ u.empleado_nombre }}{% if u.empleado_legajo %} &middot; {{ u.empleado_legajo }}{% endif %}

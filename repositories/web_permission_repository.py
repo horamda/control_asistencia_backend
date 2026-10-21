@@ -75,6 +75,26 @@ def set_user_permissions(user_id: int, permissions: dict[str, dict[str, bool]]) 
         db.close()
 
 
+def modulos_visibles_por_usuario(user_ids) -> dict[int, int]:
+    """Para el listado de usuarios: cuantos modulos puede ver cada uno de los que tienen permisos guardados. Los que no
+    aparecen no tienen permisos guardados (usan los de su rol)."""
+    ids = sorted({int(i) for i in user_ids or []})
+    if not ids:
+        return {}
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            f"""SELECT usuario_id, SUM(puede_ver = 1) AS visibles FROM usuario_modulo_permisos
+                WHERE usuario_id IN ({','.join(['%s'] * len(ids))}) GROUP BY usuario_id""",
+            tuple(ids),
+        )
+        return {int(r["usuario_id"]): int(r["visibles"] or 0) for r in cursor.fetchall()}
+    finally:
+        cursor.close()
+        db.close()
+
+
 def user_has_explicit_permissions(user_id: int) -> bool:
     db = get_db()
     cursor = db.cursor(dictionary=True)
