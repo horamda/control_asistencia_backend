@@ -3,13 +3,13 @@
 .sh-branch-card{border-top:4px solid #1260a6;min-width:0}.sh-branch-card h4{margin:0;font-size:1rem;overflow-wrap:anywhere}.sh-branch-card>strong{color:#1260a6;font-size:3rem}.sh-branch-card>small{margin-top:auto}html[data-theme=dark] .sh-branch-card>strong{color:#7dbbff}
 
 /* Tarjetas y tablas compactas (23/10/2026): menos relleno, numeros moderados y alineado a la izquierda. */
-.sh-page.sh-dashboard .sh-kpis{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
-.sh-page.sh-dashboard .sh-kpi{padding:12px 14px;gap:2px;border-radius:12px;align-items:flex-start;text-align:left}
+.sh-page.sh-dashboard .sh-kpis{grid-template-columns:repeat(auto-fill,minmax(140px,180px));gap:10px}
+.sh-page.sh-dashboard .sh-kpi{padding:10px 12px;gap:2px;border-radius:10px;align-items:center;text-align:center}
 .sh-page.sh-dashboard .sh-kpi>span{font-size:.8125rem;font-weight:600;color:var(--muted)}
 .sh-page.sh-dashboard .sh-kpi>strong{font-size:clamp(1.375rem,1.1rem + .6vw,1.75rem);line-height:1.2}
 .sh-page.sh-dashboard .sh-kpi>small{font-size:.75rem;line-height:1.35}
 .sh-page.sh-dashboard .sh-kpi .sh-date-number{font-size:1.125rem}
-.sh-page.sh-dashboard .sh-branch-cards{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.sh-page.sh-dashboard .sh-branch-cards{grid-template-columns:repeat(auto-fill,minmax(160px,200px))}
 .sh-page.sh-dashboard .sh-branch-card{border-top-width:3px}
 .sh-page.sh-dashboard .sh-branch-card h4{font-size:.875rem;text-transform:none}
 .sh-page.sh-dashboard .sh-branch-card>strong{font-size:clamp(1.5rem,1.2rem + .7vw,1.875rem)}

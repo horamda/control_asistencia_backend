@@ -79,15 +79,17 @@ input, select, textarea {border-color: var(--input-border); border-radius: 8px}
 .panel {padding: 14px 16px}
 .surface-card {padding: 14px 16px}
 
-/* ---------------------------------------------------------------- Tarjetas de numeros (kpi-card, ~80 pantallas)
-   Antes: centradas, con degradé, 98 px de alto minimo y etiqueta en mayusculas. Ahora: compactas y a la izquierda. */
-.grid-kpis {grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); gap: 10px; margin-bottom: 0}
-.kpi-card {background: var(--surface); border-color: var(--border); border-radius: var(--radius); padding: 10px 14px;
-  min-height: 0; align-items: flex-start; justify-content: flex-start; text-align: left; gap: 2px}
-.kpi-label {font-size: .75rem; font-weight: 600; letter-spacing: .02em; text-transform: none; color: var(--muted)}
-.kpi-label-inline {justify-content: flex-start; text-align: left}
-.kpi-value {font-size: 1.375rem; font-weight: 700}
-.kpi-desc {font-size: .75rem; color: var(--muted); text-align: left}
+/* ---------------------------------------------------------------- Tarjetas de numeros
+   Un solo formato en todo el panel (kpi-card ~80 pantallas, inicio, Seguridad): chicas (150-210 px de ancho),
+   sin degradé y con los datos centrados. */
+:is(.grid-kpis, .executive-summary) {grid-template-columns: repeat(auto-fill, minmax(140px, 180px)); gap: 10px; margin-bottom: 0}
+:is(.kpi-card, .executive-card) {background: var(--surface); border-color: var(--border); border-radius: var(--radius); box-shadow: none;
+  padding: 10px 12px; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 2px}
+.kpi-label, .executive-card > span {font-size: .75rem; font-weight: 600; letter-spacing: .02em; text-transform: none; color: var(--muted)}
+.kpi-label-inline {justify-content: center; text-align: center}
+.kpi-value, .executive-card > strong {font-size: 1.5rem; font-weight: 700; line-height: 1.15}
+:is(.kpi-desc, .executive-card > small) {font-size: .75rem; line-height: 1.3; color: var(--muted); text-align: center}
 
 @media (max-width: 760px) {
   .app-main {padding: 10px 12px 22px}
@@ -96,7 +98,7 @@ input, select, textarea {border-color: var(--input-border); border-radius: 8px}
 }
 
 /* Modo oscuro: sus reglas propias tenian degradés; mismo criterio plano. */
-:root[data-theme] .kpi-card, :root[data-theme] .panel {background: var(--surface)}
+:root[data-theme] .kpi-card, :root[data-theme] .panel, :root[data-theme] .executive-card {background: var(--surface)}
 
 /* Tablas en modo tarjetas (celular): la fila de encabezados se ocultaba solo dentro de <thead>; en las tablas sin
    <thead> quedaba como una tarjeta suelta con los titulos ("USUARIO EMPRESA ROL..."). */

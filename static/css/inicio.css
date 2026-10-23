@@ -12,6 +12,6 @@
 .inicio .inicio-pendientes {grid-template-columns: repeat(auto-fill, minmax(190px, 1fr))}
 .inicio .inicio-pendientes small {color: var(--muted); font-size: .8125rem; line-height: 1.3}
 .inicio .inicio-vacio {margin: 0; color: var(--muted)}
-.inicio .inicio-presencia {grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))}
+.inicio .inicio-presencia {grid-template-columns: repeat(auto-fill, minmax(160px, 200px))}
 .inicio .inicio-hora {font-size: .8125rem; font-weight: 400; color: var(--muted)}
 .inicio .inicio-de {font-size: .9375rem; font-weight: 600; color: var(--muted)}
