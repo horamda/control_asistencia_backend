@@ -68,6 +68,23 @@
     });
     form.querySelector('[value="aprobado"]').addEventListener('click', () => reason.setCustomValidity(''));
   });
+  // Listado: aprobar varios pendientes de una vez. El boton se habilita y cuenta los marcados.
+  const lote = page.querySelector('#sh-aprobar-varios');
+  if (lote) {
+    const marcas = [...page.querySelectorAll('[data-sh-lote]')];
+    const todos = lote.querySelector('[data-sh-marcar-todos]');
+    const boton = lote.querySelector('[data-sh-lote-boton]');
+    const actualizar = () => {
+      const n = marcas.filter(m => m.checked).length;
+      boton.disabled = n === 0;
+      boton.textContent = n ? 'Aprobar seleccionados (' + n + ')' : 'Aprobar seleccionados';
+      todos.checked = n > 0 && n === marcas.length;
+      todos.indeterminate = n > 0 && n < marcas.length;
+    };
+    todos.addEventListener('change', () => { marcas.forEach(m => { m.checked = todos.checked; }); actualizar(); });
+    marcas.forEach(m => m.addEventListener('change', actualizar));
+    actualizar();
+  }
   page.querySelectorAll('[data-toggle-year]').forEach(control => {
     control.addEventListener('change', () => {
       const chart = control.closest('.sh-annual-chart');

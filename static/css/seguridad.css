@@ -57,3 +57,18 @@
 }
 .sh-page .sh-filter-more {border-top:1px solid var(--border);padding-top:12px}
 .sh-page .sh-filter-more>.sh-fields {margin-top:16px}
+
+/* Listado: revision rapida (aprobar o rechazar sin entrar al detalle) y aprobar varios. */
+.sh-pendientes-aviso {margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-left: 4px solid var(--warning); border-radius: 8px; background: var(--surface)}
+.sh-lote {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface)}
+.sh-lote .sh-lote-todos {display: inline-flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; font-weight: 600}
+.sh-lote .sh-lote-todos input {width: 20px; height: 20px; margin: 0; flex: none}
+.sh-col-marca {width: 44px; text-align: center}
+.sh-col-marca input {width: 20px; height: 20px}
+.sh-revision-rapida {display: contents}
+.sh-rechazo {display: inline-block; max-width: 100%}
+.sh-rechazo > summary.btn {display: inline-flex; width: auto}
+.sh-rechazo > summary {list-style: none; cursor: pointer}
+.sh-rechazo > summary::-webkit-details-marker {display: none}
+.sh-rechazo[open] > form {display: grid; gap: 8px; margin-top: 8px; padding: 10px; min-width: min(280px, 80vw); border: 1px solid var(--border); border-radius: 8px; background: var(--surface)}
+.sh-rechazo label {display: grid; gap: 4px; font-size: .875rem}

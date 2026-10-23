@@ -83,7 +83,20 @@ def index():
             for p in s.db.all_rows(c,f'SELECT evento_id,nombre,empresa FROM sh_evento_externos WHERE evento_id IN ({marks})',tuple(ids)):
                 participants[p['evento_id']].append(dict(nombre=p['nombre'],referencia=p['empresa'] or 'Externo'))
         for r in result['items']: r['personas']=participants[r['id']]
-    return render_template('seguridad/listado.html',**ctx,**result,empresas=empresas,filters=dict(request.args,empresa_id=empresa))
+    with s.db.transaction(read_only=True) as c:
+        pendientes=s.db.one(c,"SELECT COUNT(*) n FROM sh_eventos WHERE empresa_id=%s AND estado='pendiente'",(empresa,))['n']
+    return render_template('seguridad/listado.html',**ctx,**result,empresas=empresas,filters=dict(request.args,empresa_id=empresa),
+                           pendientes=pendientes,volver=request.full_path.rstrip('?'))
+
+
+def _volver(empresa):
+    """A donde vuelve una revision: el listado (con sus filtros) si se aprobo desde ahi; si no, None."""
+    destino=request.form.get('volver') or ''
+    base=url_for('seguridad_web.index')
+    return destino if destino.startswith(base) and '//' not in destino and '\\' not in destino else None
+
+
+_RESULTADO={'aprobado':'aprobado','rechazado':'rechazado'}
 
 
 @seguridad_web_bp.get('/dashboard')
@@ -159,10 +172,43 @@ def edit(event_id):
 @permission_required('seguridad_higiene','aprobar')
 def review(event_id):
     empresa,_=scope()
-    if request.form.get('estado') not in ('aprobado','rechazado'):
+    estado=request.form.get('estado')
+    if estado not in ('aprobado','rechazado'):
         raise s.Error('Acción de revisión inválida.')
-    s.review(empresa,event_id,session['user_id'],request.form.get('estado'),request.form.get('revision'),request.form.get('motivo'))
-    return redirect(url_for('seguridad_web.detail',event_id=event_id,empresa_id=empresa))
+    volver=_volver(empresa)
+    try:
+        s.review(empresa,event_id,session['user_id'],estado,request.form.get('revision'),request.form.get('motivo'))
+    except s.Error as exc:
+        if not volver: raise
+        flash(f'Reporte #{event_id}: {exc}','error')
+        return redirect(volver)
+    flash(f'Reporte #{event_id} {_RESULTADO[estado]}.','success')
+    return redirect(volver or url_for('seguridad_web.detail',event_id=event_id,empresa_id=empresa))
+
+
+@seguridad_web_bp.post('/eventos/aprobar-varios')
+@permission_required('seguridad_higiene','ver')
+@permission_required('seguridad_higiene','aprobar')
+def approve_many():
+    """Aprueba de una vez los reportes pendientes marcados en el listado (cada uno con su revision: si alguien lo
+    cambio mientras tanto, ese queda sin aprobar y se avisa)."""
+    empresa,_=scope()
+    volver=_volver(empresa) or url_for('seguridad_web.index',empresa_id=empresa)
+    aprobados,fallidos=[],[]
+    for valor in request.form.getlist('eventos')[:100]:
+        event_id,_,revision=str(valor).partition(':')
+        try:
+            s.review(empresa,int(event_id),session['user_id'],'aprobado',revision,None)
+            aprobados.append(event_id)
+        except (s.Error,ValueError):
+            fallidos.append(event_id)
+    if not aprobados and not fallidos:
+        flash('Marcá al menos un reporte pendiente.','warning')
+    if aprobados:
+        flash(f'{len(aprobados)} reporte{"s" if len(aprobados)!=1 else ""} aprobado{"s" if len(aprobados)!=1 else ""}.','success')
+    if fallidos:
+        flash('No se pudieron aprobar: '+', '.join('#'+i for i in fallidos)+'. Cambiaron o ya estaban revisados; actualizá la página.','error')
+    return redirect(volver)
 
 
 @seguridad_web_bp.post('/eventos/<int:event_id>/anular')
