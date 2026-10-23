@@ -72,3 +72,7 @@
 .sh-rechazo > summary::-webkit-details-marker {display: none}
 .sh-rechazo[open] > form {display: grid; gap: 8px; margin-top: 8px; padding: 10px; min-width: min(280px, 80vw); border: 1px solid var(--border); border-radius: 8px; background: var(--surface)}
 .sh-rechazo label {display: grid; gap: 4px; font-size: .875rem}
+/* Tablas mas densas en todas las pantallas de Seguridad e Higiene (23/10/2026). */
+.sh-page.sh-page .sh-table th,.sh-page.sh-page .sh-table td{padding:9px 10px}
+.sh-page.sh-page .sh-table{font-size:.875rem}
+.sh-page.sh-page .sh-table th{font-size:.75rem}
