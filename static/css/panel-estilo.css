@@ -66,6 +66,8 @@ tbody tr:hover {background: var(--surface-soft)}
 
 /* Formularios sueltos sin clase (confirmaciones, acciones): sin caja propia. */
 .page-content form:not([class]):not([method="get" i]) {background: transparent; border: 0; padding: 0; margin: 0}
+/* Formularios dentro de una celda (editar, activar, eliminar por fila): nunca con caja. */
+:is(.page-content, .embedded-layout) td form {background: transparent; border: 0; padding: 0; margin: 0; box-shadow: none}
 
 /* ---------------------------------------------------------------- Campos y botones */
 input, select, textarea {border-color: var(--input-border); border-radius: 8px}
@@ -109,3 +111,10 @@ input, select, textarea {border-color: var(--input-border); border-radius: 8px}
 
 /* Resumen del filtro elegido ("Empresa: X."): repetia lo que ya muestran los selectores. */
 .dashboard-filter-meta {display: none}
+
+/* Indice de compromiso: edicion en linea del indice y carga en dos columnas. */
+.compromiso-editar {display: inline-flex; align-items: center; gap: 6px; margin: 0}
+.compromiso-editar input[type=number] {width: 90px; min-height: 32px; padding: 4px 8px}
+.compromiso-borrar {margin: 0}
+.compromiso-carga {display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px}
+.compromiso-carga h3 {margin: 0 0 10px}

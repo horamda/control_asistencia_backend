@@ -3328,6 +3328,28 @@ def me_kpis_sector():
     })
 
 
+@mobile_v1_bp.route("/me/compromiso", methods=["GET"])
+@mobile_auth_required
+def me_compromiso():
+    """Indice de compromiso de su area (sector en su sucursal), su sucursal y su empresa, con el año anterior.
+    Sin ?anio, el ultimo año con datos de su empresa."""
+    from services import compromiso_service
+
+    empleado = _mobile_user()
+    if not empleado:
+        return jsonify({"error": INVALID_SESSION_MESSAGE}), 401
+    raw_anio = (request.args.get("anio") or "").strip()
+    try:
+        anio = compromiso_service._anio(raw_anio) if raw_anio else None
+    except compromiso_service.CompromisoError:
+        return jsonify({"error": "Ano invalido."}), 400
+    try:
+        return jsonify(compromiso_service.para_empleado(empleado, anio))
+    except Exception:
+        current_app.logger.exception("me_compromiso_error", extra={"extra": {"empleado_id": empleado.get("id")}})
+        return jsonify({"error": "No se pudo obtener el indice de compromiso."}), 500
+
+
 @mobile_v1_bp.route("/me/kpis-sector/dia", methods=["GET"])
 @mobile_auth_required
 def me_kpis_sector_dia():

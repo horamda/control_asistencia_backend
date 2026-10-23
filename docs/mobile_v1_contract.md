@@ -1,7 +1,8 @@
 # Contrato API Mobile v1
 
-Version de contrato: 1.54.0
+Version de contrato: 1.55.0
 
+- **Índice de compromiso (1.55.0):** `GET /me/compromiso?anio=` con el índice del área (sector en su sucursal), de su sucursal y de su empresa, más el año anterior. Ver [compromiso](#37b-get-apiv1mobilemecompromisoanioyyyy).
 - **Aviso de ingreso sin fichar (1.54.0):** push `ingreso_pendiente` al empleado e `ingreso_equipo` a su jefe directo. Ver [push](push_mobile.md#contenido-de-cada-aviso).
 - **Calidad de la ubicación al fichar (1.54.0):** `POST /me/fichadas/scan`, `/entrada` y `/salida` aceptan tres campos opcionales, `gps_precision_m`, `gps_simulada` y `gps_edad_s`. Se guardan con la fichada para el control en el panel y no cambian la validación del radio. Ver [scan](#10-post-apiv1mobilemefichadasscan).
 - **Vacaciones por semanas y Mi equipo (1.53.0):** semanas completas con la regla del lunes feriado, solicitudes con varias tandas, cancelaciones con aprobación y vista de jefes y dueños. Ver [vacaciones](vacaciones_mobile.md).
@@ -2147,6 +2148,27 @@ Los clientes anteriores que solo envian `cantidad_bultos` siguen siendo compatib
 ---
 
 ### Premios y concursos
+
+#### 37b. `GET /api/v1/mobile/me/compromiso?anio=YYYY`
+- Índice de compromiso (engagement) del empleado autenticado: su **área** (su sector en su sucursal), su **sucursal** y
+  su **empresa**, con el valor del año anterior y la variación. Lo carga RR. HH. en el panel (Gestión → Compromiso).
+- `anio`: opcional. Sin él, el último año con datos de su empresa (o el año actual si no hay ninguno). Fuera de 2000 a
+  2100 responde 400.
+- Cada nivel trae `indice` (0 a 100, un decimal) o `null` si no hay dato. `calculado: true` indica que no se cargó un
+  total y es el promedio simple de las áreas (sucursal) o de todas las áreas (empresa). `anterior` es el del año
+  anterior y `variacion` la diferencia en puntos (o `null` si falta alguno).
+- Response 200:
+```json
+{
+  "anio": 2026,
+  "anios_disponibles": [2026, 2025],
+  "area": {"nombre": "Entrega", "indice": 72.0, "calculado": false, "anterior": 60.0, "variacion": 12.0},
+  "sucursal": {"nombre": "Casa Central", "indice": 76.0, "calculado": true, "anterior": 65.0, "variacion": 11.0},
+  "empresa": {"nombre": "Distribuidora Sur S.A.", "indice": 67.3, "calculado": true, "anterior": 65.0, "variacion": 2.3}
+}
+```
+- Sin datos para su empresa: `anios_disponibles: []` y los tres `indice` en `null`. La app muestra "Todavía no hay
+  datos" en lugar de ceros.
 
 #### 38. `GET /api/v1/mobile/me/premios?anio=YYYY`
 - Premios/rankings mensuales obtenidos por el empleado autenticado.

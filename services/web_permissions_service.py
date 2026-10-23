@@ -32,6 +32,7 @@ WEB_MODULES = [
     {"code": "feedback", "label": "Feedback", "group": "Gestion", "roles": {"admin", "rrhh"}},
     {"code": "skap", "label": "SKAP", "group": "Gestion", "roles": {"admin", "rrhh", "supervisor"}},
     {"code": "kpis", "label": "KPIs", "group": "Gestion", "roles": {"admin", "rrhh"}},
+    {"code": "compromiso", "label": "Indice de compromiso", "group": "Gestion", "roles": {"admin", "rrhh"}},
     {"code": "premios", "label": "Premios", "group": "Gestion", "roles": {"admin", "rrhh"}},
     {"code": "trivias", "label": "Trivias", "group": "Gestion", "roles": {"admin", "rrhh"}},
     {"code": "configuracion", "label": "Configuracion", "group": "Sistema", "roles": {"admin"}},

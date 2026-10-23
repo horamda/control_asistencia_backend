@@ -51,6 +51,7 @@ from web.qr_puerta.qr_puerta_routes import qr_puerta_bp
 from web.legajos.legajos_routes import legajos_bp
 from web.legajos.legajo_tipos_evento_routes import legajo_tipos_evento_bp
 from web.kpis_sectoriales.kpis_sectoriales_routes import kpis_sectoriales_bp
+from web.compromiso.compromiso_routes import compromiso_bp
 from web.premios_concursos.premios_concursos_routes import premios_concursos_bp
 from web.app_version.app_version_routes import app_version_bp
 from web.feedback.feedback_routes import feedback_web_bp
@@ -163,6 +164,7 @@ BLUEPRINTS = (
     legajos_bp,
     legajo_tipos_evento_bp,
     kpis_sectoriales_bp,
+    compromiso_bp,
     premios_concursos_bp,
     app_version_bp,
     trivia_admin_bp,

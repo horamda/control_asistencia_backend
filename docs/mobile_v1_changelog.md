@@ -1,3 +1,11 @@
+## 1.55.0 — 2026-10-23
+
+- **Índice de compromiso** (aditivo): `GET /api/v1/mobile/me/compromiso?anio=` devuelve el índice del área del
+  empleado (su sector en su sucursal), de su sucursal y de su empresa, con el año anterior y la variación. Sin `anio`,
+  el último año con datos. Ver el [contrato](mobile_v1_contract.md#37b-get-apiv1mobilemecompromisoanioyyyy).
+- **Panel:** Gestión → Compromiso. Carga por planilla (.xlsx o .csv: Año, Sucursal, Área, Índice) o a mano. Área
+  vacía = total de la sucursal; sucursal vacía = total de la empresa; si no se cargan, se calculan como promedio.
+
 ## 1.54.0 — 2026-10-19
 
 - **Calidad de la ubicación al fichar** (aditivo, opcional): `POST /me/fichadas/scan`, `/me/fichadas/entrada` y

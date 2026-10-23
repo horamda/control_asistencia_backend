@@ -264,7 +264,7 @@
               </div>
             {% endif %}
 
-            {% if (can_web("feedback")) or (is_strict_admin is defined and is_strict_admin()) or (session.get('empleado_id')) or (can_web("skap")) or (can_web("kpis")) or (can_web("premios")) or (can_web("trivias")) %}<div class="nav-label nav-section-label">Gestión y desempeño</div>{% endif %}
+            {% if (can_web("feedback")) or (is_strict_admin is defined and is_strict_admin()) or (session.get('empleado_id')) or (can_web("skap")) or (can_web("kpis")) or (can_web("compromiso")) or (can_web("premios")) or (can_web("trivias")) %}<div class="nav-label nav-section-label">Gestión y desempeño</div>{% endif %}
 
             {#- Correccion de fechas: solo administradores (misma regla que can_correct_feedback_dates). -#}
             {% set corrige_fechas_fdbk = is_strict_admin is defined and is_strict_admin() %}
@@ -340,6 +340,21 @@
                   <a class="nav-link" href="/kpis-sectoriales/objetivos">Objetivos</a>
                   <a class="nav-link" href="/kpis-sectoriales/resultados">Resultados</a>
                   <a class="nav-link" href="/kpis-sectoriales/importar-resultados">Importar resultados</a>
+                </div>
+              </div>
+            {% endif %}
+
+            {% if can_web("compromiso") %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-compromiso">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+                    <span class="nav-label">Compromiso</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-compromiso">
+                  <a class="nav-link" href="/compromiso/">Índice de compromiso</a>
                 </div>
               </div>
             {% endif %}

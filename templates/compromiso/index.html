@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Índice de compromiso{% endblock %}
+{% block content %}
+{% set edita = can_web('compromiso', 'editar') %}
+<div class="content-stack compromiso">
+  <div class="section-head">
+    <div>
+      <h2>Índice de compromiso</h2>
+      <p class="module-intro">Un porcentaje por año, sucursal y área. Cada empleado ve en la app el de su área, su sucursal y la empresa.</p>
+    </div>
+    <div class="chip-row"><a class="chip" href="{{ url_for('compromiso.plantilla', empresa_id=empresa_id, anio=anio) }}">Descargar planilla</a></div>
+  </div>
+
+  <form method="get" action="{{ url_for('compromiso.index') }}" class="compromiso-filtro">
+    <div class="form-grid">
+      {% if empresas %}
+      <div class="row"><label for="cmp-empresa">Empresa</label>
+        <select id="cmp-empresa" name="empresa_id">{% for e in empresas %}<option value="{{ e.id }}" {% if e.id == empresa_id %}selected{% endif %}>{{ e.razon_social }}</option>{% endfor %}</select></div>
+      {% else %}<input type="hidden" name="empresa_id" value="{{ empresa_id }}">{% endif %}
+      <div class="row"><label for="cmp-anio">Año</label>
+        <select id="cmp-anio" name="anio">{% for a in anios %}<option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="actions"><button class="btn">Ver</button></div>
+  </form>
+
+  {% if datos.filas %}
+  <section aria-labelledby="cmp-resumen">
+    <h3 id="cmp-resumen">Resumen {{ anio }}</h3>
+    <div class="grid-kpis">
+      <div class="kpi-card">
+        <div class="kpi-label">Empresa</div>
+        <div class="kpi-value">{{ '%.1f'|format(datos.empresa.indice) if datos.empresa.indice is not none else '—' }}%</div>
+        <div class="kpi-desc">{{ 'Promedio de las áreas' if datos.empresa.calculado else 'Cargado' }}</div>
+      </div>
+      {% for s in datos.sucursales %}
+      <div class="kpi-card">
+        <div class="kpi-label">{{ s.nombre }}</div>
+        <div class="kpi-value">{{ '%.1f'|format(s.indice) if s.indice is not none else '—' }}%</div>
+        <div class="kpi-desc">{{ 'Promedio de ' ~ s.sectores|length ~ ' área' ~ ('' if s.sectores|length == 1 else 's') if s.calculado else 'Cargado' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="table-responsive table-cards">
+    <table>
+      <thead><tr><th>Sucursal</th><th>Área</th><th>Índice</th>{% if edita %}<th>Acciones</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for f in datos.filas %}
+        <tr>
+          <td data-label="Sucursal">{{ f.sucursal if f.sucursal_id else 'Toda la empresa' }}</td>
+          <td data-label="Área">{{ f.sector if f.sector_id else ('Toda la sucursal' if f.sucursal_id else '—') }}</td>
+          <td data-label="Índice">
+            {% if edita %}
+            <form method="post" action="{{ url_for('compromiso.guardar') }}" class="compromiso-editar">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
+              <input type="hidden" name="anio" value="{{ anio }}">
+              <input type="hidden" name="sucursal_id" value="{{ f.sucursal_id }}">
+              <input type="hidden" name="sector_id" value="{{ f.sector_id }}">
+              <input name="indice" type="number" min="0" max="100" step="0.01" value="{{ f.indice }}" aria-label="Índice" required>
+              <span>%</span>
+              <button class="btn btn-sm btn-secondary">Guardar</button>
+            </form>
+            {% else %}{{ '%.1f'|format(f.indice) }}%{% endif %}
+          </td>
+          {% if edita %}
+          <td data-label="Acciones">
+            <form method="post" action="{{ url_for('compromiso.eliminar', fila_id=f.id) }}" class="compromiso-borrar">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
+              <input type="hidden" name="anio" value="{{ anio }}">
+              <button class="btn btn-sm btn-danger" data-confirm="¿Eliminar esta fila?">Eliminar</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-state">No hay datos cargados para {{ anio }}. Importá la planilla o cargá las filas a mano.</p>
+  {% endif %}
+
+  {% if edita %}
+  <section class="compromiso-carga" aria-labelledby="cmp-cargar">
+    <div class="surface-card">
+      <h3 id="cmp-cargar">Cargar o corregir una fila</h3>
+      <form method="post" action="{{ url_for('compromiso.guardar') }}" class="form-card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
+        <div class="form-grid">
+          <label>Año<input name="anio" type="number" min="2000" max="2100" value="{{ anio }}" required></label>
+          <label>Sucursal<select name="sucursal_id"><option value="0">Toda la empresa</option>{% for s in sucursales %}<option value="{{ s.id }}">{{ s.nombre }}</option>{% endfor %}</select></label>
+          <label>Área<select name="sector_id"><option value="0">Toda la sucursal</option>{% for s in sectores %}<option value="{{ s.id }}">{{ s.nombre }}</option>{% endfor %}</select></label>
+          <label>Índice (%)<input name="indice" type="number" min="0" max="100" step="0.01" required></label>
+        </div>
+        <div class="actions"><button class="btn">Guardar</button></div>
+      </form>
+      <p class="helper-text">Si ya existe la misma sucursal, área y año, se reemplaza.</p>
+    </div>
+    {% if can_web('compromiso', 'crear') %}
+    <div class="surface-card">
+      <h3>Importar planilla</h3>
+      <form method="post" action="{{ url_for('compromiso.importar') }}" enctype="multipart/form-data" class="form-card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="empresa_id" value="{{ empresa_id }}">
+        <div class="form-grid"><label class="span-3">Archivo (.xlsx o .csv)<input type="file" name="archivo" accept=".xlsx,.csv" required></label></div>
+        <div class="actions"><button class="btn">Importar</button></div>
+      </form>
+      <p class="helper-text">Columnas: Año, Sucursal, Área, Índice. Área vacía = total de la sucursal; sucursal vacía = total de la empresa.
+        Si una fila tiene un error no se importa nada. <a href="{{ url_for('compromiso.plantilla', empresa_id=empresa_id, anio=anio) }}">Descargar planilla con tus sucursales y áreas</a>.</p>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

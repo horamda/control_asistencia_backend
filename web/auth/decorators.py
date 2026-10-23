@@ -132,6 +132,7 @@ _PATH_MODULES = [
     ("/feedback/", "feedback"),
     ("/skap/", "skap"),
     ("/kpis-sectoriales/", "kpis"),
+    ("/compromiso/", "compromiso"),
     ("/premios-concursos/", "premios"),
     ("/admin/trivias/", "trivias"),
     ("/configuracion-empresa/", "configuracion"),
