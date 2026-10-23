@@ -21,9 +21,6 @@
       <a class="chip" href="{{ url_for('carga_web.catalogs') }}">Camiones y horarios</a>
       {% endif %}
       <a class="chip" href="{{ url_for('presencia.pantalla') }}" target="_blank" rel="noopener">Presencia en vivo ↗</a>
-      <span class="chip">Mes en curso</span>
-      <span class="chip">Acumulado anual</span>
-      <span class="chip">Riesgo RRHH</span>
       <span class="chip">Alcance: {{ scope.label if scope is defined else stats.scope_label }}</span>
     </div>
   </div>
@@ -135,9 +132,6 @@
     </div>
   </section>
   <section id="dash-kpis" class="grid-kpis dashboard-kpis dashboard-block" style="--mobile-order: 1;">
-    <div class="chip-row">
-      <span class="chip scope-chip-filtered">FILTRADO</span>
-    </div>
     <article class="kpi-card" style="--kpi-order: 9;">
       <div class="kpi-label">Empleados activos</div>
       <div class="kpi-value">{{ stats.empleados_activos }}</div>
@@ -275,7 +269,6 @@
 
   <section id="dash-riesgo" class="panel dashboard-block" style="--mobile-order: 2;">
     <h3>Semaforo de riesgo (mes)</h3>
-    <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
     <div class="risk-grid">
       <div class="risk-item">
         <div class="risk-head">
@@ -311,7 +304,6 @@
   <section class="panel-grid dashboard-block" style="--mobile-order: 4;">
     <article class="panel">
       <h3>Justificaciones del mes</h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.justificaciones_estado_mes %}
         <div class="status-stack">
           {% for s in charts.justificaciones_estado_mes %}
@@ -336,7 +328,6 @@
     </article>
     <article class="panel">
       <h3>Adelantos del mes</h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       <ul class="list-clean">
         <li>Total mes: <strong>{{ stats.get("adelantos_mes_total", 0) }}</strong></li>
         <li>Aprobados: <strong>{{ stats.get("adelantos_mes_aprobados", 0) }}</strong></li>
@@ -350,7 +341,6 @@
     </article>
     <article class="panel">
       <h3>Vacaciones (mes y anual)</h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       <ul class="list-clean">
         <li>En curso hoy: <strong>{{ stats.vacaciones_en_curso_hoy }}</strong></li>
         <li>Proximas 30 dias: <strong>{{ stats.vacaciones_proximas_30d }}</strong></li>
@@ -379,7 +369,6 @@
       <span class="copy-desktop">Vacaciones proximas (30 dias)</span>
       <span class="copy-mobile">Vacaciones proximas 30d</span>
     </h3>
-    <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
     {% if charts.vacaciones_proximas_detalle %}
       <div class="table-responsive table-cards dashboard-mobile-compact">
         <table>
@@ -416,7 +405,6 @@
         <span class="copy-desktop">Tendencia diaria (ultimos 7 dias)</span>
         <span class="copy-mobile">Tendencia diaria 7d</span>
       </h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.daily_7d %}
         <div class="rrhh-legend">
           <span><i class="legend-dot total"></i>Registros totales</span>
@@ -445,7 +433,6 @@
         <span class="copy-desktop">Distribucion de estados (30 dias)</span>
         <span class="copy-mobile">Estados 30d</span>
       </h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.status_30d %}
         {% set pie = namespace(ok=0.0, tarde=0.0, ausente=0.0, salida=0.0, otros=0.0) %}
         {% for s in charts.status_30d %}
@@ -498,7 +485,6 @@
       <span class="copy-desktop">Top empresas con mas ausencias/tardanzas (30 dias)</span>
       <span class="copy-mobile">Top empresas por ausencias/tardanzas</span>
     </h3>
-    <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
     {% if charts.empresa_top_30d %}
       <div class="company-chart">
         {% for e in charts.empresa_top_30d %}
@@ -528,7 +514,6 @@
         <span class="copy-desktop">Top reincidencia (incidentes del mes)</span>
         <span class="copy-mobile">Top reincidencia mes</span>
       </h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       <p class="helper-text">
         <span class="copy-desktop">Umbral actual: {{ stats.reincidencia_umbral }} o mas incidentes (ausente/tarde/salida anticipada).</span>
         <span class="copy-mobile">Umbral: {{ stats.reincidencia_umbral }}+ incidentes en el mes.</span>
@@ -579,7 +564,6 @@
 
     <article class="panel">
       <h3>Rachas de asistencia perfecta</h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.streak_top_empleados %}
         {% set max_streak = charts.streak_top_empleados | map(attribute='streak') | max %}
         <div class="mini-bars">
@@ -628,7 +612,6 @@
       <span class="copy-desktop">Personas con mas ausencias (acumulado anual)</span>
       <span class="copy-mobile">Top ausencias anual (personas)</span>
     </h3>
-    <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
     {% if charts.persona_top_ausencias_anio %}
       <div class="table-responsive table-cards dashboard-mobile-compact">
         <table>
@@ -667,7 +650,6 @@
         <span class="copy-desktop">Ausentismo normalizado por empresa</span>
         <span class="copy-mobile">Ausentismo por empresa</span>
       </h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.ausentismo_rank_empresa %}
         {% set max_emp_idx = charts.ausentismo_rank_empresa | map(attribute='indice_ausencias_por_empleado') | max %}
         <div class="mini-bars">
@@ -699,7 +681,6 @@
         <span class="copy-desktop">Ausentismo normalizado por sector</span>
         <span class="copy-mobile">Ausentismo por sector</span>
       </h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% if charts.ausentismo_rank_sector %}
         {% set max_sec_idx = charts.ausentismo_rank_sector | map(attribute='indice_ausencias_por_empleado') | max %}
         <div class="mini-bars">
@@ -733,7 +714,6 @@
       <span class="copy-desktop">Ausentismo normalizado por sucursal</span>
       <span class="copy-mobile">Ausentismo por sucursal</span>
     </h3>
-    <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
     <ul class="list-clean">
       <li>
         Alcance actual:
@@ -817,7 +797,6 @@
         <span class="copy-desktop">Horas esperadas vs registradas (mes)</span>
         <span class="copy-mobile">Horas: esperadas vs registradas</span>
       </h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       <p class="helper-text">Alcance actual: <strong>{{ scope.label if scope is defined else stats.scope_label }}</strong></p>
       {% set max_horas = [stats.horas_registradas_mes, stats.horas_esperadas_mes, 1] | max %}
       <div class="mini-bars">
@@ -926,7 +905,6 @@
         <span class="copy-desktop">Lead time de regularizacion (mes)</span>
         <span class="copy-mobile">Lead time regularizacion mes</span>
       </h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       {% set total_inc = stats.incidentes_regularizados_mes + stats.incidentes_sin_regularizar_mes %}
       {% set pct_reg = ((stats.incidentes_regularizados_mes * 100) / total_inc) if total_inc > 0 else 0 %}
       {% set pct_pen = ((stats.incidentes_sin_regularizar_mes * 100) / total_inc) if total_inc > 0 else 0 %}
@@ -953,7 +931,6 @@
   <section class="panel-grid dashboard-state-grid dashboard-block" style="--mobile-order: 3;">
     <article class="panel dashboard-state" style="--mobile-order: 1;">
       <h3>Estado general</h3>
-      <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>
       <div class="stat-grid">
         <div class="stat-row"><span class="stat-row-label">Asistencias hoy</span><span class="stat-row-value">{{ stats.asistencias_hoy }}</span></div>
         <div class="stat-row"><span class="stat-row-label">Tardanzas hoy</span><span class="stat-row-value">{{ stats.tardes_hoy }}</span></div>
@@ -977,7 +954,6 @@
 
   <section id="dash-actividad" class="panel dashboard-block" style="--mobile-order: 13;">
     <h3>Actividad reciente</h3>
-    <div class="chip-row"><span class="chip scope-chip-general">GENERAL</span></div>
     {% if recent_events %}
       <ul class="list-clean">
         {% for ev in recent_events %}

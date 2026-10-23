@@ -19,16 +19,17 @@
    formularios con estilo propio de EPP / Reuniones (epp-card, epp-fieldset) no se tocan. */
 
 :is(.page-content,.embedded-layout) :is(form:not([method="get" i]):has(.form-grid),form.form-grid:not([method="get" i]),form.form-card) {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px 24px;
+  /* Sin caja propia: la pagina ya es la superficie (antes era una tarjeta dentro de otra). */
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
   margin: 0;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 :is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid {
-  gap: 18px 20px;
+  gap: 14px 18px;
   align-items: start;
 }
 :is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid + .form-grid {
@@ -48,10 +49,10 @@
 :is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid .row :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),select) {
   width: 100%;
   max-width: none;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 40px;
+  padding: 8px 12px;
   box-sizing: border-box;
-  border-radius: 9px;
+  border-radius: 8px;
 }
 :is(.page-content,.embedded-layout) form:not([method="get" i]) .form-grid .row textarea {
   width: 100%;
@@ -96,7 +97,7 @@
   display:grid;gap:6px;margin:0;min-width:0;font-size:.875rem;font-weight:600;color:var(--text)
 }
 :is(.page-content,.embedded-layout) form:is(.form-card,:not([method="get" i])) .form-grid > label:not([class*=check]) > :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) {
-  width:100%;max-width:none;min-height:44px;padding:10px 12px;box-sizing:border-box;border-radius:9px;font-weight:400
+  width:100%;max-width:none;min-height:40px;padding:8px 12px;box-sizing:border-box;border-radius:8px;font-weight:400
 }
 :is(.page-content,.embedded-layout) form:is(.form-card,:not([method="get" i])) .form-grid > label:not([class*=check]) > textarea {
   width:100%;max-width:none;min-height:96px;box-sizing:border-box;border-radius:9px;font-weight:400
@@ -139,10 +140,10 @@
 :is(.page-content,.embedded-layout) form.form-grid:not([method="get" i]) > label > :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) {
   width: 100%;
   max-width: none;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 40px;
+  padding: 8px 12px;
   box-sizing: border-box;
-  border-radius: 9px;
+  border-radius: 8px;
 }
 :is(.page-content,.embedded-layout) form.form-grid:not([method="get" i]) > label > textarea {
   width: 100%;
@@ -200,13 +201,18 @@
   border-radius: var(--radius);
 }
 
+@media (pointer: coarse) {
+  /* Pantallas tactiles: campos de 44 px (el tamaño minimo comodo para el dedo). */
+  :is(.page-content,.embedded-layout) form:not([method="get" i]) :is(input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),select) {min-height: 44px}
+}
+
 @media (max-width: 700px) {
   .form-grid > .span-2 {grid-column:1/-1}
   .form-footer {flex-direction:column;align-items:stretch}
   .form-footer > .actions {margin-left:0}
   .form-footer > .actions > :is(a,button,.btn,input[type=submit]) {flex:1 1 100%;width:100%}
   :is(.page-content,.embedded-layout) :is(form:not([method="get" i]):has(.form-grid),form.form-grid:not([method="get" i]),form.form-card) {
-    padding: 16px;
+    padding: 0;
   }
   :is(.page-content,.embedded-layout) :is(form:not([method="get" i]):has(.form-grid),form.form-grid:not([method="get" i]),form.form-card) > .actions:last-child > :is(a,button,.btn,.btn-secondary,.btn-danger,input[type=submit]) {
     flex: 1 1 100%;

@@ -98,9 +98,9 @@
     <div class="chip-row">
       {% if q %}<span class="chip">Busqueda: {{ q }}</span>{% endif %}
       {% if activo != 'all' %}<span class="chip">Estado: {{ "Activos" if activo == "1" else "Inactivos" }}</span>{% endif %}
-      {% if empresa_id %}<span class="chip">Empresa filtrada</span>{% endif %}
-      {% if sucursal_id %}<span class="chip">Sucursal filtrada</span>{% endif %}
-      {% if sector_id %}<span class="chip">Sector filtrado</span>{% endif %}
+      {% if empresa_id %}{% endif %}
+      {% if sucursal_id %}{% endif %}
+      {% if sector_id %}{% endif %}
     </div>
   </div>
 

@@ -1,0 +1,109 @@
+/* Estilo del panel (23/10/2026): plano y prolijo, sin cajas dentro de cajas y con tamaños parejos.
+   Se carga ultimo. Usa los mismos tokens (claro / oscuro) que el resto: no fija colores sueltos.
+
+   - La pagina es una sola superficie: sin degradé ni sombra. Adentro, los formularios no llevan caja propia y los
+     filtros son una franja gris clara.
+   - El encabezado es una barra liviana con los botones; el titulo lo da la pagina (antes se repetia arriba).
+   - Tablas mas densas, encabezados en gris, sin borde doble. Botones de 40 px (32 en tablas), secundarios blancos.
+   - Los textos chicos nunca bajan de 12 px. */
+
+:root {
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .05);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, .04);
+  --input-border: #c8d0db;
+}
+:root[data-theme="dark"] {--input-border: #505357}
+
+body.app-page {background: var(--bg)}
+
+/* ---------------------------------------------------------------- Encabezado y pagina */
+.app-main {padding: 12px 24px 28px}
+.app-topbar {background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0 0 10px}
+.app-topbar .kicker {display: none}
+/* El titulo de arriba copiaba el de la pagina: con titulo en la pagina, arriba solo quedan los botones. */
+.app-main:has(.page-content h2) #page-title {display: none}
+.page-content {margin-top: 0; background: var(--surface); box-shadow: none; padding: 20px 24px}
+.content-stack {gap: 16px}
+
+.page-content h2 {font-size: clamp(1.25rem, 1.1rem + .5vw, 1.375rem); margin: 0 0 2px}
+.page-content h3 {font-size: 1.0625rem}
+.section-kicker {display: none}
+.section-head {margin-bottom: 0; align-items: center; flex-wrap: wrap}
+:is(.page-content, .embedded-layout) :is(.module-intro, .section-head p) {font-size: .875rem; margin: 0; max-width: 72ch}
+
+/* ---------------------------------------------------------------- Etiquetas y estados */
+.chip {padding: 3px 10px; font-size: .75rem; font-weight: 600; border-color: var(--border); background: var(--surface-soft); color: var(--text)}
+a.chip {background: var(--primary-soft); color: var(--primary); border-color: transparent}
+a.chip:hover {border-color: var(--primary); text-decoration: none}
+.badge {font-size: .75rem; font-weight: 600; padding: 2px 8px; line-height: 1.45}
+
+/* ---------------------------------------------------------------- Tablas */
+.table-responsive {border-color: var(--border); border-radius: var(--radius); background: var(--surface)}
+.table-responsive > table {margin-top: 0; border: 0; border-radius: 0}
+table {background: var(--surface)}
+thead th, th {background: var(--surface-soft); color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .04em; padding: 9px 12px}
+td {font-size: .875rem; padding: 9px 12px}
+tbody tr:last-child > td {border-bottom: 0}
+tbody tr:hover {background: var(--surface-soft)}
+.results-bar {margin-top: 0}
+.results-bar .summary {font-size: .875rem}
+.pager {margin-top: 8px}
+.empty-state {padding: 20px; text-align: center; color: var(--muted); border-radius: var(--radius)}
+
+/* ---------------------------------------------------------------- Filtros: franja gris clara */
+:is(.page-content, .embedded-layout) form[method="get" i]:is(:has(.form-grid), .form-grid, .dashboard-filter-form) {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: none;
+  padding: 12px 14px;
+  margin: 0;
+}
+:is(.page-content, .embedded-layout) form[method="get" i] label {font-size: .8125rem; font-weight: 600; color: var(--text); margin-bottom: 4px}
+:is(.page-content, .embedded-layout) form[method="get" i] .actions {margin-top: 10px}
+:is(.page-content, .embedded-layout) form[method="get" i] :is(input:not([type=checkbox]):not([type=radio]), select) {min-height: 38px; padding: 7px 10px}
+
+/* Formularios sueltos sin clase (confirmaciones, acciones): sin caja propia. */
+.page-content form:not([class]):not([method="get" i]) {background: transparent; border: 0; padding: 0; margin: 0}
+
+/* ---------------------------------------------------------------- Campos y botones */
+input, select, textarea {border-color: var(--input-border); border-radius: 8px}
+:is(.page-content, .embedded-layout) :is(button, .btn, .btn-secondary, .btn-danger, input[type=submit]) {border-radius: 8px}
+:is(.page-content, .embedded-layout) .btn-secondary {background: var(--surface); border-color: var(--input-border)}
+:is(.page-content, .embedded-layout) .btn-secondary:hover {background: var(--surface-soft); border-color: var(--primary)}
+:is(.page-content, .embedded-layout) a.ui-action-link {background: var(--surface); border-color: var(--input-border); border-radius: 8px}
+
+/* ---------------------------------------------------------------- Tarjetas y paneles */
+.panel, .surface-card, .card {background: var(--surface); border-color: var(--border); border-radius: var(--radius); box-shadow: none}
+.panel {padding: 14px 16px}
+.surface-card {padding: 14px 16px}
+
+/* ---------------------------------------------------------------- Tarjetas de numeros (kpi-card, ~80 pantallas)
+   Antes: centradas, con degradé, 98 px de alto minimo y etiqueta en mayusculas. Ahora: compactas y a la izquierda. */
+.grid-kpis {grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); gap: 10px; margin-bottom: 0}
+.kpi-card {background: var(--surface); border-color: var(--border); border-radius: var(--radius); padding: 10px 14px;
+  min-height: 0; align-items: flex-start; justify-content: flex-start; text-align: left; gap: 2px}
+.kpi-label {font-size: .75rem; font-weight: 600; letter-spacing: .02em; text-transform: none; color: var(--muted)}
+.kpi-label-inline {justify-content: flex-start; text-align: left}
+.kpi-value {font-size: 1.375rem; font-weight: 700}
+.kpi-desc {font-size: .75rem; color: var(--muted); text-align: left}
+
+@media (max-width: 760px) {
+  .app-main {padding: 10px 12px 22px}
+  .page-content {padding: 14px}
+  .content-stack {gap: 12px}
+}
+
+/* Modo oscuro: sus reglas propias tenian degradés; mismo criterio plano. */
+:root[data-theme] .kpi-card, :root[data-theme] .panel {background: var(--surface)}
+
+/* Tablas en modo tarjetas (celular): la fila de encabezados se ocultaba solo dentro de <thead>; en las tablas sin
+   <thead> quedaba como una tarjeta suelta con los titulos ("USUARIO EMPRESA ROL..."). */
+.table-responsive.is-cards > table > tbody > tr:has(> th):not(:has(> td)) {display: none}
+@media (max-width: 760px) {
+  :is(.table-responsive.table-cards, table.table-cards) tr:has(> th):not(:has(> td)) {display: none}
+}
+
+/* Resumen del filtro elegido ("Empresa: X."): repetia lo que ya muestran los selectores. */
+.dashboard-filter-meta {display: none}
