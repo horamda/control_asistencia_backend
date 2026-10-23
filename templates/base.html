@@ -158,7 +158,7 @@
             </div>
             {% endif %}
 
-            {% if (can_web("empleados") or can_web("legajos")) or (can_web("comunicados")) or (can_web("pedidos_empleados")) or (can_web("reintegros")) or (can_web('seguridad_higiene') or can_web('epp')) or (can_web('validacion_carga')) %}<div class="nav-label nav-section-label">Personal</div>{% endif %}
+            {% if (can_web("empleados") or can_web("legajos")) or (can_web("comunicados")) or (can_web("pedidos_empleados")) or (can_web("reintegros")) or (can_web('validacion_carga')) %}<div class="nav-label nav-section-label">Personal</div>{% endif %}
 
             {% if can_web("empleados") or can_web("legajos") %}
               <div class="nav-group" data-collapsible="1">
@@ -238,42 +238,6 @@
                   {% if current_role in ['admin', 'rrhh'] and can_web('reintegros', 'editar') %}
                   <div class="nav-module-heading">Configurar</div>
                   <a class="nav-link" href="/reintegros/categorias">Conceptos de viáticos</a>
-                  {% endif %}
-                </div>
-              </div>
-            {% endif %}
-
-            {% if can_web('seguridad_higiene') or can_web('epp') %}
-              <div class="nav-group" data-collapsible="1">
-                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-seguridad-higiene">
-                  <span class="nav-toggle-label">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
-                    <span class="nav-label">Seguridad e Higiene</span>
-                  </span>
-                  <span class="nav-caret" aria-hidden="true"></span>
-                </button>
-                <div class="nav-submenu" id="nav-submenu-seguridad-higiene">
-                  {% if can_web('epp') %}
-                  <div class="nav-module-heading">Ropa y EPP</div>
-                  <a class="nav-link" href="/epp/">Pedidos y entregas</a>
-                  {% if can_web('epp','editar') %}<a class="nav-link" href="/epp/talles">Talles del personal</a>{% endif %}
-                  <a class="nav-link" href="/epp/reporte">Entregas anuales</a>
-                  {% endif %}
-                  {% if can_web('seguridad_higiene') %}
-                  <div class="nav-module-heading">Comportamientos seguros / inseguros</div>
-                  <a class="nav-link" href="{{ url_for('seguridad_web.dashboard') }}">Tablero de seguridad</a>
-                  <a class="nav-link" href="{{ url_for('seguridad_web.index') }}">Consultar reportes</a>
-                  {% if can_web('seguridad_higiene', 'crear') %}<a class="nav-link" href="{{ url_for('seguridad_web.create') }}">Nuevo reporte</a>{% endif %}
-                  <a class="nav-link" href="{{ url_for('seguridad_web.ranking') }}">Estadísticas y rankings</a>
-                  <a class="nav-link" href="{{ url_for('seguridad_web.safety_champion') }}">Campeón de la Seguridad</a>
-                  {% endif %}
-                  {#- Configuracion de los dos modulos, al final. -#}
-                  <div class="nav-module-heading">Configurar</div>
-                  {% if can_web('epp') and can_web('epp_responsables','editar') %}<a class="nav-link" href="/epp/catalogo">Artículos y talles de EPP</a><a class="nav-link" href="/epp/categorias">Categorías de ropa y EPP</a>{% endif %}
-                  {% if can_web('seguridad_higiene') %}
-                  <a class="nav-link" href="{{ url_for('seguridad_web.catalogs') }}">Catálogos de seguridad</a>
-                  <a class="nav-link" href="{{ url_for('seguridad_web.external_people') }}">Personas externas</a>
-                  {% if can_web('seguridad_higiene', 'crear') %}<a class="nav-link" href="{{ url_for('seguridad_web.imports') }}">Importar histórico</a>{% endif %}
                   {% endif %}
                 </div>
               </div>
@@ -488,6 +452,44 @@
                   {% if can_web("mobile_stats") %}<a class="nav-link" href="/mobile-stats/">Uso de la app</a>{% endif %}
                   {% if can_web("calificaciones_app") %}<a class="nav-link" href="/calificaciones-app/">Calificaciones de la app</a>{% endif %}
                   {% if is_strict_admin is defined and is_strict_admin() %}<a class="nav-link" href="{{ url_for('rendimiento.reporte') }}">Rendimiento</a>{% endif %}
+                </div>
+              </div>
+            {% endif %}
+
+            {#- Seguridad e Higiene (EPP y comportamientos seguros), separado y al final del menu. #}
+            {% if can_web('seguridad_higiene') or can_web('epp') %}<div class="nav-label nav-section-label">Seguridad e Higiene</div>{% endif %}
+            {% if can_web('seguridad_higiene') or can_web('epp') %}
+              <div class="nav-group" data-collapsible="1">
+                <button type="button" class="nav-group-toggle" aria-expanded="false" aria-controls="nav-submenu-seguridad-higiene">
+                  <span class="nav-toggle-label">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3z"/><path d="m9 12 2 2 4-4"/></svg>
+                    <span class="nav-label">Seguridad e Higiene</span>
+                  </span>
+                  <span class="nav-caret" aria-hidden="true"></span>
+                </button>
+                <div class="nav-submenu" id="nav-submenu-seguridad-higiene">
+                  {% if can_web('epp') %}
+                  <div class="nav-module-heading">Ropa y EPP</div>
+                  <a class="nav-link" href="/epp/">Pedidos y entregas</a>
+                  {% if can_web('epp','editar') %}<a class="nav-link" href="/epp/talles">Talles del personal</a>{% endif %}
+                  <a class="nav-link" href="/epp/reporte">Entregas anuales</a>
+                  {% endif %}
+                  {% if can_web('seguridad_higiene') %}
+                  <div class="nav-module-heading">Comportamientos seguros / inseguros</div>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.dashboard') }}">Tablero de seguridad</a>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.index') }}">Consultar reportes</a>
+                  {% if can_web('seguridad_higiene', 'crear') %}<a class="nav-link" href="{{ url_for('seguridad_web.create') }}">Nuevo reporte</a>{% endif %}
+                  <a class="nav-link" href="{{ url_for('seguridad_web.ranking') }}">Estadísticas y rankings</a>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.safety_champion') }}">Campeón de la Seguridad</a>
+                  {% endif %}
+                  {#- Configuracion de los dos modulos, al final. -#}
+                  <div class="nav-module-heading">Configurar</div>
+                  {% if can_web('epp') and can_web('epp_responsables','editar') %}<a class="nav-link" href="/epp/catalogo">Artículos y talles de EPP</a><a class="nav-link" href="/epp/categorias">Categorías de ropa y EPP</a>{% endif %}
+                  {% if can_web('seguridad_higiene') %}
+                  <a class="nav-link" href="{{ url_for('seguridad_web.catalogs') }}">Catálogos de seguridad</a>
+                  <a class="nav-link" href="{{ url_for('seguridad_web.external_people') }}">Personas externas</a>
+                  {% if can_web('seguridad_higiene', 'crear') %}<a class="nav-link" href="{{ url_for('seguridad_web.imports') }}">Importar histórico</a>{% endif %}
+                  {% endif %}
                 </div>
               </div>
             {% endif %}
