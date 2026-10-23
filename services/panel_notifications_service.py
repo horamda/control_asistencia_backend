@@ -16,31 +16,34 @@ def _build_item(*, key: str, label: str, description: str, count: int, href: str
     }
 
 
-def build_panel_notifications(role: str | None) -> dict:
+def build_panel_notifications(role: str | None, empresa_id: int | None = None) -> dict:
+    """empresa_id: usuario que no es admin, cuenta solo los pendientes de empleados de su empresa."""
     role_norm = str(role or "").strip().lower()
     if role_norm not in _ADMIN_ROLES:
         return {"enabled": False, "total": 0, "items": []}
+    de_la_empresa = (lambda alias: f" AND EXISTS (SELECT 1 FROM empleados e WHERE e.id = {alias}.empleado_id"
+                                   f" AND e.empresa_id = {int(empresa_id)})") if empresa_id is not None else (lambda alias: "")
 
     db = get_db()
     cursor = db.cursor(dictionary=True)
     try:
-        cursor.execute("""SELECT (SELECT COUNT(*) AS total
-            FROM justificaciones
-            WHERE estado = 'pendiente'
-               OR estado IS NULL) AS justificaciones,
+        cursor.execute(f"""SELECT (SELECT COUNT(*) AS total
+            FROM justificaciones j
+            WHERE (j.estado = 'pendiente'
+               OR j.estado IS NULL){de_la_empresa('j')}) AS justificaciones,
 (SELECT COUNT(*) AS total
             FROM vacaciones_movimientos vm
             WHERE vm.estado = 'pendiente'
               AND vm.revertido_por_movimiento_id IS NULL
-              AND vm.origen_movimiento_id IS NULL) AS vacaciones,
+              AND vm.origen_movimiento_id IS NULL{de_la_empresa('vm')}) AS vacaciones,
 (SELECT COUNT(*) AS total
-            FROM adelantos
-            WHERE estado = 'pendiente'
-               OR estado IS NULL) AS adelantos,
+            FROM adelantos ad
+            WHERE (ad.estado = 'pendiente'
+               OR ad.estado IS NULL){de_la_empresa('ad')}) AS adelantos,
 (SELECT COUNT(*) AS total
-            FROM pedidos_mercaderia
-            WHERE estado = 'pendiente'
-               OR estado IS NULL) AS pedidos""")
+            FROM pedidos_mercaderia pm
+            WHERE (pm.estado = 'pendiente'
+               OR pm.estado IS NULL){de_la_empresa('pm')}) AS pedidos""")
         counts = cursor.fetchone()
         items = []
 

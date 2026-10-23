@@ -161,6 +161,10 @@ def test_unified_by_month_counts_weekdays_from_planilla(monkeypatch):
 
 def _client(monkeypatch):
     monkeypatch.setattr(app_module, "init_db", lambda: None)
+    import web.auth.decorators as auth_decorators
+
+    monkeypatch.setattr(auth_decorators, "can_access_module", lambda *a, **k: True)
+    monkeypatch.setattr(web_routes, "_cached_web_user", lambda uid: dict(id=uid, rol="admin", empresa_id=1, activo=1))
     app = app_module.create_app()
     app.config["TESTING"] = True
     client = app.test_client()
@@ -223,3 +227,12 @@ def test_evolucion_requires_login(monkeypatch):
     monkeypatch.setattr(app_module, "init_db", lambda: None)
     response = app_module.create_app().test_client().get("/dashboard/evolucion")
     assert response.status_code in (302, 401, 403)
+
+
+def test_evolucion_requires_asistencias_permission(monkeypatch):
+    import web.auth.decorators as auth_decorators
+
+    client = _client(monkeypatch)
+    monkeypatch.setattr(auth_decorators, "can_access_module", lambda *a, **k: False)
+    monkeypatch.setattr(web_routes, "_dashboard_trends", lambda **kw: _fake_trends())
+    assert client.get("/dashboard/evolucion").status_code == 403

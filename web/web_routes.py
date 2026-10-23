@@ -6,7 +6,8 @@ from flask import Blueprint, current_app, render_template, request, session
 from repositories.asistencia_dia_no_laborable_repository import get_dates as get_dias_no_laborables
 from repositories.empresa_repository import get_all as get_empresas
 from repositories.sucursal_repository import get_all as get_sucursales
-from web.auth.decorators import has_role, login_required
+from services import inicio_service
+from web.auth.decorators import _cached_web_user, can_access_module, has_role, login_required, permission_required
 from services.svg_chart_service import column_chart, line_chart
 from web.dashboard_metrics import _dashboard_metrics, _dashboard_trends, _parse_optional_int, _to_int
 
@@ -67,12 +68,23 @@ def _dashboard_labor_calendar(*, empresa_id: int | None, sucursal_id: int | None
     }
 
 
-@web_bp.route("/dashboard")
-@login_required
-def dashboard():
-    empresa_id = _parse_optional_int(request.args.get("empresa_id"))
-    sucursal_id = _parse_optional_int(request.args.get("sucursal_id"))
-    stats, recent_events, charts = _dashboard_metrics()
+def _empresa_forzada():
+    """Empresa a la que queda limitado un usuario que no es admin (None para admin: ve todas). Sin empresa asignada
+    devuelve 0, que no coincide con ninguna: no ve datos de otras."""
+    user = _cached_web_user(session.get("user_id")) or {}
+    if str(user.get("rol") or "").strip().lower() == "admin":
+        return None
+    return _to_int(user.get("empresa_id")) or 0
+
+
+def _filtros_de_alcance():
+    """empresa_id y sucursal_id pedidos, con la empresa fija para quien no es admin."""
+    forzada = _empresa_forzada()
+    empresa_id = forzada if forzada is not None else _parse_optional_int(request.args.get("empresa_id"))
+    return forzada, empresa_id, _parse_optional_int(request.args.get("sucursal_id"))
+
+
+def _empresas_y_sucursales(forzada=None):
     try:
         empresas = get_empresas(include_inactive=False)
     except Exception:
@@ -83,6 +95,67 @@ def dashboard():
     except Exception:
         current_app.logger.warning("dashboard_get_sucursales_error", exc_info=True)
         sucursales = []
+    if forzada is not None:
+        empresas = [e for e in empresas if _to_int(e.get("id")) == forzada]
+        sucursales = [x for x in sucursales if _to_int(x.get("empresa_id")) == forzada]
+    return empresas, sucursales
+
+
+@web_bp.route("/dashboard")
+@login_required
+def dashboard():
+    """Inicio del panel: lo de hoy, lo que hay que resolver y el mes, segun los permisos del usuario. Las estadisticas
+    completas estan en /estadisticas-asistencia."""
+    user_id = session.get("user_id")
+    permisos = {}
+
+    def puede(modulo):
+        if modulo not in permisos:
+            try:
+                permisos[modulo] = bool(can_access_module(user_id, modulo, "ver"))
+            except Exception:
+                current_app.logger.warning("inicio_permiso_error", exc_info=True)
+                permisos[modulo] = False
+        return permisos[modulo]
+
+    forzada, empresa_id, sucursal_id = _filtros_de_alcance()
+    empresas, sucursales = _empresas_y_sucursales(forzada) if puede("asistencias") else ([], [])
+    try:
+        datos = inicio_service.resumen(puede=puede, empresa_id=empresa_id, sucursal_id=sucursal_id)
+    except Exception:
+        current_app.logger.exception("inicio_error")
+        datos = {"asistencia": None, "pendientes": []}
+    presencia = None
+    # Sin empresa asignada (0) no se consulta: la presencia sin empresa son todas.
+    if puede("asistencias") and forzada != 0:
+        try:
+            presencia = inicio_service.presencia(empresa_id=empresa_id, sucursal_id=sucursal_id)
+        except Exception:
+            current_app.logger.warning("inicio_presencia_error", exc_info=True)
+    if empresa_id:
+        sucursales = [s for s in sucursales if _to_int(s.get("empresa_id")) == int(empresa_id)]
+    return render_template(
+        "inicio.html",
+        presencia=presencia,
+        asistencia=datos["asistencia"],
+        pendientes=datos["pendientes"],
+        pendientes_total=sum(p["cantidad"] for p in datos["pendientes"]),
+        ve_asistencia=puede("asistencias"),
+        empresas=empresas,
+        sucursales=sucursales,
+        filtros={"empresa_id": empresa_id, "sucursal_id": sucursal_id},
+        empresa_fija=forzada is not None,
+        hoy=dt.date.today(),
+    )
+
+
+@web_bp.route("/estadisticas-asistencia")
+@permission_required("asistencias", "ver")
+def estadisticas_asistencia():
+    """Estadisticas completas de asistencia (lo que antes estaba en el inicio): rankings, comparativas, horas, riesgo."""
+    forzada, empresa_id, sucursal_id = _filtros_de_alcance()
+    stats, recent_events, charts = _dashboard_metrics(empresa_forzada=forzada)
+    empresas, sucursales = _empresas_y_sucursales(forzada)
 
     empresa_sel = None
     sucursal_sel = None
@@ -120,7 +193,7 @@ def dashboard():
     labor_calendar = _dashboard_labor_calendar(empresa_id=empresa_id, sucursal_id=sucursal_id)
 
     return render_template(
-        "dashboard.html",
+        "estadisticas_asistencia.html",
         stats=stats,
         recent_events=recent_events,
         charts=charts,
@@ -129,6 +202,7 @@ def dashboard():
         filtros={"empresa_id": empresa_id, "sucursal_id": sucursal_id},
         scope=scope,
         labor_calendar=labor_calendar,
+        empresa_fija=forzada is not None,
     )
 
 
@@ -181,16 +255,14 @@ def _evolucion_textos(meses: list[dict], dias_semana: list[dict]) -> tuple[dict,
 
 
 @web_bp.route("/dashboard/evolucion")
-@login_required
+@permission_required("asistencias", "ver")
 def dashboard_evolucion():
     """Fragmento del dashboard (cargado con htmx): evolucion mensual."""
     meses = request.args.get("meses", 12, type=int)
     if meses not in EVOLUCION_PERIODOS:
         meses = 12
-    filtros = {
-        "empresa_id": _parse_optional_int(request.args.get("empresa_id")),
-        "sucursal_id": _parse_optional_int(request.args.get("sucursal_id")),
-    }
+    _, empresa_id, sucursal_id = _filtros_de_alcance()
+    filtros = {"empresa_id": empresa_id, "sucursal_id": sucursal_id}
     graficos = None
     try:
         trends = _dashboard_trends(months=meses, **filtros)

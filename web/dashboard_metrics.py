@@ -86,7 +86,7 @@ def _attendance_period_counts(cursor, start, end, *, empresa_id=None, sucursal_i
 
 
 
-def _justification_period_counts(cursor, start, end):
+def _justification_period_counts(cursor, start, end, *, empresa_id=None):
     """Keep the timestamp index usable and include the entire final day."""
     try:
         # Dashboard periods arrive as ISO strings; normalize before date arithmetic.
@@ -107,8 +107,9 @@ def _justification_period_counts(cursor, start, end):
             FROM justificaciones j
             JOIN empleados e ON e.id = j.empleado_id AND {_EN_PERIODO_JUSTIFICACION}
             WHERE j.created_at >= %s AND j.created_at < %s
+            {'AND e.empresa_id = %s' if empresa_id else ''}
             """,
-            (start, end + datetime.timedelta(days=1)),
+            (start, end + datetime.timedelta(days=1), *([int(empresa_id)] if empresa_id else [])),
         )
         row = cursor.fetchone()
         return tuple(int(value or 0) for value in row) if row else (0, 0, 0, 0)
@@ -758,9 +759,24 @@ def _build_hours_breakdowns(expected_by_employee_day: dict, registered_by_employ
     return _finalize(by_plantilla), _finalize(by_sucursal, with_templates=True)
 
 
-def _dashboard_metrics():
+def _dashboard_metrics(empresa_forzada=None):
+    """empresa_forzada: usuario que no es admin. Todo, tambien lo "general" y las comparaciones, queda limitado a su
+    empresa (el filtro de empresa no se puede cambiar). Sin ella (admin) el comportamiento es el de siempre."""
     empresa_id = _parse_optional_int(request.args.get("empresa_id"))
     sucursal_id = _parse_optional_int(request.args.get("sucursal_id"))
+    if empresa_forzada:
+        empresa_forzada = int(empresa_forzada)
+        empresa_id = empresa_forzada
+    # Las consultas unen empleados e con estas condiciones: sumarles la empresa limita todo lo que pasa por ellas.
+    solo_empresa = f" AND e.empresa_id = {empresa_forzada}" if empresa_forzada else ""
+    solo_tabla = f" AND empresa_id = {empresa_forzada}" if empresa_forzada else ""
+    _EN_PERIODO_ASISTENCIA = globals()["_EN_PERIODO_ASISTENCIA"] + solo_empresa
+    _EN_PERIODO_JUSTIFICACION = globals()["_EN_PERIODO_JUSTIFICACION"] + solo_empresa
+    _EN_PERIODO_LEGAJO = globals()["_EN_PERIODO_LEGAJO"] + solo_empresa
+    _EN_PERIODO_VACACION = globals()["_EN_PERIODO_VACACION"] + solo_empresa
+    _EN_PERIODO_VACACION_VM = globals()["_EN_PERIODO_VACACION_VM"] + solo_empresa
+    _EN_PERIODO_ADELANTO = globals()["_EN_PERIODO_ADELANTO"] + solo_empresa
+    _EN_PERIODO_EXCEPCION = globals()["_EN_PERIODO_EXCEPCION"] + solo_empresa
     today_dt = datetime.date.today()
     today = today_dt.isoformat()
     since_7 = (today_dt - datetime.timedelta(days=6)).isoformat()
@@ -888,7 +904,7 @@ def _dashboard_metrics():
 
         stats["empleados_activos"] = _safe_count(
             cursor,
-            "SELECT COUNT(*) FROM empleados WHERE activo = 1 AND COALESCE(requiere_control_asistencia, 1) = 1",
+            "SELECT COUNT(*) FROM empleados WHERE activo = 1 AND COALESCE(requiere_control_asistencia, 1) = 1" + solo_tabla,
         )
         stats["empleados_con_fichada_hoy"] = _safe_count(
             cursor,
@@ -952,20 +968,20 @@ def _dashboard_metrics():
             """,
             (today,),
         )
-        stats["horarios_activos"] = _safe_count(cursor, "SELECT COUNT(*) FROM horarios WHERE activo = 1")
+        stats["horarios_activos"] = _safe_count(cursor, "SELECT COUNT(*) FROM horarios WHERE activo = 1" + solo_tabla)
         stats["asignaciones_vigentes"] = _safe_count(
             cursor,
-            """
+            f"""
             SELECT COUNT(*)
             FROM empleado_horarios eh
             JOIN empleados e ON e.id = eh.empleado_id
             WHERE eh.fecha_desde <= %s
               AND (eh.fecha_hasta IS NULL OR eh.fecha_hasta >= %s)
-              AND e.activo = 1
+              AND e.activo = 1{solo_empresa}
             """,
             (today, today),
         )
-        stats["usuarios_activos"] = _safe_count(cursor, "SELECT COUNT(*) FROM usuarios WHERE activo = 1")
+        stats["usuarios_activos"] = _safe_count(cursor, "SELECT COUNT(*) FROM usuarios WHERE activo = 1" + solo_tabla)
         stats["legajo_eventos_total"] = _safe_count(
             cursor,
             f"""
@@ -1015,7 +1031,7 @@ def _dashboard_metrics():
             stats["asistencias_30d"],
             stats["tardes_30d"],
             stats["ausentes_30d"],
-        ) = _attendance_period_counts(cursor, since_30, today)
+        ) = _attendance_period_counts(cursor, since_30, today, empresa_id=empresa_forzada)
         stats["fichadas_mes"] = _safe_count(
             cursor,
             f"""
@@ -1046,7 +1062,7 @@ def _dashboard_metrics():
             stats["asistencias_mes"],
             stats["tardes_mes"],
             stats["ausentes_mes"],
-        ) = _attendance_period_counts(cursor, month_start, today)
+        ) = _attendance_period_counts(cursor, month_start, today, empresa_id=empresa_forzada)
         if stats["asistencias_mes"] > 0:
             stats["ausentismo_mes_pct"] = round((stats["ausentes_mes"] * 100.0) / stats["asistencias_mes"], 1)
         resumen_cursor = db.cursor(dictionary=True)
@@ -1105,7 +1121,7 @@ def _dashboard_metrics():
             stats["justificaciones_mes_pendientes"],
             stats["justificaciones_mes_aprobadas"],
             stats["justificaciones_mes_rechazadas"],
-        ) = _justification_period_counts(cursor, month_start, today)
+        ) = _justification_period_counts(cursor, month_start, today, empresa_id=empresa_forzada)
         stats["justificaciones_pendientes_total"] = _safe_count(
             cursor,
             f"""
@@ -1213,7 +1229,7 @@ def _dashboard_metrics():
             stats["asistencias_anio"],
             stats["tardes_anio"],
             stats["ausentes_anio"],
-        ) = _attendance_period_counts(cursor, year_start, today)
+        ) = _attendance_period_counts(cursor, year_start, today, empresa_id=empresa_forzada)
         if stats["asistencias_anio"] > 0:
             stats["ausentismo_anual_pct"] = round((stats["ausentes_anio"] * 100.0) / stats["asistencias_anio"], 1)
 
@@ -1336,7 +1352,7 @@ def _dashboard_metrics():
                 "horas_por_sucursal": horas_por_sucursal,
             }
 
-        global_hours = _calc_hours_scope_summary()
+        global_hours = _calc_hours_scope_summary(empresa_forzada)
         stats["global_horas_registradas_mes"] = global_hours["horas_registradas"]
         stats["global_horas_esperadas_mes"] = global_hours["horas_esperadas"]
         stats["global_desvio_horas_mes"] = global_hours["desvio_horas"]
@@ -1952,6 +1968,7 @@ def _dashboard_metrics():
             db,
             today_dt.replace(day=1),
             today_dt,
+            empresa_id=empresa_forzada,
         )
 
         stats["ausentes_mes"] = unified_month["ausencias_computables"]
@@ -2657,11 +2674,12 @@ def _dashboard_metrics():
 
         recent_events = _safe_fetchall(
             dict_cursor,
-            """
+            f"""
             SELECT a.fecha, a.accion, a.tabla_afectada, a.registro_id, u.usuario AS usuario_nombre
             FROM auditoria a
             LEFT JOIN usuarios u ON u.id = a.usuario_id
-            WHERE a.tabla_afectada IS NULL OR a.tabla_afectada <> 'feedback_fechas'
+            WHERE (a.tabla_afectada IS NULL OR a.tabla_afectada <> 'feedback_fechas')
+            {'AND u.empresa_id = %d' % empresa_forzada if empresa_forzada else ''}
             ORDER BY a.fecha DESC, a.id DESC
             LIMIT 8
             """,

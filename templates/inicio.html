@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Inicio{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/viz.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/inicio.css') }}">
+{% endblock %}
+{% block content %}
+{%- set m = asistencia.mes if asistencia else none -%}
+{%- set h = asistencia.hoy if asistencia else none -%}
+{%- set alcance = '' -%}
+<div class="content-stack inicio">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Inicio</div>
+      <h2>Hoy, {{ hoy.strftime('%d/%m/%Y') }}</h2>
+      <p class="module-intro">Lo que pasa hoy y lo que está esperando una decisión.</p>
+    </div>
+    <div class="chip-row">
+      {% if ve_asistencia %}
+      <a class="chip" href="{{ url_for('presencia.pantalla') }}" target="_blank" rel="noopener">Presencia en vivo ↗</a>
+      <a class="chip" href="{{ url_for('web.estadisticas_asistencia', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}">Estadísticas completas</a>
+      {% endif %}
+      {% if can_web('validacion_carga') %}
+      <a class="chip" href="{{ url_for('carga_web.index') }}">Validación de carga</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if ve_asistencia and (empresas|length > 1 or sucursales|length > 1) %}
+  <form id="dashboard-filter-form" method="get" action="{{ url_for('web.dashboard') }}" class="dashboard-filter-form inicio-filtros">
+    <div class="form-grid">
+      <div class="row">
+        <label>Empresa</label>
+        <select name="empresa_id" id="dashboard-empresa">
+          {% if not empresa_fija %}<option value="">Todas</option>{% endif %}
+          {% for e in empresas %}
+            <option value="{{ e.id }}" {% if filtros.empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row">
+        <label>Sucursal</label>
+        <select name="sucursal_id" id="dashboard-sucursal">
+          <option value="">Todas</option>
+          {% for s in sucursales %}
+            <option value="{{ s.id }}" data-empresa-id="{{ s.empresa_id }}" {% if filtros.sucursal_id == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="dashboard-filter-meta" id="dashboard-filter-meta" aria-live="polite"></div>
+    <div class="actions">
+      <button type="submit" class="btn">Aplicar filtros</button>
+      <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Limpiar</a>
+    </div>
+  </form>
+  {% endif %}
+
+  {% if h %}
+  <section class="dashboard-block" aria-labelledby="inicio-hoy">
+    <div class="inicio-titulo">
+      <h3 id="inicio-hoy">Hoy</h3>
+      <a href="/asistencias/planilla">Ver planilla diaria</a>
+    </div>
+    <div class="executive-summary">
+      <article class="executive-card {% if h.presentismo_pct >= 90 %}tone-ok{% elif h.presentismo_pct >= 75 %}tone-warn{% else %}tone-bad{% endif %}">
+        <span>Ficharon hoy</span>
+        <strong>{{ h.presentes }}</strong>
+        <small>de {{ h.dotacion }} · {{ "%.1f"|format(h.presentismo_pct) }}% fichó hoy</small>
+      </article>
+      <article class="executive-card {% if h.tarde == 0 %}tone-ok{% else %}tone-warn{% endif %}">
+        <span>Llegaron tarde</span>
+        <strong>{{ h.tarde }}</strong>
+        <small>registros de hoy en estado tarde</small>
+      </article>
+      <article class="executive-card {% if h.ausentes == 0 %}tone-ok{% else %}tone-bad{% endif %}">
+        <span>Ausentes</span>
+        <strong>{{ h.ausentes }}</strong>
+        <small>registrados como ausentes hoy</small>
+      </article>
+      <article class="executive-card">
+        <span>Dotación</span>
+        <strong>{{ h.dotacion }}</strong>
+        <small>activos con control de asistencia</small>
+      </article>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if presencia and presencia.sucursales %}
+  <section class="dashboard-block" aria-labelledby="inicio-presencia">
+    <div class="inicio-titulo">
+      <h3 id="inicio-presencia">Ahora en las sucursales <small class="inicio-hora">{{ presencia.actualizado }} h</small></h3>
+      <a href="{{ url_for('presencia.pantalla', empresa_id=filtros.empresa_id or none) }}" target="_blank" rel="noopener">Presencia en vivo ↗</a>
+    </div>
+    <div class="executive-summary inicio-presencia">
+      {% for b in presencia.sucursales %}
+      <article class="executive-card {% if b.presentes %}tone-ok{% elif b.empleados %}tone-warn{% endif %}">
+        <span>{{ b.nombre }}{% if presencia.varias_empresas %} · {{ b.empresa }}{% endif %}</span>
+        <strong>{{ b.presentes }}<small class="inicio-de"> de {{ b.empleados }}</small></strong>
+        <small>adentro ahora · vinieron {{ b.vinieron }} · se fueron {{ b.retirados }} · sin ingreso {{ b.sin_ingreso }}</small>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if pendientes %}
+  <section class="dashboard-block executive-alerts" aria-labelledby="inicio-pendientes">
+    <div class="executive-card-head">
+      <h3 id="inicio-pendientes">Para resolver</h3>
+      {% if pendientes_total %}<span class="chip">{{ pendientes_total }} en total</span>{% endif %}
+    </div>
+    {% if pendientes_total %}
+    <div class="executive-alert-list inicio-pendientes">
+      {% for p in pendientes if p.cantidad %}
+      <a class="executive-alert is-warn" href="{{ p.ruta }}">
+        <strong>{{ p.cantidad }}</strong>
+        <span>{{ p.titulo }}</span>
+        <small>{{ p.descripcion }}</small>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="inicio-vacio">No hay nada pendiente en tus módulos.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if m %}
+  <section class="dashboard-block" aria-labelledby="inicio-mes">
+    <div class="inicio-titulo">
+      <h3 id="inicio-mes">Este mes</h3>
+      <a href="{{ url_for('web.estadisticas_asistencia', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}">Ver estadísticas completas</a>
+    </div>
+    <div class="executive-summary">
+      <article class="executive-card {% if m.ausentismo_pct <= 8 %}tone-ok{% elif m.ausentismo_pct <= 15 %}tone-warn{% else %}tone-bad{% endif %}">
+        <span>Ausentismo</span>
+        <strong>{{ "%.1f"|format(m.ausentismo_pct) }}%</strong>
+        <small>{{ m.ausentes }} ausencias · bueno: hasta 8%</small>
+      </article>
+      <article class="executive-card {% if m.puntualidad_pct >= 85 %}tone-ok{% elif m.puntualidad_pct >= 70 %}tone-warn{% else %}tone-bad{% endif %}">
+        <span>Puntualidad</span>
+        <strong>{{ "%.1f"|format(m.puntualidad_pct) }}%</strong>
+        <small>entradas a tiempo · bueno: desde 85%</small>
+      </article>
+      <article class="executive-card {% if m.sin_justificar_pct <= 5 %}tone-ok{% elif m.sin_justificar_pct <= 10 %}tone-warn{% else %}tone-bad{% endif %}">
+        <span>Ausencias sin justificar</span>
+        <strong>{{ m.sin_justificar }}</strong>
+        <small>{{ "%.1f"|format(m.sin_justificar_pct) }}% de las ausencias</small>
+      </article>
+      <article class="executive-card {% if m.tardes == 0 %}tone-ok{% else %}tone-warn{% endif %}">
+        <span>Llegadas tarde</span>
+        <strong>{{ m.tardes }}</strong>
+        <small>en lo que va del mes</small>
+      </article>
+    </div>
+  </section>
+  {% elif ve_asistencia %}
+  <p class="inicio-vacio">No se pudieron calcular los números de asistencia. Probá recargar la página en un rato.</p>
+  {% endif %}
+
+  {% if ve_asistencia %}
+  <section id="dash-evolucion" class="panel dashboard-block viz-root" aria-busy="true"
+           hx-get="{{ url_for('web.dashboard_evolucion', empresa_id=filtros.empresa_id, sucursal_id=filtros.sucursal_id) }}"
+           hx-trigger="load" hx-swap="outerHTML">
+    <h3>Evolución de la asistencia</h3>
+    <p class="helper-text">Cargando tendencias…</p>
+    <div class="viz-placeholder"></div>
+  </section>
+  {% endif %}
+
+  {% if not ve_asistencia and not pendientes %}
+  <section class="panel dashboard-block">
+    <h3>Bienvenido</h3>
+    <p class="inicio-vacio">Usá el menú de la izquierda para ir a tus módulos.</p>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_scripts %}
+{% if ve_asistencia %}
+<script src="{{ url_for('static', filename='js/viz.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/dashboard-filtros.js') }}" defer></script>
+{% endif %}
+{% endblock %}

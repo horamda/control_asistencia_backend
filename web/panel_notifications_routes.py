@@ -20,7 +20,7 @@ def notifications():
     if cached and 0 <= now - cached.get('ts', 0) < 30:
         data = cached['data']
     else:
-        data = build_panel_notifications(role)
+        data = build_panel_notifications(role, None if role == 'admin' else int(user.get('empresa_id') or 0))
         session[key] = {'ts': now, 'data': data}
     response = jsonify(total=data['total'], html=render_template('_panel_notifications.html', panel_notifications=data))
     response.headers['Cache-Control'] = 'no-store'

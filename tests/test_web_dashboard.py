@@ -1,4 +1,5 @@
 import app as app_module
+import web.auth.decorators as auth_decorators
 import web.web_routes as web_routes
 
 
@@ -21,7 +22,7 @@ def test_dashboard_rrhh_render_ok(monkeypatch):
     monkeypatch.setattr(
         web_routes,
         "_dashboard_metrics",
-        lambda: (
+        lambda empresa_forzada=None: (
             {
                 "empleados_activos": 120,
                 "empleados_con_fichada_hoy": 98,
@@ -211,15 +212,17 @@ def test_dashboard_rrhh_render_ok(monkeypatch):
     monkeypatch.setattr(web_routes, "get_dias_no_laborables", lambda **kwargs: set())
     monkeypatch.setattr(web_routes, "has_role", lambda user_id, role: role == "admin")
 
-    resp = client.get("/dashboard")
+    monkeypatch.setattr(auth_decorators, "can_access_module", lambda *a, **k: True)
+    monkeypatch.setattr(web_routes, "_cached_web_user", lambda uid: dict(id=uid, rol="admin", empresa_id=1, activo=1))
+    resp = client.get("/estadisticas-asistencia")
     assert resp.status_code == 200
-    assert b"Panel de asistencia" in resp.data
+    assert "Estadísticas de asistencia".encode() in resp.data
     assert b"Reporte mensual de asistencia" in resp.data
     assert b"Dias laborables / no laborables" in resp.data
     assert b"Editar calendario" in resp.data
     assert b"no laborable" in resp.data
-    assert b"Alertas operativas" in resp.data
-    assert b"Accesos clave" in resp.data
+    assert b"Alertas operativas" not in resp.data  # el resumen repetido quedo en el inicio
+    assert b"Accesos clave" not in resp.data
     assert b"Abrir reporte mensual" in resp.data
     assert b"/asistencias/reportes" in resp.data
     assert b"dashboard-monthly-frame" not in resp.data
@@ -232,7 +235,7 @@ def test_dashboard_rrhh_render_ok(monkeypatch):
     assert b"Justificaciones del mes" in resp.data
     assert b"Adelantos del mes" in resp.data
     assert b"Adelantos pendientes" in resp.data
-    assert b"Reporte de adelantos" in resp.data
+    assert b"Reporte de adelantos" not in resp.data  # atajo repetido del menu, quitado
     assert b"Vacaciones proximas (30 dias)" in resp.data
     assert b"Torta de estados (30 dias)" in resp.data
     assert b"Aprobacion justif. mes" in resp.data
@@ -240,7 +243,6 @@ def test_dashboard_rrhh_render_ok(monkeypatch):
     assert b"Lead time de regularizacion (mes)" in resp.data
     assert b"% ausentismo mes" in resp.data
     assert b"Eventos legajo mes" in resp.data
-    assert b"Eventos de legajo" in resp.data
     assert b"Empresa A" in resp.data
     assert b"Perez Ana" in resp.data
     # La evolucion mensual se carga en diferido con htmx.

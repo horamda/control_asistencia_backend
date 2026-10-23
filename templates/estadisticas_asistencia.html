@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Panel de asistencia{% endblock %}
+{% block title %}Estadísticas de asistencia{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/viz.css') }}">
 {% endblock %}
@@ -7,10 +7,11 @@
 <div class="content-stack">
   <div class="section-head">
     <div>
-      <div class="section-kicker">Analitica RRHH</div>
-      <h2>Panel de asistencia</h2>
+      <div class="section-kicker">Asistencia</div>
+      <h2>Estadísticas de asistencia</h2>
       <p class="module-intro">
-        <span class="copy-desktop">KPIs ejecutivos de puntualidad, ausentismo, cumplimiento y regularizacion.</span>
+        <span class="copy-desktop">Indicadores, rankings y comparativas de puntualidad, ausentismo, horas y regularizacion.
+          Lo del dia a dia esta en el <a href="{{ url_for('web.dashboard') }}">inicio</a>.</span>
         <span class="copy-mobile">KPIs clave de asistencia y regularizacion.</span>
       </p>
     </div>
@@ -29,14 +30,14 @@
   <form
     id="dashboard-filter-form"
     method="get"
-    action="{{ url_for('web.dashboard') }}"
+    action="{{ url_for('web.estadisticas_asistencia') }}"
     class="dashboard-filter-form"
   >
     <div class="form-grid">
       <div class="row">
         <label>Empresa</label>
         <select name="empresa_id" id="dashboard-empresa">
-          <option value="">Todas</option>
+          {% if not empresa_fija %}<option value="">Todas</option>{% endif %}
           {% for e in empresas %}
             <option value="{{ e.id }}" {% if filtros.empresa_id == e.id %}selected{% endif %}>{{ e.razon_social }}</option>
           {% endfor %}
@@ -55,73 +56,9 @@
     <div class="dashboard-filter-meta" id="dashboard-filter-meta" aria-live="polite"></div>
     <div class="actions">
       <button type="submit" class="btn">Aplicar filtros</button>
-      <a class="btn btn-secondary" href="{{ url_for('web.dashboard') }}">Limpiar</a>
+      <a class="btn btn-secondary" href="{{ url_for('web.estadisticas_asistencia') }}">Limpiar</a>
     </div>
   </form>
-  <section class="dashboard-executive dashboard-block" aria-label="Resumen ejecutivo de asistencia">
-    <div class="executive-summary">
-      <article class="executive-card {% if stats.ausentismo_mes_pct <= 8 %}tone-ok{% elif stats.ausentismo_mes_pct <= 15 %}tone-warn{% else %}tone-bad{% endif %}">
-        <span>Ausentismo mes</span>
-        <strong>{{ "%.1f"|format(stats.ausentismo_mes_pct) }}%</strong>
-        <small>{{ stats.ausentes_mes }} ausencias computables</small>
-      </article>
-      <article class="executive-card {% if stats.presentismo_hoy_pct >= 90 %}tone-ok{% elif stats.presentismo_hoy_pct >= 75 %}tone-warn{% else %}tone-bad{% endif %}">
-        <span>Presentismo hoy</span>
-        <strong>{{ "%.1f"|format(stats.presentismo_hoy_pct) }}%</strong>
-        <small>{{ stats.empleados_con_fichada_hoy }} con fichada</small>
-      </article>
-      <article class="executive-card {% if stats.justificaciones_pendientes_total == 0 %}tone-ok{% elif stats.justificaciones_pendientes_total <= 10 %}tone-warn{% else %}tone-bad{% endif %}">
-        <span>Justificaciones</span>
-        <strong>{{ stats.justificaciones_pendientes_total }}</strong>
-        <small>pendientes de resolucion</small>
-      </article>
-      <article class="executive-card {% if stats.desvio_horas_mes >= 0 %}tone-ok{% elif stats.desvio_horas_mes >= -80 %}tone-warn{% else %}tone-bad{% endif %}">
-        <span>Desvio horas</span>
-        <strong>{{ "%.1f"|format(stats.desvio_horas_mes) }}h</strong>
-        <small>registradas vs esperadas</small>
-      </article>
-    </div>
-    <div class="executive-action-grid">
-      <article class="executive-alerts">
-        <div class="executive-card-head">
-          <h3>Alertas operativas</h3>
-          <span class="chip scope-chip-filtered">FILTRADO</span>
-        </div>
-        <div class="executive-alert-list">
-          <a class="executive-alert {% if stats.justificaciones_pendientes_total > 0 %}is-warn{% else %}is-ok{% endif %}" href="/justificaciones/">
-            <strong>{{ stats.justificaciones_pendientes_total }}</strong>
-            <span>Justificaciones pendientes</span>
-          </a>
-          <a class="executive-alert {% if stats.ausentes_hoy > 0 %}is-bad{% else %}is-ok{% endif %}" href="/asistencias/">
-            <strong>{{ stats.ausentes_hoy }}</strong>
-            <span>Ausencias hoy</span>
-          </a>
-          <a class="executive-alert {% if stats.salida_anticipada_mes > 0 %}is-warn{% else %}is-ok{% endif %}" href="/asistencias/">
-            <strong>{{ stats.salida_anticipada_mes }}</strong>
-            <span>Salidas anticipadas mes</span>
-          </a>
-          <a class="executive-alert {% if stats.vacaciones_proximas_30d > 0 %}is-info{% else %}is-ok{% endif %}" href="/vacaciones/">
-            <strong>{{ stats.vacaciones_proximas_30d }}</strong>
-            <span>Vacaciones proximas 30d</span>
-          </a>
-        </div>
-      </article>
-      <article class="executive-shortcuts">
-        <div class="executive-card-head">
-          <h3>Accesos clave</h3>
-          <span class="chip scope-chip-general">OPERACION</span>
-        </div>
-        <div class="executive-shortcut-list">
-          <a href="{{ url_for('asistencias.reportes_mensuales', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}" class="btn btn-secondary ui-action-link">Reporte mensual</a>
-          <a href="/asistencias/planilla" class="btn btn-secondary ui-action-link">Planilla diaria</a>
-          <a href="/justificaciones/" class="btn btn-secondary ui-action-link">Justificaciones</a>
-          <a href="/vacaciones/" class="btn btn-secondary ui-action-link">Vacaciones</a>
-          <a href="/empleados/" class="btn btn-secondary ui-action-link">Empleados</a>
-          <a href="/feedback/" class="btn btn-secondary ui-action-link">Feedback</a>
-        </div>
-      </article>
-    </div>
-  </section>
   <section id="dash-evolucion" class="panel dashboard-block viz-root" aria-busy="true"
            hx-get="{{ url_for('web.dashboard_evolucion', empresa_id=filtros.empresa_id, sucursal_id=filtros.sucursal_id) }}"
            hx-trigger="load" hx-swap="outerHTML">
@@ -1014,22 +951,6 @@
   </section>
 
   <section class="panel-grid dashboard-state-grid dashboard-block" style="--mobile-order: 3;">
-    <article class="panel dashboard-links" style="--mobile-order: 2;">
-      <h3>Accesos rapidos</h3>
-      <div class="chip-row"><span class="chip scope-chip-general">GENERAL</span></div>
-      <div class="quick-links">
-        <a href="/horarios/" class="btn btn-secondary ui-action-link">Gestionar plantillas de horarios</a>
-        <a href="/empleado-horarios/" class="btn btn-secondary ui-action-link">Asignaciones vigentes por empleado</a>
-        <a href="/empleado-excepciones/" class="btn btn-secondary ui-action-link">Registrar excepciones puntuales</a>
-        <a href="/asistencias/" class="btn btn-secondary ui-action-link">Control diario de asistencias</a>
-        <a href="{{ url_for('asistencias.reportes_mensuales', empresa_id=filtros.empresa_id or '', sucursal_id=filtros.sucursal_id or '') }}" class="btn btn-secondary ui-action-link">Reporte mensual de asistencia</a>
-        <a href="/adelantos/" class="btn btn-secondary ui-action-link">Reporte de adelantos</a>
-        <a href="/justificaciones/" class="btn btn-secondary ui-action-link">Gestion de justificaciones</a>
-        <a href="/legajos/eventos/" class="btn btn-secondary ui-action-link">Eventos de legajo</a>
-        <a href="/vacaciones/" class="btn btn-secondary ui-action-link">Gestion de vacaciones</a>
-        <a href="/auditoria/" class="btn btn-secondary ui-action-link">Trazabilidad y auditoria</a>
-      </div>
-    </article>
     <article class="panel dashboard-state" style="--mobile-order: 1;">
       <h3>Estado general</h3>
       <div class="chip-row"><span class="chip scope-chip-filtered">FILTRADO</span></div>

@@ -11,8 +11,8 @@ def test_alerts_require_active_admin_and_cache_per_user(monkeypatch):
     actor = {}
     monkeypatch.setattr(routes, '_cached_web_user', lambda uid: actor or None)
     calls = []
-    def build(role):
-        calls.append(role)
+    def build(role, empresa_id=None):
+        calls.append((role, empresa_id))
         return {'total': 1, 'items': [{'tone': 'warning', 'href': '/test', 'label': '<script>bad</script>', 'description': 'Pending', 'count': 1}]}
     monkeypatch.setattr(routes, 'build_panel_notifications', build)
     client = app.test_client()
@@ -29,5 +29,9 @@ def test_alerts_require_active_admin_and_cache_per_user(monkeypatch):
     actor['id'] = 2
     client.get('/panel/notificaciones')
     assert len(calls) == 2
+    assert calls[-1] == ('admin', None)  # admin: todas las empresas
+    actor.update(id=3, rol='rrhh', empresa_id=7)
+    client.get('/panel/notificaciones')
+    assert calls[-1] == ('rrhh', 7)  # quien no es admin: solo su empresa
     actor['activo'] = 0
     assert client.get('/panel/notificaciones').status_code == 401
