@@ -960,3 +960,36 @@ def test_summary_edit_reports_ambiguous_marks_without_saving(monkeypatch):
     response=client.post('/asistencias/editar/1',data={'empleado_id':'100','fecha':'2026-09-18','hora_entrada':'08:00'})
     assert response.status_code==400
     assert b'planilla diaria' in response.data
+
+
+def test_llegadas_tarde_pantalla_y_excel(monkeypatch):
+    from services import llegadas_tarde_service as tarde
+
+    client = _build_client(monkeypatch)
+    _login_session(client)
+    monkeypatch.setattr(auth_decorators, "has_role", lambda actor_id, role: True)
+    monkeypatch.setattr(asistencias_routes, "get_empresas", lambda include_inactive=True: [])
+    monkeypatch.setattr(asistencias_routes, "get_sucursales", lambda include_inactive=True: [])
+    capturado = {}
+    detalle = [dict(empleado_id=10, fecha=datetime.date(2026, 10, 5), legajo="0010", apellido="Perez", nombre="Ana",
+                    sector_nombre="Entrega", sucursal_nombre="Central", entrada="08:25", esperada="08:00",
+                    tolerancia=10, atraso=25)]
+
+    def fake(**kw):
+        capturado.update(kw)
+        return dict(desde=kw["desde"], hasta=kw["hasta"], detalle=detalle,
+                    totales=dict(veces=1, personas=1, minutos=25, promedio=25, empleados_con_asistencia=4),
+                    ranking=[dict(empleado_id=10, legajo="0010", apellido="Perez", nombre="Ana", sector_nombre="Entrega",
+                                  sucursal_nombre="Central", veces=1, dias=1, dias_trabajados=4, pct=25, minutos=25,
+                                  promedio=25, maximo=25)],
+                    por_sector=[dict(nombre="Entrega", veces=1, personas=1, minutos=25)],
+                    por_sucursal=[dict(nombre="Central", veces=1, personas=1, minutos=25)])
+
+    monkeypatch.setattr(tarde, "reporte", fake)
+    resp = client.get("/asistencias/llegadas-tarde?desde=2026-10-01&hasta=2026-10-31&sucursal_id=1&q=0010")
+    html = resp.get_data(as_text=True)
+    assert resp.status_code == 200 and "Perez Ana" in html and "25 min" in html
+    assert capturado["sucursal_id"] == 1 and capturado["q"] == "0010" and capturado["desde"] == datetime.date(2026, 10, 1)
+    excel = client.get("/asistencias/llegadas-tarde.xlsx?desde=2026-10-01&hasta=2026-10-31")
+    assert excel.status_code == 200 and load_workbook(io.BytesIO(excel.data)).sheetnames[0] == "Por persona"
+    assert client.get("/asistencias/llegadas-tarde?desde=xx").status_code == 400

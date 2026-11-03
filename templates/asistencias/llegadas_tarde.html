@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Llegadas tarde{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Asistencia</div>
+      <h2>Llegadas tarde</h2>
+      <p class="module-intro">Cada ingreso (también la vuelta del almuerzo) contra el bloque de su horario: es tarde si entra después del inicio más la tolerancia. El atraso se cuenta desde el inicio del bloque.</p>
+    </div>
+  </div>
+
+  <form method="get" class="epp-staff-search">
+    <label>Desde<input type="date" name="desde" value="{{ datos.desde if datos else '' }}" required></label>
+    <label>Hasta<input type="date" name="hasta" value="{{ datos.hasta if datos else '' }}" required></label>
+    <label>Empresa
+      <select name="empresa_id">
+        <option value="">Todas</option>
+        {% for e in empresas %}<option value="{{ e.id }}" {{ 'selected' if filtros.empresa_id == e.id }}>{{ e.razon_social }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Sucursal
+      <select name="sucursal_id">
+        <option value="">Todas</option>
+        {% for s in sucursales %}<option value="{{ s.id }}" {{ 'selected' if filtros.sucursal_id == s.id }}>{{ s.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Sector
+      <select name="sector_id">
+        <option value="">Todos</option>
+        {% for s in sectores %}<option value="{{ s.id }}" {{ 'selected' if filtros.sector_id == s.id }}>{{ s.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Persona o legajo<input type="search" name="q" value="{{ filtros.q or '' }}" placeholder="Apellido, nombre o legajo"></label>
+    <button class="btn" type="submit">Ver</button>
+    {% if datos %}<a class="btn btn-secondary" href="{{ url_for('asistencias.llegadas_tarde_excel', **request.args) }}">Excel</a>{% endif %}
+  </form>
+
+  {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+
+  {% if datos %}
+    {% set t = datos.totales %}
+    <div class="grid-kpis">
+      <div class="kpi-card {{ 'tone-warn' if t.veces else 'tone-ok' }}">
+        <div class="kpi-label">Llegadas tarde</div>
+        <div class="kpi-value">{{ t.veces }}</div>
+        <div class="helper-text">del {{ datos.desde.strftime('%d/%m/%Y') }} al {{ datos.hasta.strftime('%d/%m/%Y') }}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Personas</div>
+        <div class="kpi-value">{{ t.personas }}</div>
+        <div class="helper-text">de {{ t.empleados_con_asistencia }} con asistencia en el período</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Minutos de atraso</div>
+        <div class="kpi-value">{{ t.minutos }}</div>
+        <div class="helper-text">{{ t.promedio }} min en promedio por llegada</div>
+      </div>
+    </div>
+
+    {% if not datos.detalle %}
+      <div class="empty-state">No hubo llegadas tarde con estos filtros.</div>
+    {% else %}
+      <h3>Por persona</h3>
+      <div class="table-responsive table-cards">
+        <table>
+          <thead><tr><th>Persona</th><th>Sector · Sucursal</th><th>Llegadas</th><th>Días tarde</th><th>Minutos</th><th>Promedio</th><th>Máximo</th></tr></thead>
+          <tbody>
+            {% for p in datos.ranking %}
+              <tr>
+                <td data-label="Persona"><a href="{{ url_for('asistencias.llegadas_tarde', **dict(request.args, q=p.legajo or p.apellido)) }}">{{ p.apellido }} {{ p.nombre }}</a>{% if p.legajo %} <small class="helper-text">· {{ p.legajo }}</small>{% endif %}</td>
+                <td data-label="Sector · Sucursal">{{ p.sector_nombre or '—' }} · {{ p.sucursal_nombre or '—' }}</td>
+                <td data-label="Llegadas">{{ p.veces }}</td>
+                <td data-label="Días tarde">{{ p.dias }} de {{ p.dias_trabajados }} <span class="badge {{ 'danger' if p.pct >= 30 else ('warning' if p.pct >= 10 else 'neutral') }}">{{ p.pct }}%</span></td>
+                <td data-label="Minutos">{{ p.minutos }}</td>
+                <td data-label="Promedio">{{ p.promedio }} min</td>
+                <td data-label="Máximo">{{ p.maximo }} min</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-2">
+        {% for titulo, grupos in [('Por sector', datos.por_sector), ('Por sucursal', datos.por_sucursal)] %}
+          <section>
+            <h3>{{ titulo }}</h3>
+            <div class="table-responsive table-cards">
+              <table>
+                <thead><tr><th>{{ titulo[4:]|capitalize }}</th><th>Llegadas</th><th>Personas</th><th>Minutos</th></tr></thead>
+                <tbody>
+                  {% for g in grupos %}
+                    <tr><td data-label="{{ titulo[4:]|capitalize }}">{{ g.nombre }}</td><td data-label="Llegadas">{{ g.veces }}</td><td data-label="Personas">{{ g.personas }}</td><td data-label="Minutos">{{ g.minutos }}</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        {% endfor %}
+      </div>
+
+      <h3>Detalle</h3>
+      <div class="table-responsive table-cards">
+        <table>
+          <thead><tr><th>Fecha</th><th>Persona</th><th>Horario</th><th>Ingreso</th><th>Atraso</th></tr></thead>
+          <tbody>
+            {% for d in datos.detalle|reverse %}
+              <tr>
+                <td data-label="Fecha">{{ d.fecha.strftime('%d/%m/%Y') }}</td>
+                <td data-label="Persona">{{ d.apellido }} {{ d.nombre }}{% if d.legajo %} <small class="helper-text">· {{ d.legajo }}</small>{% endif %}</td>
+                <td data-label="Horario">{{ d.esperada }} <small class="helper-text">(+{{ d.tolerancia }} min de tolerancia)</small></td>
+                <td data-label="Ingreso">{{ d.entrada }}</td>
+                <td data-label="Atraso"><span class="badge {{ 'danger' if d.atraso >= 30 else 'warning' }}">{{ d.atraso }} min</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

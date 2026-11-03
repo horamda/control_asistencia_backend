@@ -1372,3 +1372,55 @@ def horario_esperado():
     if not data:
         return jsonify({"error": "sin horario esperado"}), 404
     return jsonify(data)
+
+
+# ======================
+# Reporte de llegadas tarde
+# ======================
+
+def _llegadas_tarde_datos():
+    from services import llegadas_tarde_service as tarde
+
+    hoy = datetime.date.today()
+    try:
+        desde = datetime.date.fromisoformat(_parse_date_iso(request.args.get("desde")) or hoy.replace(day=1).isoformat())
+        hasta = datetime.date.fromisoformat(_parse_date_iso(request.args.get("hasta")) or hoy.isoformat())
+    except ValueError:
+        raise ValueError("Fecha inválida. Usá el selector de fecha.")
+    filtros = dict(empresa_id=request.args.get("empresa_id", type=int),
+                   sucursal_id=request.args.get("sucursal_id", type=int),
+                   sector_id=request.args.get("sector_id", type=int),
+                   q=(request.args.get("q") or "").strip())
+    datos = tarde.reporte(desde=desde, hasta=hasta, **filtros)
+    return tarde, datos, filtros
+
+
+@asistencias_bp.route("/llegadas-tarde")
+@role_required("admin", "rrhh", "supervisor")
+def llegadas_tarde():
+    try:
+        _, datos, filtros = _llegadas_tarde_datos()
+    except ValueError as exc:
+        return render_template("asistencias/llegadas_tarde.html", error=str(exc), datos=None, filtros={},
+                               empresas=get_empresas(include_inactive=True), sucursales=get_sucursales(include_inactive=True),
+                               sectores=get_sectores(include_inactive=True)), 400
+    empresa_id = filtros["empresa_id"]
+    sucursales = [s for s in get_sucursales(include_inactive=True)
+                  if not empresa_id or int(s.get("empresa_id") or 0) == empresa_id]
+    sectores = [s for s in get_sectores(include_inactive=True)
+                if not empresa_id or int(s.get("empresa_id") or 0) == empresa_id]
+    return render_template("asistencias/llegadas_tarde.html", datos=datos, filtros=filtros, error=None,
+                           empresas=get_empresas(include_inactive=True), sucursales=sucursales, sectores=sectores)
+
+
+@asistencias_bp.route("/llegadas-tarde.xlsx")
+@role_required("admin", "rrhh", "supervisor")
+def llegadas_tarde_excel():
+    try:
+        tarde, datos, _ = _llegadas_tarde_datos()
+    except ValueError as exc:
+        return Response(str(exc), status=400, mimetype="text/plain")
+    nombre = f"llegadas_tarde_{datos['desde']:%Y%m%d}_{datos['hasta']:%Y%m%d}.xlsx"
+    return Response(tarde.excel(datos),
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
