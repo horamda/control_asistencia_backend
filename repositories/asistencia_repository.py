@@ -692,6 +692,13 @@ def upsert_resumen_desde_marca(
                 )
                 row_abierta = cursor.fetchone()
                 if not row_abierta:
+                    # Ingreso cargado a mano dentro de un tramo ya cerrado (dato anterior a la correccion
+                    # de la planilla): se separa en su propio tramo y la salida lo cierra.
+                    tramo_id = _reparar_tramo_abierto(db, empleado_id, fecha)
+                    if tramo_id:
+                        cursor.execute("SELECT * FROM asistencias WHERE id = %s FOR UPDATE", (tramo_id,))
+                        row_abierta = cursor.fetchone()
+                if not row_abierta:
                     raise ValueError("No hay fichada de entrada para esa fecha.")
                 row = row_abierta
                 asistencia_id = row["id"]
@@ -808,6 +815,58 @@ def delete(asistencia_id: int, _db=None):
         cursor.close()
         if _db is None:
             db.close()
+
+
+def abrir_tramo_desde_marca(marca_id: int, _db):
+    """Pasa una marca de ingreso a un registro de jornada nuevo (otro tramo del mismo dia, como cuando
+    se ficha con la app despues de un egreso) y recalcula los dos registros. Devuelve el id nuevo."""
+    cursor = _db.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT * FROM asistencia_marcas WHERE id = %s FOR UPDATE", (marca_id,))
+        marca = cursor.fetchone()
+        anterior = marca.get("asistencia_id")
+        cursor.execute(
+            """INSERT INTO asistencias (empresa_id, empleado_id, fecha, hora_entrada, metodo_entrada, estado)
+               VALUES (%s, %s, %s, %s, %s, %s)""",
+            (marca["empresa_id"], marca["empleado_id"], marca["fecha"], marca["hora"], marca.get("metodo"),
+             marca.get("estado") or "ok"),
+        )
+        nuevo = cursor.lastrowid
+        cursor.execute("UPDATE asistencia_marcas SET asistencia_id = %s WHERE id = %s", (nuevo, marca_id))
+    finally:
+        cursor.close()
+    if anterior:
+        sync_from_asistencia_marcas(anterior, _db=_db)
+    sync_from_asistencia_marcas(nuevo, _db=_db)
+    return nuevo
+
+
+def _reparar_tramo_abierto(db, empleado_id, fecha):
+    """Si la ultima marca del dia es un ingreso que quedo dentro de un tramo cerrado antes de esa hora,
+    lo separa en su propio tramo. Devuelve el id del tramo abierto o None."""
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """SELECT m.id, m.accion, m.hora, a.hora_salida
+               FROM asistencia_marcas m JOIN asistencias a ON a.id = m.asistencia_id
+               WHERE m.empleado_id = %s AND m.fecha = %s
+               ORDER BY m.hora DESC, m.id DESC LIMIT 1""",
+            (empleado_id, fecha),
+        )
+        ultima = cursor.fetchone()
+    finally:
+        cursor.close()
+    if (not ultima or str(ultima["accion"]).lower() != "ingreso" or ultima["hora_salida"] is None
+            or _minutos(ultima["hora_salida"]) > _minutos(ultima["hora"])):
+        return None
+    return abrir_tramo_desde_marca(ultima["id"], _db=db)
+
+
+def _minutos(valor):
+    if hasattr(valor, "total_seconds"):
+        return int(valor.total_seconds() // 60)
+    partes = str(valor).split(":")
+    return int(partes[0]) * 60 + int(partes[1])
 
 
 def sync_from_asistencia_marcas(asistencia_id: int, _db=None):

@@ -10,12 +10,14 @@
   {#- "Agregar" solo donde sirve: lo que falta de un par, o un ingreso nuevo si el ultimo par esta completo. -#}
   {% set agregable = not hora and asistencia_ref and (par or (idx == cantidad and accion == 'ingreso' and ultimo_completo)) %}
   {% set gps_mal = hora and par[accion ~ '_gps_ok'] is sameas false %}
+  {% set origen = par[accion ~ '_origen'] if hora and par else None %}
   {% set etiqueta = accion|capitalize ~ ' ' ~ (idx + 1) %}
   {% if show_actions %}
     <td data-label="{{ etiqueta }}" class="planilla-mark-cell{{ ' is-empty' if not hora }}{{ ' is-void' if not hora and not agregable }}">
       {% if hora %}
         <div class="planilla-mark">
           <span class="planilla-time-value">{{ hora }}</span>
+          {% if origen %}<span class="badge {{ 'warning' if origen.codigo == 'A' else 'neutral' }} planilla-origen" title="{{ origen.texto }}" aria-label="{{ origen.texto }}">{{ origen.codigo }}</span>{% endif %}
           {% if gps_mal %}<span class="badge danger planilla-gps" title="Posible fraude GPS: la ubicación de esta fichada no coincide con la de la sucursal." aria-label="Posible fraude GPS">GPS</span>{% endif %}
           {% if marca_id %}
             <span class="planilla-actions">
@@ -43,13 +45,14 @@
     </td>
   {% else %}
     <td>
-      {{ hora or "-" }}
+      {{ hora or "-" }}{% if origen %} ({{ origen.codigo }}){% endif %}
       {% if gps_mal %}<br><span class="badge danger gps-fraud-badge">Posible fraude GPS</span>{% endif %}
     </td>
   {% endif %}
 {% endmacro %}
 
 {% if planilla_rows %}
+  <p class="helper-text planilla-leyenda"><span class="badge neutral">M</span> cargada o corregida a mano · <span class="badge warning">A</span> cierre automático por olvido de fichada{% if show_actions %} (pasá el mouse para ver el detalle){% endif %}</p>
   {#- En pantalla, solo los pares usados y uno mas para agregar; en PDF/Excel, el formato fijo de siempre. -#}
   {% set usados = planilla_rows|map(attribute='pares')|map('length')|max %}
   {% set columnas = ([usados + 1, 2]|max) if show_actions else max_pares %}

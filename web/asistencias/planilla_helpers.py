@@ -198,6 +198,12 @@ def _build_planilla_pares(marcas: list[dict], intervalo_minimo_fichadas: int):
         )
         errores.append("Ingreso sin egreso.")
 
+    # Origen de cada fichada (cargada o corregida a mano / cierre automatico) para marcarla en la planilla.
+    origenes = {m.get("id"): _origen_marca(m) for m in marcas if m.get("id")}
+    for par in pares:
+        for lado in ("ingreso", "egreso"):
+            par[f"{lado}_origen"] = origenes.get(par.get(f"{lado}_marca_id"))
+
     # Unifica mensajes repetidos manteniendo orden.
     dedup = []
     seen = set()
@@ -207,6 +213,23 @@ def _build_planilla_pares(marcas: list[dict], intervalo_minimo_fichadas: int):
         seen.add(err)
         dedup.append(err)
     return pares, dedup
+
+
+def _origen_marca(marca: dict):
+    """{'codigo': 'A'|'M', 'texto': ...} si la fichada no la hizo el empleado con la app, si no None."""
+    metodo = str(marca.get("metodo") or "").strip().lower()
+    observacion = str(marca.get("observaciones") or "").strip()
+    if metodo == "automatico":
+        texto = "Cierre automático por olvido de fichada"
+    elif metodo == "manual":
+        texto = "Cargada a mano desde el panel"
+    elif _to_bool_flag(marca.get("corregida_manualmente")):
+        texto = f"Corregida a mano (fichada original por {metodo or 'la app'})"
+    else:
+        return None
+    if observacion and metodo != "automatico":
+        texto = f"{texto}: {observacion}"
+    return {"codigo": "A" if metodo == "automatico" else "M", "texto": texto}
 
 
 def _build_marcas_from_asistencias(asistencias: list[dict]):

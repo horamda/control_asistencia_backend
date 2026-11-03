@@ -109,6 +109,11 @@ def change_mark(*, marca_id=None, asistencia_id=None, action='editar', hora=None
                                     (before.get('metodo_'+side) or 'manual',legacy_id))
             if accion not in ('ingreso','egreso'): raise ValueError('Accion invalida.')
             marca_id=_new_mark(db,before,accion,hora,observaciones)
+            # Ingreso despues de la salida del tramo (ej.: vuelve del almuerzo): es un tramo nuevo, como
+            # cuando ficha con la app; si no, el tramo de la manana queda cerrado y la app no deja egresar.
+            if (accion=='ingreso' and before.get('hora_salida') is not None
+                    and _to_hhmm(hora)>=_to_hhmm(before['hora_salida'])):
+                summaries.abrir_tramo_desde_marca(marca_id,_db=db)
         else:
             marks.update_basic(marca_id,hora=hora,accion=accion,observaciones=observaciones,_db=db)
             cur.execute('UPDATE asistencia_marcas SET corregida_manualmente=1 WHERE id=%s',(marca_id,))

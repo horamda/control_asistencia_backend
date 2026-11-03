@@ -44,6 +44,7 @@ def attendance_db(monkeypatch):
         def cursor(self,**kw):return Cursor(**kw)
         def commit(self):db.commit()
         def rollback(self):db.rollback()
+        def start_transaction(self):pass
         def close(self):pass
     for module in [service,summaries,marks]:monkeypatch.setattr(module,'get_db',Connection)
     monkeypatch.setattr(rules,'get_horario_esperado',lambda *a:{'bloques':[{'entrada':'08:00','salida':'17:00'}],'tolerancia':5})
@@ -159,3 +160,47 @@ def test_monthly_report_reflects_manual_hours(attendance_db):
     assert after['kpis']['horas_trabajadas']==8
     assert summaries.get_by_id(aid)['estado']=='salida_anticipada'
     assert marks.get_for_export_admin(accion='egreso')[0]['hora']=='16:00'
+
+
+def _egreso_app(hora):
+    return summaries.upsert_resumen_desde_marca(empleado_id=10, fecha='2026-09-18', hora=hora, accion='egreso',
+                                                metodo='qr', lat=None, lon=None, foto=None, estado='ok')
+
+
+def test_ingreso_manual_tras_el_almuerzo_abre_tramo_y_la_app_puede_egresar(attendance_db):
+    # Entra 7:00, sale 12:00, se olvida de fichar a las 14:00 (lo cargan a mano) y egresa con la app a las 17:00.
+    db,_=attendance_db
+    manana=service.save_manual(payload(hora_entrada='07:00',hora_salida='12:00'))
+    service.change_mark(asistencia_id=manana,action='crear',accion='ingreso',hora='14:00',actor=99)
+    filas=db.execute('SELECT id,hora_entrada,hora_salida FROM asistencias ORDER BY id').fetchall()
+    assert [(f['hora_entrada'],f['hora_salida']) for f in filas]==[('07:00','12:00'),('14:00',None)]
+    tarde=_egreso_app('17:00')
+    assert tarde==filas[1]['id']
+    assert summaries.get_by_id(tarde)['hora_salida']=='17:00'
+    assert summaries.get_by_id(manana)['hora_salida']=='12:00'
+
+
+def test_egreso_app_repara_ingreso_manual_cargado_antes_del_arreglo(attendance_db):
+    db,_=attendance_db
+    aid=service.save_manual(payload(hora_entrada='07:00',hora_salida='12:00'))
+    # Dato viejo: el ingreso de las 14:00 quedo dentro del tramo de la manana (cerrado a las 12:00).
+    db.execute("INSERT INTO asistencia_marcas(empresa_id,empleado_id,asistencia_id,fecha,hora,accion,metodo,tipo_marca)"
+               " VALUES(1,10,?,'2026-09-18','14:00','ingreso','manual','jornada')",(aid,))
+    db.commit()
+    tarde=_egreso_app('17:00')
+    assert tarde!=aid
+    assert (summaries.get_by_id(tarde)['hora_entrada'],summaries.get_by_id(tarde)['hora_salida'])==('14:00','17:00')
+    assert (summaries.get_by_id(aid)['hora_entrada'],summaries.get_by_id(aid)['hora_salida'])==('07:00','12:00')
+
+
+def test_planilla_marca_fichadas_manuales_y_automaticas():
+    from web.asistencias.planilla_helpers import _build_planilla_pares
+    marcas=[dict(id=1,accion='ingreso',hora='07:00',metodo='qr',corregida_manualmente=0),
+            dict(id=2,accion='egreso',hora='12:00',metodo='qr',corregida_manualmente=1),
+            dict(id=3,accion='ingreso',hora='14:00',metodo='manual',observaciones='Olvido de fichada'),
+            dict(id=4,accion='egreso',hora='17:00',metodo='automatico',observaciones='Egreso automatico por olvido')]
+    pares,_=_build_planilla_pares(marcas,0)
+    assert pares[0]['ingreso_origen'] is None
+    assert pares[0]['egreso_origen']=={'codigo':'M','texto':'Corregida a mano (fichada original por qr)'}
+    assert pares[1]['ingreso_origen']=={'codigo':'M','texto':'Cargada a mano desde el panel: Olvido de fichada'}
+    assert pares[1]['egreso_origen']['codigo']=='A'

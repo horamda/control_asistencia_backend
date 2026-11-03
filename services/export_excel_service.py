@@ -199,8 +199,11 @@ def generar_planilla_fichadas_excel(
             ingreso_col = 5 + (idx * 2)
             egreso_col = ingreso_col + 1
             par = pares[idx] if idx < len(pares) else None
-            ws.cell(row=current_row, column=ingreso_col, value=(par or {}).get("ingreso") or "")
-            ws.cell(row=current_row, column=egreso_col, value=(par or {}).get("egreso") or "")
+            for lado, col in (("ingreso", ingreso_col), ("egreso", egreso_col)):
+                hora = (par or {}).get(lado) or ""
+                origen = (par or {}).get(f"{lado}_origen")
+                # (M) cargada o corregida a mano, (A) cierre automatico, igual que en la planilla.
+                ws.cell(row=current_row, column=col, value=f"{hora} ({origen['codigo']})" if hora and origen else hora)
 
         errores = " | ".join(row.get("errores") or [])
         error_cell = ws.cell(row=current_row, column=total_cols, value=errores)
