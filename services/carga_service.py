@@ -99,6 +99,8 @@ def config(employee):
 
 
 def prepare_photos(files):
+    # Un <input type="file"> sin selección llega como archivo sin nombre: no es una foto.
+    files = [f for f in (files or []) if getattr(f, 'filename', None)]
     if len(files) > MAX_PHOTOS:
         raise CargaError(f'Se permiten hasta {MAX_PHOTOS} fotos.')
     result = []
