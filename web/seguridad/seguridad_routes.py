@@ -251,8 +251,31 @@ def catalogs():
     if kind and kind not in s.TIPOS or state not in ('','0','1'): raise s.Error('Filtro inválido.')
     ctx['catalogos']=[r for r in ctx['catalogos'] if (not query or query.casefold() in r['nombre'].casefold())
         and (not kind or r['tipo']==kind) and (not state or str(r['activo'])==state)]
+    with s.db.transaction(read_only=True) as c:
+        grouped={i for g in ctx['grupos_sucursales'] for i in g['ids']}
+        ctx['sucursales']=[r for r in s.db.all_rows(c,'SELECT id,nombre FROM sucursales WHERE empresa_id=%s ORDER BY nombre',(empresa,)) if r['id'] not in grouped]
     return render_template('seguridad/catalogos.html',**ctx,clases=s.CLASES,query=query,kind=kind,state=state,
                            error=error,values=request.form.to_dict() if error else {}),(400 if error else 200)
+
+
+@seguridad_web_bp.post('/grupos-sucursales')
+@permission_required('seguridad_higiene','ver')
+@permission_required('seguridad_higiene','editar')
+def branch_groups():
+    empresa,_=scope()
+    with s.db.transaction(read_only=True) as c:
+        current=[g['ids'] for g in s.branch_groups(c,empresa)]
+    remove=request.form.get('quitar')
+    if remove:
+        removed=s.branch_ids(remove)
+        groups=[g for g in current if g!=sorted(removed)]
+        message='Sucursales separadas.'
+    else:
+        groups=current+[request.form.getlist('sucursales')]
+        message='Sucursales unidas para Seguridad e Higiene.'
+    s.save_branch_groups(empresa,session['user_id'],groups)
+    flash(message,'success')
+    return redirect(url_for('seguridad_web.catalogs',empresa_id=empresa)+'#grupos-sucursales')
 
 
 @seguridad_web_bp.post('/eventos/<int:event_id>/acciones')

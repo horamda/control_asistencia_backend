@@ -58,6 +58,8 @@ def calculate(c,company,year,month):
         AND e.fecha_evento>=%s AND e.fecha_evento<%s AND e.fecha_evento<=%s GROUP BY p.empleado_id''',
         (company,start,end,s.now_local().date()))
     totals={r['empleado_id']:r for r in rows}
+    # Sucursales agrupadas en Seguridad e Higiene compiten juntas.
+    branch_of={i:g for g in s.branch_groups(c,company) for i in g['ids']}
     groups={}
     for person in people:
         row={**person,**totals.get(person['id'],dict(seguros=0,inseguros=0,fechas=0))}
@@ -67,10 +69,12 @@ def calculate(c,company,year,month):
         if row['fechas']<config['min_fechas']:reasons.append(f"Requiere {config['min_fechas']} fechas distintas con seguros")
         if row['inseguros']>config['max_inseguros']:reasons.append(f"Supera {config['max_inseguros']} inseguros permitidos")
         row['motivos']=reasons;row['elegible']=not reasons
+        merged=branch_of.get(row['sucursal_id'])
+        scope=dict(row,sucursal_id=merged['valor'],sucursal_nombre=merged['nombre']) if merged else row
         mode=config['agrupacion']
         keys=['sucursal'] if mode=='sucursal' else ['puesto'] if mode=='puesto' else ['sucursal','puesto'] if mode=='sucursal_puesto' else []
-        key=':'.join(str(row[k+'_id'] or 0) for k in keys) or 'empresa'
-        name=' · '.join(row[k+'_nombre'] or 'Sin '+k for k in keys) or 'Toda la empresa'
+        key=':'.join(str(scope[k+'_id'] or 0) for k in keys) or 'empresa'
+        name=' · '.join(scope[k+'_nombre'] or 'Sin '+k for k in keys) or 'Toda la empresa'
         group=groups.setdefault(key,dict(key=key,nombre=name,personas=[]))
         group['personas'].append(row)
     for group in groups.values():

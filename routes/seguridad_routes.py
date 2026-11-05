@@ -90,7 +90,7 @@ def ranking():
     if scope not in ('empresa','sucursal'): raise s.Error('Alcance inválido.')
     if scope=='sucursal' and not emp.get('sucursal_id'): raise s.Error('El empleado no tiene sucursal asignada.')
     result=s.rankings(emp['empresa_id'],request.args.get('anio',s.now_local().year),request.args.get('mes'),
-        {'sucursal_id':emp['sucursal_id']} if scope=='sucursal' else None)
+        {'sucursal_id':s.branch_scope_value(emp['empresa_id'],emp['sucursal_id'])} if scope=='sucursal' else None)
     # El ranking compartido no expone accidentes ni datos de lesiones de compañeros.
     result['rankings']={k:v for k,v in result['rankings'].items() if k in ('seguro','inseguro')}
     result['rankings_externos']={k:v for k,v in result['rankings_externos'].items() if k in ('seguro','inseguro')}

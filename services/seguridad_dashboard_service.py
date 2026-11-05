@@ -46,12 +46,16 @@ def build(empresa,filters):
         raise s.Error('Seleccione un período válido de hasta 10 años, sin fechas futuras.')
     view=filters.get('vista','inseguro')
     if view not in ('seguro','inseguro','indicadores','resumen'): raise s.Error('Vista inválida.')
-    org={k:s.positive_int(filters[k],k) for k in ('sucursal_id','sector_id','puesto_id') if filters.get(k)}
+    org={k:filters[k] for k in ('sucursal_id','sector_id','puesto_id') if filters.get(k)}
+    org_parts=[s.org_condition('p',k,v) for k,v in org.items()]
+    org_sql=' AND '.join(sql for sql,_ in org_parts)
+    org_args=[a for _,params in org_parts for a in params]
+    org_branches=s.branch_ids(org['sucursal_id']) if org.get('sucursal_id') else None
     where="e.empresa_id=%s AND e.estado='aprobado'"
     args=[empresa]
     if org:
-        where+=f' AND EXISTS(SELECT 1 FROM {s.CURRENT_PARTICIPANTS} p WHERE p.evento_id=e.id AND '+ ' AND '.join('p.'+k+'=%s' for k in org)+')'
-        args+=list(org.values())
+        where+=f' AND EXISTS(SELECT 1 FROM {s.CURRENT_PARTICIPANTS} p WHERE p.evento_id=e.id AND '+org_sql+')'
+        args+=org_args
     period=where+' AND e.fecha_evento BETWEEN %s AND %s'
     params=tuple(args+[start,end])
     try: page=max(1,int(filters.get('page') or 1))
@@ -74,8 +78,8 @@ def build(empresa,filters):
             (SELECT COUNT(*) FROM sh_fotos f WHERE f.evento_id=e.id AND f.activo=1) fotos
             FROM sh_eventos e WHERE """+visible_where+' ORDER BY e.fecha_evento DESC,e.id DESC LIMIT 30 OFFSET %s',
             visible_params+((page-1)*30,))
-        participant_scope=(' AND '+' AND '.join('p.'+k+'=%s' for k in org)) if org else ''
-        participant_params=visible_params+tuple(org.values())
+        participant_scope=(' AND '+org_sql) if org else ''
+        participant_params=visible_params+tuple(org_args)
         jobs_rows=s.db.all_rows(c,f"""SELECT COALESCE(NULLIF(p.puesto_nombre,''),'Sin puesto informado') nombre,COUNT(*) cantidad
             FROM {s.CURRENT_PARTICIPANTS} p JOIN sh_eventos e ON e.id=p.evento_id WHERE """+visible_where+participant_scope+
             " GROUP BY COALESCE(NULLIF(p.puesto_nombre,''),'Sin puesto informado') ORDER BY cantidad DESC,nombre",participant_params)
@@ -100,9 +104,9 @@ def build(empresa,filters):
             (SELECT COUNT(*) FROM sh_import_filas f JOIN sh_importaciones i ON i.id=f.importacion_id
                 WHERE i.empresa_id=%s AND f.evento_id IS NULL) unresolved''',(empresa,empresa))
         accident_where=where.replace("e.estado='aprobado'", "e.estado IN ('pendiente','aprobado')")
-        participant_scope=(' AND '+' AND '.join('p.'+k+'=%s' for k in org)) if org else ''
+        groups=s.branch_groups(c,empresa)
         accident_dates=s.db.all_rows(c,f"SELECT DISTINCT e.fecha_evento,p.sucursal_id,p.sucursal_nombre FROM sh_eventos e LEFT JOIN {s.CURRENT_PARTICIPANTS} p ON p.evento_id=e.id WHERE "+accident_where+" AND e.tipo='accidente' AND e.fecha_evento<=%s"+participant_scope,
-            tuple(args+[end]+list(org.values())))
+            tuple(args+[end]+org_args))
         unresolved=cfg['unresolved']
     by_id={e['id']:e for e in items}
     for event in items: event['personas']=[]
@@ -127,11 +131,11 @@ def build(empresa,filters):
     for row in annual_rows:
         annual[row['tipo']][row['anio']][row['mes']-1]=row['cantidad']
     baseline=cfg['inicio'] if cfg else None
-    branches={p['sucursal_id']:p['sucursal_nombre'] for p in options if p['sucursal_id'] and (not org.get('sucursal_id') or p['sucursal_id']==org['sucursal_id'])}
+    branches={p['sucursal_id']:p['sucursal_nombre'] for p in options if p['sucursal_id'] and (not org_branches or p['sucursal_id'] in org_branches)}
     branch_streaks=[dict(id=bid,nombre=name,**streaks([r['fecha_evento'] for r in accident_dates if r['sucursal_id']==bid],baseline,end)) for bid,name in sorted(branches.items(),key=lambda item:item[1] or '')]
     return dict(desde=start,hasta=end,vista=view,counts={k:counts[k] for k in s.TIPOS},total=sum(counts.values()),
         categories=categories.most_common(),jobs=jobs.most_common(),job_total=sum(jobs.values()),ranking=ranking,
         external_ranking=external_ranking,months=months,annual=annual,years=years,items=items,page=page,
         visible_total=visible_total,inicio=baseline,streak=streaks([r['fecha_evento'] for r in accident_dates],baseline,end),branch_streaks=branch_streaks,
-        options={k:sorted({(p[k],p[k.replace('_id','_nombre')] or 'Sin nombre') for p in options if p[k]},key=lambda x:x[1]) for k in ('sucursal_id','sector_id','puesto_id')},
+        options={k:[(g['valor'],g['nombre']) for g in groups if k=='sucursal_id']+sorted({(p[k],p[k.replace('_id','_nombre')] or 'Sin nombre') for p in options if p[k]},key=lambda x:x[1]) for k in ('sucursal_id','sector_id','puesto_id')},
         unresolved=unresolved,updated=s.now_local(),org=org)

@@ -37,6 +37,20 @@
     </div>
   </section>
   <noscript>Activá JavaScript para buscar, crear y editar datos de catálogo.</noscript>
+  <section class="sh-panel" id="grupos-sucursales" aria-labelledby="sh-groups-title">
+    <h3 id="sh-groups-title">Sucursales unidas</h3>
+    <p class="sh-muted">Solo para Seguridad e Higiene: el personal de sucursales unidas puede reportarse entre sí, compite junto en el campeón y se puede filtrar como una sola sucursal en el listado, el ranking y el dashboard. Asistencia y el resto del panel no cambian.</p>
+    {% if grupos_sucursales %}<ul class="sh-people-list">{% for g in grupos_sucursales %}<li><strong>{{ g.nombre }}</strong>{% if can_web('seguridad_higiene','editar') %}<form method="post" action="{{ url_for('seguridad_web.branch_groups', empresa_id=empresa_id) }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="quitar" value="{{ g.valor }}"><button class="concept-secondary" type="submit">Separar</button></form>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p class="sh-muted">No hay sucursales unidas.</p>{% endif %}
+    {% if can_web('seguridad_higiene','editar') and sucursales %}
+    <form method="post" action="{{ url_for('seguridad_web.branch_groups', empresa_id=empresa_id) }}" class="sh-fields">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <fieldset class="span-2"><legend>Unir sucursales (elegí dos o más)</legend>
+        {% for b in sucursales %}<label><input type="checkbox" name="sucursales" value="{{ b.id }}"> {{ b.nombre }}</label>{% endfor %}
+      </fieldset>
+      <button class="btn" type="submit">Unir</button>
+    </form>{% endif %}
+  </section>
 </div>
 {% set values = values or {} %}
 <dialog id="concept-dialog" class="concept-dialog" aria-labelledby="concept-dialog-title" data-reopen="{{ 1 if error else 0 }}"

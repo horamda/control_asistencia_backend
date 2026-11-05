@@ -82,16 +82,101 @@ def employees(c, empresa, active=True, ids=None):
         WHERE e.empresa_id=%s ''' + ('AND e.activo=1 ' if active else '') + selected + ' ORDER BY e.apellido,e.nombre', (empresa,*(ids or [])))
 
 
+BRANCH_GROUPS_KEY = 'sh_grupos_sucursales:{}'
+
+
+def branch_groups(c, empresa):
+    """Sucursales que en Seguridad e Higiene funcionan como una sola (reportar y estadísticas).
+
+    Cada grupo: valor del filtro ('g3-7'), ids y nombre ('Chascomús + Dolores').
+    Solo afecta a este módulo; asistencia y el resto del panel siguen viendo sucursales separadas.
+    """
+    row = db.one(c, 'SELECT config_value FROM system_config WHERE config_key=%s', (BRANCH_GROUPS_KEY.format(empresa),))
+    try:
+        raw = json.loads(row['config_value']) if row else []
+    except (TypeError, ValueError):
+        raw = []
+    groups = [sorted({int(i) for i in g}) for g in raw if isinstance(g, list)]
+    ids = sorted({i for g in groups for i in g})
+    if not ids:
+        return []
+    names = {r['id']: r['nombre'] for r in db.all_rows(c, 'SELECT id,nombre FROM sucursales WHERE empresa_id=%s AND id IN ('
+             + ','.join(['%s'] * len(ids)) + ')', (empresa, *ids))}
+    result = []
+    for g in groups:
+        g = [i for i in g if i in names]
+        if len(g) > 1:
+            result.append(dict(valor='g' + '-'.join(map(str, g)), ids=g, nombre=' + '.join(names[i] for i in g)))
+    return result
+
+
+def branch_group(groups, sucursal_id):
+    """Sucursales que comparten alcance con `sucursal_id` (ella sola si no está agrupada)."""
+    return next((g['ids'] for g in groups if sucursal_id in g['ids']), [sucursal_id])
+
+
+def branch_scope_value(empresa, sucursal_id):
+    """Valor de filtro de sucursal para un empleado: su grupo, si tiene, o su sucursal."""
+    with db.transaction(read_only=True) as c:
+        group = next((g for g in branch_groups(c, empresa) if sucursal_id in g['ids']), None)
+    return group['valor'] if group else str(sucursal_id)
+
+
+def branch_ids(value):
+    """'5' -> [5]; 'g3-7' (grupo de sucursales) -> [3, 7]."""
+    text = str(value).strip()
+    if text.startswith('g'):
+        parts = text[1:].split('-')
+        if not 1 < len(parts) <= 50:
+            raise Error('Filtro de sucursal inválido.')
+        return [positive_int(p, 'Sucursal') for p in parts]
+    return [positive_int(text, 'Sucursal')]
+
+
+def org_condition(alias, key, value):
+    """Condición SQL para filtrar por sucursal/sector/puesto/empleado; la sucursal admite grupos."""
+    if key == 'sucursal_id':
+        ids = branch_ids(value)
+        return f'{alias}.sucursal_id IN (' + ','.join(['%s'] * len(ids)) + ')', ids
+    return f'{alias}.{key}=%s', [positive_int(value, key)]
+
+
+def save_branch_groups(empresa, user, groups):
+    clean, seen = [], set()
+    with db.transaction() as c:
+        db.one(c, 'SELECT id FROM empresas WHERE id=%s FOR UPDATE', (empresa,))
+        valid = {r['id'] for r in db.all_rows(c, 'SELECT id FROM sucursales WHERE empresa_id=%s', (empresa,))}
+        for g in groups:
+            ids = sorted({positive_int(i, 'Sucursal') for i in g})
+            if len(ids) < 2:
+                raise Error('Un grupo necesita al menos dos sucursales.')
+            if not set(ids) <= valid:
+                raise Error('Sucursal no encontrada en esta empresa.')
+            if seen & set(ids):
+                raise Error('Una sucursal solo puede estar en un grupo.')
+            seen |= set(ids)
+            clean.append(ids)
+        value = json.dumps(clean)
+        if len(value) > 255:
+            raise Error('Demasiados grupos de sucursales.')
+        key = BRANCH_GROUPS_KEY.format(empresa)
+        before = db.one(c, 'SELECT config_value FROM system_config WHERE config_key=%s', (key,))
+        c.execute('''INSERT INTO system_config (config_key,config_value) VALUES (%s,%s)
+            ON DUPLICATE KEY UPDATE config_value=VALUES(config_value)''', (key, value))
+        audit(c, empresa, user, 'grupos_sucursales', dict(anterior=before['config_value'] if before else None, nuevo=clean))
+
+
 def config(empresa, employee=None, *, historical=False, inactive_externals=False,
            include_employees=True, include_catalogs=True, include_externals=True):
     with db.transaction(read_only=True) as c:
         people = employees(c, empresa,active=not historical) if include_employees else []
+        groups = branch_groups(c, empresa)
         if employee:
-            people = [p for p in people if p['id'] == employee['id'] or
-                (employee.get('sucursal_id') is not None and p['sucursal_id'] == employee['sucursal_id'])]
+            allowed = branch_group(groups, employee['sucursal_id']) if employee.get('sucursal_id') is not None else []
+            people = [p for p in people if p['id'] == employee['id'] or p['sucursal_id'] in allowed]
         cats = db.all_rows(c, 'SELECT * FROM sh_catalogos WHERE empresa_id=%s ORDER BY clase,tipo,nombre', (empresa,)) if include_catalogs else []
         externals=external_people(c,empresa,active=not inactive_externals) if include_externals else []
-    return dict(tipos=TIPOS, empleados=people, externos=externals, catalogos=cats, max_fotos=5, max_foto_bytes=5*1024*1024,
+    return dict(tipos=TIPOS, empleados=people, externos=externals, catalogos=cats, grupos_sucursales=groups, max_fotos=5, max_foto_bytes=5*1024*1024,
                 fecha_actual=now_local().date().isoformat())
 
 
@@ -140,7 +225,8 @@ def validate_people(c, empresa, ids, reporter=None, historical=False):
         if reporter['id'] not in people:
             raise Error('Empleado reportante inactivo.', 403)
         branch = people[reporter['id']]['sucursal_id']
-        if any(i != reporter['id'] and (branch is None or people[i]['sucursal_id'] != branch) for i in ids):
+        allowed = branch_group(branch_groups(c, empresa), branch) if branch is not None else []
+        if any(i != reporter['id'] and people[i]['sucursal_id'] not in allowed for i in ids):
             raise Error('Solo puede reportar personas de su sucursal.', 403)
     return [people[i] for i in ids]
 
@@ -238,8 +324,9 @@ def filters_clause(filters):
     participant_filters=[]
     for key in ('empleado_id','sucursal_id','sector_id','puesto_id'):
         if filters.get(key):
-            participant_filters.append(f'i.{key}=%s')
-            args.append(positive_int(filters[key], key))
+            sql, params = org_condition('i', key, filters[key])
+            participant_filters.append(sql)
+            args.extend(params)
     if participant_filters:
         where.append(f'EXISTS(SELECT 1 FROM {CURRENT_PARTICIPANTS} i WHERE i.evento_id=e.id AND '+' AND '.join(participant_filters)+')')
     if filters.get('externo_id'):
@@ -363,7 +450,8 @@ def rankings(empresa, anio, mes=None, filters=None):
     external_conditions=list(conditions); external_args=list(args)
     for key in ('empleado_id','sucursal_id','sector_id','puesto_id'):
         if (filters or {}).get(key):
-            conditions.append(f'i.{key}=%s'); args.append(positive_int(filters[key],key))
+            sql,params=org_condition('i',key,filters[key])
+            conditions.append(sql); args.extend(params)
             external_conditions.append('1=0')
     if (filters or {}).get('externo_id'):
         external_conditions.append('x.externo_id=%s'); external_args.append(positive_int(filters['externo_id'],'Persona externa'))
