@@ -179,6 +179,24 @@ def get_horario_esperado(empleado_id: int, fecha_str: str):
     }
 
 
+def es_rango_egreso(hora, esperado, margen_min=60):
+    """Solo inferir salida cerca de un fin y mas cerca de este que de cualquier inicio.
+
+    El margen es independiente de la tolerancia de llegadas tarde. En horarios
+    ambiguos o nocturnos no inferimos una omision automaticamente.
+    """
+    minuto = _to_minutes(hora)
+    bloques = (esperado or {}).get("bloques") or []
+    if minuto is None or not bloques:
+        return False
+    limites = [(_to_minutes(b.get("entrada")), _to_minutes(b.get("salida"))) for b in bloques]
+    if any(a is None or b is None or a >= b for a, b in limites):
+        return False
+    distancia_ingreso = min(abs(minuto - a) for a, _ in limites)
+    distancia_egreso = min(abs(minuto - b) for _, b in limites)
+    return distancia_egreso <= margen_min and distancia_egreso < distancia_ingreso
+
+
 def validar_asistencia(empleado_id: int | None, fecha_str: str, hora_entrada: str | None, hora_salida: str | None):
     errors = []
     if not empleado_id or not fecha_str:

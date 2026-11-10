@@ -10,6 +10,7 @@ import routes.mobile_v1_routes as mobile_routes
 
 
 def _build_client(monkeypatch):
+    monkeypatch.setattr(mobile_routes, "get_horario_esperado", lambda *args: None)
     monkeypatch.setattr(app_module, "init_db", lambda: None)
     monkeypatch.setattr(mobile_routes, "get_profile_photo_version_by_dni", lambda dni: None)
     app = app_module.create_app()
@@ -4051,3 +4052,22 @@ def test_mobile_fichada_scan_rechaza_calidad_invalida(monkeypatch, campos, mensa
     resp = client.post("/api/v1/mobile/me/fichadas/scan", headers={"Authorization": "Bearer abc"},
                        json={"qr_token": "qrauto", "lat": -34.6037, "lon": -58.3816, "hora": "09:30", **campos})
     assert resp.status_code == 400 and mensaje in resp.get_json()["error"] and capturadas == []
+
+
+def test_scan_primera_marca_en_salida_avisa_ingreso_faltante(monkeypatch):
+    capturadas = []
+    client = _scan_ingreso_ok(monkeypatch, capturadas)
+    monkeypatch.setattr(mobile_routes, "get_horario_esperado", lambda *args: {
+        "bloques": [{"entrada": "09:00", "salida": "17:00"}]})
+    resumenes, avisos = [], []
+    monkeypatch.setattr(mobile_routes, "upsert_resumen_desde_marca", lambda **kw: resumenes.append(kw) or 77)
+    monkeypatch.setattr(mobile_routes.avisos_push.push_service, "encolar_ahora", lambda *a, **kw: avisos.append((a, kw)))
+    response = client.post("/api/v1/mobile/me/fichadas/scan", headers={"Authorization": "Bearer abc"},
+                           json={"fecha": "2026-11-10", "hora": "16:56", "qr_token": "abc", "lat": -34.6037, "lon": -58.3816})
+    assert response.status_code == 200
+    assert response.json["accion"] == "egreso"
+    assert response.json["ingreso_faltante"] is True
+    assert resumenes[0]["permitir_egreso_sin_ingreso"] is True
+    assert capturadas[0]["accion"] == "egreso"
+    assert "Ingreso faltante" in capturadas[0]["observaciones"]
+    assert len(avisos) == 1

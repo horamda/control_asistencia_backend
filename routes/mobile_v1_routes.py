@@ -134,7 +134,7 @@ from services.profile_photo_service import (
     get_profile_photo_version_by_dni,
     upload_profile_photo,
 )
-from utils.asistencia import get_horario_esperado, validar_asistencia
+from utils.asistencia import es_rango_egreso, get_horario_esperado, validar_asistencia
 from utils.jwt import (
     DEFAULT_QR_TTL_SECONDS,
     QRTokenValidationError,
@@ -702,7 +702,18 @@ def fichar_scan_qr():
         cooldown_scan = _get_scan_cooldown_segundos(config_empresa)
         _validar_cooldown_scan(ultima_marca, cooldown_scan)
         _validar_intervalo_minimo_marcas(ultima_marca, hora, intervalo_minimo_fichadas)
-        accion = _decidir_accion_scan(accion_qr, resumen, ultima_marca)
+        ingreso_faltante = False
+        if (
+            accion_qr == "auto" and tipo_marca == "jornada" and not ultima_marca
+            and (not resumen or (resumen.get("hora_entrada") is None and resumen.get("hora_salida") is None))
+        ):
+            ingreso_faltante = es_rango_egreso(hora, get_horario_esperado(empleado["id"], fecha))
+        aviso = "Registramos tu egreso, pero no registraste el ingreso. Solicitá la corrección de la fichada."
+        if ingreso_faltante:
+            accion = "egreso"
+            observaciones = f"{observaciones} | Ingreso faltante: egreso detectado por horario."
+        else:
+            accion = _decidir_accion_scan(accion_qr, resumen, ultima_marca)
 
         if accion == "ingreso":
             _, estado_calc = validar_asistencia(empleado["id"], fecha, hora, None)
@@ -733,6 +744,7 @@ def fichar_scan_qr():
                 fecha=fecha,
                 hora=hora,
                 accion="egreso",
+                permitir_egreso_sin_ingreso=ingreso_faltante,
                 metodo="qr",
                 lat=lat,
                 lon=lon,
@@ -814,6 +826,14 @@ def fichar_scan_qr():
             "total_marcas_dia": total_marcas,
         }
         status = 201 if accion == "ingreso" else 200
+        if ingreso_faltante:
+            body.update(ingreso_faltante=True, aviso=aviso, message=aviso)
+            avisos_push.push_service.encolar_ahora(
+                empleado["empresa_id"], [empleado["id"]], "fichada_ingreso_faltante",
+                "Falta registrar tu ingreso", aviso,
+                datos={"asistencia_id": asistencia_id, "fecha": fecha, "ruta": "/asistencia"},
+                clave=f"fichada_ingreso_faltante:{marca_id}",
+            )
         return (
             jsonify(body),
             status,

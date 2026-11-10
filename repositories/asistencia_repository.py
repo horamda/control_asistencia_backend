@@ -508,6 +508,7 @@ def upsert_resumen_desde_marca(
     gps_tolerancia_m: float | None = None,
     gps_ref_lat: float | None = None,
     gps_ref_lon: float | None = None,
+    permitir_egreso_sin_ingreso: bool = False,
 ):
     if accion not in {"ingreso", "egreso"}:
         raise ValueError("accion invalida")
@@ -533,6 +534,30 @@ def upsert_resumen_desde_marca(
             (empleado_id, fecha),
         )
         row = cursor.fetchone()
+
+        if permitir_egreso_sin_ingreso and accion == "egreso":
+            # Solo una primera marca: nunca cerrar ni reemplazar un tramo existente.
+            if row and (row.get("hora_entrada") is not None or row.get("hora_salida") is not None):
+                raise ValueError("Secuencia invalida: ya existen fichadas para esa fecha.")
+            valores = (hora, lat, lon, (1 if gps_ok else 0) if gps_ok is not None else None,
+                       gps_distancia_m, gps_tolerancia_m, gps_ref_lat, gps_ref_lon,
+                       foto, metodo, estado, observaciones)
+            if row:
+                asistencia_id = row["id"]
+                cursor.execute("""UPDATE asistencias SET hora_salida=%s, lat_salida=%s, lon_salida=%s,
+                    gps_ok_salida=%s, gps_distancia_salida_m=%s, gps_tolerancia_salida_m=%s,
+                    gps_ref_lat_salida=%s, gps_ref_lon_salida=%s, foto_salida=%s, metodo_salida=%s,
+                    estado=%s, observaciones=%s WHERE id=%s""", (*valores, asistencia_id))
+            else:
+                cursor.execute("""INSERT INTO asistencias
+                    (hora_salida, lat_salida, lon_salida, gps_ok_salida, gps_distancia_salida_m,
+                     gps_tolerancia_salida_m, gps_ref_lat_salida, gps_ref_lon_salida, foto_salida,
+                     metodo_salida, estado, observaciones, empresa_id, empleado_id, fecha)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (*valores, empresa_id, empleado_id, fecha))
+                asistencia_id = cursor.lastrowid
+            db.commit()
+            return asistencia_id
 
         if not row:
             if accion != "ingreso":
@@ -586,7 +611,7 @@ def upsert_resumen_desde_marca(
             if row.get("hora_salida") is None and row.get("hora_entrada") is not None:
                 raise ValueError("Ya hay un ingreso abierto para esa fecha.")
 
-            if row.get("hora_entrada") is None:
+            if row.get("hora_entrada") is None and row.get("hora_salida") is None:
                 cursor.execute(
                     """
                     UPDATE asistencias

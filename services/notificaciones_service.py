@@ -25,6 +25,7 @@ POR_PAGINA_MAX = 50
 
 # tipo de push -> (modulo, tipo de referencia, campo de datos con el id del registro). modulo es el filtro de la app.
 CATALOGO = {
+    "fichada_ingreso_faltante": ("asistencia", None, "asistencia_id"),
     "comunicado": ("comunicados", "comunicado", "comunicado_id"),
     "adelanto": ("adelantos", "adelanto", "adelanto_id"),
     "pedido_mercaderia": ("pedidos_mercaderia", "pedido_mercaderia", "pedido_id"),

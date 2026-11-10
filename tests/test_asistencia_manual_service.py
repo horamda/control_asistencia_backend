@@ -204,3 +204,32 @@ def test_planilla_marca_fichadas_manuales_y_automaticas():
     assert pares[0]['egreso_origen']=={'codigo':'M','texto':'Corregida a mano (fichada original por qr)'}
     assert pares[1]['ingreso_origen']=={'codigo':'M','texto':'Cargada a mano desde el panel: Olvido de fichada'}
     assert pares[1]['egreso_origen']['codigo']=='A'
+
+
+@pytest.mark.parametrize("ausente", [False, True])
+def test_egreso_sin_ingreso_no_inventa_entrada_y_preserva_salida_al_reingresar(attendance_db, ausente):
+    if ausente:
+        summaries.create(payload(hora_entrada=None, hora_salida=None, estado='ausente'))
+    args = dict(empleado_id=10, fecha='2026-09-18', metodo='qr', lat=None, lon=None, foto=None, estado='ok')
+    aid = summaries.upsert_resumen_desde_marca(**args, hora='16:56', accion='egreso', permitir_egreso_sin_ingreso=True)
+    row = summaries.get_by_id(aid)
+    assert row['hora_entrada'] is None
+    assert row['hora_salida'] == '16:56'
+    with pytest.raises(ValueError):
+        summaries.upsert_resumen_desde_marca(**args, hora='17:00', accion='egreso', permitir_egreso_sin_ingreso=True)
+    siguiente = summaries.upsert_resumen_desde_marca(**args, hora='18:00', accion='ingreso')
+    assert siguiente != aid
+    assert summaries.get_by_id(aid)['hora_salida'] == '16:56'
+
+
+@pytest.mark.parametrize('hora,esperado', [('09:00',False),('10:00',False),('15:59',False),('16:00',True),('16:56',True),('18:00',True),('18:01',False)])
+def test_rango_egreso_conservador(hora, esperado):
+    assert rules.es_rango_egreso(hora, {'bloques':[{'entrada':'09:00','salida':'17:00'}]}) is esperado
+
+
+def test_rango_egreso_horario_partido_ambiguo_y_sin_horario():
+    assert not rules.es_rango_egreso('16:56', None)
+    bloques = [{'entrada':'09:00','salida':'13:00'}, {'entrada':'14:00','salida':'17:00'}]
+    assert not rules.es_rango_egreso('13:30', {'bloques':bloques})
+    assert not rules.es_rango_egreso('13:50', {'bloques':bloques})
+    assert rules.es_rango_egreso('12:56', {'bloques':bloques})
