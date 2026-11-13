@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Historial de marcas{% endblock %}
+{% block extra_head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/marcas.css') }}">
+{% endblock %}
 {% block content %}
 <div class="content-stack">
   <div class="section-head">
@@ -126,7 +129,22 @@
 
   {% if marcas %}
     <div class="table-responsive" data-no-cards tabindex="0" role="region" aria-label="Historial de marcas, listado con desplazamiento horizontal">
-      <table>
+      <table class="marcas-table">
+        <colgroup>
+          <col style="width: 5%">
+          <col style="width: 8%">
+          <col style="width: 13%">
+          <col style="width: 8%">
+          <col style="width: 6%">
+          <col style="width: 7%">
+          <col style="width: 7%">
+          <col style="width: 8%">
+          <col style="width: 6%">
+          <col style="width: 6%">
+          <col style="width: 6%">
+          <col style="width: 7%">
+          <col style="width: 13%">
+        </colgroup>
         <thead>
           <tr>
             <th>ID</th>

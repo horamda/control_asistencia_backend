@@ -1,0 +1,38 @@
+.table-responsive > table.marcas-table {
+  width: 100%;
+  min-width: 900px;
+  table-layout: fixed;
+}
+
+.marcas-table th,
+.marcas-table td {
+  padding: 7px 5px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.marcas-table th {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.marcas-table td[data-label="Fecha"],
+.marcas-table td[data-label="Hora"] {
+  white-space: nowrap;
+}
+
+.marcas-table .badge {
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 3px 5px;
+  font-size: 10px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.marcas-table small,
+.marcas-table .helper-text {
+  font-size: 10px;
+}
