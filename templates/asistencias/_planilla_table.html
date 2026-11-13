@@ -59,7 +59,7 @@
   {% if show_actions %}
   {#- Tabla compacta en escritorio (si no entra, se desplaza en horizontal); tarjetas solo en el celular. -#}
   <div class="table-responsive table-cards planilla-table-wrap" data-no-cards>
-    <table class="planilla-table">
+    <table class="planilla-table" style="--planilla-min-width: {{ [780, columnas * 180 + 240]|max }}px">
       <thead>
         <tr>
           <th>Persona</th>

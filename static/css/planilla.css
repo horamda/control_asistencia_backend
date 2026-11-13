@@ -1,0 +1,61 @@
+.planilla-daily-page .planilla-table th,
+.planilla-daily-page .planilla-table td {
+  padding: 6px;
+  font-size: 11.5px;
+}
+
+.planilla-daily-page .planilla-table th {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.planilla-daily-page .planilla-employee-name {
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.planilla-daily-page .planilla-employee-meta {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.planilla-daily-page .planilla-time-value {
+  font-size: 12px;
+}
+
+.planilla-daily-page .planilla-table .badge {
+  font-size: 10px;
+  padding: 2px 5px;
+  white-space: normal;
+}
+
+.planilla-daily-page .planilla-add {
+  font-size: 11px;
+  padding: 5px 6px;
+}
+
+@media (min-width: 761px) {
+  .planilla-daily-page .planilla-table {
+    table-layout: fixed;
+    min-width: var(--planilla-min-width, 780px);
+  }
+
+  .planilla-daily-page .planilla-table th:first-child {
+    width: 24%;
+  }
+
+  .planilla-daily-page .planilla-employee-cell {
+    min-width: 0;
+    white-space: normal;
+  }
+}
+
+@media (min-width: 761px) and (pointer: fine) {
+  :is(.page-content, .embedded-layout) .planilla-daily-page .planilla-actions .btn.btn-icon {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    padding: 0;
+  }
+}
