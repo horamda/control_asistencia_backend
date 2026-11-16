@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% block title %}Configuración de IA{% endblock %}
+{% block content %}
+<div class="content-stack">
+  <div class="section-head">
+    <div>
+      <div class="section-kicker">Sistema</div>
+      <h2>Configuración de IA</h2>
+      <p class="module-intro">Proveedor y modelo que usa el generador de trivias. Las claves de API se cargan como variables de entorno del servidor y nunca se muestran en el panel.</p>
+    </div>
+  </div>
+
+  {% if errors %}
+    <div class="alert alert-danger">
+      <ul class="mb-0" style="padding-left:1.2rem">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    </div>
+  {% endif %}
+
+  <div class="grid-kpis">
+    <div class="kpi-card {{ 'tone-ok' if cfg.disponible else 'tone-warn' }}">
+      <div class="kpi-label">Generador de trivias</div>
+      <div class="kpi-value">{{ 'Activo' if cfg.disponible else ('Sin configurar' if cfg.trivias_activa else 'Desactivado') }}</div>
+      <div class="helper-text">Las trivias manuales funcionan siempre</div>
+    </div>
+    {% for p in proveedores %}
+      <div class="kpi-card {{ 'tone-ok' if p.configurado else '' }}">
+        <div class="kpi-label">{{ p.nombre }}</div>
+        <div class="kpi-value">{{ 'Configurado' if p.configurado else 'Sin clave' }}</div>
+        <div class="helper-text">{{ 'Clave cargada en el servidor' if p.configurado else ('Falta ' ~ p.variable) }}</div>
+      </div>
+    {% endfor %}
+    {% if uso %}
+      <div class="kpi-card">
+        <div class="kpi-label">Hoy</div>
+        <div class="kpi-value">{{ uso.generaciones_hoy }}</div>
+        <div class="helper-text">generaciones{% if cfg.max_generaciones_dia %} de {{ cfg.max_generaciones_dia }}{% endif %}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Este mes</div>
+        <div class="kpi-value">US$ {{ '%.2f'|format(uso.costo_mes) }}</div>
+        <div class="helper-text">{{ uso.generaciones_mes }} generaciones · {{ uso.errores_mes }} con error{% if cfg.presupuesto_mensual_usd %} · tope US$ {{ '%.2f'|format(cfg.presupuesto_mensual_usd) }}{% endif %}</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <form method="post" action="{{ url_for('ia_config.guardar') }}" class="form-card" id="ia-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <fieldset class="form-section">
+      <legend>Proveedor</legend>
+      <div class="form-grid">
+        <label>Proveedor en uso
+          <select name="proveedor" id="ia-proveedor">
+            {% for p in proveedores %}
+              <option value="{{ p.codigo }}" {% if cfg.proveedor == p.codigo %}selected{% endif %}>{{ p.nombre }}{% if not p.configurado %} (sin clave){% endif %}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span><input type="checkbox" name="trivias_activa" value="1" {% if cfg.trivias_activa %}checked{% endif %}> Permitir generar trivias con IA</span>
+          <small class="helper-text">Al desactivarlo, «Generar con IA» deja de funcionar y la creación manual sigue igual.</small>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Modelos y precios</legend>
+      <p class="helper-text">El modelo se puede cambiar sin tocar código. El precio (US$ por millón de tokens) lo publica cada proveedor y se usa para estimar el costo y aplicar el presupuesto; con 0 no se calcula costo.</p>
+      {% for p in proveedores %}
+        <div class="form-grid" data-proveedor="{{ p.codigo }}">
+          <label>Modelo de {{ p.nombre }}
+            <input type="text" name="modelo_{{ p.codigo }}" value="{{ cfg.modelos[p.codigo] }}" maxlength="120"
+                   list="ia-modelos-{{ p.codigo }}" autocomplete="off" placeholder="Identificador del modelo">
+            <datalist id="ia-modelos-{{ p.codigo }}"></datalist>
+          </label>
+          <label>Precio de entrada
+            <input type="number" name="precio_entrada_{{ p.codigo }}" value="{{ cfg.precios[p.codigo].entrada }}" min="0" step="0.01">
+          </label>
+          <label>Precio de salida
+            <input type="number" name="precio_salida_{{ p.codigo }}" value="{{ cfg.precios[p.codigo].salida }}" min="0" step="0.01">
+          </label>
+          <div class="row span-3" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <button type="button" class="btn btn-secondary" data-probar="{{ p.codigo }}" {% if not p.configurado %}disabled{% endif %}>Probar conexión</button>
+            <button type="button" class="btn btn-ghost" data-modelos="{{ p.codigo }}" {% if not p.configurado %}disabled{% endif %}>Ver modelos disponibles</button>
+            <span class="helper-text" data-resultado="{{ p.codigo }}" role="status">{% if not p.configurado %}Cargá {{ p.variable }} en el servidor para habilitarlo.{% endif %}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </fieldset>
+
+    <fieldset class="form-section">
+      <legend>Límites</legend>
+      <div class="form-grid">
+        <label>Preguntas por generación (máximo)
+          <input type="number" name="max_preguntas" value="{{ cfg.max_preguntas }}" min="1" max="50" required>
+        </label>
+        <label>Generaciones por día
+          <input type="number" name="max_generaciones_dia" value="{{ cfg.max_generaciones_dia }}" min="0" required>
+          <small class="helper-text">0 = sin límite</small>
+        </label>
+        <label>Presupuesto mensual (US$)
+          <input type="number" name="presupuesto_mensual_usd" value="{{ cfg.presupuesto_mensual_usd }}" min="0" step="0.01" required>
+          <small class="helper-text">0 = sin tope. Requiere cargar los precios.</small>
+        </label>
+        <label>Caracteres de contenido (máximo)
+          <input type="number" name="max_caracteres" value="{{ cfg.max_caracteres }}" min="1000" max="400000" required>
+        </label>
+        <label>Tamaño de archivo (MB, máximo)
+          <input type="number" name="max_archivo_mb" value="{{ cfg.max_archivo_mb }}" min="1" max="25" required>
+        </label>
+      </div>
+    </fieldset>
+
+    <div class="actions">
+      <button type="submit" class="btn btn-primary">Guardar configuración</button>
+    </div>
+  </form>
+
+  <h3>Últimos usos</h3>
+  {% if ultimos %}
+    <div class="table-responsive table-cards">
+      <table>
+        <thead><tr><th>Fecha</th><th>Usuario</th><th>Operación</th><th>Proveedor</th><th>Modelo</th><th>Tokens</th><th>Costo</th><th>Estado</th></tr></thead>
+        <tbody>
+          {% for u in ultimos %}
+            <tr>
+              <td data-label="Fecha">{{ u.creado_en.strftime('%d/%m %H:%M') if u.creado_en else '' }}</td>
+              <td data-label="Usuario">{{ u.usuario or '—' }}</td>
+              <td data-label="Operación">{{ {'generar': 'Generación', 'regenerar': 'Regeneración', 'prueba': 'Prueba de conexión'}.get(u.operacion, u.operacion) }}</td>
+              <td data-label="Proveedor">{{ u.proveedor }}</td>
+              <td data-label="Modelo">{{ u.modelo }}</td>
+              <td data-label="Tokens">{{ u.tokens_entrada }} / {{ u.tokens_salida }}</td>
+              <td data-label="Costo">US$ {{ '%.4f'|format(u.costo_usd|float) }}</td>
+              <td data-label="Estado"><span class="badge {{ 'ok' if u.estado == 'ok' else 'danger' }}">{{ 'Correcto' if u.estado == 'ok' else ('Error: ' ~ (u.error_tipo or '')) }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">Todavía no hay usos registrados.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script nonce="{{ csp_nonce() }}">
+(function () {
+  var form = document.getElementById('ia-form');
+  var csrf = form.querySelector('input[name="csrf_token"]').value;
+
+  function llamar(url, proveedor) {
+    var body = new FormData();
+    body.append('proveedor', proveedor);
+    body.append('modelo', form.querySelector('[name="modelo_' + proveedor + '"]').value.trim());
+    return fetch(url, { method: 'POST', body: body, headers: { 'X-CSRFToken': csrf }, credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .catch(function () { return { ok: false, mensaje: 'No se pudo completar la solicitud.' }; });
+  }
+
+  function mostrar(proveedor, texto, ok) {
+    var el = form.querySelector('[data-resultado="' + proveedor + '"]');
+    el.textContent = texto;
+    el.style.color = ok ? 'var(--success)' : 'var(--danger)';
+  }
+
+  form.querySelectorAll('[data-probar]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var p = btn.dataset.probar;
+      btn.disabled = true;
+      mostrar(p, 'Probando…', true);
+      llamar('{{ url_for("ia_config.probar") }}', p).then(function (r) {
+        mostrar(p, r.mensaje || 'Sin respuesta.', !!r.ok);
+        btn.disabled = false;
+      });
+    });
+  });
+
+  form.querySelectorAll('[data-modelos]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var p = btn.dataset.modelos;
+      btn.disabled = true;
+      llamar('{{ url_for("ia_config.modelos") }}', p).then(function (r) {
+        btn.disabled = false;
+        if (!r.ok) { mostrar(p, r.mensaje || 'No se pudieron listar los modelos.', false); return; }
+        var lista = document.getElementById('ia-modelos-' + p);
+        lista.textContent = '';
+        r.modelos.forEach(function (m) {
+          var o = document.createElement('option');
+          o.value = m;
+          lista.appendChild(o);
+        });
+        mostrar(p, r.modelos.length + ' modelos disponibles: escribí en el campo Modelo para elegir uno.', true);
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

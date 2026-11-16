@@ -330,6 +330,63 @@ def create_trivia(data: dict) -> int:
         cur.close(); db.close()
 
 
+def create_trivia_con_preguntas(data: dict, preguntas: list[dict]) -> int:
+    """Alta de una trivia con todas sus preguntas en una sola transacción.
+
+    Mismas columnas y valores que create_trivia + create_pregunta; si algo falla no queda
+    una trivia a medio cargar que el scheduler pueda activar.
+    """
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO trivias
+                (titulo, descripcion, fecha_inicio, fecha_fin, estado,
+                 premio, mensaje_ganador, anio)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                data["titulo"], data.get("descripcion"),
+                data["fecha_inicio"], data["fecha_fin"],
+                data.get("estado", "programada"),
+                data.get("premio"), data.get("mensaje_ganador"),
+                int(data["anio"]),
+            ),
+        )
+        trivia_id = cur.lastrowid
+        sector_ids = [int(s) for s in (data.get("sector_ids") or [])]
+        if sector_ids:
+            cur.executemany(
+                "INSERT INTO trivia_sectores (trivia_id, sector_id) VALUES (%s, %s)",
+                [(trivia_id, sid) for sid in sector_ids],
+            )
+        cur.executemany(
+            """
+            INSERT INTO trivia_preguntas
+                (trivia_id, texto, opcion_a, opcion_b, opcion_c, opcion_d,
+                 respuesta_correcta, puntos, activa, orden)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """,
+            [
+                (
+                    trivia_id, p["texto"],
+                    p["opcion_a"], p["opcion_b"], p["opcion_c"], p["opcion_d"],
+                    p["respuesta_correcta"].upper(),
+                    int(p.get("puntos", 10)), int(p.get("activa", 1)), int(p.get("orden", 0)),
+                )
+                for p in preguntas
+            ],
+        )
+        db.commit()
+        return trivia_id
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cur.close(); db.close()
+
+
 def update_trivia(trivia_id: int, data: dict):
     db = get_db()
     cur = db.cursor()

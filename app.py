@@ -59,6 +59,8 @@ from web.skap.skap_routes import skap_web_bp
 from web.skap.matriz_routes import skap_matriz_bp
 from routes.trivia_routes import trivia_bp
 from web.trivias.trivia_admin_routes import trivia_admin_bp
+from web.trivias.trivia_ia_routes import trivia_ia_bp
+from web.configuracion.ia_config_routes import ia_config_bp
 from web.calificaciones_app.calificaciones_app_routes import calificaciones_app_bp
 from web.mobile_stats.mobile_stats_routes import mobile_stats_bp
 from routes.feedback_routes import feedback_bp
@@ -168,6 +170,8 @@ BLUEPRINTS = (
     premios_concursos_bp,
     app_version_bp,
     trivia_admin_bp,
+    trivia_ia_bp,
+    ia_config_bp,
     calificaciones_app_bp,
     mobile_stats_bp,
     feedback_web_bp,
@@ -187,6 +191,7 @@ UPLOAD_MAX_FORM_PARTS = {
     "seguridad_mobile": 150,
     "epp_web": 150,
     "epp_mobile": 150,
+    "trivia_ia": 20,
 }
 
 load_dotenv("/etc/secrets/.env", override=False)

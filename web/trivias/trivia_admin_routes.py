@@ -24,6 +24,7 @@ from services.trivia_service import (
     calcular_ranking,
     calcular_ranking_anual,
     finalizar_trivia,
+    normalizar_pregunta,
     recalcular_resultados_trivia,
 )
 from services.export_excel_service import generar_trivia_resultados_excel
@@ -441,22 +442,7 @@ def agregar_pregunta(trivia_id: int):
         return redirect(url_for("trivia_admin.listado"))
 
     form = request.form
-    errors = []
-    texto = (form.get("texto") or "").strip()
-    opciones = {
-        "opcion_a": (form.get("opcion_a") or "").strip(),
-        "opcion_b": (form.get("opcion_b") or "").strip(),
-        "opcion_c": (form.get("opcion_c") or "").strip(),
-        "opcion_d": (form.get("opcion_d") or "").strip(),
-    }
-    resp_correcta = (form.get("respuesta_correcta") or "").upper()
-
-    if not texto:
-        errors.append("El texto de la pregunta es obligatorio.")
-    if not all(opciones.values()):
-        errors.append("Todas las opciones (A, B, C, D) son obligatorias.")
-    if resp_correcta not in _OPCIONES_RESP:
-        errors.append("La respuesta correcta debe ser A, B, C o D.")
+    pregunta, errors = normalizar_pregunta(form)
 
     if errors:
         for e in errors:
@@ -464,9 +450,7 @@ def agregar_pregunta(trivia_id: int):
         return redirect(url_for("trivia_admin.detalle", trivia_id=trivia_id))
 
     data = {
-        "texto": texto,
-        **opciones,
-        "respuesta_correcta": resp_correcta,
+        **pregunta,
         "puntos": int(form.get("puntos") or 10),
         "activa": 1,
         "orden": int(form.get("orden") or 0),
@@ -490,22 +474,7 @@ def editar_pregunta(trivia_id: int, pregunta_id: int):
         return redirect(url_for("trivia_admin.detalle", trivia_id=trivia_id))
 
     form = request.form
-    errors = []
-    texto = (form.get("texto") or "").strip()
-    opciones = {
-        "opcion_a": (form.get("opcion_a") or "").strip(),
-        "opcion_b": (form.get("opcion_b") or "").strip(),
-        "opcion_c": (form.get("opcion_c") or "").strip(),
-        "opcion_d": (form.get("opcion_d") or "").strip(),
-    }
-    resp_correcta = (form.get("respuesta_correcta") or "").upper()
-
-    if not texto:
-        errors.append("El texto de la pregunta es obligatorio.")
-    if not all(opciones.values()):
-        errors.append("Todas las opciones (A, B, C, D) son obligatorias.")
-    if resp_correcta not in _OPCIONES_RESP:
-        errors.append("La respuesta correcta debe ser A, B, C o D.")
+    pregunta, errors = normalizar_pregunta(form)
 
     if errors:
         for e in errors:
@@ -513,9 +482,7 @@ def editar_pregunta(trivia_id: int, pregunta_id: int):
         return redirect(url_for("trivia_admin.detalle", trivia_id=trivia_id))
 
     data = {
-        "texto": texto,
-        **opciones,
-        "respuesta_correcta": resp_correcta,
+        **pregunta,
         "puntos": int(form.get("puntos") or 10),
         "activa": int(form.get("activa", 1)),
         "orden": int(form.get("orden") or 0),

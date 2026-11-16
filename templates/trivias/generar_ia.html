@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}Generar trivia con IA{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Generar trivia con IA</h1>
+    <p class="page-subtitle">La IA propone las preguntas; nada se guarda ni se publica hasta que las revises y apruebes.</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('trivia_admin.nueva') }}" class="btn btn-ghost">Crear manualmente</a>
+    <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost">← Volver</a>
+  </div>
+</div>
+
+{% if errors %}
+  <div class="alert alert-danger" style="margin-bottom:1rem">
+    <strong>Corregí los siguientes errores:</strong>
+    <ul class="mb-0" style="margin-top:.4rem;padding-left:1.2rem">
+      {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+{% if not cfg.disponible %}
+  <div class="alert alert-danger" style="margin-bottom:1rem">
+    {% if not cfg.trivias_activa %}La generación con IA está desactivada.{% else %}El proveedor de IA todavía no está configurado en el servidor.{% endif %}
+    Podés <a href="{{ url_for('trivia_admin.nueva') }}">crear la trivia manualmente</a>{% if can_web("configuracion") %} o revisar la <a href="{{ url_for('ia_config.index') }}">configuración de IA</a>{% endif %}.
+  </div>
+{% endif %}
+
+{# ── Paso 1: contenido y configuración ─────────────────────────────── #}
+{% if cfg.disponible %}
+<div class="card" style="margin-bottom:1rem">
+  <div class="card-header"><h3 class="card-title" style="margin:0">1. Contenido</h3></div>
+  <div style="padding:1.1rem" id="ia-paso1">
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap;margin-bottom:.75rem">
+      <label><input type="radio" name="ia_modo" value="texto" checked> Pegar texto</label>
+      <label><input type="radio" name="ia_modo" value="archivo"> Cargar documento</label>
+    </div>
+
+    <div id="ia-bloque-texto">
+      <textarea id="ia-texto" class="form-control" rows="9"
+                placeholder="Pegá acá el procedimiento, instructivo o material de capacitación…"></textarea>
+      <div style="font-size:.75rem;color:var(--muted);text-align:right;margin-top:.2rem">
+        <span id="ia-texto-count">0</span> / {{ cfg.max_caracteres }} caracteres (mínimo {{ min_caracteres }})
+      </div>
+    </div>
+
+    <div id="ia-bloque-archivo" style="display:none">
+      <input type="file" id="ia-archivo" class="form-control" accept=".pdf,.docx,.txt">
+      <p style="font-size:.8125rem;color:var(--muted);margin:.35rem 0 0">
+        PDF, Word (.docx) o TXT, hasta {{ cfg.max_archivo_mb }} MB. Los PDF escaneados los lee la IA directamente.
+        Los Word antiguos (.doc) hay que guardarlos como .docx.
+      </p>
+    </div>
+
+    <div class="form-grid" style="margin-top:1rem">
+      <div class="row span-2">
+        <label class="form-label">Título de la trivia</label>
+        <input type="text" id="ia-titulo" class="form-control" maxlength="200"
+               value="{{ trivia_form.titulo if trivia_form else '' }}"
+               placeholder="Ej: Trivia de seguridad e higiene — Mayo 2026">
+      </div>
+      <div class="row">
+        <label class="form-label">Cantidad de preguntas</label>
+        <input type="number" id="ia-cantidad" class="form-control" min="1" max="{{ cfg.max_preguntas }}"
+               value="{{ [10, cfg.max_preguntas]|min }}">
+      </div>
+      <div class="row">
+        <label class="form-label">Dificultad</label>
+        <select id="ia-dificultad" class="form-control">
+          {% for valor, nombre in dificultades %}
+            <option value="{{ valor }}" {% if valor == 'medio' %}selected{% endif %}>{{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row span-2">
+        <label class="form-label">Instrucciones adicionales para la IA (opcional)</label>
+        <input type="text" id="ia-instrucciones" class="form-control" maxlength="1000"
+               placeholder="Ej: enfocarse en el uso de elementos de protección personal">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;margin-top:1rem">
+      <button type="button" class="btn btn-primary" id="ia-generar">Generar preguntas</button>
+      <span id="ia-estado" role="status" style="font-size:.875rem;color:var(--muted)"></span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Paso 2: vista previa y edición ────────────────────────────────── #}
+<div class="card" id="ia-paso2" style="margin-bottom:1rem;display:none">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap">
+    <h3 class="card-title" style="margin:0">2. Revisá y editá las preguntas <span id="ia-total" style="font-weight:400;color:var(--muted);font-size:.875rem"></span></h3>
+    {% if cfg.disponible %}
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <button type="button" class="btn btn-secondary btn-sm" id="ia-agregar">+ Generar una más</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="ia-regenerar-todo">Regenerar todas</button>
+    </div>
+    {% endif %}
+  </div>
+  <p id="ia-aviso-general" style="display:none;margin:0;padding:.75rem 1.1rem;font-size:.875rem;color:var(--muted);border-bottom:1px solid var(--border)"></p>
+  <div id="ia-preguntas"></div>
+</div>
+
+{# ── Paso 3: datos de la trivia y aprobación ───────────────────────── #}
+<div class="card" id="ia-paso3" style="display:none">
+  <div class="card-header"><h3 class="card-title" style="margin:0">3. Datos de la trivia y aprobación</h3></div>
+  <form method="post" action="{{ url_for('trivia_ia.guardar') }}" id="ia-form-guardar">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="preguntas_json" id="ia-preguntas-json">
+
+    {% set trivia = trivia_form %}
+    {% include "trivias/_campos_trivia.html" %}
+
+    <p style="padding:.75rem 1.25rem 0;margin:0;font-size:.8125rem;color:var(--muted)">
+      Se aplican las mismas reglas que a una trivia manual: en estado «Programada» se activa sola y avisa a los
+      empleados cuando llega la fecha de inicio.
+    </p>
+    <div class="actions" style="padding:1.25rem;display:flex;gap:.75rem;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:1.25rem">
+      <button type="submit" class="btn btn-primary">Aprobar y crear trivia</button>
+      <a href="{{ url_for('trivia_admin.listado') }}" class="btn btn-ghost btn-secondary">Descartar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% include "trivias/_campos_trivia_scripts.html" %}
+<style>
+.ia-pregunta { padding: 1.1rem; border-bottom: 1px solid var(--border); }
+.ia-pregunta:last-child { border-bottom: 0; }
+.ia-pregunta-cabecera { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; margin-bottom: .6rem; }
+.ia-opciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .6rem; margin: .6rem 0; }
+.ia-opcion.correcta input { border-color: var(--success); }
+.ia-meta { display: flex; gap: .75rem; flex-wrap: wrap; align-items: flex-end; }
+.ia-meta > div { min-width: 110px; }
+.ia-aviso { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--danger); font-size: .8125rem; background: var(--primary-soft); }
+.ia-fundamento { margin: .6rem 0 0; font-size: .8125rem; color: var(--muted); font-style: italic; }
+</style>
+<script nonce="{{ csp_nonce() }}">
+(function () {
+  var URL_GENERAR = '{{ url_for("trivia_ia.generar") }}';
+  var CSRF = document.querySelector('#ia-form-guardar input[name="csrf_token"]').value;
+  var LETRAS = {{ opciones_resp|tojson }};
+  var DISPONIBLE = {{ 'true' if cfg.disponible else 'false' }};
+  var preguntas = {{ borrador|tojson }};
+  var ocupado = false;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var contenedor = $('ia-preguntas');
+
+  function el(tag, attrs, texto) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === 'class') n.className = attrs[k]; else n.setAttribute(k, attrs[k]);
+    });
+    if (texto !== undefined) n.textContent = texto;
+    return n;
+  }
+
+  function campo(etiqueta, input) {
+    var d = el('div');
+    d.appendChild(el('label', { 'class': 'form-label' }, etiqueta));
+    d.appendChild(input);
+    return d;
+  }
+
+  function estado(texto, error) {
+    var e = $('ia-estado');
+    if (!e) return;
+    e.textContent = texto || '';
+    e.style.color = error ? 'var(--danger)' : 'var(--muted)';
+  }
+
+  function bloquear(valor) {
+    ocupado = valor;
+    document.querySelectorAll('#ia-generar, #ia-agregar, #ia-regenerar-todo, [data-ia-regenerar]').forEach(function (b) {
+      b.disabled = valor;
+    });
+  }
+
+  /* ── Vista previa editable ── */
+  function render() {
+    contenedor.textContent = '';
+    preguntas.forEach(function (p, i) {
+      var card = el('div', { 'class': 'ia-pregunta' });
+      var cab = el('div', { 'class': 'ia-pregunta-cabecera' });
+      cab.appendChild(el('strong', {}, 'Pregunta ' + (i + 1)));
+      var acciones = el('div', { style: 'display:flex;gap:.35rem;flex-wrap:wrap' });
+      if (DISPONIBLE) {
+        var bReg = el('button', { type: 'button', 'class': 'btn btn-sm btn-secondary', 'data-ia-regenerar': '1' }, 'Regenerar');
+        bReg.addEventListener('click', function () { generar('una', i); });
+        acciones.appendChild(bReg);
+      }
+      var bDel = el('button', { type: 'button', 'class': 'btn btn-sm btn-danger' }, 'Eliminar');
+      bDel.addEventListener('click', function () { preguntas.splice(i, 1); render(); });
+      acciones.appendChild(bDel);
+      cab.appendChild(acciones);
+      card.appendChild(cab);
+
+      var texto = el('input', { type: 'text', 'class': 'form-control', maxlength: '600', required: 'required' });
+      texto.value = p.texto || '';
+      texto.addEventListener('input', function () { p.texto = texto.value; });
+      card.appendChild(campo('Texto de la pregunta', texto));
+
+      var opciones = el('div', { 'class': 'ia-opciones' });
+      var cajas = {};
+      LETRAS.forEach(function (letra) {
+        var clave = 'opcion_' + letra.toLowerCase();
+        var inp = el('input', { type: 'text', 'class': 'form-control', maxlength: '300', required: 'required' });
+        inp.value = p[clave] || '';
+        inp.addEventListener('input', function () { p[clave] = inp.value; });
+        var caja = campo('Opción ' + letra, inp);
+        caja.className = 'ia-opcion' + (p.respuesta_correcta === letra ? ' correcta' : '');
+        cajas[letra] = caja;
+        opciones.appendChild(caja);
+      });
+      card.appendChild(opciones);
+
+      var meta = el('div', { 'class': 'ia-meta' });
+      var sel = el('select', { 'class': 'form-control' });
+      LETRAS.forEach(function (letra) {
+        var o = el('option', { value: letra }, letra);
+        if (p.respuesta_correcta === letra) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        p.respuesta_correcta = sel.value;
+        LETRAS.forEach(function (l) { cajas[l].classList.toggle('correcta', l === sel.value); });
+      });
+      meta.appendChild(campo('Respuesta correcta', sel));
+      var pts = el('input', { type: 'number', 'class': 'form-control', min: '1', max: '100' });
+      pts.value = p.puntos || 10;
+      pts.addEventListener('input', function () { p.puntos = parseInt(pts.value, 10) || 0; });
+      meta.appendChild(campo('Puntos', pts));
+      card.appendChild(meta);
+
+      (p.avisos || []).forEach(function (a) { card.appendChild(el('p', { 'class': 'ia-aviso' }, a)); });
+      if (p.fundamento) card.appendChild(el('p', { 'class': 'ia-fundamento' }, 'Fragmento del documento: «' + p.fundamento + '»'));
+      contenedor.appendChild(card);
+    });
+
+    var hay = preguntas.length > 0;
+    $('ia-paso2').style.display = hay ? '' : 'none';
+    $('ia-paso3').style.display = hay ? '' : 'none';
+    $('ia-total').textContent = hay ? '(' + preguntas.length + ')' : '';
+    bloquear(ocupado);
+  }
+
+  /* ── Llamada al generador ── */
+  function generar(modo, indice) {
+    if (ocupado || !DISPONIBLE) return;
+    var body = new FormData();
+    var porArchivo = document.querySelector('input[name="ia_modo"]:checked').value === 'archivo';
+    if (porArchivo) {
+      var f = $('ia-archivo').files[0];
+      if (!f) { estado('Seleccioná un archivo.', true); return; }
+      body.append('modo', 'archivo');
+      body.append('archivo', f);
+    } else {
+      body.append('modo', 'texto');
+      body.append('texto', $('ia-texto').value);
+    }
+    var cantidad = modo === 'todo' ? $('ia-cantidad').value : '1';
+    body.append('cantidad', cantidad);
+    body.append('dificultad', $('ia-dificultad').value);
+    body.append('titulo', $('ia-titulo').value);
+    body.append('instrucciones', $('ia-instrucciones').value);
+    if (modo !== 'todo') {
+      body.append('operacion', 'regenerar');
+      body.append('evitar', JSON.stringify(preguntas.map(function (p) { return p.texto; })));
+    }
+
+    bloquear(true);
+    estado(modo === 'todo' ? 'Generando preguntas… puede tardar hasta un par de minutos.' : 'Generando una pregunta…');
+    fetch(URL_GENERAR, { method: 'POST', body: body, headers: { 'X-CSRFToken': CSRF }, credentials: 'same-origin' })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return { success: false, error: r.status === 429
+            ? 'Demasiadas solicitudes seguidas. Esperá un minuto.'
+            : 'No se pudo completar la solicitud (' + r.status + '). Recargá la página e intentá de nuevo.' };
+        });
+      })
+      .catch(function () { return { success: false, error: 'No se pudo conectar con el servidor.' }; })
+      .then(function (data) {
+        ocupado = false;
+        if (!data.success) { estado(data.error || 'No se pudo generar.', true); bloquear(false); return; }
+        if (modo === 'todo') preguntas = data.preguntas;
+        else if (modo === 'una') preguntas.splice(indice, 1, data.preguntas[0]);
+        else preguntas.push(data.preguntas[0]);
+
+        var aviso = $('ia-aviso-general');
+        var faltan = modo === 'todo' ? data.pedidas - data.preguntas.length : 0;
+        aviso.style.display = faltan > 0 ? '' : 'none';
+        aviso.textContent = faltan > 0
+          ? 'Se generaron ' + data.preguntas.length + ' de ' + data.pedidas + ' preguntas: el resto no cumplía el formato o el documento no alcanzaba. Podés sumar más con «Generar una más».'
+          : '';
+        var titulo = document.querySelector('#ia-form-guardar input[name="titulo"]');
+        if (titulo && !titulo.value) { titulo.value = $('ia-titulo').value; titulo.dispatchEvent(new Event('input')); }
+        estado('Listo. Revisá las preguntas antes de aprobar.');
+        render();
+      });
+  }
+
+  if (DISPONIBLE) {
+    document.querySelectorAll('input[name="ia_modo"]').forEach(function (r) {
+      r.addEventListener('change', function () {
+        var archivo = r.value === 'archivo' && r.checked;
+        $('ia-bloque-archivo').style.display = archivo ? '' : 'none';
+        $('ia-bloque-texto').style.display = archivo ? 'none' : '';
+      });
+    });
+    $('ia-texto').addEventListener('input', function () { $('ia-texto-count').textContent = this.value.length; });
+    $('ia-generar').addEventListener('click', function () {
+      if (preguntas.length && !window.confirm('Se van a reemplazar las preguntas actuales. ¿Continuar?')) return;
+      generar('todo');
+    });
+    $('ia-regenerar-todo').addEventListener('click', function () {
+      if (window.confirm('Se van a reemplazar todas las preguntas, incluidas las que editaste. ¿Continuar?')) generar('todo');
+    });
+    $('ia-agregar').addEventListener('click', function () { generar('mas'); });
+  }
+
+  $('ia-form-guardar').addEventListener('submit', function (e) {
+    if (!preguntas.length) { e.preventDefault(); return; }
+    $('ia-preguntas-json').value = JSON.stringify(preguntas.map(function (p) {
+      return { texto: p.texto, opcion_a: p.opcion_a, opcion_b: p.opcion_b, opcion_c: p.opcion_c,
+               opcion_d: p.opcion_d, respuesta_correcta: p.respuesta_correcta, puntos: p.puntos };
+    }));
+    this.querySelector('button[type="submit"]').disabled = true;
+  });
+
+  render();
+})();
+</script>
+{% endblock %}

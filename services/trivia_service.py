@@ -65,6 +65,33 @@ def _full_name(emp: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Formato de una pregunta (alta manual, edición y generador con IA)
+# ---------------------------------------------------------------------------
+
+OPCIONES_RESPUESTA = ("A", "B", "C", "D")
+CAMPOS_OPCION = ("opcion_a", "opcion_b", "opcion_c", "opcion_d")
+PREGUNTA_MAX_TEXTO = 600    # trivia_preguntas.texto
+PREGUNTA_MAX_OPCION = 300   # trivia_preguntas.opcion_*
+
+
+def normalizar_pregunta(raw) -> tuple[dict, list[str]]:
+    """Limpia y valida texto, opciones y respuesta correcta. Devuelve (datos, errores)."""
+    errors = []
+    texto = (raw.get("texto") or "").strip()
+    opciones = {campo: (raw.get(campo) or "").strip() for campo in CAMPOS_OPCION}
+    resp_correcta = (raw.get("respuesta_correcta") or "").upper()
+
+    if not texto:
+        errors.append("El texto de la pregunta es obligatorio.")
+    if not all(opciones.values()):
+        errors.append("Todas las opciones (A, B, C, D) son obligatorias.")
+    if resp_correcta not in OPCIONES_RESPUESTA:
+        errors.append("La respuesta correcta debe ser A, B, C o D.")
+
+    return {"texto": texto, **opciones, "respuesta_correcta": resp_correcta}, errors
+
+
+# ---------------------------------------------------------------------------
 # Participación – Iniciar
 # ---------------------------------------------------------------------------
 

@@ -1,0 +1,62 @@
+{# Estilos y comportamiento de _campos_trivia.html. #}
+<style>
+.sector-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .3rem .7rem;
+  border: 1.5px solid var(--border, #ccc);
+  border-radius: 2rem;
+  cursor: pointer;
+  font-size: .875rem;
+  transition: border-color .15s, background .15s, color .15s;
+  user-select: none;
+}
+.sector-pill input[type="checkbox"] { display: none; }
+.sector-pill:hover { border-color: var(--primary); }
+.sector-pill.selected {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+</style>
+<script nonce="{{ csp_nonce() }}">
+(function () {
+  function pills()      { return document.querySelectorAll('#sector-checkboxes .sector-pill'); }
+  function checkboxes() { return document.querySelectorAll('#sector-checkboxes input[type="checkbox"]'); }
+
+  function syncPillState(cb) {
+    cb.closest('.sector-pill').classList.toggle('selected', cb.checked);
+  }
+
+  document.querySelectorAll('[data-count-target]').forEach(function (input) {
+    input.addEventListener('input', function () {
+      document.getElementById(input.dataset.countTarget).textContent = input.value.length;
+    });
+  });
+
+  checkboxes().forEach(function (cb) {
+    syncPillState(cb);
+    cb.addEventListener('change', function () { syncPillState(this); actualizarContadorSectores(); });
+  });
+
+  document.getElementById('btn-sel-todos-sec').addEventListener('click', function () {
+    checkboxes().forEach(function (cb) { cb.checked = true; syncPillState(cb); });
+    actualizarContadorSectores();
+  });
+  document.getElementById('btn-desel-todos-sec').addEventListener('click', function () {
+    checkboxes().forEach(function (cb) { cb.checked = false; syncPillState(cb); });
+    actualizarContadorSectores();
+  });
+})();
+
+function actualizarContadorSectores() {
+  var total    = document.querySelectorAll('#sector-checkboxes input').length;
+  var checked  = document.querySelectorAll('#sector-checkboxes input:checked').length;
+  var el       = document.getElementById('sec-count');
+  el.textContent = checked === 0
+    ? 'Todos los sectores'
+    : checked + ' de ' + total + ' seleccionado' + (checked !== 1 ? 's' : '');
+}
+actualizarContadorSectores();
+</script>

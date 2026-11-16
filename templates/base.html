@@ -464,6 +464,7 @@
                 <div class="nav-submenu" id="nav-submenu-sistema">
                   
                   {% if can_web("configuracion") %}<a class="nav-link" href="/configuracion-empresa/">Configuración de la empresa</a>{% endif %}
+                  {% if can_web("configuracion") %}<a class="nav-link" href="/configuracion-ia/">Configuración de IA</a>{% endif %}
                   {% if can_web("auditoria") %}<a class="nav-link" href="/auditoria/">Auditoría</a>{% endif %}
                   
                   {% if can_web("app_version") %}<a class="nav-link" href="/app-version/">Versiones de la app</a>{% endif %}

@@ -136,6 +136,7 @@ _PATH_MODULES = [
     ("/premios-concursos/", "premios"),
     ("/admin/trivias/", "trivias"),
     ("/configuracion-empresa/", "configuracion"),
+    ("/configuracion-ia/", "configuracion"),
     ("/auditoria/", "auditoria"),
     ("/app-version/", "app_version"),
     ("/mobile-stats/", "mobile_stats"),
